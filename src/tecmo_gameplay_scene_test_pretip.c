@@ -166,7 +166,8 @@ static bool scene_test_concurrent_tip_simulation(
     p1.held.cancel = true;
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
         !scene->pretip_state.away_tip_sampled ||
-        scene->pretip_state.away_tip_countdown != 0x0CU ||
+        scene->pretip_state.away_tip_countdown != 0U ||
+        scene->pretip_state.away_tip_error != 0U ||
         scene->pretip_state.away_jump_committed) goto failed;
     failure = "concurrent pre-tip center setup retention failed";
     p1.held.cancel = false;
@@ -196,25 +197,46 @@ static bool scene_test_concurrent_tip_simulation(
         scene->pretip_state.ball_attached_to_receiver ||
         scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
         scene->pretip_state.receiver_actor !=
-            scene->pretip_state.raw_selector_0380 ||
+            scene->pretip_state.raw_selector_037f ||
         scene->pretip_state.receiver_target.x !=
             scene->actors[scene->pretip_state.receiver_actor].position.x ||
         scene->pretip_state.receiver_target.y !=
             scene->actors[scene->pretip_state.receiver_actor].position.y ||
-        scene->pretip_state.ball_velocity_x_q8 <= 0 ||
-        scene->actors[away_actor].pose_index != 549U ||
-        scene->actors[home_actor].pose_index != 583U) goto failed;
-    failure = "concurrent pre-tip cinematic simulation failed";
-    for (frame = 0U; frame < 60U; ++frame)
-        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) goto failed;
-    failure = "concurrent pre-tip cinematic exit failed";
-    if (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
-        scene->pretip_state.cinematic_visible ||
-        scene->actors[away_actor].pose_index != 469U ||
-        scene->actors[home_actor].pose_index != 501U ||
-        scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
-        scene->pretip_state.away_jump_commit_count != away_commits ||
-        scene->pretip_state.home_jump_commit_count != home_commits) goto failed;
+        scene->pretip_state.ball_velocity_x_q8 >= 0 ||
+        scene->actors[away_actor].pose_index != 550U ||
+        scene->actors[home_actor].pose_index != 518U) goto failed;
+    {
+        uint8_t frozen_away_state = scene->pretip_state.away_actor_state;
+        uint8_t frozen_home_state = scene->pretip_state.home_actor_state;
+        uint8_t frozen_away_phase = scene->pretip_state.away_animation_phase;
+        uint8_t frozen_home_phase = scene->pretip_state.home_animation_phase;
+        uint16_t frozen_away_altitude = scene->pretip_state.away_jump_altitude_q8;
+        uint16_t frozen_home_altitude = scene->pretip_state.home_jump_altitude_q8;
+        int16_t frozen_away_velocity = scene->pretip_state.away_jump_velocity_signed_q8;
+        int16_t frozen_home_velocity = scene->pretip_state.home_jump_velocity_signed_q8;
+        failure = "concurrent pre-tip cinematic simulation failed";
+        for (frame = 0U; frame < 60U; ++frame) {
+            if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+                scene->pretip_state.away_actor_state != frozen_away_state ||
+                scene->pretip_state.home_actor_state != frozen_home_state ||
+                scene->pretip_state.away_animation_phase != frozen_away_phase ||
+                scene->pretip_state.home_animation_phase != frozen_home_phase ||
+                scene->pretip_state.away_jump_altitude_q8 != frozen_away_altitude ||
+                scene->pretip_state.home_jump_altitude_q8 != frozen_home_altitude ||
+                scene->pretip_state.away_jump_velocity_signed_q8 != frozen_away_velocity ||
+                scene->pretip_state.home_jump_velocity_signed_q8 != frozen_home_velocity)
+                goto failed;
+        }
+        failure = "concurrent pre-tip cinematic exit failed";
+        if (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST ||
+            scene->pretip_state.cinematic_visible ||
+            scene->pretip_state.away_jump_altitude_q8 != frozen_away_altitude ||
+            scene->pretip_state.home_jump_altitude_q8 != frozen_home_altitude ||
+            scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+            scene->pretip_state.away_jump_commit_count != away_commits ||
+            scene->pretip_state.home_jump_commit_count != home_commits)
+            goto failed;
+    }
     /* Deliberately move every object away from the cold Bank04-derived table
        and seed actor-local history.  A replay of scene_initialize_actors()
        cannot accidentally satisfy this boundary check. */
@@ -287,7 +309,7 @@ static bool scene_test_concurrent_tip_simulation(
         !scene->pretip_state.ball_attached_to_receiver ||
         scene->ball_holder != scene->pretip_state.receiver_actor ||
         scene->pretip_state.away_jump_commit_count != 1U ||
-        scene->pretip_state.home_jump_commit_count != 1U) goto failed;
+        scene->pretip_state.home_jump_commit_count != 0U) goto failed;
     failure = "pre-tip in-place actor continuity failed";
     if (memcmp(scene->actors, actors_before_handoff,
                sizeof(actors_before_handoff)) != 0 ||

@@ -24,10 +24,10 @@ function Convert-Diagnostic([string]$Line) {
 
 $Specs = @(
     @{ name='b-request'; frame=452 },
-    @{ name='committed-early-jump'; frame=505 },
-    @{ name='near-apex-pre-cinematic'; frame=507 },
-    @{ name='state17-cinematic-gate'; frame=508 },
-    @{ name='early-receiver-flight'; frame=512 },
+    @{ name='committed-early-jump'; frame=497 },
+    @{ name='last-pre-cinematic'; frame=497 },
+    @{ name='state17-cinematic-gate'; frame=498 },
+    @{ name='early-receiver-flight'; frame=502 },
     @{ name='mid-receiver-flight'; frame=530 },
     @{ name='low-contact-attachment'; frame=555 },
     @{ name='first-live-continuation'; frame=598 }
@@ -80,10 +80,10 @@ foreach ($Spec in $Specs) {
 $Request=$Records[0]; $Commit=$Records[1]; $Near=$Records[2]; $Gate=$Records[3]
 $Early=$Records[4]; $Mid=$Records[5]; $Contact=$Records[6]; $Live=$Records[7]
 if (!$Request.b_latch -or $Request.cinematic_visible -or $Request.ball_state -eq 0x17) { throw 'B request incorrectly started the cinematic.' }
-if ($Commit.home_state -ne 0x0C -or $Commit.home_height_q8 -le 0 -or $Commit.cinematic_visible) { throw 'Committed jumper timing checkpoint failed.' }
-if ($Near.cinematic_visible -or $Near.home_height_q8 -le $Commit.home_height_q8) { throw 'Pre-cinematic near-apex checkpoint failed.' }
+if ($Commit.away_state -ne 0x0B -or $Commit.away_height_q8 -le 0 -or $Commit.cinematic_visible) { throw 'Committed human jumper timing checkpoint failed.' }
+if ($Near.cinematic_visible -or $Near.away_height_q8 -ne $Commit.away_height_q8) { throw 'Last pre-cinematic checkpoint failed.' }
 if (!$Gate.cinematic_visible -or $Gate.ball_state -ne 0x17 -or !$Gate.event_bit20 -or $Gate.first_cinematic_frame -ne $Gate.total_frame) { throw 'State `$17 cinematic gate failed.' }
-if ($Gate.claim_frame -eq 65535 -or $Gate.claim_frame -le 19 -or $Gate.total_frame -eq $Request.total_frame) { throw 'Claim happened on the request/CPU-commit frame.' }
+if ($Gate.claim_frame -eq 65535 -or $Gate.claim_frame -le 15 -or $Gate.total_frame -eq $Request.total_frame) { throw 'Claim happened on the request/commit frame.' }
 if ($Gate.duration -le 0 -or $Gate.duration -gt 60) { throw 'Dynamic `$B32C duration is out of source range.' }
 if ($Gate.velocity_x_prehalf_q6 -eq 0 -or $Gate.velocity_x_q6 -ne [Math]::Floor($Gate.velocity_x_prehalf_q6 / 2.0)) { throw '`$AA84 X halving mismatch.' }
 if ($Gate.velocity_depth_q6 -ne [Math]::Floor($Gate.velocity_depth_prehalf_q6 / 2.0)) { throw '`$AA84 depth halving mismatch.' }
