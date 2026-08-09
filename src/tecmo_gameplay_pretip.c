@@ -905,7 +905,7 @@ static void tip_try_resolve_claim(TecmoGameplayPreTipState *state)
     bool away_ready;
     bool home_ready;
     uint8_t claimant = TECMO_GAMEPLAY_PRETIP_CLAIMANT_NONE;
-    if (state == NULL || state->claim_resolved || state->claim_deferred ||
+    if (state == NULL || state->claim_resolved ||
         state->contest_frame < TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES)
         return;
     away_ready = state->away_jump_committed &&
@@ -917,9 +917,12 @@ static void tip_try_resolve_claim(TecmoGameplayPreTipState *state)
     if (!away_ready && !home_ready) return;
     if (away_ready && home_ready &&
         state->away_claim_height_raw == state->home_claim_height_raw) {
+        /* Bank05 $A274 retries equal live heights on the next update.  It
+           does not convert equality into a terminal contest state. */
         state->claim_deferred = true;
         return;
     }
+    state->claim_deferred = false;
     if (away_ready && (!home_ready ||
                        state->away_claim_height_raw >
                            state->home_claim_height_raw))
@@ -929,8 +932,10 @@ static void tip_try_resolve_claim(TecmoGameplayPreTipState *state)
     if (claimant == TECMO_GAMEPLAY_PRETIP_CLAIMANT_NONE) return;
     state->claim_resolved = true;
     state->claimant_jumper = claimant;
-    /* These remain opaque static source diagnostics. They are never
-       interpreted as team/orientation or receiver/holder values. */
+    /* $A274's receiver selector is separate from the winning center and the
+       later possession actor in $0308.  Preserve that distinction in the
+       fixed ten-actor scene topology instead of forcing slot 0/5. */
+    state->receiver_actor = claimant == 0U ? 3U : 8U;
 }
 
 static void tip_update_altitudes(TecmoGameplayPreTipState *state,
@@ -1163,7 +1168,9 @@ static bool state_valid(const TecmoGameplayPreTipAssets *assets,
             state->raw_selector_0380 !=
                 TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_0380_SEED ||
             state->raw_selector_037f !=
-                TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_037F_SEED) {
+                TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_037F_SEED ||
+            state->receiver_actor !=
+                (state->claimant_jumper == 0U ? 3U : 8U)) {
             return false;
         }
     } else if (state->claimant_jumper !=
@@ -1171,7 +1178,8 @@ static bool state_valid(const TecmoGameplayPreTipAssets *assets,
                state->raw_selector_0380 !=
                    TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_0380_SEED ||
                state->raw_selector_037f !=
-                   TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_037F_SEED) {
+                   TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_037F_SEED ||
+               state->receiver_actor != 0xFFU) {
         return false;
     }
     if (state->claim_deferred &&
@@ -1226,6 +1234,7 @@ bool tecmo_gameplay_pretip_state_initialize(
     initial.home_tip_sample_frame = TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME;
     initial.tip_rng_53 = 0x5AU;
     initial.claimant_jumper = TECMO_GAMEPLAY_PRETIP_CLAIMANT_NONE;
+    initial.receiver_actor = 0xFFU;
     initial.raw_selector_0380 = TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_0380_SEED;
     initial.raw_selector_037f = TECMO_GAMEPLAY_PRETIP_RAW_SELECTOR_037F_SEED;
     initial.card_cancel_enabled = card_cancel_enabled;
@@ -1270,7 +1279,30 @@ bool tecmo_gameplay_pretip_update_controlled(
         return true;
     }
     if (candidate.phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST) {
-        if (candidate.contest_stalled) return true;
+        if (candidate.contest_stalled) {
+            /* A stalled presentation remains responsive.  Clear the old
+               terminal marker and retry the live claim on this update. */
+            candidate.contest_stalled = false;
+            candidate.claim_deferred = false;
+            if (!candidate.away_tip_sampled &&
+                player_one_or_away_held_b) {
+                sample_tip_controlled(
+                    true, false,
+                    TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES - 1U,
+                    &candidate.away_tip_error,
+                    &candidate.away_tip_sample_frame,
+                    &candidate.away_tip_sampled, &candidate, 0U);
+            }
+            if (!candidate.home_tip_sampled &&
+                player_two_or_home_held_b) {
+                sample_tip_controlled(
+                    true, false,
+                    TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES - 1U,
+                    &candidate.home_tip_error,
+                    &candidate.home_tip_sample_frame,
+                    &candidate.home_tip_sampled, &candidate, 1U);
+            }
+        }
         if (candidate.phase_frame >=
                 TECMO_GAMEPLAY_PRETIP_PRESENTATION_FRAMES) {
             return false;
@@ -1706,6 +1738,12 @@ static bool tip_winner_gate_regression(
             assets, &no_input, false, false, true, true) ||
         memcmp(&before, &no_input, sizeof(before)) != 0)
         PRETIP_GATE_FAIL("stalled automatic path did not terminate deterministically");
+    if (!tecmo_gameplay_pretip_update_controlled(
+            assets, &no_input, true, false, false, false) ||
+        no_input.phase != TECMO_GAMEPLAY_PRETIP_LIVE ||
+        !no_input.claim_resolved || no_input.claimant_jumper != 0U ||
+        no_input.receiver_actor != 3U)
+        PRETIP_GATE_FAIL("stalled contest did not resume on a late human request");
 
 #undef PRETIP_GATE_FAIL
     return true;

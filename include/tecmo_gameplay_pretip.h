@@ -209,6 +209,7 @@ typedef struct TecmoGameplayPreTipState {
     uint8_t raw_selector_0380;
     uint8_t raw_selector_037f;
     uint8_t claimant_jumper;
+    uint8_t receiver_actor;
 } TecmoGameplayPreTipState;
 
 void tecmo_gameplay_pretip_init(TecmoGameplayPreTipAssets *assets);

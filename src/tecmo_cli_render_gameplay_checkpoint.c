@@ -723,7 +723,7 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
                       TECMO_GAMEPLAY_PRETIP_MAX_SAMPLE_ERROR)) ||
                 (checkpoint >= TECMO_CLI_PRETIP_LIVE_START_FRAME &&
                  (scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
-                  scene->ball_holder != 0U))) {
+                  scene->ball_holder != 3U))) {
                 return false;
             }
             return gameplay_checkpoint_report_tipoff_proof(
@@ -734,7 +734,7 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
             return runtime->mode == TECMO_MODE_COURT && scene->active &&
                    !tecmo_gameplay_scene_in_pretip(scene) &&
                    scene->state.possession == TECMO_GAMEPLAY_TEAM_AWAY &&
-                   scene->ball_holder == 0U;
+                   scene->ball_holder == 3U;
         }
         if (ball_bounce) {
             for (update = 0U; update < checkpoint; ++update) {
