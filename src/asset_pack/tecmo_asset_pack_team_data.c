@@ -11,6 +11,16 @@
 #define TEAM_DATA_ROSTER_BANK 2U
 #define TEAM_DATA_ART_BANK 6U
 
+/* These are renderer emitter/OAM anchors for the Bank01 $8031 generic cursor,
+ * not opaque-pixel bounds.  The payload retains them so the runtime can keep
+ * its coordinate mapping audited against the imported source. */
+#define TTDT_PROFILE_CURSOR_OAM_X 135U
+#define TTDT_PROFILE_CURSOR_OAM_Y 80U
+#define TTDT_PROFILE_CURSOR_STRIDE 8U
+#define TTDT_ROSTER_CURSOR_OAM_X 40U
+#define TTDT_ROSTER_CURSOR_OAM_Y 143U
+#define TTDT_ROSTER_CURSOR_STRIDE 8U
+
 typedef struct TeamDataSpan {
     uint32_t bank;
     uint32_t cpu;
@@ -269,6 +279,7 @@ int tecmo_asset_pack_team_data_self_test(char *message, size_t message_size)
     uint8_t cursor[TECMO_ASSET_PACK_TEAM_DATA_CURSOR_STRIDE];
     char identity_message[160];
     const uint8_t good[5] = {0x11U, 0xFFU, 0U, 0x30U, 0x24U};
+    const uint8_t generic[5] = {0x11U, 0U, 0xFCU, 0x30U, 0x24U};
     const uint8_t bad[5] = {0x10U, 0U, 0U, 0U, 0U};
     memset(cursor, 0, sizeof(cursor));
     if (build_cursor(good, cursor, NULL, 0U) != 0 ||
@@ -277,6 +288,15 @@ int tecmo_asset_pack_team_data_self_test(char *message, size_t message_size)
         build_cursor(bad, cursor, NULL, 0U) == 0) {
         tecmo_asset_pack_set_message(message, message_size,
                                      "TTDT-1 cursor bounds self-test failed.");
+        return -1;
+    }
+    memset(cursor, 0, sizeof(cursor));
+    if (build_cursor(generic, cursor, NULL, 0U) != 0 ||
+        tecmo_asset_pack_read_u16(cursor) != 0U ||
+        tecmo_asset_pack_read_u16(cursor + 2U) != 0xFFFCU) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TTDT-1 generic cursor delta self-test failed.");
         return -1;
     }
     if (!tecmo_team_data_self_test(identity_message,
@@ -457,12 +477,12 @@ int tecmo_asset_pack_build_team_data(const uint8_t *rom,
     payload[71U] = 8U;
     payload[72U] = 32U;
     payload[73U] = 8U;
-    payload[74U] = 135U;
-    payload[75U] = 80U;
-    payload[76U] = 8U;
-    payload[77U] = 40U;
-    payload[78U] = 143U;
-    payload[79U] = 8U;
+    payload[74U] = TTDT_PROFILE_CURSOR_OAM_X;
+    payload[75U] = TTDT_PROFILE_CURSOR_OAM_Y;
+    payload[76U] = TTDT_PROFILE_CURSOR_STRIDE;
+    payload[77U] = TTDT_ROSTER_CURSOR_OAM_X;
+    payload[78U] = TTDT_ROSTER_CURSOR_OAM_Y;
+    payload[79U] = TTDT_ROSTER_CURSOR_STRIDE;
     payload[80U] = 0xFAU;
     payload[81U] = 0xFAU;
     payload[82U] = 0xCCU;
