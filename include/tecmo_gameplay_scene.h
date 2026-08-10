@@ -45,6 +45,8 @@
 #define TECMO_GAMEPLAY_SCENE_COURT_SLICE_TAG 0x4C534754U
 #define TECMO_GAMEPLAY_SCENE_COURT_FRAME_TAG 0x46534754U
 #define TECMO_GAMEPLAY_SCENE_CPU_ACTOR_TAG 0x41434754U
+#define TECMO_GAMEPLAY_SCENE_POSSESSION_TRACE_TAG 0x50544754U
+#define TECMO_GAMEPLAY_SCENE_CLAIMANT_TRACE_TAG 0x43544754U
 #define TECMO_GAMEPLAY_SCENE_CPU_NO_COMMAND_OFFSET 0xFFFFU
 
 /* The slot-3 trace spans 125 inclusive updates from CPU state-18 entry through
@@ -207,6 +209,43 @@ typedef struct TecmoGameplaySceneFoulPresentation {
     bool fouled_out;
 } TecmoGameplaySceneFoulPresentation;
 
+/* Opt-in developer snapshot of the typed LIVE ownership seam. The raw names
+ * identify source-shaped fields rather than exposing ROM bytes. It is a
+ * passive snapshot: normal play neither renders nor depends on it. */
+typedef struct TecmoGameplayScenePossessionTraceSnapshot {
+    uint32_t contract_tag;
+    uint32_t sync_serial;
+    uint8_t raw_0308_primary_actor;
+    uint8_t raw_0309_defender_actor;
+    uint8_t raw_030a_offense_side;
+    uint8_t raw_030b_defense_side;
+    uint8_t raw_030c_030d_control_mode[TECMO_GAMEPLAY_TEAM_COUNT];
+    uint8_t raw_000e_000f_selected_actor[TECMO_GAMEPLAY_TEAM_COUNT];
+    uint8_t raw_037f_0380_candidate_actor[TECMO_GAMEPLAY_TEAM_COUNT];
+    uint8_t raw_04b0_selector_flags[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    uint8_t raw_06cb_dynamic_link[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    uint16_t raw_0547_0551_stream_offset[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    uint8_t raw_057c_actor_state[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    uint8_t semantic_scene_possession;
+    uint8_t semantic_ball_holder;
+    uint8_t semantic_live_last_possession;
+    uint8_t semantic_live_last_ball_holder;
+    bool semantic_live_synchronized;
+} TecmoGameplayScenePossessionTraceSnapshot;
+
+/* The one source-shaped claimant transition recorded by the LIVE scene. This
+ * is populated only by the Bank05 $B87C-$B98A bridge; generic, make, restart,
+ * and tip handoffs leave its serial unchanged. */
+typedef struct TecmoGameplaySceneClaimantSettlementTrace {
+    uint32_t contract_tag;
+    uint32_t event_serial;
+    bool valid;
+    TecmoGameplayLiveClaimantSettlement transaction;
+    TecmoGameplayScenePossessionTraceSnapshot before;
+    TecmoGameplayScenePossessionTraceSnapshot after;
+} TecmoGameplaySceneClaimantSettlementTrace;
+
 typedef struct TecmoGameplayScene {
     uint32_t lifecycle_tag;
     bool available;
@@ -263,6 +302,7 @@ typedef struct TecmoGameplayScene {
     TecmoGameplaySceneCpuActor
         cpu_actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     TecmoGameplayLiveFoundation live_foundation;
+    TecmoGameplaySceneClaimantSettlementTrace claimant_settlement_trace;
     uint8_t controlled_actor[TECMO_GAMEPLAY_CONTROLLER_COUNT];
     uint8_t ball_holder;
     TecmoGameplayCourtCoordinateQ8 ball_position;
@@ -388,6 +428,11 @@ bool tecmo_gameplay_scene_court_slice(
 bool tecmo_gameplay_scene_court_frame(
     const TecmoGameplayScene *scene,
     TecmoGameplaySceneCourtFrame *frame_out);
+/* Captures the passive typed LIVE ownership snapshot used by opt-in developer
+ * JSONL proof. It never reads decompilation, FCEUX, a ROM, or a debug log. */
+bool tecmo_gameplay_scene_possession_trace_snapshot(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayScenePossessionTraceSnapshot *snapshot_out);
 /* Returns the exact TGFL-derived raw lineup currently bound to a live
    free-throw sequence. Inactive or malformed bindings leave output unchanged. */
 bool tecmo_gameplay_scene_free_throw_lineup(

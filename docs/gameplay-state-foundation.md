@@ -97,6 +97,78 @@ general team switch. `$035B` has no direct reads and is retained only as
 save-before-toggle evidence. Direct `$035A` stores are limited to `$8FC4` and
 `$B8E0`; broad `STA $0300,X` is limited to fixed-bank cold boot `$CC68`.
 
+### B87C claimant-settlement bridge
+
+The native `LIVE` bridge deliberately exposes only a narrow typed transaction
+for Bank 05 `$B87C-$B98A`. Its direct integrated caller is `$BA56-$BA9C`
+(FNV-1a32 `35FB80C4`): state `$11` reaches `$BA56` through `$A214`'s slot-10
+dispatch table, while `$B751` reaches `$BA65` from the claimant path and
+`$B180` can jump directly to `$BA8C`. After `$BA65`'s `$05A1`, `$AD01`,
+`$07DE`, and `$0588` gates, `$BA8C` clears its local pending fields and calls
+`$B87C`. The source span `$B87C-$B8F5` is revision locked by TGSR-3
+(FNV-1a32 `9E2F1F28`), and the caller-prefix `$B87C-$B888` is independently
+fingerprinted as `E903D8F9`. The claimant candidate arrives through `$9C`; the
+preceding `$B73E-$B87B` scan (FNV-1a32 `574FEE44`) is evidence for the bounded
+claimant-selection context, not a general possession predicate.
+
+The bridge is entered only after the native scene's existing terminal **miss**
+claimant selector has chosen an active claimant in `scene_finish_shot()` or
+`scene_finish_jump_miss()`.  It is intentionally absent from generic
+possession handoff, made baskets, period/restart handling, tip-off handoff,
+steals, fouls, and unproven recovery paths.  This is a bounded C scene mapping,
+not a claim that every original `$BA56` caller or collision condition has been
+reconstructed.
+
+The legacy direct-launch and rim-rattle debug fixtures retain their existing
+generic handoff.  They can use explicitly marked fallback claimant selection
+and do not establish the `$BA56` claimant/contact predicate; routing those
+diagnostic adapters through `$B87C` would falsely elevate a render checkpoint
+to source caller evidence.
+
+For that accepted boundary, C preserves these source-shaped effects in order:
+
+- `$B87C-$B888` snapshots old `$0308/$0309`; C exposes those before/after
+  values as transaction observations, rather than naming the claimant a
+  rebound, steal, foul, or statistic.
+- `$B8BC-$B8CE` promotes `$9C` to `$0308`.  Only if it differs from old
+  `$0308` **and** its `$04B0` bit `$10` is set does `$B8D0-$B8F5` save old
+  `$0308` to `$0309`, swap `$030A/$030B`, and call `$9042`.
+- `$9042-$9053` walks X from 9 down to 0 and XORs `$04B0` bit `$10` for every
+  actor.  The native transaction mirrors precisely that selector-role toggle;
+  it does not treat `$9042` as an arbitrary team/orientation reset.
+- `$B8F6-$B918` scans only when `$030C[$030B]` is nonzero, descending 9..0 and
+  testing `$04B0` bit `$10` plus `$06CB == $0308`.  A no-match keeps the
+  already-selected `$0309`; C does not substitute the older pass-helper's
+  eligibility predicate.
+- `$B928-$B96F` has typed owners for the selected/candidate side mirrors,
+  automatic-offense `$0547/$0551=$007D`, `$057C=$04`, and the exact `$B98B`
+  remap table `01 02 03 04 00 06 07 08 09 05`.  Human-offense stream/state
+  resets are not invented.
+
+The existing `selected_defender_handoff_active` boolean is only a native C
+consumer gate for the already-selected defender's later movement adapter. The
+transaction derives it from the exact nonzero `$030C[$030B]` scan condition;
+that downstream movement policy is not an additional `$B87C` claim.
+
+The following observed writes remain intentionally unsupported because this
+native scene has no faithful typed owner or caller proof: `$0588/$05B6` masks,
+`$0359`, `$0478`, `$06DF/$06E1`, `$0743`, `$0790`, `$07E2`, `$046E/$0479`,
+`$06D5`, the `$035A->$035B; EOR #1->$035A` mutation, and helper/action calls
+`$B1D1`, `$BFA8`, `$88B6`, and `$C711`.  The transaction records the `$035A`
+save/toggle branch as an observation only.  It emits no steals, fouls,
+rebounds, blocks, player statistics, or opaque-ROM state mutations.
+
+For opt-in diagnosis, `TGPS-1` snapshots expose typed raw labels
+`$0308/$0309`, `$030A/$030B`, `$030C/$030D`, `$000E/$000F`, `$037F/$0380`,
+the `$04B0` bit-`$10` mirror, `$06CB`, `$0547/$0551`, and `$057C`, alongside
+semantic scene/live ownership aliases.  The `TGLP-1` JSONL
+`claimant-settlement` event captures before/after snapshots and a nonzero
+transaction serial after starting from the native pre-tip handoff and using a
+normal controller-B miss; its coordinate/frame inputs are explicit fixture
+data, not terminal ownership injection.  It is console-only developer proof:
+normal play does not render it and never reads a ROM, decompilation, FCEUX,
+Lua, log, screenshot, or state file at runtime.
+
 `gameplay/camera-projection` TGCP-2 is both a strict pure API and a
 compound-scene dependency. Its 1536-byte canonical payload
 (`53247856`) requires same-pack TGPL-1 and TGCT-1 and preserves the fixed-bank

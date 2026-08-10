@@ -319,6 +319,16 @@ static bool scene_test_concurrent_tip_simulation(
         scene->ball_holder != scene->pretip_state.receiver_actor ||
         scene->pretip_state.away_jump_commit_count != 1U ||
         scene->pretip_state.home_jump_commit_count != 0U) goto failed;
+    /* Tip handoff uses the preserve-state bridge, never the bounded Bank05
+       $B87C claimant transaction.  Keep this negative assertion adjacent to
+       the real cinematic-to-live handoff rather than inferring it from a
+       generic possession helper. */
+    if (scene->claimant_settlement_trace.valid ||
+        scene->claimant_settlement_trace.event_serial != 0U ||
+        scene->claimant_settlement_trace.contract_tag != 0U) {
+        failure = "pre-tip handoff unexpectedly emitted B87C claimant trace";
+        goto failed;
+    }
     failure = "pre-tip in-place actor continuity failed";
     if (memcmp(scene->actors, actors_before_handoff,
                sizeof(actors_before_handoff)) != 0 ||

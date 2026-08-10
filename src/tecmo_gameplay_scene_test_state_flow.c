@@ -1512,6 +1512,9 @@ static bool scene_test_live_foundation_regressions(
     static const uint8_t exact_links[10] = {
         5U, 6U, 7U, 8U, 9U, 0U, 1U, 2U, 3U, 4U
     };
+    static const uint8_t exact_b87c_candidate_remap[10] = {
+        1U, 2U, 3U, 4U, 0U, 6U, 7U, 8U, 9U, 5U
+    };
     static const uint8_t away_permutation[5] = {5U, 6U, 10U, 11U, 0U};
     static const uint8_t home_permutation[5] = {11U, 10U, 6U, 5U, 1U};
     TecmoGameplaySceneLaunch bound;
@@ -1527,6 +1530,8 @@ static bool scene_test_live_foundation_regressions(
     TecmoGameplayScene broken;
     TecmoGameplayLiveFoundation foundation_before;
     TecmoGameplayLiveFoundation candidate_foundation;
+    TecmoGameplayLiveClaimantSettlement claimant_settlement;
+    TecmoGameplayScenePossessionTraceSnapshot possession_trace;
     TecmoGameplayCpuSteeringPlayInput play_input;
     TecmoGameplayCpuSteeringPlayResult play_result;
     TecmoGameplayCpuSteeringCommand command;
@@ -1550,6 +1555,7 @@ static bool scene_test_live_foundation_regressions(
     int16_t preserved_target_x = 0;
     int16_t preserved_target_depth = 0;
     uint32_t sync_serial_before;
+    uint8_t selector_flags_before[10];
     bool found_deferred = false;
     bool found_advance = false;
     bool found_absolute_target = false;
@@ -1684,6 +1690,32 @@ static bool scene_test_live_foundation_regressions(
         LIVE_FAIL("LIVE away holder 0 did not replace static primary seed");
     }
     foundation_before = scene->live_foundation;
+    memset(&possession_trace, 0, sizeof(possession_trace));
+    if (!tecmo_gameplay_scene_possession_trace_snapshot(
+            scene, &possession_trace) ||
+        possession_trace.contract_tag !=
+            TECMO_GAMEPLAY_SCENE_POSSESSION_TRACE_TAG ||
+        possession_trace.raw_0308_primary_actor != 0U ||
+        possession_trace.raw_0309_defender_actor != 5U ||
+        possession_trace.raw_030a_offense_side != TECMO_GAMEPLAY_TEAM_AWAY ||
+        possession_trace.raw_030b_defense_side != TECMO_GAMEPLAY_TEAM_HOME ||
+        possession_trace.raw_030c_030d_control_mode[
+            TECMO_GAMEPLAY_TEAM_AWAY] != 0U ||
+        possession_trace.raw_030c_030d_control_mode[
+            TECMO_GAMEPLAY_TEAM_HOME] != 0U ||
+        !possession_trace.semantic_live_synchronized) {
+        LIVE_FAIL("LIVE possession trace snapshot did not mirror typed state");
+    }
+    malformed_scene = *scene;
+    malformed_scene.live_foundation.actor_selector_flags[0U] = 0x20U;
+    snapshot = malformed_scene;
+    memset(&possession_trace, 0xA5, sizeof(possession_trace));
+    if (tecmo_gameplay_scene_possession_trace_snapshot(
+            &malformed_scene, &possession_trace) ||
+        possession_trace.contract_tag != 0xA5A5A5A5U ||
+        memcmp(&malformed_scene, &snapshot, sizeof(malformed_scene)) != 0) {
+        LIVE_FAIL("LIVE malformed possession trace did not fail closed");
+    }
     /* Bank05 $B24F-$B32B / Bank06 $81F7-$82D: Mark Jackson slot 0
        passes to John Starks slot 1; the old holder resumes ordinary command
        state 4/$0B63 and automatic defense selects by descending eligibility
@@ -1749,6 +1781,193 @@ static bool scene_test_live_foundation_regressions(
         memcmp(&candidate_foundation, &snapshot.live_foundation,
                sizeof(candidate_foundation)) != 0) {
         LIVE_FAIL("LIVE B317 no-match failure was not transactional");
+    }
+
+    /* Bank05 $B87C-$B98A is a claimant settlement, separate from the B24F
+       pass helper above. Same-side claimant 1 proves the exact no-swap branch:
+       $030A/$030B and every $04B0 bit-$10 selector stay put while the automatic
+       defender scan walks 9..0 and chooses the first dynamic-link match. */
+    candidate_foundation = foundation_before;
+    candidate_foundation.control_mode[TECMO_GAMEPLAY_TEAM_AWAY] = 1U;
+    candidate_foundation.control_mode[TECMO_GAMEPLAY_TEAM_HOME] = 1U;
+    candidate_foundation.dynamic_link[9U] = 1U;
+    candidate_foundation.dynamic_link[8U] = 1U;
+    memcpy(selector_flags_before, candidate_foundation.actor_selector_flags,
+           sizeof(selector_flags_before));
+    if (!tecmo_gameplay_live_foundation_claimant_settlement(
+            &scene->cpu_steering_assets, 1U, TECMO_GAMEPLAY_TEAM_AWAY,
+            &candidate_foundation, &claimant_settlement) ||
+        claimant_settlement.contract_tag !=
+            TECMO_GAMEPLAY_LIVE_CLAIMANT_SETTLEMENT_TAG ||
+        claimant_settlement.raw_0308_before != 0U ||
+        claimant_settlement.raw_0309_before != 5U ||
+        claimant_settlement.raw_030a_before != TECMO_GAMEPLAY_TEAM_AWAY ||
+        claimant_settlement.raw_030b_before != TECMO_GAMEPLAY_TEAM_HOME ||
+        claimant_settlement.raw_0308_after != 1U ||
+        claimant_settlement.raw_0309_after != 9U ||
+        claimant_settlement.side_context_swapped ||
+        claimant_settlement.raw_04b0_bit10_toggled ||
+        claimant_settlement.raw_035a_save_and_toggle_observed ||
+        !claimant_settlement.automatic_defender_scan_ran ||
+        !claimant_settlement.automatic_defender_match_found ||
+        candidate_foundation.last_possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        candidate_foundation.offense_side != TECMO_GAMEPLAY_TEAM_AWAY ||
+        candidate_foundation.defense_side != TECMO_GAMEPLAY_TEAM_HOME ||
+        candidate_foundation.primary_actor != 1U ||
+        candidate_foundation.defender_actor != 9U ||
+        candidate_foundation.selected_actor_by_side[
+            TECMO_GAMEPLAY_TEAM_AWAY] != 1U ||
+        candidate_foundation.candidate_actor_by_side[
+            TECMO_GAMEPLAY_TEAM_AWAY] != 2U ||
+        candidate_foundation.selected_actor_by_side[
+            TECMO_GAMEPLAY_TEAM_HOME] != 9U ||
+        candidate_foundation.play_state.stream_offset[1U] != 0x007DU ||
+        candidate_foundation.play_state.actor_state[1U] != 0x04U ||
+        candidate_foundation.last_step_offset[1U] != 0x007DU ||
+        memcmp(selector_flags_before,
+               candidate_foundation.actor_selector_flags,
+               sizeof(selector_flags_before)) != 0 ||
+        !tecmo_gameplay_live_foundation_valid(
+            &scene->cpu_steering_assets, &candidate_foundation)) {
+        LIVE_FAIL("LIVE B87C same-side claimant transaction diverged");
+    }
+
+    /* On the exact $B8C1 predicate, other-side claimant 6 first replaces
+       $0309 with old $0308, swaps $030A/$030B, then $9042 EORs bit-$10 for
+       every slot. After that swap the automatic-defense scan again descends
+       9..0, so away slot 4 wins over slot 3. */
+    candidate_foundation = foundation_before;
+    candidate_foundation.control_mode[TECMO_GAMEPLAY_TEAM_AWAY] = 1U;
+    candidate_foundation.control_mode[TECMO_GAMEPLAY_TEAM_HOME] = 1U;
+    candidate_foundation.dynamic_link[4U] = 6U;
+    candidate_foundation.dynamic_link[3U] = 6U;
+    memcpy(selector_flags_before, candidate_foundation.actor_selector_flags,
+           sizeof(selector_flags_before));
+    if (!tecmo_gameplay_live_foundation_claimant_settlement(
+            &scene->cpu_steering_assets, 6U, TECMO_GAMEPLAY_TEAM_HOME,
+            &candidate_foundation, &claimant_settlement) ||
+        !claimant_settlement.candidate_replaced_primary ||
+        !claimant_settlement.side_context_swapped ||
+        !claimant_settlement.raw_04b0_bit10_toggled ||
+        !claimant_settlement.raw_035a_save_and_toggle_observed ||
+        !claimant_settlement.automatic_defender_scan_ran ||
+        !claimant_settlement.automatic_defender_match_found ||
+        claimant_settlement.raw_0308_after != 6U ||
+        claimant_settlement.raw_0309_after != 4U ||
+        claimant_settlement.raw_030a_after != TECMO_GAMEPLAY_TEAM_HOME ||
+        claimant_settlement.raw_030b_after != TECMO_GAMEPLAY_TEAM_AWAY ||
+        candidate_foundation.last_possession != TECMO_GAMEPLAY_TEAM_HOME ||
+        candidate_foundation.offense_side != TECMO_GAMEPLAY_TEAM_HOME ||
+        candidate_foundation.defense_side != TECMO_GAMEPLAY_TEAM_AWAY ||
+        candidate_foundation.primary_actor != 6U ||
+        candidate_foundation.defender_actor != 4U ||
+        candidate_foundation.selected_actor_by_side[
+            TECMO_GAMEPLAY_TEAM_HOME] != 6U ||
+        candidate_foundation.candidate_actor_by_side[
+            TECMO_GAMEPLAY_TEAM_HOME] != 7U ||
+        candidate_foundation.selected_actor_by_side[
+            TECMO_GAMEPLAY_TEAM_AWAY] != 4U ||
+        candidate_foundation.play_state.stream_offset[6U] != 0x007DU ||
+        candidate_foundation.play_state.actor_state[6U] != 0x04U ||
+        candidate_foundation.actor_selector_flags[0U] !=
+            (uint8_t)(selector_flags_before[0U] ^ 0x10U) ||
+        candidate_foundation.actor_selector_flags[9U] !=
+            (uint8_t)(selector_flags_before[9U] ^ 0x10U) ||
+        !tecmo_gameplay_live_foundation_valid(
+            &scene->cpu_steering_assets, &candidate_foundation)) {
+        LIVE_FAIL("LIVE B87C cross-side claimant transaction diverged");
+    }
+
+    /* An automatic scan with no exact $04B0/$06CB match retains the source
+       branch's already-selected defender (old $0308 after a side crossing),
+       rather than failing closed as the older pass-only helper does. */
+    candidate_foundation = foundation_before;
+    candidate_foundation.control_mode[TECMO_GAMEPLAY_TEAM_AWAY] = 1U;
+    candidate_foundation.control_mode[TECMO_GAMEPLAY_TEAM_HOME] = 1U;
+    for (actor = 0U; actor < 10U; ++actor) {
+        candidate_foundation.dynamic_link[actor] = 0U;
+    }
+    if (!tecmo_gameplay_live_foundation_claimant_settlement(
+            &scene->cpu_steering_assets, 6U, TECMO_GAMEPLAY_TEAM_HOME,
+            &candidate_foundation, &claimant_settlement) ||
+        !claimant_settlement.automatic_defender_scan_ran ||
+        claimant_settlement.automatic_defender_match_found ||
+        candidate_foundation.defender_actor != 0U ||
+        candidate_foundation.selected_actor_by_side[
+            TECMO_GAMEPLAY_TEAM_AWAY] != 0U ||
+        !tecmo_gameplay_live_foundation_valid(
+            &scene->cpu_steering_assets, &candidate_foundation)) {
+        LIVE_FAIL("LIVE B87C no-match defender fallback diverged");
+    }
+
+    /* Candidate equal to $0308 takes the $B8C1 BEQ: it cannot swap side
+       context or toggle selector flags. Human defense further bypasses the
+       $B8F6 descending scan without fabricating a defender change. */
+    candidate_foundation = foundation_before;
+    candidate_foundation.control_mode[TECMO_GAMEPLAY_TEAM_AWAY] = 0U;
+    candidate_foundation.control_mode[TECMO_GAMEPLAY_TEAM_HOME] = 0U;
+    memcpy(selector_flags_before, candidate_foundation.actor_selector_flags,
+           sizeof(selector_flags_before));
+    if (!tecmo_gameplay_live_foundation_claimant_settlement(
+            &scene->cpu_steering_assets, 0U, TECMO_GAMEPLAY_TEAM_AWAY,
+            &candidate_foundation, &claimant_settlement) ||
+        claimant_settlement.candidate_replaced_primary ||
+        claimant_settlement.side_context_swapped ||
+        claimant_settlement.raw_04b0_bit10_toggled ||
+        claimant_settlement.automatic_defender_scan_ran ||
+        candidate_foundation.primary_actor != 0U ||
+        candidate_foundation.defender_actor != 5U ||
+        memcmp(selector_flags_before,
+               candidate_foundation.actor_selector_flags,
+               sizeof(selector_flags_before)) != 0 ||
+        !tecmo_gameplay_live_foundation_valid(
+            &scene->cpu_steering_assets, &candidate_foundation)) {
+        LIVE_FAIL("LIVE B87C same-primary no-toggle branch diverged");
+    }
+
+    /* Exercise every $B98B byte through the typed transaction. Human defense
+       bypasses the optional $B8F6 scan so this isolates the exact remap table
+       for both same-side and side-crossing claimants. */
+    for (actor = 0U; actor < 10U; ++actor) {
+        TecmoGameplayTeam claimant_team = actor < 5U
+            ? TECMO_GAMEPLAY_TEAM_AWAY : TECMO_GAMEPLAY_TEAM_HOME;
+        candidate_foundation = foundation_before;
+        candidate_foundation.control_mode[TECMO_GAMEPLAY_TEAM_AWAY] = 0U;
+        candidate_foundation.control_mode[TECMO_GAMEPLAY_TEAM_HOME] = 0U;
+        if (!tecmo_gameplay_live_foundation_claimant_settlement(
+                &scene->cpu_steering_assets, (uint8_t)actor,
+                (uint8_t)claimant_team, &candidate_foundation,
+                &claimant_settlement) ||
+            candidate_foundation.candidate_actor_by_side[claimant_team] !=
+                exact_b87c_candidate_remap[actor]) {
+            LIVE_FAIL("LIVE B98B claimant remap table diverged");
+        }
+    }
+
+    /* Malformed selector input and a claimant/possession disagreement both
+       reject without touching the caller's foundation or result output. */
+    candidate_foundation = foundation_before;
+    candidate_foundation.actor_selector_flags[6U] = 0x20U;
+    snapshot.live_foundation = candidate_foundation;
+    memset(&claimant_settlement, 0xA5, sizeof(claimant_settlement));
+    if (tecmo_gameplay_live_foundation_claimant_settlement(
+            &scene->cpu_steering_assets, 6U, TECMO_GAMEPLAY_TEAM_HOME,
+            &candidate_foundation, &claimant_settlement) ||
+        memcmp(&candidate_foundation, &snapshot.live_foundation,
+               sizeof(candidate_foundation)) != 0 ||
+        claimant_settlement.contract_tag != 0xA5A5A5A5U) {
+        LIVE_FAIL("LIVE B87C malformed selector rollback failed");
+    }
+    candidate_foundation = foundation_before;
+    snapshot.live_foundation = candidate_foundation;
+    memset(&claimant_settlement, 0xA5, sizeof(claimant_settlement));
+    if (tecmo_gameplay_live_foundation_claimant_settlement(
+            &scene->cpu_steering_assets, 6U, TECMO_GAMEPLAY_TEAM_AWAY,
+            &candidate_foundation, &claimant_settlement) ||
+        memcmp(&candidate_foundation, &snapshot.live_foundation,
+               sizeof(candidate_foundation)) != 0 ||
+        claimant_settlement.contract_tag != 0xA5A5A5A5U) {
+        LIVE_FAIL("LIVE B87C claimant/possession rollback failed");
     }
     /* LIVE foundation invariants fail closed independently, rather than
        relying on the caller to preserve aligned stream/matchup metadata. */
@@ -1917,13 +2136,19 @@ static bool scene_test_live_foundation_regressions(
         candidate_foundation.defender_actor != 0U) {
         LIVE_FAIL("LIVE home holder 5 matchup synchronization failed");
     }
-    if (!scene_handoff_possession(scene, TECMO_GAMEPLAY_TEAM_HOME, 5U) ||
-        !scene_sync_live_foundation(scene) ||
-        scene->live_foundation.primary_actor != 5U ||
-        !scene_handoff_possession(scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
-        !scene_sync_live_foundation(scene) ||
-        scene->live_foundation.primary_actor != 0U) {
-        LIVE_FAIL("LIVE pass/switch/handoff synchronization failed");
+    {
+        TecmoGameplaySceneClaimantSettlementTrace trace_before =
+            scene->claimant_settlement_trace;
+        if (!scene_handoff_possession(scene, TECMO_GAMEPLAY_TEAM_HOME, 5U) ||
+            !scene_sync_live_foundation(scene) ||
+            scene->live_foundation.primary_actor != 5U ||
+            !scene_handoff_possession(scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+            !scene_sync_live_foundation(scene) ||
+            scene->live_foundation.primary_actor != 0U ||
+            memcmp(&scene->claimant_settlement_trace, &trace_before,
+                   sizeof(trace_before)) != 0) {
+            LIVE_FAIL("LIVE pass/switch/handoff synchronization failed");
+        }
     }
 
     /* Formation selector boundary and evolving command-stream offsets. */
@@ -5347,6 +5572,7 @@ static bool scene_test_run_bound_close_terminal_case(
     TecmoGameplayCourtCoordinate endpoint;
     TecmoGameplayTeam shooting_team;
     TecmoGameplayTeam claimant_team;
+    TecmoGameplaySceneClaimantSettlementTrace claimant_trace_before;
     uint16_t score_before[TECMO_GAMEPLAY_TEAM_COUNT];
     uint8_t points;
     uint8_t stat_team;
@@ -5363,6 +5589,14 @@ static bool scene_test_run_bound_close_terminal_case(
         return false;
     }
     shooting_team = (TecmoGameplayTeam)scene->actors[scene->shot_actor].team;
+    claimant_trace_before = scene->claimant_settlement_trace;
+    if (desired_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) {
+        /* The trace keeps zero as its never-emitted sentinel.  Exercise the
+           production terminal bridge at its diagnostic wrap boundary without
+           injecting a claimant, result, possession, or finish event. */
+        scene->claimant_settlement_trace.event_serial = UINT32_MAX;
+        claimant_trace_before = scene->claimant_settlement_trace;
+    }
     points = scene->shot_points;
     stat_team = scene->shot_actor_team;
     stat_roster = scene->shot_actor_roster_index;
@@ -5451,6 +5685,34 @@ static bool scene_test_run_bound_close_terminal_case(
                 (desired_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE &&
                  settled_points == 3U ? 1U : 0U))
             final_failure |= 128U;
+        /* A terminal miss reaches the one source-shaped claimant bridge;
+           a made basket stays on generic scene handoff and must not emit it.
+           This is an event-boundary assertion, not a claim that either
+           terminal result has a complete original-ROM caller reconstruction. */
+        if (desired_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) {
+            if (!scene->claimant_settlement_trace.valid ||
+                scene->claimant_settlement_trace.contract_tag !=
+                    TECMO_GAMEPLAY_SCENE_CLAIMANT_TRACE_TAG ||
+                scene->claimant_settlement_trace.event_serial != 1U ||
+                scene->claimant_settlement_trace.event_serial ==
+                    claimant_trace_before.event_serial ||
+                scene->claimant_settlement_trace.transaction.contract_tag !=
+                    TECMO_GAMEPLAY_LIVE_CLAIMANT_SETTLEMENT_TAG ||
+                scene->claimant_settlement_trace.before.contract_tag !=
+                    TECMO_GAMEPLAY_SCENE_POSSESSION_TRACE_TAG ||
+                scene->claimant_settlement_trace.after.contract_tag !=
+                    TECMO_GAMEPLAY_SCENE_POSSESSION_TRACE_TAG ||
+                scene->claimant_settlement_trace.after.semantic_ball_holder !=
+                    1U ||
+                scene->claimant_settlement_trace.after.semantic_scene_possession !=
+                    (uint8_t)claimant_team) {
+                final_failure |= 256U;
+            }
+        } else if (memcmp(&scene->claimant_settlement_trace,
+                          &claimant_trace_before,
+                          sizeof(claimant_trace_before)) != 0) {
+            final_failure |= 256U;
+        }
         if (final_failure != 0U) {
             scene_test_terminal_detail = 20000U + updates * 128U +
                 final_failure;

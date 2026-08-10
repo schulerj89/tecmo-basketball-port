@@ -1037,6 +1037,77 @@ bool scene_handoff_tip_possession(TecmoGameplayScene *scene,
         scene, possession, preferred_actor, true);
 }
 
+/* The source's $B87C entry is reached from the bounded claimant/collision
+ * route, not from every possession-changing scene event. Keep the generic
+ * scene ownership/orientation handoff separate, then apply the typed LIVE
+ * $0308/$0309/$030A/$030B transaction only for the two miss claimant callers
+ * below. The complete scene is staged so a malformed typed input rolls back
+ * both layers together. */
+static bool scene_handoff_claimant_settlement(
+    TecmoGameplayScene *scene,
+    TecmoGameplayTeam possession,
+    uint8_t claimant)
+{
+    TecmoGameplayScene candidate;
+    TecmoGameplayScenePossessionTraceSnapshot before;
+    TecmoGameplayScenePossessionTraceSnapshot after;
+    TecmoGameplayLiveClaimantSettlement transaction;
+    uint32_t next_serial;
+
+    if (scene == NULL || claimant >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        (possession != TECMO_GAMEPLAY_TEAM_AWAY &&
+         possession != TECMO_GAMEPLAY_TEAM_HOME) ||
+        scene->actors[claimant].team != (uint8_t)possession ||
+        !tecmo_gameplay_scene_possession_trace_snapshot(scene, &before)) {
+        return false;
+    }
+    candidate = *scene;
+    if (!scene_handoff_possession_impl(
+            &candidate, possession, claimant, false) ||
+        candidate.ball_holder != claimant ||
+        candidate.state.possession != possession ||
+        !tecmo_gameplay_live_foundation_claimant_settlement(
+            &candidate.cpu_steering_assets, claimant, (uint8_t)possession,
+            &candidate.live_foundation, &transaction) ||
+        !tecmo_gameplay_scene_possession_trace_snapshot(&candidate, &after)) {
+        return false;
+    }
+    /* Diagnostic event serial zero remains the not-yet-emitted sentinel.
+       Like the established LIVE observation serials, UINT32_MAX restarts at
+       one rather than producing a misleading zero event. */
+    next_serial = candidate.claimant_settlement_trace.event_serial ==
+            UINT32_MAX
+        ? 1U : candidate.claimant_settlement_trace.event_serial + 1U;
+    memset(&candidate.claimant_settlement_trace, 0,
+           sizeof(candidate.claimant_settlement_trace));
+    candidate.claimant_settlement_trace.contract_tag =
+        TECMO_GAMEPLAY_SCENE_CLAIMANT_TRACE_TAG;
+    candidate.claimant_settlement_trace.event_serial = next_serial;
+    candidate.claimant_settlement_trace.valid = true;
+    candidate.claimant_settlement_trace.transaction = transaction;
+    candidate.claimant_settlement_trace.before = before;
+    candidate.claimant_settlement_trace.after = after;
+    *scene = candidate;
+    return true;
+}
+
+/* Legacy/direct diagnostics deliberately preserve their accepted generic
+ * handoff checkpoints. They can manufacture a claimant only through their
+ * explicitly marked fallback and do not establish the $BA56 claimant/contact
+ * caller predicates required by the typed $B87C transaction. Production miss
+ * selection remains the only bridge entry. */
+static bool scene_handoff_miss_claimant(
+    TecmoGameplayScene *scene,
+    TecmoGameplayTeam possession,
+    uint8_t claimant)
+{
+    if (scene == NULL) return false;
+    if (scene->legacy_direct_launch || scene->jump_rim_rattle_debug) {
+        return scene_handoff_possession(scene, possession, claimant);
+    }
+    return scene_handoff_claimant_settlement(scene, possession, claimant);
+}
+
 static bool scene_close_step_for_frame(const TecmoGameplayScene *scene,
                                        uint16_t frame,
                                        uint8_t *step)
@@ -1235,7 +1306,7 @@ static bool scene_finish_shot(TecmoGameplayScene *scene,
         }
         return true;
     }
-    if (!scene_handoff_possession(
+    if (!scene_handoff_miss_claimant(
         scene,
         claimant_relation == TECMO_GAMEPLAY_SHOT_CLAIMANT_OTHER_TEAM
             ? next_team : shooting_team,
@@ -1287,7 +1358,7 @@ static bool scene_finish_jump_miss(TecmoGameplayScene *scene,
             scene, scene->state.possession,
             shooting_actor);
     }
-    return scene_handoff_possession(
+    return scene_handoff_miss_claimant(
         scene,
         claimant_relation == TECMO_GAMEPLAY_SHOT_CLAIMANT_OTHER_TEAM
             ? next_team : shooting_team,

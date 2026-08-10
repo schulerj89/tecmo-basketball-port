@@ -931,6 +931,9 @@ try {
     $HudMaps = @($SourceMap.logical_entries | Where-Object {
         $_.id -eq "gameplay/hud"
     })
+    $ShotResolutionMaps = @($SourceMap.logical_entries | Where-Object {
+        $_.id -eq "gameplay/shot-resolution"
+    })
     if ($CameraMaps.Count -ne 1 -or $CourtMaps.Count -ne 1 -or
         ![bool]$CameraMaps[0].dependencies[0].same_pack_required -or
         ![bool]$CameraMaps[0].dependencies[1].same_pack_required -or
@@ -1164,6 +1167,31 @@ try {
             'decompilation file|capture file|screenshot file') {
         throw "Production THUD-1 live HUD provenance is incomplete."
     }
+    $ClaimantBridge = if ($ShotResolutionMaps.Count -eq 1) {
+        $ShotResolutionMaps[0].claimant_settlement_bridge
+    } else { $null }
+    if ($ShotResolutionMaps.Count -ne 1 -or
+        $ClaimantBridge.source -notmatch 'Bank05 \$BA56-\$BA9C.*\$B87C-\$B98A.*\$9042-\$9053' -or
+        $ClaimantBridge.caller_paths -notmatch '\$A214 state-\$11 dispatch -> \$BA56' -or
+        $ClaimantBridge.caller_paths -notmatch '\$B751 -> \$BA65' -or
+        $ClaimantBridge.caller_paths -notmatch '\$B180 -> \$BA8C' -or
+        $ClaimantBridge.fingerprints.caller_BA56_BA9C -ne '35FB80C4' -or
+        $ClaimantBridge.fingerprints.settlement_B87C_B8F5 -ne '9E2F1F28' -or
+        $ClaimantBridge.fingerprints.caller_prefix_B87C_B888 -ne 'E903D8F9' -or
+        $ClaimantBridge.fingerprints.claimant_context_B73E_B87B -ne '574FEE44' -or
+        $ClaimantBridge.fingerprints.toggle_9042_9053 -ne 'CE6C9466' -or
+        $ClaimantBridge.caller_predicates -notmatch '\$B8C1.*candidate != old \$0308' -or
+        $ClaimantBridge.caller_predicates -notmatch '\$B8CE.*\$04B0 bit \$10' -or
+        $ClaimantBridge.native_entrypoint -notmatch 'terminal miss claimant only' -or
+        $ClaimantBridge.native_entrypoint -notmatch 'scene_finish_shot/scene_finish_jump_miss' -or
+        $ClaimantBridge.typed_effects -notmatch '\$9042 X=9\.\.0 \$04B0 bit-\$10 XOR' -or
+        $ClaimantBridge.typed_effects -notmatch '\$B98B candidate remap' -or
+        $ClaimantBridge.diagnostic -notmatch 'TGPS-1.*TGLP-1.*console-only' -or
+        $ClaimantBridge.not_wired -notmatch 'generic/made/restart/tip/steal/foul/unproven recovery' -or
+        $ClaimantBridge.unsupported -notmatch '\$035A/\$035B mutation' -or
+        [bool]$ClaimantBridge.integration_is_additional_rom_claim) {
+        throw "Bank05 B87C claimant bridge provenance is incomplete."
+    }
 
     $HudLog = Join-Path $Scratch "gameplay-hud-assets.log"
     $HudRun = Invoke-Logged -Command $Executable -Arguments @(
@@ -1215,6 +1243,7 @@ try {
         "cpu-target-deferred",
         "cpu-source-shot",
         "shot-path",
+        "claimant-settlement",
         "defensive-foul-presentation"
     )
     New-Item -ItemType Directory -Force -Path $ProofRoot | Out-Null
@@ -1294,6 +1323,57 @@ try {
                  [int]$State.action_serial -ne 1 -or
                  [int]$State.shot_frame -lt 1)) {
                 throw "LIVE proof shot event did not retain exact-once playback state."
+            }
+            if ($Event -eq "claimant-settlement") {
+                $Claimant = $State.claimant_settlement
+                $Transaction = $Claimant.transaction
+                $Fixture = $Claimant.fixture
+                if (![bool]$Claimant.emitted -or
+                    [bool]$Claimant.direct_handoff_injection -or
+                    $Claimant.entrypoint -ne
+                        "tecmo_gameplay_scene_update/normal-B-miss" -or
+                    $Claimant.asm -notmatch 'Bank05:\$BA56-\$BA9C' -or
+                    $Claimant.asm -notmatch '\$B87C-\$B98A' -or
+                    $Claimant.asm -notmatch '\$9042' -or
+                    [int]$Claimant.event_serial -le 0 -or
+                    [int]$Claimant.updates -le 0 -or
+                    $null -eq $Fixture -or
+                    ![bool]$Fixture.starts_from_native_pretip_handoff -or
+                    [int]$Fixture.shooting_actor -lt 0 -or
+                    [int]$Fixture.shooting_actor -ge 10 -or
+                    [int]$Fixture.claimant_actor -lt 0 -or
+                    [int]$Fixture.claimant_actor -ge 10 -or
+                    [int]$Fixture.shooting_actor -eq [int]$Fixture.claimant_actor -or
+                    [int]$Transaction.raw_0308_before -ne
+                        [int]$Fixture.shooting_actor -or
+                    [int]$Transaction.raw_0308_after -ne
+                        [int]$Fixture.claimant_actor -or
+                    ![bool]$Transaction.side_context_swapped -or
+                    ![bool]$Transaction.raw_04b0_bit10_toggled -or
+                    ![bool]$Transaction.raw_035a_save_and_toggle_observed -or
+                    [bool]$Transaction.automatic_defender_scan_ran -or
+                    [bool]$Transaction.automatic_defender_match_found -or
+                    $null -eq $Claimant.before -or $null -eq $Claimant.after -or
+                    $Claimant.before.contract -ne "TGPS-1" -or
+                    $Claimant.after.contract -ne "TGPS-1" -or
+                    [int]$Claimant.before.raw.'$0308' -ne
+                        [int]$Fixture.shooting_actor -or
+                    [int]$Claimant.after.raw.'$0308' -ne
+                        [int]$Fixture.claimant_actor -or
+                    [int]$Claimant.before.semantic.scene_possession -eq
+                        [int]$Claimant.after.semantic.scene_possession -or
+                    [int]$Claimant.after.semantic.ball_holder -ne
+                        [int]$Fixture.claimant_actor -or
+                    ![bool]$Claimant.after.semantic.live_synchronized -or
+                    ((@($Claimant.before.raw.'$030C_$030D') -join ',') -ne
+                        '0,0') -or
+                    @($Claimant.before.raw.'$04B0_bit10_flags').Count -ne 10 -or
+                    @($Claimant.after.raw.'$0547_$0551_stream_offset').Count -ne 10 -or
+                    @($Claimant.after.raw.'$057C').Count -ne 10) {
+                    throw "LIVE proof claimant settlement trace/source-state contract regressed."
+                }
+            } elseif ([bool]$State.claimant_settlement.emitted) {
+                throw "Non-claimant LIVE proof event unexpectedly emitted Bank05 B87C diagnostics."
             }
             if ($Event -eq "cpu-source-shot") {
                 $CpuSourceShot = $State.cpu_source_shot
@@ -1477,6 +1557,7 @@ try {
             "cpu-target-deferred: deterministic source-offset fixture"
             "cpu-source-shot: Bank04 target+wait fixture through formation refresh and CPU shot gate"
             "shot-path: deterministic supported close-shot fixture"
+            "claimant-settlement: native pre-tip handoff then deterministic coordinate/frame fixture, normal controller-B miss and production terminal claimant handoff (no direct claimant/phase/possession injection)"
             "defensive-foul-presentation: real PRETIP/live handoff, optional human A switch, human defensive-B, then neutral capture at TGVR visible group 1"
         )
         repeat_count = 2

@@ -35,6 +35,12 @@ typedef struct LiveProofEventEvidence {
     uint8_t foul_referee_group;
     uint16_t foul_visible_phase_frame;
     bool foul_overlay_retained;
+    bool claimant_settlement_executed;
+    uint8_t claimant_fixture_launch_frame;
+    uint16_t claimant_settlement_updates;
+    uint8_t claimant_shooting_actor;
+    uint8_t claimant_actor;
+    TecmoGameplaySceneClaimantSettlementTrace claimant_settlement;
     TecmoGameplayCourtCoordinate source_target;
     TecmoGameplayCourtCoordinate start_position;
 } LiveProofEventEvidence;
@@ -94,6 +100,7 @@ static bool live_proof_event_valid(const char *event)
         "cpu-target-deferred",
         "cpu-source-shot",
         "shot-path",
+        "claimant-settlement",
         "defensive-foul-presentation"
     };
     size_t index;
@@ -521,6 +528,180 @@ static bool live_proof_trigger_defensive_foul(
     return true;
 }
 
+/* Establish a deterministic, ordinary controller-B miss fixture from the
+ * actual completed pre-tip live handoff. It never injects a claimant,
+ * possession, phase, or finish call: the outer production update launches and
+ * settles the shot, and the claimant is selected later by the normal
+ * $B73E-derived scene scan. The limited coordinates/frame seed are transparent
+ * test-fixture inputs rather than claims about original policy. */
+static bool live_proof_trigger_claimant_settlement(
+    TecmoGameplayScene *scene,
+    LiveProofEventEvidence *evidence,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplayScene launched;
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    TecmoControlFrame neutral;
+    TecmoGameplayCourtCoordinate shooter;
+    TecmoGameplayCourtCoordinate claimant;
+    TecmoGameplayCourtCoordinate far_actor = {576, 192};
+    TecmoGameplayTeam shooting_team;
+    TecmoGameplayTeam claimant_team;
+    uint8_t shooting_actor;
+    uint8_t claimant_actor;
+    size_t controller;
+    uint32_t serial_before;
+    uint16_t update;
+    uint32_t seed;
+
+    if (scene == NULL || evidence == NULL ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.possession >= TECMO_GAMEPLAY_TEAM_COUNT ||
+        scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->actors[scene->ball_holder].team !=
+            (uint8_t)scene->state.possession ||
+        scene->orientation_state.offensive_hoop.x <= 48 ||
+        scene->orientation_state.offensive_hoop.x >=
+            TECMO_GAMEPLAY_COURT_WORLD_MAX_X - 48) {
+        return live_proof_reject(message, message_size,
+                                 "claimant settlement native pre-tip handoff failed");
+    }
+    shooting_actor = scene->ball_holder;
+    shooting_team = (TecmoGameplayTeam)scene->state.possession;
+    claimant_team = scene_other_team(shooting_team);
+    claimant_actor = scene_first_actor_for_team(claimant_team);
+    for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
+         ++controller) {
+        if (scene->launch.controller_team[controller] == shooting_team &&
+            scene->controlled_actor[controller] == shooting_actor) {
+            break;
+        }
+    }
+    if (controller == TECMO_GAMEPLAY_CONTROLLER_COUNT ||
+        claimant_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        claimant_actor == shooting_actor ||
+        scene->actors[claimant_actor].team != (uint8_t)claimant_team) {
+        return live_proof_reject(
+            message, message_size,
+            "claimant settlement native controller/claimant fixture failed");
+    }
+
+    /* Bounded low-byte frame search selects a real normal-B miss. The explicit
+       valid-coordinate fixture is synchronized through the ordinary LIVE
+       boundary before the outer update starts the shot; it does not inject a
+       claimant, possession, phase, or terminal handler. */
+    for (seed = 0U; seed < 256U; ++seed) {
+        launched = *scene;
+        shooter.x = (int16_t)(
+            launched.orientation_state.current_direction == 0U
+                ? launched.orientation_state.offensive_hoop.x + 48
+                : launched.orientation_state.offensive_hoop.x - 48);
+        shooter.y = TECMO_GAMEPLAY_SHOT_TARGET_Y;
+        if (!scene_actor_coordinate_valid(&shooter)) continue;
+        for (size_t actor = 0U;
+             actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            launched.actors[actor].position = far_actor;
+            launched.actors[actor].anchor = far_actor;
+        }
+        launched.actors[shooting_actor].position = shooter;
+        launched.actors[shooting_actor].anchor = shooter;
+        launched.frame = seed;
+        launched.state.shot_clock = 12U;
+        launched.state.clock_divider = 1U;
+        if (!scene_sync_live_foundation(&launched) ||
+            !scene_attach_ball(&launched)) {
+            continue;
+        }
+        live_proof_controls_neutral(&p1);
+        live_proof_controls_neutral(&p2);
+        if (controller == 0U) {
+            p1.held.cancel = true;
+            p1.pressed.cancel = true;
+        } else {
+            p2.held.cancel = true;
+            p2.pressed.cancel = true;
+        }
+        if (!tecmo_gameplay_scene_update(&launched, &p1, &p2) ||
+            launched.shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+            launched.shot_actor != shooting_actor ||
+            launched.shot_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) {
+            continue;
+        }
+        *scene = launched;
+        evidence->claimant_fixture_launch_frame = (uint8_t)seed;
+        break;
+    }
+    if (seed == 256U) {
+        return live_proof_reject(
+            message, message_size,
+            "claimant settlement fixture could not launch normal-B miss");
+    }
+
+    claimant.x = (int16_t)(scene->shot_end_position.x_q8 / 256);
+    claimant.y = (int16_t)(scene->shot_end_position.y_q8 / 256);
+    if (!scene_actor_coordinate_valid(&claimant)) {
+        return live_proof_reject(message, message_size,
+                                 "claimant settlement endpoint was invalid");
+    }
+    for (size_t actor = 0U;
+         actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        if (actor == shooting_actor) continue;
+        scene->actors[actor].position = far_actor;
+        scene->actors[actor].anchor = far_actor;
+    }
+    /* Put the first opposing roster slot at the resolved endpoint and retain
+       the other non-shooters at the explicit far fixture. The normal claimant
+       selector, not this helper, decides whether that arrangement qualifies.
+       This affects only the source-order fixture, never the handoff code. */
+    scene->actors[claimant_actor].position = claimant;
+    scene->actors[claimant_actor].anchor = claimant;
+    serial_before = scene->claimant_settlement_trace.event_serial;
+    live_proof_controls_neutral(&neutral);
+    for (update = 0U; update < 256U;
+         ++update) {
+        if (!tecmo_gameplay_scene_update(scene, &neutral, &neutral)) {
+            return live_proof_reject(
+                message, message_size,
+                "claimant settlement production update failed");
+        }
+        if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE) break;
+    }
+    if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.possession != claimant_team ||
+        scene->ball_holder != claimant_actor ||
+        !scene->claimant_settlement_trace.valid ||
+        scene->claimant_settlement_trace.contract_tag !=
+            TECMO_GAMEPLAY_SCENE_CLAIMANT_TRACE_TAG ||
+        scene->claimant_settlement_trace.event_serial == 0U ||
+        scene->claimant_settlement_trace.event_serial == serial_before ||
+        scene->claimant_settlement_trace.transaction.contract_tag !=
+            TECMO_GAMEPLAY_LIVE_CLAIMANT_SETTLEMENT_TAG ||
+        !scene->claimant_settlement_trace.transaction.side_context_swapped ||
+        !scene->claimant_settlement_trace.transaction.raw_04b0_bit10_toggled ||
+        scene->claimant_settlement_trace.before.raw_0308_primary_actor !=
+            shooting_actor ||
+        scene->claimant_settlement_trace.after.raw_0308_primary_actor !=
+            claimant_actor ||
+        scene->claimant_settlement_trace.after.semantic_scene_possession !=
+            claimant_team ||
+        scene->claimant_settlement_trace.after.semantic_ball_holder !=
+            claimant_actor ||
+        !scene_ownership_valid(scene)) {
+        return live_proof_reject(
+            message, message_size,
+            "claimant settlement did not reach Bank05 typed handoff");
+    }
+    evidence->claimant_settlement_executed = true;
+    evidence->claimant_settlement_updates = (uint16_t)(update + 1U);
+    evidence->claimant_shooting_actor = shooting_actor;
+    evidence->claimant_actor = claimant_actor;
+    evidence->claimant_settlement = scene->claimant_settlement_trace;
+    return true;
+}
+
 static bool live_proof_apply_event(TecmoGameplayScene *scene,
                                    const char *event,
                                    LiveProofEventEvidence *evidence,
@@ -566,6 +747,10 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
     }
     if (strcmp(event, "defensive-foul-presentation") == 0) {
         return live_proof_trigger_defensive_foul(
+            scene, evidence, message, message_size);
+    }
+    if (strcmp(event, "claimant-settlement") == 0) {
+        return live_proof_trigger_claimant_settlement(
             scene, evidence, message, message_size);
     }
     if (strcmp(event, "human-movement") == 0) {
@@ -978,6 +1163,111 @@ static bool live_proof_render(const TecmoRuntime *runtime,
     return true;
 }
 
+static bool live_proof_append_u8_array(char *buffer, size_t capacity,
+                                        size_t *length,
+                                        const uint8_t *values, size_t count)
+{
+    size_t index;
+    if (values == NULL || !live_proof_append(
+            buffer, capacity, length, "[")) {
+        return false;
+    }
+    for (index = 0U; index < count; ++index) {
+        if (!live_proof_append(buffer, capacity, length, "%s%u",
+                               index == 0U ? "" : ",",
+                               (unsigned)values[index])) {
+            return false;
+        }
+    }
+    return live_proof_append(buffer, capacity, length, "]");
+}
+
+static bool live_proof_append_u16_array(char *buffer, size_t capacity,
+                                         size_t *length,
+                                         const uint16_t *values, size_t count)
+{
+    size_t index;
+    if (values == NULL || !live_proof_append(
+            buffer, capacity, length, "[")) {
+        return false;
+    }
+    for (index = 0U; index < count; ++index) {
+        if (!live_proof_append(buffer, capacity, length, "%s%u",
+                               index == 0U ? "" : ",",
+                               (unsigned)values[index])) {
+            return false;
+        }
+    }
+    return live_proof_append(buffer, capacity, length, "]");
+}
+
+static bool live_proof_append_possession_snapshot(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    const TecmoGameplayScenePossessionTraceSnapshot *snapshot)
+{
+    if (snapshot == NULL || snapshot->contract_tag !=
+            TECMO_GAMEPLAY_SCENE_POSSESSION_TRACE_TAG ||
+        !live_proof_append(
+            buffer, capacity, length,
+            "{\"contract\":\"TGPS-1\",\"sync_serial\":%u,"
+            "\"raw\":{\"$0308\":%u,\"$0309\":%u,"
+            "\"$030A\":%u,\"$030B\":%u,\"$030C_$030D\":",
+            (unsigned)snapshot->sync_serial,
+            (unsigned)snapshot->raw_0308_primary_actor,
+            (unsigned)snapshot->raw_0309_defender_actor,
+            (unsigned)snapshot->raw_030a_offense_side,
+            (unsigned)snapshot->raw_030b_defense_side) ||
+        !live_proof_append_u8_array(
+            buffer, capacity, length, snapshot->raw_030c_030d_control_mode,
+            TECMO_GAMEPLAY_TEAM_COUNT) ||
+        !live_proof_append(buffer, capacity, length,
+                           ",\"$000E_$000F\":") ||
+        !live_proof_append_u8_array(
+            buffer, capacity, length,
+            snapshot->raw_000e_000f_selected_actor,
+            TECMO_GAMEPLAY_TEAM_COUNT) ||
+        !live_proof_append(buffer, capacity, length,
+                           ",\"$037F_$0380\":") ||
+        !live_proof_append_u8_array(
+            buffer, capacity, length,
+            snapshot->raw_037f_0380_candidate_actor,
+            TECMO_GAMEPLAY_TEAM_COUNT) ||
+        !live_proof_append(buffer, capacity, length,
+                           ",\"$04B0_bit10_flags\":") ||
+        !live_proof_append_u8_array(
+            buffer, capacity, length, snapshot->raw_04b0_selector_flags,
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) ||
+        !live_proof_append(buffer, capacity, length, ",\"$06CB\":") ||
+        !live_proof_append_u8_array(
+            buffer, capacity, length, snapshot->raw_06cb_dynamic_link,
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) ||
+        !live_proof_append(buffer, capacity, length,
+                           ",\"$0547_$0551_stream_offset\":") ||
+        !live_proof_append_u16_array(
+            buffer, capacity, length,
+            snapshot->raw_0547_0551_stream_offset,
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) ||
+        !live_proof_append(buffer, capacity, length, ",\"$057C\":") ||
+        !live_proof_append_u8_array(
+            buffer, capacity, length, snapshot->raw_057c_actor_state,
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) ||
+        !live_proof_append(
+            buffer, capacity, length,
+            "},\"semantic\":{\"scene_possession\":%u,"
+            "\"ball_holder\":%u,\"live_last_possession\":%u,"
+            "\"live_last_ball_holder\":%u,\"live_synchronized\":%s}}",
+            (unsigned)snapshot->semantic_scene_possession,
+            (unsigned)snapshot->semantic_ball_holder,
+            (unsigned)snapshot->semantic_live_last_possession,
+            (unsigned)snapshot->semantic_live_last_ball_holder,
+            snapshot->semantic_live_synchronized ? "true" : "false")) {
+        return false;
+    }
+    return true;
+}
+
 static bool live_proof_json(const TecmoGameplayScene *scene,
                             const char *event,
                             const char *output_png_path,
@@ -990,6 +1280,7 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
     size_t target_count = 0U;
     size_t deferred_count = 0U;
     bool live_foul_event;
+    bool claimant_event;
     bool foul_overlay_visible = false;
     uint8_t foul_group = 255U;
     if (scene == NULL || event == NULL || output_png_path == NULL ||
@@ -999,6 +1290,16 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
     (void)output_png_path;
     live_foul_event = strcmp(event, "defensive-foul-presentation") == 0 ||
         strcmp(event, "defensive-foul-free-throw") == 0;
+    claimant_event = evidence->claimant_settlement_executed &&
+        evidence->claimant_settlement.valid &&
+        evidence->claimant_settlement.contract_tag ==
+            TECMO_GAMEPLAY_SCENE_CLAIMANT_TRACE_TAG &&
+        evidence->claimant_settlement.transaction.contract_tag ==
+            TECMO_GAMEPLAY_LIVE_CLAIMANT_SETTLEMENT_TAG &&
+        evidence->claimant_settlement.before.contract_tag ==
+            TECMO_GAMEPLAY_SCENE_POSSESSION_TRACE_TAG &&
+        evidence->claimant_settlement.after.contract_tag ==
+            TECMO_GAMEPLAY_SCENE_POSSESSION_TRACE_TAG;
     if (live_foul_event && scene->foul_presentation.valid &&
         scene->state.phase == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION) {
         foul_overlay_visible = scene->state.phase_frame >=
@@ -1069,7 +1370,7 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             "\"court_actors_suppressed\":%s,"
             "\"overlay_writer\":\"Bank02:$B0F8-$B398\","
             "\"referee_script\":\"fixed:$E95E-$EA11:$2C-then-$22\","
-            "\"timing\":\"TGVR capture-bounded blackout/fade; Bank02 completion frame unavailable\"}},\"actors\":[",
+            "\"timing\":\"TGVR capture-bounded blackout/fade; Bank02 completion frame unavailable\"}},",
               event,
              tecmo_gameplay_scene_in_pretip(scene) ? "true" : "false",
              tecmo_gameplay_pretip_is_presentation(
@@ -1153,8 +1454,81 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             (unsigned)evidence->foul_visible_phase_frame,
             foul_overlay_visible ? "true" : "false",
             (unsigned)foul_group,
-            live_foul_event && evidence->foul_overlay_retained
-                ? "true" : "false")) {
+             live_foul_event && evidence->foul_overlay_retained
+                 ? "true" : "false")) {
+        return false;
+    }
+    if (!live_proof_append(
+            message, message_size, &length,
+            "\"claimant_settlement\":{\"emitted\":%s,"
+            "\"entrypoint\":\"%s\",\"direct_handoff_injection\":false,"
+            "\"asm\":\"Bank05:$BA56-$BA9C -> $B87C-$B98A; $9042 $04B0 bit-$10 loop\","
+            "\"fixture\":{\"starts_from_native_pretip_handoff\":%s,"
+            "\"shooting_actor\":%u,\"claimant_actor\":%u},"
+            "\"fixture_launch_frame\":%u,\"updates\":%u,"
+            "\"event_serial\":%u",
+            claimant_event ? "true" : "false",
+            claimant_event
+                ? "tecmo_gameplay_scene_update/normal-B-miss"
+                : "none",
+            claimant_event ? "true" : "false",
+            claimant_event
+                ? (unsigned)evidence->claimant_shooting_actor : 0U,
+            claimant_event ? (unsigned)evidence->claimant_actor : 0U,
+            claimant_event
+                ? (unsigned)evidence->claimant_fixture_launch_frame : 0U,
+            claimant_event
+                ? (unsigned)evidence->claimant_settlement_updates : 0U,
+            claimant_event
+                ? (unsigned)evidence->claimant_settlement.event_serial : 0U)) {
+        return false;
+    }
+    if (claimant_event) {
+        const TecmoGameplayLiveClaimantSettlement *transaction =
+            &evidence->claimant_settlement.transaction;
+        if (!live_proof_append(
+                message, message_size, &length,
+                ",\"transaction\":{\"raw_0308_before\":%u,"
+                "\"raw_0309_before\":%u,\"raw_030a_before\":%u,"
+                "\"raw_030b_before\":%u,\"raw_0308_after\":%u,"
+                "\"raw_0309_after\":%u,\"raw_030a_after\":%u,"
+                "\"raw_030b_after\":%u,\"side_context_swapped\":%s,"
+                "\"raw_04b0_bit10_toggled\":%s,"
+                "\"automatic_defender_scan_ran\":%s,"
+                "\"automatic_defender_match_found\":%s,"
+                "\"raw_035a_save_and_toggle_observed\":%s},\"before\":",
+                (unsigned)transaction->raw_0308_before,
+                (unsigned)transaction->raw_0309_before,
+                (unsigned)transaction->raw_030a_before,
+                (unsigned)transaction->raw_030b_before,
+                (unsigned)transaction->raw_0308_after,
+                (unsigned)transaction->raw_0309_after,
+                (unsigned)transaction->raw_030a_after,
+                (unsigned)transaction->raw_030b_after,
+                transaction->side_context_swapped ? "true" : "false",
+                transaction->raw_04b0_bit10_toggled ? "true" : "false",
+                transaction->automatic_defender_scan_ran ? "true" : "false",
+                transaction->automatic_defender_match_found
+                    ? "true" : "false",
+                transaction->raw_035a_save_and_toggle_observed
+                    ? "true" : "false") ||
+            !live_proof_append_possession_snapshot(
+                message, message_size, &length,
+                &evidence->claimant_settlement.before) ||
+            !live_proof_append(message, message_size, &length,
+                               ",\"after\":") ||
+            !live_proof_append_possession_snapshot(
+                message, message_size, &length,
+                &evidence->claimant_settlement.after) ||
+            !live_proof_append(message, message_size, &length, "},")) {
+            return false;
+        }
+    } else if (!live_proof_append(
+                   message, message_size, &length,
+                   ",\"transaction\":null,\"before\":null,\"after\":null},")) {
+        return false;
+    }
+    if (!live_proof_append(message, message_size, &length, "\"actors\":[")) {
         return false;
     }
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
