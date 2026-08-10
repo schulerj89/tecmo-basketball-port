@@ -193,7 +193,7 @@ try {
     $SourceMapEntry = Get-AssetPackEntry $PackBytes "system/source-map"
     $Payload = Get-EntryBytes $PackBytes $OrientationEntry
     if ($OrientationEntry.byte_count -ne 640 -or
-        (Get-Fnv1a32 $Payload) -ne "F9152C0A" -or
+        (Get-Fnv1a32 $Payload) -ne "44B0C44E" -or
         [Text.Encoding]::ASCII.GetString($Payload, 0, 4) -ne "TGOR" -or
         [BitConverter]::ToUInt16($Payload, 4) -ne 1 -or
         [BitConverter]::ToUInt32($Payload, 8) -ne 640 -or
@@ -244,7 +244,7 @@ try {
             "2047CCE0" -or
         $Mapped[0].dependencies[1].id -ne "gameplay/shot-resolution" -or
         $Mapped[0].dependencies[1].payload_fingerprint_fnv1a32 -ne
-            "164DC568" -or
+            "5376E82B" -or
         $Mapped[0].sources.Count -ne 4 -or
         $Mapped[0].sources[0].role -ne
             "possession-transition-gate-and-swap" -or

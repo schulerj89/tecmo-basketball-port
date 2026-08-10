@@ -856,13 +856,13 @@ try {
         [pscustomobject]@{ id="gameplay/fatigue"; size=512; hash="F80F170D"; schema="tecmo.gameplay-fatigue/TGFT-1" },
         [pscustomobject]@{ id="gameplay/cpu-steering"; size=7616; hash="D6C4DB35"; schema="tecmo.gameplay-cpu-steering/TGAI-1" },
         [pscustomobject]@{ id="gameplay/hud"; size=864; hash="3D13AA89"; schema="tecmo.gameplay-hud/THUD-1" },
-        [pscustomobject]@{ id="gameplay/court-orientation"; size=640; hash="F9152C0A"; schema="tecmo.gameplay-court-orientation/TGOR-1" },
-        [pscustomobject]@{ id="gameplay/backcourt"; size=512; hash="2C7BAF1D"; schema="tecmo.gameplay-backcourt/TGBC-1" },
+        [pscustomobject]@{ id="gameplay/court-orientation"; size=640; hash="44B0C44E"; schema="tecmo.gameplay-court-orientation/TGOR-1" },
+        [pscustomobject]@{ id="gameplay/backcourt"; size=512; hash="810886EF"; schema="tecmo.gameplay-backcourt/TGBC-1" },
         [pscustomobject]@{ id="gameplay/free-throw-lineup"; size=1216; hash="B17B9A3F"; schema="tecmo.gameplay-free-throw-lineup/TGFL-1" },
         [pscustomobject]@{ id="gameplay/close-shots"; size=3144; hash="DACDC976"; schema="tecmo.gameplay-close-shots/TGCS-1" },
         [pscustomobject]@{ id="gameplay/dunk-cutaway"; size=20272; hash="E02F2D21"; schema="tecmo.gameplay-dunk-cutaway/TGDK-1" },
         [pscustomobject]@{ id="gameplay/jump-shots"; size=2776; hash="A66EE873"; schema="tecmo.gameplay-jump-shots/TGJS-2" },
-        [pscustomobject]@{ id="gameplay/shot-resolution"; size=512; hash="164DC568"; schema="tecmo.gameplay-shot-resolution/TGSR-3" },
+        [pscustomobject]@{ id="gameplay/shot-resolution"; size=608; hash="5376E82B"; schema="tecmo.gameplay-shot-resolution/TGSR-4" },
         [pscustomobject]@{ id="gameplay/penalties"; size=768; hash="980DDC76"; schema="tecmo.gameplay-penalties/TPNL-1" },
         [pscustomobject]@{ id="gameplay/violation-referee"; size=4752; hash="2EB08CF0"; schema="tecmo.gameplay-violation-referee/TGVR-1" },
         [pscustomobject]@{ id="audio/music"; size=36784; hash="05C00ECB"; schema="tecmo.music/TMUS-1" },
@@ -930,6 +930,9 @@ try {
     })
     $HudMaps = @($SourceMap.logical_entries | Where-Object {
         $_.id -eq "gameplay/hud"
+    })
+    $ShotResolutionMaps = @($SourceMap.logical_entries | Where-Object {
+        $_.id -eq "gameplay/shot-resolution"
     })
     if ($CameraMaps.Count -ne 1 -or $CourtMaps.Count -ne 1 -or
         ![bool]$CameraMaps[0].dependencies[0].same_pack_required -or
@@ -1164,6 +1167,32 @@ try {
             'decompilation file|capture file|screenshot file') {
         throw "Production THUD-1 live HUD provenance is incomplete."
     }
+    $ClaimantBridge = if ($ShotResolutionMaps.Count -eq 1) {
+        $ShotResolutionMaps[0].claimant_settlement_bridge
+    } else { $null }
+    if ($ShotResolutionMaps.Count -ne 1 -or
+        $ClaimantBridge.source -notmatch 'Bank05 \$BA56-\$BA9C.*\$B87C-\$B98A.*\$9042-\$9053.*\$B98B-\$B994' -or
+        $ClaimantBridge.caller_paths -notmatch '\$A214 state-\$11 dispatch -> \$BA56' -or
+        $ClaimantBridge.caller_paths -notmatch '\$B751 -> \$BA65' -or
+        $ClaimantBridge.caller_paths -notmatch '\$B180 -> \$BA8C' -or
+        $ClaimantBridge.fingerprints.caller_BA56_BA9C -ne 'B779AC48' -or
+        $ClaimantBridge.fingerprints.settlement_B87C_B8F5 -ne '9E2F1F28' -or
+        $ClaimantBridge.fingerprints.caller_prefix_B87C_B888 -ne 'E903D8F9' -or
+        $ClaimantBridge.fingerprints.claimant_context_B73E_B87B -ne '574FEE44' -or
+        $ClaimantBridge.fingerprints.toggle_9042_9053 -ne 'CE6C9466' -or
+        $ClaimantBridge.fingerprints.remap_B98B_B994 -ne '404311FE' -or
+        $ClaimantBridge.caller_predicates -notmatch '\$B8C1.*candidate != old \$0308' -or
+        $ClaimantBridge.caller_predicates -notmatch '\$B8CE.*\$04B0 bit \$10' -or
+        $ClaimantBridge.native_entrypoint -notmatch 'terminal miss claimant only' -or
+        $ClaimantBridge.native_entrypoint -notmatch 'scene_finish_shot/scene_finish_jump_miss' -or
+        $ClaimantBridge.typed_effects -notmatch '\$9042 X=9\.\.0 \$04B0 bit-\$10 XOR' -or
+        $ClaimantBridge.typed_effects -notmatch '\$B98B candidate remap' -or
+        $ClaimantBridge.diagnostic -notmatch 'TGPS-1.*TGLP-1.*console-only' -or
+        $ClaimantBridge.not_wired -notmatch 'generic/made/restart/tip/steal/foul/unproven recovery' -or
+        $ClaimantBridge.unsupported -notmatch '\$035A/\$035B mutation' -or
+        [bool]$ClaimantBridge.integration_is_additional_rom_claim) {
+        throw "Bank05 B87C claimant bridge provenance is incomplete."
+    }
 
     $HudLog = Join-Path $Scratch "gameplay-hud-assets.log"
     $HudRun = Invoke-Logged -Command $Executable -Arguments @(
@@ -1215,6 +1244,7 @@ try {
         "cpu-target-deferred",
         "cpu-source-shot",
         "shot-path",
+        "claimant-settlement",
         "defensive-foul-presentation"
     )
     New-Item -ItemType Directory -Force -Path $ProofRoot | Out-Null
@@ -1294,6 +1324,57 @@ try {
                  [int]$State.action_serial -ne 1 -or
                  [int]$State.shot_frame -lt 1)) {
                 throw "LIVE proof shot event did not retain exact-once playback state."
+            }
+            if ($Event -eq "claimant-settlement") {
+                $Claimant = $State.claimant_settlement
+                $Transaction = $Claimant.transaction
+                $Fixture = $Claimant.fixture
+                if (![bool]$Claimant.emitted -or
+                    [bool]$Claimant.direct_handoff_injection -or
+                    $Claimant.entrypoint -ne
+                        "tecmo_gameplay_scene_update/normal-B-miss" -or
+                    $Claimant.asm -notmatch 'Bank05:\$BA56-\$BA9C' -or
+                    $Claimant.asm -notmatch '\$B87C-\$B98A' -or
+                    $Claimant.asm -notmatch '\$9042' -or
+                    [int]$Claimant.event_serial -le 0 -or
+                    [int]$Claimant.updates -le 0 -or
+                    $null -eq $Fixture -or
+                    ![bool]$Fixture.starts_from_native_pretip_handoff -or
+                    [int]$Fixture.shooting_actor -lt 0 -or
+                    [int]$Fixture.shooting_actor -ge 10 -or
+                    [int]$Fixture.claimant_actor -lt 0 -or
+                    [int]$Fixture.claimant_actor -ge 10 -or
+                    [int]$Fixture.shooting_actor -eq [int]$Fixture.claimant_actor -or
+                    [int]$Transaction.raw_0308_before -ne
+                        [int]$Fixture.shooting_actor -or
+                    [int]$Transaction.raw_0308_after -ne
+                        [int]$Fixture.claimant_actor -or
+                    ![bool]$Transaction.side_context_swapped -or
+                    ![bool]$Transaction.raw_04b0_bit10_toggled -or
+                    ![bool]$Transaction.raw_035a_save_and_toggle_observed -or
+                    [bool]$Transaction.automatic_defender_scan_ran -or
+                    [bool]$Transaction.automatic_defender_match_found -or
+                    $null -eq $Claimant.before -or $null -eq $Claimant.after -or
+                    $Claimant.before.contract -ne "TGPS-1" -or
+                    $Claimant.after.contract -ne "TGPS-1" -or
+                    [int]$Claimant.before.raw.'$0308' -ne
+                        [int]$Fixture.shooting_actor -or
+                    [int]$Claimant.after.raw.'$0308' -ne
+                        [int]$Fixture.claimant_actor -or
+                    [int]$Claimant.before.semantic.scene_possession -eq
+                        [int]$Claimant.after.semantic.scene_possession -or
+                    [int]$Claimant.after.semantic.ball_holder -ne
+                        [int]$Fixture.claimant_actor -or
+                    ![bool]$Claimant.after.semantic.live_synchronized -or
+                    ((@($Claimant.before.raw.'$030C_$030D') -join ',') -ne
+                        '0,0') -or
+                    @($Claimant.before.raw.'$04B0_bit10_flags').Count -ne 10 -or
+                    @($Claimant.after.raw.'$0547_$0551_stream_offset').Count -ne 10 -or
+                    @($Claimant.after.raw.'$057C').Count -ne 10) {
+                    throw "LIVE proof claimant settlement trace/source-state contract regressed."
+                }
+            } elseif ([bool]$State.claimant_settlement.emitted) {
+                throw "Non-claimant LIVE proof event unexpectedly emitted Bank05 B87C diagnostics."
             }
             if ($Event -eq "cpu-source-shot") {
                 $CpuSourceShot = $State.cpu_source_shot
@@ -1477,6 +1558,7 @@ try {
             "cpu-target-deferred: deterministic source-offset fixture"
             "cpu-source-shot: Bank04 target+wait fixture through formation refresh and CPU shot gate"
             "shot-path: deterministic supported close-shot fixture"
+            "claimant-settlement: native pre-tip handoff then deterministic coordinate/frame fixture, normal controller-B miss and production terminal claimant handoff (no direct claimant/phase/possession injection)"
             "defensive-foul-presentation: real PRETIP/live handoff, optional human A switch, human defensive-B, then neutral capture at TGVR visible group 1"
         )
         repeat_count = 2
@@ -2045,7 +2127,7 @@ try {
         [byte][char]'x'
     [IO.File]::WriteAllBytes($MissingResolutionPath, $MissingResolution)
     Assert-SceneRejected -AssetPack $MissingResolutionPath `
-        -Label "missing-shot-resolution" -ExpectedStatus "TGSR-3"
+        -Label "missing-shot-resolution" -ExpectedStatus "TGSR-4"
 
     $MalformedResolutionPath = Join-Path $Scratch "malformed-shot-resolution.assetpack"
     $MalformedResolution = [byte[]]$PackBytes.Clone()
@@ -2054,16 +2136,16 @@ try {
         $MalformedResolution[$ResolutionOffset] -bxor 1
     [IO.File]::WriteAllBytes($MalformedResolutionPath, $MalformedResolution)
     Assert-SceneRejected -AssetPack $MalformedResolutionPath `
-        -Label "malformed-shot-resolution" -ExpectedStatus "TGSR-3"
+        -Label "malformed-shot-resolution" -ExpectedStatus "TGSR-4"
 
     $OversizedResolutionPath = Join-Path $Scratch "oversized-shot-resolution.assetpack"
     $OversizedResolution = [byte[]]$PackBytes.Clone()
-    [BitConverter]::GetBytes([uint64]513).CopyTo(
+    [BitConverter]::GetBytes([uint64]609).CopyTo(
         $OversizedResolution,
         [int]$Entries["gameplay/shot-resolution"].directory_offset + 92)
     [IO.File]::WriteAllBytes($OversizedResolutionPath, $OversizedResolution)
     Assert-SceneRejected -AssetPack $OversizedResolutionPath `
-        -Label "oversized-shot-resolution" -ExpectedStatus "TGSR-3"
+        -Label "oversized-shot-resolution" -ExpectedStatus "TGSR-4"
 
     $WrongResolutionPath = Join-Path $Scratch "wrong-revision-shot-resolution.assetpack"
     $WrongResolution = [byte[]]$PackBytes.Clone()
@@ -2071,7 +2153,7 @@ try {
         $WrongResolution[$ResolutionOffset + 80] -bxor 1
     [IO.File]::WriteAllBytes($WrongResolutionPath, $WrongResolution)
     Assert-SceneRejected -AssetPack $WrongResolutionPath `
-        -Label "wrong-revision-shot-resolution" -ExpectedStatus "TGSR-3"
+        -Label "wrong-revision-shot-resolution" -ExpectedStatus "TGSR-4"
 
     $CrossPackResolutionPath = Join-Path $Scratch "cross-pack-shot-resolution.assetpack"
     $CrossPackResolution = [byte[]]$PackBytes.Clone()
@@ -2080,7 +2162,7 @@ try {
         $CrossPackResolution[$CoreOffset + 128] -bxor 1
     [IO.File]::WriteAllBytes($CrossPackResolutionPath, $CrossPackResolution)
     Assert-SceneRejected -AssetPack $CrossPackResolutionPath `
-        -Label "cross-pack-shot-resolution" -ExpectedStatus "TGSR-3"
+        -Label "cross-pack-shot-resolution" -ExpectedStatus "TGSR-4"
 
     $OversizedPath = Join-Path $Scratch "oversized-core.assetpack"
     $Oversized = [byte[]]$PackBytes.Clone()
@@ -2474,7 +2556,7 @@ try {
 
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
-        "scene controls THUD-1 clean jersey/name HUD TGMO-1 human/CPU walking poses TGBD-1 held-ball bounce/sound TGFT-1 fatigue TPNL-1 out-of-bounds settlement TGBC-1 live backcourt settlement TGVR-1 native violation referee TGAI-1/TGMO-1 transactional ordinary CPU movement TGCP-2 full-world camera fine-scroll guarded-margins actor-camera-projection/possession-slice-render/freeze TGFL-1 orientation-lineup TGOR two-basket shot ownership TGDK TGJS TGSR-3 jump entry/turn/release/flight poses jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
+        "scene controls THUD-1 clean jersey/name HUD TGMO-1 human/CPU walking poses TGBD-1 held-ball bounce/sound TGFT-1 fatigue TPNL-1 out-of-bounds settlement TGBC-1 live backcourt settlement TGVR-1 native violation referee TGAI-1/TGMO-1 transactional ordinary CPU movement TGCP-2 full-world camera fine-scroll guarded-margins actor-camera-projection/possession-slice-render/freeze TGFL-1 orientation-lineup TGOR two-basket shot ownership TGDK TGJS TGSR-4 jump entry/turn/release/flight poses jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
         "halftime/final render-hashes/determinism missing malformed oversized " +
         "dependency-corrupt chr-mismatch")
     $ProofSummary = ("LIVE PROOF {0}: root={1} manifest={2} native_videos=2 frames={3} contact_sheet=1920x{4}" -f

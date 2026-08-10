@@ -8,6 +8,12 @@ static const uint8_t live_fixed_link[
     5U, 6U, 7U, 8U, 9U, 0U, 1U, 2U, 3U, 4U
 };
 
+/* Bank05 $B98B: receiver/candidate remap used by $B95A/$B96D. */
+static const uint8_t live_b87c_candidate_remap[
+    TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT] = {
+    1U, 2U, 3U, 4U, 0U, 6U, 7U, 8U, 9U, 5U
+};
+
 /* These adapter observation counters are not gameplay timers.  They use an
    explicit modulo-2^32 contract so a long-running session does not acquire a
    periodic failure at UINT32_MAX.  The accepted CPU play state separately
@@ -43,6 +49,30 @@ static bool live_actor_team_valid(
                 TECMO_GAMEPLAY_CPU_STEERING_TEAM_ACTOR_COUNT
             ? 0U : 1U;
         if (actor_team[actor] != expected) return false;
+    }
+    return true;
+}
+
+/* LIVE owns only Bank05's $04B0 bit-$10 selector predicate. Rejecting any
+ * other bit keeps the typed mirror from pretending it carries the rest of
+ * the opaque object flag byte. The generic synchronizer establishes the
+ * current-side/other-side relationship before a claimant transaction. */
+static bool live_selector_flags_valid(
+    const TecmoGameplayLiveFoundation *foundation)
+{
+    size_t actor;
+    if (foundation == NULL || foundation->last_possession >=
+            TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT) {
+        return false;
+    }
+    for (actor = 0U;
+         actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
+        uint8_t expected = foundation->actor_team[actor] ==
+                foundation->last_possession
+            ? 0U : 0x10U;
+        if (foundation->actor_selector_flags[actor] != expected) {
+            return false;
+        }
     }
     return true;
 }
@@ -209,12 +239,16 @@ static bool live_play_state_valid(
         foundation->offense_side >= TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT ||
         foundation->defense_side >= TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT ||
         foundation->offense_side == foundation->defense_side ||
+        foundation->offense_side != foundation->last_possession ||
+        foundation->defense_side !=
+            (uint8_t)(foundation->last_possession ^ 1U) ||
         foundation->static_primary_seed != 4U ||
         foundation->static_defender_seed != 9U ||
         foundation->last_possession >=
             TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT ||
         foundation->initialization_serial == 0U ||
         !live_actor_team_valid(foundation->actor_team) ||
+        !live_selector_flags_valid(foundation) ||
         !live_actor_positions_valid(foundation->actor_position) ||
         foundation->play_state.matchup_seed[0U] != 2U ||
         foundation->play_state.matchup_seed[1U] != 7U ||
@@ -773,6 +807,132 @@ bool tecmo_gameplay_live_foundation_pass_handoff(
     candidate.sync_serial = live_serial_next(candidate.sync_serial);
     if (!live_play_state_valid(assets, &candidate)) return false;
     *foundation_io = candidate;
+    return true;
+}
+
+bool tecmo_gameplay_live_foundation_claimant_settlement(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t selected_claimant,
+    uint8_t resulting_possession,
+    TecmoGameplayLiveFoundation *foundation_io,
+    TecmoGameplayLiveClaimantSettlement *result_out)
+{
+    TecmoGameplayLiveFoundation candidate;
+    TecmoGameplayLiveClaimantSettlement result;
+    uint8_t old_primary;
+    uint8_t old_defender;
+    bool side_cross;
+    int actor;
+
+    if (assets == NULL || !assets->available || foundation_io == NULL ||
+        result_out == NULL ||
+        selected_claimant >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        resulting_possession >= TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT ||
+        !live_play_state_valid(assets, foundation_io) ||
+        foundation_io->first_sync_pending ||
+        foundation_io->actor_team[selected_claimant] !=
+            resulting_possession) {
+        return false;
+    }
+
+    candidate = *foundation_io;
+    old_primary = candidate.primary_actor;
+    old_defender = candidate.defender_actor;
+    side_cross = selected_claimant != old_primary &&
+        (candidate.actor_selector_flags[selected_claimant] & 0x10U) != 0U;
+
+    /* A no-toggle branch must retain the currently selected side. This is the
+       typed caller requirement corresponding to $B8C1-$B8C9 rather than an
+       inference from a generic possession reset. */
+    if ((!side_cross && resulting_possession != candidate.last_possession) ||
+        (side_cross && resulting_possession == candidate.last_possession)) {
+        return false;
+    }
+
+    memset(&result, 0, sizeof(result));
+    result.contract_tag = TECMO_GAMEPLAY_LIVE_CLAIMANT_SETTLEMENT_TAG;
+    result.raw_0308_before = old_primary;
+    result.raw_0309_before = old_defender;
+    result.raw_030a_before = candidate.offense_side;
+    result.raw_030b_before = candidate.defense_side;
+    result.candidate_replaced_primary = selected_claimant != old_primary;
+
+    /* $B87C saves $0308/$0309 before promoting $9C to $0308. LIVE's
+       prior_* fields are typed observations of those saved selections; the
+       later $1D action dispatch itself has no faithful LIVE owner. */
+    candidate.prior_selected_actor = old_primary;
+    candidate.prior_defender_actor = old_defender;
+    candidate.primary_actor = selected_claimant;
+    candidate.play_state.primary_actor = selected_claimant;
+    candidate.last_ball_holder = selected_claimant;
+
+    /* Exact $B8C1-$B8F5 predicate/order: only a different candidate whose
+       current $04B0 bit-$10 is set turns over side context. $9042 then loops
+       X=9..0 and EORs bit-$10 for every slot. $035A->$035B/EOR #1 is observed
+       at $B8D8-$B8E0 but has no typed C owner, so it is recorded only. */
+    if (side_cross) {
+        uint8_t saved_offense = candidate.offense_side;
+        candidate.defender_actor = old_primary;
+        candidate.play_state.defender_actor = old_primary;
+        candidate.last_possession = resulting_possession;
+        candidate.offense_side = candidate.defense_side;
+        candidate.defense_side = saved_offense;
+        for (actor = 0;
+             actor < (int)TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
+            candidate.actor_selector_flags[actor] ^= 0x10U;
+        }
+        result.side_context_swapped = true;
+        result.raw_04b0_bit10_toggled = true;
+        result.raw_035a_save_and_toggle_observed = true;
+    }
+
+    /* $B8F6-$B918 runs only when $030C[$030B] is nonzero. The exact scan is
+       descending 9..0 and tests *only* $04B0 bit-$10 plus $06CB==$0308;
+       defender_eligible is a separate legacy adapter and is intentionally not
+       consulted here. No match leaves the existing $0309 selection intact. */
+    if (candidate.control_mode[candidate.defense_side] != 0U) {
+        result.automatic_defender_scan_ran = true;
+        for (actor = (int)TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT - 1;
+             actor >= 0; --actor) {
+            if ((candidate.actor_selector_flags[actor] & 0x10U) != 0U &&
+                candidate.dynamic_link[actor] == selected_claimant) {
+                candidate.defender_actor = (uint8_t)actor;
+                candidate.play_state.defender_actor = (uint8_t)actor;
+                result.automatic_defender_match_found = true;
+                break;
+            }
+        }
+    }
+
+    /* $B928/$B94F update the selected side and $B95A uses the exact $B98B
+       remap. $B93B-$B95E writes stream $007D and state $04 only for automatic
+       offense. No actor state/stream reset is invented for human offense. */
+    candidate.selected_actor_by_side[candidate.offense_side] =
+        selected_claimant;
+    candidate.candidate_actor_by_side[candidate.offense_side] =
+        live_b87c_candidate_remap[selected_claimant];
+    if (candidate.control_mode[candidate.offense_side] != 0U) {
+        candidate.play_state.stream_offset[selected_claimant] = 0x007DU;
+        candidate.play_state.actor_state[selected_claimant] = 0x04U;
+        candidate.last_step_offset[selected_claimant] = 0x007DU;
+    }
+    candidate.selected_actor_by_side[candidate.defense_side] =
+        candidate.defender_actor;
+    candidate.selected_defender_handoff_active =
+        candidate.control_mode[candidate.defense_side] != 0U;
+
+    /* sync_serial is a LIVE adapter observation counter, not a source timer.
+       It gives opt-in diagnostics a stable transaction edge without changing
+       gameplay timing or claiming a $B87C byte owner for the counter. */
+    candidate.sync_serial = live_serial_next(candidate.sync_serial);
+    result.raw_0308_after = candidate.primary_actor;
+    result.raw_0309_after = candidate.defender_actor;
+    result.raw_030a_after = candidate.offense_side;
+    result.raw_030b_after = candidate.defense_side;
+
+    if (!live_play_state_valid(assets, &candidate)) return false;
+    *foundation_io = candidate;
+    *result_out = result;
     return true;
 }
 

@@ -32,6 +32,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-state-test   Run deterministic gameplay clock/rules/shot-state checks\n");
     printf("  --gameplay-candidate-selection-test  Validate Bank06 B081/B183 receiver/defender selectors\n");
     printf("  --gameplay-scene-test PACK  Run native gameplay launch/input/shot checks\n");
+    printf("  --gameplay-live-foundation-proof PACK EVENT PNG  Emit deterministic opt-in LIVE JSONL/screenshot proof (including claimant-settlement)\n");
     printf("  --gameplay-pretip-human-checkpoint PACK  Run deterministic held-B source-clocked tip handoff\n");
     printf("  --tipoff-regression-trace PACK DIR  Render continuous multi-input/matchup tip-off regression proof\n");
     printf("  --gameplay-pretip-test PACK  Validate strict TPTI-2 pre-tip assets/state\n");
@@ -59,7 +60,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-close-shots-test PACK  Validate strict TGCS-1 close-shot assets\n");
     printf("  --gameplay-dunk-cutaway-test PACK  Validate strict TGDK-1 dunk presentation assets\n");
     printf("  --gameplay-jump-shots-test PACK  Validate strict TGJS-2 jump-shot assets\n");
-    printf("  --gameplay-shot-resolution-test PACK  Validate strict TGSR-3 shot-resolution assets\n");
+    printf("  --gameplay-shot-resolution-test PACK  Validate strict TGSR-4 shot-resolution assets\n");
     printf("  --gameplay-penalties-test PACK  Validate strict TPNL-1 penalty rules\n");
     printf("  --gameplay-violation-referee-test PACK [ROM]  Validate strict TGVR-1 referee cutaway and optional Rev1 source\n");
     printf("  --gameplay-free-throw-lineup-test PACK  Validate strict TGFL-1 raw lineup assets\n");

@@ -904,12 +904,12 @@ The compound scene strictly loads TGPL-1 `gameplay/core` (23416 bytes,
 `gameplay/camera-projection` (1536 bytes, `53247856`), TGMO-1
 `gameplay/movement` (1664 bytes, `6C82A137`), TGAI-1
 `gameplay/cpu-steering` (7616 bytes, `D6C4DB35`), TGOR-1
-`gameplay/court-orientation` (640 bytes, `F9152C0A`), THUD-1
+`gameplay/court-orientation` (640 bytes, `44B0C44E`), THUD-1
 `gameplay/hud` (864 bytes, `3D13AA89`), TGCS-1
 `gameplay/close-shots` (3144 bytes, `DACDC976`), TGDK-1
 `gameplay/dunk-cutaway` (20272 bytes, `E02F2D21`), TGJS-2
-`gameplay/jump-shots` (2776 bytes, `A66EE873`), TGSR-3
-`gameplay/shot-resolution` (512 bytes, `164DC568`), TMUS-1 `audio/music`,
+`gameplay/jump-shots` (2776 bytes, `A66EE873`), TGSR-4
+`gameplay/shot-resolution` (608 bytes, `5376E82B`), TMUS-1 `audio/music`,
 TSFX-1, TDMC-1, and the exact `chr/all` revision from one asset-pack path. Exact-size
 reads, payload/CHR fingerprints, deep indexes, reserved bytes, and source-map
 provenance are hard requirements. Missing, malformed, oversized,
@@ -1011,7 +1011,7 @@ held/airborne/recovery states and Q8.8
 height/velocity both begin at `$02E8`; height clamps on frame 40 and actor
 recovery ends at frame 46 while the ball route remains active through
 settlement at frame 87. There is no release DMC; the route-10 ground/bounce conditions
-gate `$B5AB` at frame 75. TGSR-3 classifies the TGJS terminal flag's set bit 7
+gate `$B5AB` at frame 75. TGSR-4 classifies the TGJS terminal flag's set bit 7
 as MISS and supplies the non-current, other-team claimant handler/possession
 decision. Frame 87 awards zero points, queues crowd 11 and then side result
 12/13 only while the clock is later than 0:01, and hands possession to an
@@ -1024,7 +1024,7 @@ through frames 1-8 and releases at 9. The already-selected entry pose 325
 1061 (`$084A`) at 9, 213 (`$01AA`) through flight, and neutral 469 (`$03AA`).
 Prepared phases
 `31/21/11/01/32/22/12/02` occupy frames 10-17, held phase 34 is frame 18, and
-TGSR-3 classifies `$91BC->$933B->$942D`'s terminal bit-clear as MAKE at frame
+TGSR-4 classifies `$91BC->$933B->$942D`'s terminal bit-clear as MAKE at frame
 19. Q8.8 flight begins at 20 from velocity `$0308` under imported gravity
 `$0028`. Native uninterrupted physics lands at frame 57, uses recovery phases
 `56/46/36/26/16/06` through frame 62, and returns to neutral at 63. The
@@ -1064,16 +1064,21 @@ composition with the shorter miss route and horizontal mirroring remains
 explicit native policy. Runtime still consumes only the validated asset pack;
 ASM and captures are verification inputs, never runtime dependencies.
 
-TGSR-3 is 512 bytes with FNV1a32 `164DC568` and FNV1a64
-`5C5170460C8305A8`. Its importer revision-locks Bank05 `$91BC-$943A`
+TGSR-4 is 608 bytes with FNV1a32 `5376E82B` and FNV1a64
+`FACCE42B52382D6B`. Its importer revision-locks Bank05 `$91BC-$943A`
 (outcome calculation/bit helpers), `$A6EE-$A9D9` (numeric rim dispatch),
-`$B73E-$B87B` (claimant scan/proximity), and `$B87C-$B8F5` (claimant-driven
-settlement). Runtime requires its exact same-pack TGPL-1 dependency. Missing,
+`$B73E-$B87B` (claimant scan/proximity), `$B87C-$B8F5` (claimant-driven
+settlement), `$BA56-$BA9C` (full incoming caller gates; FNV1a32 `B779AC48`,
+FNV1a64 `367ED7AC43F1ACA8`), `$9042-$9053` (selector toggle;
+`CE6C9466`/`EC5906B34DC6D566`), and `$B98B-$B994` (candidate remap table;
+`404311FE`/`7CCF6AAD4241C4FE`) as explicit strict source descriptors. The
+previous `35FB80C4` was only `$BA65-$BA9C`, not the claimed full caller span.
+Runtime requires its exact same-pack TGPL-1 dependency. Missing,
 malformed, undersized/oversized, wrong-revision, or cross-pack TGSR data rejects
 the scene before it becomes available; no capture, trace, ASM, decompilation,
 or ROM is a runtime input.
 
-TGSR-3 also carries the exact 124-byte Bank05 `$BEEF-$BF6A` arc boundary
+TGSR-4 also carries the exact 124-byte Bank05 `$BEEF-$BF6A` arc boundary
 table (FNV1a32 `9EF1061B`, FNV1a64 `E8A0728513DD8BDB`). Its pure C API
 reproduces `$B995` point classification: nonzero shot-flag low bits yield 1;
 otherwise raw world X/Y and orientation 0/1 yield 2 or 3 through the original
@@ -1090,7 +1095,7 @@ matchups, and X/Y; ratings, property, motion, condition, difficulty, CPU
 adjustment, scores, and raw `$6A/$53`. Those inputs are unavailable, so the
 selector remains approximate and is not wired.
 
-TGSR-3 retains the exact state-`$15` rim-rattle contract in metadata bytes
+TGSR-4 retains the exact state-`$15` rim-rattle contract in metadata bytes
 29..63. It carries state
 `$15`, orientation starts `$009D/$0263`, Y `$93`, horizontal magnitude
 `$0040`, altitude `$38`, timer 4, the one-to-four-pass derivation, repeat DMC
@@ -1099,11 +1104,11 @@ render-script addresses. Those addresses are source selection identities, not
 literal sprite or CHR IDs. The native state API saves incoming velocity, moves
 one coordinate per update, reverses after each four-update nonterminal pass,
 requests address-bound A8D6-short on each repeat, and restores velocity at the
-terminal boundary. Four primary plus four focused provenance spans cover
+terminal boundary. Seven primary plus four focused provenance spans cover
 `$A2DF-$A2F7`, `$AD4E-$AD64`, `$BDF3-$BDF6`, and `$BEEF-$BF6A`
 in addition to the primary
 sources. The mapper obtains launch-target X from required same-pack TGCS-1
-`$BDEF-$BDF6` and cross-checks the snap bytes against TGSR-3; `$AD4E-$AD64`
+`$BDEF-$BDF6` and cross-checks the snap bytes against TGSR-4; `$AD4E-$AD64`
 proves the BDEF/BDF1 loads and target Y `$8F`. The terminal convergence
 remains conditional: nonzero `$036F`
 or raw `$6A >= $18` enters `$A8E9`; the other branch requests the long A8D6
@@ -1153,8 +1158,8 @@ prove the distinct ROM groups 3, 4, and 5; later checked frames retain group 5.
 This path remains limited to TGMO's documented boundary latch.
 
 TGBC-1 adds the separate strict live backcourt detector. Its 512-byte payload
-(`2C7BAF1D`) imports Bank05 `$970B-$9786` (`C137674F`), pins the complete Rev1
-ROM identity, and requires exact same-pack TGOR-1 (`F9152C0A`) and TPNL-1
+(`810886EF`) imports Bank05 `$970B-$9786` (`C137674F`), pins the complete Rev1
+ROM identity, and requires exact same-pack TGOR-1 (`44B0C44E`) and TPNL-1
 (`980DDC76`). `$971F-$9786` is implemented exactly for ordinary object state
 zero: `$0588` bit 4 records frontcourt progress, orientation 0 establishes at
 ball X `<=375` and returns at X `>=386`, orientation 1 establishes at X `>=392`
@@ -1215,8 +1220,8 @@ coverage.
 
 TGOR-1 `gameplay/court-orientation` closes the strict binary offensive-
 direction ownership slice and is loaded by `TecmoGameplayScene`. Its 640-byte
-payload has FNV1a32 `F9152C0A`, requires exact same-pack TGPL-1
-(`2047CCE0`) and TGSR-3 (`164DC568`), and revision-locks Bank05
+payload has FNV1a32 `44B0C44E`, requires exact same-pack TGPL-1
+(`2047CCE0`) and TGSR-4 (`5376E82B`), and revision-locks Bank05
 `$8FAD-$8FE7` (`7C94E5EA`) as the possession transition gate-and-swap,
 `$9042-$9053` (`CE6C9466`) as the slots-0..9 `$04B0` bit-`$10` toggle plus
 queue-`$17` operation, `$9054-$90AF` (`FE092D62`) as the absolute target-
@@ -1236,7 +1241,7 @@ back. TGCT-1 stays in its canonical left-to-right orientation.
 The same-pack TGPL-1 cross-check at fixed `$E537-$E548` is presentation
 selection evidence only: it derives `$0758` from `$04FC` bit 7, the slot-10
 horizontal-velocity high byte/sign, and uses IDs `$1B/$2E` from
-`$E699-$E69A`. It does not own orientation. TGSR-3 `$B87C-$B8F5` is a
+`$E699-$E69A`. It does not own orientation. TGSR-4 `$B87C-$B8F5` is a
 conditional alternate claimant-settlement path rather than a universal post-
 shot path. `$035B` is save-before-toggle evidence only and has no direct
 reads. The only direct `$035A` stores are `$8FC4` and `$B8E0`; broad

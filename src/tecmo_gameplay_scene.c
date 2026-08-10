@@ -428,7 +428,7 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
     }
     scene->available = true;
     scene_set_status(scene,
-                     "native gameplay ready: TPTI-2/TGPL-1/TTDT-1/TWAR-1/TMUS-1/TGCT-1/TGCP-2/TGMO-1/TGBD-1/TGAI-1/TGFT-1/TPNL-1/TGVR-1/TGOR-1/TGFL-1/THUD-1/TGCS-1/TGDK-1/TGJS-2/TGSR-3/TSFX-1/TDMC-1");
+                     "native gameplay ready: TPTI-2/TGPL-1/TTDT-1/TWAR-1/TMUS-1/TGCT-1/TGCP-2/TGMO-1/TGBD-1/TGAI-1/TGFT-1/TPNL-1/TGVR-1/TGOR-1/TGFL-1/THUD-1/TGCS-1/TGDK-1/TGJS-2/TGSR-4/TSFX-1/TDMC-1");
     return true;
 }
 
@@ -938,6 +938,8 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
     scene->free_throw_frame = 0U;
     memset(&scene->foul_presentation, 0,
            sizeof(scene->foul_presentation));
+    memset(&scene->claimant_settlement_trace, 0,
+           sizeof(scene->claimant_settlement_trace));
     scene_clear_free_throw_lineup_binding(scene);
     scene->previous_phase = scene->state.phase;
     scene->pretip_abort_pending = false;
@@ -2223,6 +2225,58 @@ bool tecmo_gameplay_scene_result(const TecmoGameplayScene *scene,
         return false;
     }
     *result = scene->result;
+    return true;
+}
+
+bool tecmo_gameplay_scene_possession_trace_snapshot(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayScenePossessionTraceSnapshot *snapshot_out)
+{
+    const TecmoGameplayLiveFoundation *live;
+    TecmoGameplayScenePossessionTraceSnapshot candidate;
+    if (scene == NULL || snapshot_out == NULL ||
+        scene->lifecycle_tag != TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG ||
+        !scene->available ||
+        !tecmo_gameplay_live_foundation_valid(
+            &scene->cpu_steering_assets, &scene->live_foundation)) {
+        return false;
+    }
+    live = &scene->live_foundation;
+    memset(&candidate, 0, sizeof(candidate));
+    candidate.contract_tag = TECMO_GAMEPLAY_SCENE_POSSESSION_TRACE_TAG;
+    candidate.sync_serial = live->sync_serial;
+    candidate.raw_0308_primary_actor = live->primary_actor;
+    candidate.raw_0309_defender_actor = live->defender_actor;
+    candidate.raw_030a_offense_side = live->offense_side;
+    candidate.raw_030b_defense_side = live->defense_side;
+    memcpy(candidate.raw_030c_030d_control_mode, live->control_mode,
+           sizeof(candidate.raw_030c_030d_control_mode));
+    memcpy(candidate.raw_000e_000f_selected_actor,
+           live->selected_actor_by_side,
+           sizeof(candidate.raw_000e_000f_selected_actor));
+    memcpy(candidate.raw_037f_0380_candidate_actor,
+           live->candidate_actor_by_side,
+           sizeof(candidate.raw_037f_0380_candidate_actor));
+    memcpy(candidate.raw_04b0_selector_flags,
+           live->actor_selector_flags,
+           sizeof(candidate.raw_04b0_selector_flags));
+    memcpy(candidate.raw_06cb_dynamic_link, live->dynamic_link,
+           sizeof(candidate.raw_06cb_dynamic_link));
+    memcpy(candidate.raw_0547_0551_stream_offset,
+           live->play_state.stream_offset,
+           sizeof(candidate.raw_0547_0551_stream_offset));
+    memcpy(candidate.raw_057c_actor_state,
+           live->play_state.actor_state,
+           sizeof(candidate.raw_057c_actor_state));
+    candidate.semantic_scene_possession = (uint8_t)scene->state.possession;
+    candidate.semantic_ball_holder = scene->ball_holder;
+    candidate.semantic_live_last_possession = live->last_possession;
+    candidate.semantic_live_last_ball_holder = live->last_ball_holder;
+    candidate.semantic_live_synchronized =
+        !live->first_sync_pending && live->sync_serial != 0U &&
+        live->primary_actor == scene->ball_holder &&
+        live->last_possession == (uint8_t)scene->state.possession;
+    *snapshot_out = candidate;
     return true;
 }
 

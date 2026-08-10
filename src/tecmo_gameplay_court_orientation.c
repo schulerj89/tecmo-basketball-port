@@ -337,7 +337,7 @@ bool tecmo_gameplay_court_orientation_parse(
                                   shot_resolution_size)) {
         return reject(
             assets,
-            "TGOR-1 same-pack TGPL-1/TGSR-3 dependency contract rejected");
+            "TGOR-1 same-pack TGPL-1/TGSR-4 dependency contract rejected");
     }
     storage = (uint8_t *)malloc(payload_size);
     if (storage == NULL) {

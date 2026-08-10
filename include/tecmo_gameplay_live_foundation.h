@@ -14,8 +14,36 @@
  * about the incomplete ROM dynamic candidate vector.
  */
 #define TECMO_GAMEPLAY_LIVE_FOUNDATION_TAG 0x4C564631U
+#define TECMO_GAMEPLAY_LIVE_CLAIMANT_SETTLEMENT_TAG 0x4C435331U
 #define TECMO_GAMEPLAY_LIVE_FOUNDATION_FORMATION_PINNED_LIMIT \
     TECMO_GAMEPLAY_CPU_STEERING_FORMATION_SOURCE_PINNED_COUNT
+
+/*
+ * Typed observation of the bounded Bank05 $B87C-$B98A claimant settlement.
+ * The raw labels identify the source-owned state slots; the booleans record
+ * only branches proven by this routine. They do not attach a rebound, steal,
+ * foul, or statistic label to the claimant.
+ */
+typedef struct TecmoGameplayLiveClaimantSettlement {
+    uint32_t contract_tag;
+    uint8_t raw_0308_before;
+    uint8_t raw_0309_before;
+    uint8_t raw_030a_before;
+    uint8_t raw_030b_before;
+    uint8_t raw_0308_after;
+    uint8_t raw_0309_after;
+    uint8_t raw_030a_after;
+    uint8_t raw_030b_after;
+    bool candidate_replaced_primary;
+    bool side_context_swapped;
+    bool raw_04b0_bit10_toggled;
+    bool automatic_defender_scan_ran;
+    bool automatic_defender_match_found;
+    /* $035A is saved to $035B and toggled only on the side-cross branch.
+       LIVE has no faithful typed owner for either address, so this remains an
+       observation rather than a native mutation. */
+    bool raw_035a_save_and_toggle_observed;
+} TecmoGameplayLiveClaimantSettlement;
 
 typedef struct TecmoGameplayLiveFoundation {
     uint32_t contract_tag;
@@ -136,6 +164,19 @@ bool tecmo_gameplay_live_foundation_pass_handoff(
     const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t new_selected_actor,
     TecmoGameplayLiveFoundation *foundation_io);
+
+/* Bounded Bank05 $B87C-$B98A claimant settlement, callable only after a
+ * caller has already established a selected claimant and its resulting scene
+ * possession. It is deliberately distinct from generic possession handoff:
+ * makes, period restarts, tip-offs, steals, fouls, and unproven recovery paths
+ * must not call it. On failure the caller-owned foundation and result output
+ * remain unchanged. */
+bool tecmo_gameplay_live_foundation_claimant_settlement(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t selected_claimant,
+    uint8_t resulting_possession,
+    TecmoGameplayLiveFoundation *foundation_io,
+    TecmoGameplayLiveClaimantSettlement *result_out);
 
 /* One accepted source play step. Caller commits foundation_io only as part
  * of its larger scene candidate transaction. */
