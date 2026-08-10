@@ -775,6 +775,50 @@ static uint8_t faded_color(uint8_t color, uint8_t brightness)
     return original;
 }
 
+static bool foul_overlay_valid(
+    const TecmoGameplayViolationRefereeFoulOverlay *overlay,
+    size_t chr_size)
+{
+    size_t index;
+    if (overlay == NULL) return true;
+    if (overlay->cell_count >
+        TECMO_GAMEPLAY_VIOLATION_REFEREE_MAX_FOUL_OVERLAY_CELLS) {
+        return false;
+    }
+    for (index = 0U; index < overlay->cell_count; ++index) {
+        const TecmoGameplayViolationRefereeOverlayCell *item =
+            &overlay->cells[index];
+        size_t previous;
+        if (item->ppu_address < 0x2000U ||
+            (size_t)(item->ppu_address - 0x2000U) >= 960U ||
+            item->chr_offset > chr_size || chr_size - item->chr_offset < 16U) {
+            return false;
+        }
+        for (previous = 0U; previous < index; ++previous) {
+            if (overlay->cells[previous].ppu_address == item->ppu_address) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+static const TecmoGameplayViolationRefereeOverlayCell *
+foul_overlay_cell_at(const TecmoGameplayViolationRefereeFoulOverlay *overlay,
+                     size_t screen_offset)
+{
+    size_t index;
+    if (overlay == NULL) return NULL;
+    for (index = 0U; index < overlay->cell_count; ++index) {
+        const TecmoGameplayViolationRefereeOverlayCell *item =
+            &overlay->cells[index];
+        if ((size_t)(item->ppu_address - 0x2000U) == screen_offset) {
+            return item;
+        }
+    }
+    return NULL;
+}
+
 static bool draw_referee_presentation(
     const TecmoGameplayViolationRefereeAssets *assets,
     const uint8_t *chr,
@@ -784,6 +828,7 @@ static bool draw_referee_presentation(
     int origin_y,
     int scale,
     const TecmoGameplayViolationRefereeMessage *message,
+    const TecmoGameplayViolationRefereeFoulOverlay *foul_overlay,
     uint8_t sequence_id,
     uint16_t presentation_frames,
     uint16_t phase_frame)
@@ -797,6 +842,7 @@ static bool draw_referee_presentation(
         chr_size != TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_CHR_SIZE ||
         fnv1a32(chr, chr_size) != assets->chr_fingerprint ||
         !framebuffer_valid(framebuffer, origin_x, origin_y, scale) ||
+        !foul_overlay_valid(foul_overlay, chr_size) ||
         !group_for_sequence_frame(
             assets, sequence_id, presentation_frames,
             phase_frame, &group_id)) {
@@ -829,6 +875,7 @@ static bool draw_referee_presentation(
         size_t column = cell % 32U;
         size_t attribute_offset = 960U + (row / 4U) * 8U + column / 4U;
         uint8_t tile = assets->decoded_screen[cell];
+        const TecmoGameplayViolationRefereeOverlayCell *overlay_cell;
         uint8_t palette_index;
         uint8_t selector;
         size_t chr_offset;
@@ -838,13 +885,18 @@ static bool draw_referee_presentation(
             cell < message_offset + message->tile_count) {
             tile = message->tiles[cell - message_offset];
         }
+        overlay_cell = foul_overlay_cell_at(foul_overlay, cell);
         palette_index = tecmo_nes_attribute_palette_index(
             assets->decoded_screen[attribute_offset],
             (int)row, (int)column);
         if (palette_index > 3U) return false;
-        selector = assets->background_chr_selectors[(tile >> 7U) & 1U];
-        chr_offset = (size_t)selector * 1024U +
-                     (size_t)(tile & 0x7FU) * 16U;
+        if (overlay_cell != NULL) {
+            chr_offset = overlay_cell->chr_offset;
+        } else {
+            selector = assets->background_chr_selectors[(tile >> 7U) & 1U];
+            chr_offset = (size_t)selector * 1024U +
+                         (size_t)(tile & 0x7FU) * 16U;
+        }
         if (chr_offset + 16U > chr_size) return false;
         for (color = 1U; color < 4U; ++color) {
             palette[color] = tecmo_nes_2c02_rgba(faded_color(
@@ -921,7 +973,7 @@ bool tecmo_gameplay_violation_referee_draw(
     if (message == NULL) return false;
     return draw_referee_presentation(
         assets, chr, chr_size, framebuffer, origin_x, origin_y, scale,
-        message, message->sequence_id,
+        message, NULL, message->sequence_id,
         TECMO_GAMEPLAY_VIOLATION_PRESENTATION_FRAMES, phase_frame);
 }
 
@@ -935,13 +987,26 @@ bool tecmo_gameplay_violation_referee_draw_foul(
     int scale,
     uint16_t phase_frame)
 {
-    /* $B0F8 supplies the context-sensitive foul text in the original. The
-       native state does not yet preserve that text payload, so retain the
-       source screen and Bank04 selector-0 sprite sequence without inventing
-       a type/name overlay. */
+    return tecmo_gameplay_violation_referee_draw_foul_overlay(
+        assets, chr, chr_size, framebuffer, origin_x, origin_y, scale,
+        NULL, phase_frame);
+}
+
+bool tecmo_gameplay_violation_referee_draw_foul_overlay(
+    const TecmoGameplayViolationRefereeAssets *assets,
+    const uint8_t *chr,
+    size_t chr_size,
+    TecmoFramebuffer *framebuffer,
+    int origin_x,
+    int origin_y,
+    int scale,
+    const TecmoGameplayViolationRefereeFoulOverlay *overlay,
+    uint16_t phase_frame)
+{
     return draw_referee_presentation(
         assets, chr, chr_size, framebuffer, origin_x, origin_y, scale,
-        NULL, 0U, TECMO_GAMEPLAY_FOUL_PRESENTATION_FRAMES, phase_frame);
+        NULL, overlay, 0U, TECMO_GAMEPLAY_FOUL_PRESENTATION_FRAMES,
+        phase_frame);
 }
 
 bool tecmo_gameplay_violation_referee_self_test(

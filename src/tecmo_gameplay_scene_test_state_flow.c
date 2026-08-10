@@ -3477,7 +3477,19 @@ static bool scene_test_foul_and_away_free_throws(
         scene->state.individual_fouls[TECMO_GAMEPLAY_TEAM_HOME]
             [home_defender_roster] != 1U ||
         scene->state.free_throws.attempts_remaining != 0U ||
-        scene->action_serial != 2U) {
+        scene->action_serial != 2U ||
+        !scene->foul_presentation.valid ||
+        scene->foul_presentation.fouling_team != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->foul_presentation.actor_index != scene->controlled_actor[1U] ||
+        scene->foul_presentation.roster_index != home_defender_roster ||
+        scene->foul_presentation.foul_class != TECMO_GAMEPLAY_FOUL_CLASS_PUSHING ||
+        scene->foul_presentation.individual_foul_delta != 1U ||
+        scene->foul_presentation.team_foul_delta != 1U ||
+        scene->foul_presentation.individual_fouls_after != 1U ||
+        scene->foul_presentation.team_fouls_after != 1U ||
+        scene->foul_presentation.free_throw_attempts != 0U ||
+        scene->foul_presentation.team_in_bonus ||
+        scene->foul_presentation.fouled_out) {
         tecmo_gameplay_scene_test_message(
             message, message_size,
             "ordinary live pushing foul did not preserve no-bonus consequences");
@@ -3501,7 +3513,7 @@ static bool scene_test_foul_and_away_free_throws(
         scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
         scene->state.free_throws.attempts_remaining != 0U ||
         scene->ball_holder != scene->controlled_actor[0U] ||
-        scene->action_serial != 2U) {
+        scene->action_serial != 2U || scene->foul_presentation.valid) {
         tecmo_gameplay_scene_test_message(
             message, message_size,
             "ordinary live foul did not hand possession back without attempts");
@@ -3548,7 +3560,19 @@ static bool scene_test_foul_and_away_free_throws(
         scene->state.individual_fouls[TECMO_GAMEPLAY_TEAM_HOME]
             [home_defender_roster] != 1U ||
         scene->state.free_throws.attempts_remaining != 2U ||
-        scene->action_serial != 2U) {
+        scene->action_serial != 2U ||
+        !scene->foul_presentation.valid ||
+        scene->foul_presentation.fouling_team != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->foul_presentation.actor_index != scene->controlled_actor[1U] ||
+        scene->foul_presentation.roster_index != home_defender_roster ||
+        scene->foul_presentation.foul_class != TECMO_GAMEPLAY_FOUL_CLASS_PUSHING ||
+        scene->foul_presentation.individual_foul_delta != 1U ||
+        scene->foul_presentation.team_foul_delta != 1U ||
+        scene->foul_presentation.individual_fouls_after != 1U ||
+        scene->foul_presentation.team_fouls_after != 5U ||
+        scene->foul_presentation.free_throw_attempts != 2U ||
+        !scene->foul_presentation.team_in_bonus ||
+        scene->foul_presentation.fouled_out) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "bonus live pushing foul did not use TPNL counters/attempts");
         return false;
@@ -3571,6 +3595,7 @@ static bool scene_test_foul_and_away_free_throws(
         scene->state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
         scene->state.free_throws.attempts_remaining != 2U ||
         scene->free_throw_frame != 0U || scene->audio_player.sfx_pending ||
+        scene->foul_presentation.valid ||
         !scene_test_free_throw_lineup_bound(
             scene, 0U, 0U, 5U,
             TECMO_GAMEPLAY_FREE_THROW_ORIENTATION_0_CAMERA_X) ||

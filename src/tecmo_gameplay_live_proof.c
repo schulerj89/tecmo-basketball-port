@@ -16,6 +16,8 @@
 #define LIVE_PROOF_MAX_PRETIP_UPDATES 2048U
 #define LIVE_PROOF_MAX_CPU_SOURCE_SHOT_UPDATES 96U
 #define LIVE_PROOF_CPU_SOURCE_SHOT_START_DELTA_X 70
+#define LIVE_PROOF_FOUL_VISIBLE_FRAME \
+    TECMO_GAMEPLAY_VIOLATION_REFEREE_SEQUENCE_START_FRAME
 
 typedef struct LiveProofEventEvidence {
     bool opcode4_ball_target;
@@ -30,6 +32,9 @@ typedef struct LiveProofEventEvidence {
     uint8_t formation_before_cross;
     uint8_t formation_after_cross;
     uint8_t updates_until_shot;
+    uint8_t foul_referee_group;
+    uint16_t foul_visible_phase_frame;
+    bool foul_overlay_retained;
     TecmoGameplayCourtCoordinate source_target;
     TecmoGameplayCourtCoordinate start_position;
 } LiveProofEventEvidence;
@@ -371,6 +376,7 @@ static bool live_proof_prepare_cpu_fixture(TecmoGameplayScene *scene)
  * state-level request API or writes a phase. */
 static bool live_proof_trigger_defensive_foul(
     TecmoGameplayScene *scene,
+    LiveProofEventEvidence *evidence,
     char *message,
     size_t message_size)
 {
@@ -379,9 +385,11 @@ static bool live_proof_trigger_defensive_foul(
     uint8_t holder;
     uint8_t defender;
     uint8_t defender_roster;
+    uint8_t referee_group;
     uint16_t action_before;
+    size_t frame;
 
-    if (scene == NULL ||
+    if (scene == NULL || evidence == NULL ||
         !live_proof_force_possession(
             scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE) {
@@ -452,7 +460,19 @@ static bool live_proof_trigger_defensive_foul(
             [defender_roster] != 1U ||
         scene->state.free_throws.scoring_team != TECMO_GAMEPLAY_TEAM_AWAY ||
         scene->state.free_throws.attempts_remaining != 2U ||
-        scene->action_serial != (uint16_t)(action_before + 1U)) {
+        scene->action_serial != (uint16_t)(action_before + 1U) ||
+        !scene->foul_presentation.valid ||
+        scene->foul_presentation.fouling_team != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->foul_presentation.actor_index != defender ||
+        scene->foul_presentation.roster_index != defender_roster ||
+        scene->foul_presentation.foul_class != TECMO_GAMEPLAY_FOUL_CLASS_PUSHING ||
+        scene->foul_presentation.individual_foul_delta != 1U ||
+        scene->foul_presentation.team_foul_delta != 1U ||
+        scene->foul_presentation.individual_fouls_after != 1U ||
+        scene->foul_presentation.team_fouls_after != 5U ||
+        scene->foul_presentation.free_throw_attempts != 2U ||
+        !scene->foul_presentation.team_in_bonus ||
+        scene->foul_presentation.fouled_out) {
         if (message != NULL && message_size != 0U) {
             (void)snprintf(
                 message, message_size,
@@ -471,6 +491,33 @@ static bool live_proof_trigger_defensive_foul(
         }
         return false;
     }
+    /* $E95E orders Bank02's screen-$22 writer before selector $22 reaches
+       the Bank04 referee controller. The loader blackout/fade is only
+       capture-bounded, so capture the first current renderer frame that also
+       has selector-0's visible group 1 rather than claiming an exact B02 PPU
+       completion frame. No release input is supplied. */
+    live_proof_controls_neutral(&p1);
+    live_proof_controls_neutral(&p2);
+    for (frame = 0U; frame < LIVE_PROOF_FOUL_VISIBLE_FRAME; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
+            !scene->foul_presentation.valid) {
+            return live_proof_reject(
+                message, message_size,
+                "live defensive-foul overlay did not retain presentation");
+        }
+    }
+    if (scene->state.phase_frame != LIVE_PROOF_FOUL_VISIBLE_FRAME ||
+        !tecmo_gameplay_violation_referee_foul_group_for_frame(
+            &scene->violation_referee_assets, scene->state.phase_frame,
+            &referee_group) || referee_group != 1U) {
+        return live_proof_reject(
+            message, message_size,
+            "live defensive-foul overlay did not reach referee group 1");
+    }
+    evidence->foul_overlay_retained = true;
+    evidence->foul_visible_phase_frame = scene->state.phase_frame;
+    evidence->foul_referee_group = referee_group;
     return true;
 }
 
@@ -519,7 +566,7 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
     }
     if (strcmp(event, "defensive-foul-presentation") == 0) {
         return live_proof_trigger_defensive_foul(
-            scene, message, message_size);
+            scene, evidence, message, message_size);
     }
     if (strcmp(event, "human-movement") == 0) {
         int16_t start_x;
@@ -943,6 +990,8 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
     size_t target_count = 0U;
     size_t deferred_count = 0U;
     bool live_foul_event;
+    bool foul_overlay_visible = false;
+    uint8_t foul_group = 255U;
     if (scene == NULL || event == NULL || output_png_path == NULL ||
         evidence == NULL || message == NULL || message_size == 0U) {
         return false;
@@ -950,6 +999,14 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
     (void)output_png_path;
     live_foul_event = strcmp(event, "defensive-foul-presentation") == 0 ||
         strcmp(event, "defensive-foul-free-throw") == 0;
+    if (live_foul_event && scene->foul_presentation.valid &&
+        scene->state.phase == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION) {
+        foul_overlay_visible = scene->state.phase_frame >=
+            TECMO_GAMEPLAY_VIOLATION_REFEREE_BLACK_FRAMES;
+        (void)tecmo_gameplay_violation_referee_foul_group_for_frame(
+            &scene->violation_referee_assets, scene->state.phase_frame,
+            &foul_group);
+    }
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
         if (scene->live_foundation.source_target_valid[actor]) ++target_count;
         if (scene->live_foundation.deferred[actor]) ++deferred_count;
@@ -1001,7 +1058,18 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             "\"classifier\":\"Bank02:$B0F8-$B398:A06E397C\","
             "\"adapter_profile\":[%u,%u,%u],"
             "\"fouling_team\":%u,\"team_fouls_home\":%u,"
-            "\"attempts_remaining\":%u},\"actors\":[",
+            "\"attempts_remaining\":%u,\"presentation\":{"
+            "\"retained\":%s,\"foul_class\":%u,"
+            "\"actor\":%u,\"roster\":%u,"
+            "\"individual_delta\":%u,\"team_delta\":%u,"
+            "\"individual_after\":%u,\"team_after\":%u,"
+            "\"attempts\":%u,\"team_in_bonus\":%s,"
+            "\"fouled_out\":%s,\"visible_phase_frame\":%u,"
+            "\"overlay_visible\":%s,\"referee_group\":%u,"
+            "\"court_actors_suppressed\":%s,"
+            "\"overlay_writer\":\"Bank02:$B0F8-$B398\","
+            "\"referee_script\":\"fixed:$E95E-$EA11:$2C-then-$22\","
+            "\"timing\":\"TGVR capture-bounded blackout/fade; Bank02 completion frame unavailable\"}},\"actors\":[",
               event,
              tecmo_gameplay_scene_in_pretip(scene) ? "true" : "false",
              tecmo_gameplay_pretip_is_presentation(
@@ -1070,7 +1138,23 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             (unsigned)TECMO_GAMEPLAY_LIVE_FOUL_BRIDGE_CONTACT_SELECTOR,
             live_foul_event ? (unsigned)TECMO_GAMEPLAY_TEAM_HOME : 255U,
             (unsigned)scene->state.team_fouls[TECMO_GAMEPLAY_TEAM_HOME],
-            (unsigned)scene->state.free_throws.attempts_remaining)) {
+            (unsigned)scene->state.free_throws.attempts_remaining,
+            evidence->foul_overlay_retained ? "true" : "false",
+            (unsigned)scene->foul_presentation.foul_class,
+            (unsigned)scene->foul_presentation.actor_index,
+            (unsigned)scene->foul_presentation.roster_index,
+            (unsigned)scene->foul_presentation.individual_foul_delta,
+            (unsigned)scene->foul_presentation.team_foul_delta,
+            (unsigned)scene->foul_presentation.individual_fouls_after,
+            (unsigned)scene->foul_presentation.team_fouls_after,
+            (unsigned)scene->foul_presentation.free_throw_attempts,
+            scene->foul_presentation.team_in_bonus ? "true" : "false",
+            scene->foul_presentation.fouled_out ? "true" : "false",
+            (unsigned)evidence->foul_visible_phase_frame,
+            foul_overlay_visible ? "true" : "false",
+            (unsigned)foul_group,
+            live_foul_event && evidence->foul_overlay_retained
+                ? "true" : "false")) {
         return false;
     }
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {

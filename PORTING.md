@@ -1121,8 +1121,12 @@ its frame-87 settlement are unchanged; no selector or RNG is invented.
 TPNL-1 `gameplay/penalties` is a strict 768-byte pure rules foundation
 (FNV1a32 `980DDC76`) with same-pack TGPL-1 and TSFX-1 dependencies. It exposes
 bounded classification and presentation data without inferring contact,
-collision, possession, or route state. The live scene's deterministic
-contact/foul policy is still implementation-owned and is not wired to TPNL.
+collision, possession, or route state. The one bounded live scene route is the
+human defensive-B selected-pair/contact bridge: it supplies only the observed
+ordinary fallthrough adapter, lets TPNL classify defensive pushing, and passes
+the resulting counters/attempts through the separate state request. After that
+request succeeds, the scene retains typed presentation identity for the
+Bank02 overlay; CPU/special/raw-route callers remain unsupported.
 
 TGVR-1 `gameplay/violation-referee` is a strict 4752-byte ROM-only visual
 foundation (FNV1a32 `2EB08CF0`) with exact same-pack `chr/all` and TPNL-1
@@ -1133,9 +1137,15 @@ gesture lists. Shot clock selects `9,10,10,10`; out of bounds selects
 4+120-frame release path, making the native violation phase 168 frames. The
 nine-frame black loader interval and four-frame visible fade alignment remain
 capture-bounded. The scene consumes strict TPNL-1 presentation metadata to
-request shared SFX 6 at presentation frame 16 exactly once. This bounded cue
-seam is native-faithful; full presentation and original caller-order parity
-remain incomplete.
+request shared SFX 6 at presentation frame 16 exactly once. The supported
+ordinary defensive-pushing route also renders Bank02 `$B0F8-$B398`'s exact
+defensive/pushing, roster name/number, counter, and fouled-out cells over this
+screen using the existing ROM-derived THUD/TTDT font/CHR assets. `$E95E` orders
+selector `$2C` before `$22`; the renderer preserves selector-0 groups
+`1,2,2,2` and suppresses court actors/ball. Bonus is only the proven Bank02
+side mask—no visible BONUS text is inferred—and Bank02's dynamic PPU completion
+timing remains unestablished. Other full presentation/caller parity remains
+incomplete.
 
 The `gameplay-out-of-bounds-frameN` checkpoint reaches TGVR through the live
 TGMO primary-holder clamp and TPNL selector 1. Visible frames 23, 27, and 31
