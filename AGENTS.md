@@ -892,7 +892,7 @@ material, not committed provenance or runtime input. See
 `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 
 The scene must obtain TGPL-1 `gameplay/core`, TGCT-1 `gameplay/court`, TGCP-2
-`gameplay/camera-projection`, TGMO-1 `gameplay/movement`, TGAI-1
+`gameplay/camera-projection`, TGMO-1 `gameplay/movement`, TGAI-2
 `gameplay/cpu-steering`, TGOR-1
 `gameplay/court-orientation`, THUD-1 `gameplay/hud`, TGCS-1
 `gameplay/close-shots`, TGDK-1 `gameplay/dunk-cutaway`,
@@ -919,7 +919,7 @@ presentation facts, not decoded placement routines. Three-digit score capping
 and the holder/shooter matchup fallback for an unassigned CPU side are native
 adapter policies. Do not call those policies ROM-exact.
 
-TGAI-1 is a production scene dependency for bounded ordinary CPU movement.
+TGAI-2 is a production scene dependency for bounded ordinary CPU movement.
 The scene owns a fixed opposing roster-slot link, explicit target result,
 snapshot fingerprint, and decision serial. The link remains matchup/pose and
 defender-reference metadata; non-holder movement consumes scene-owned explicit
@@ -1301,8 +1301,8 @@ The live adapter ticks once per live-action scene update and publishes condition
 to TGMO for the next update. Do not claim exact intra-frame 6502 ordering or
 original active-lineup selection; scene roster slots `0..4` are still policy.
 
-TGAI-1 `gameplay/cpu-steering` is the strict CPU target/direction evidence and
-bounded live-movement boundary. It is 7616 bytes / FNV1a32 `D6C4DB35`, requires
+TGAI-2 `gameplay/cpu-steering` is the strict CPU target/direction evidence and
+bounded live-movement boundary. It is 7632 bytes / FNV1a32 `C8CFFDC0`, requires
 exact same-pack TGMO-1 (`6C82A137`), and retains Bank06 `$81F7-$82D3`
 (`23BB7271`), `$87AE-$88AF` (`F866B06C`), `$88DA-$8A95` (`9616E586`),
 `$8B90-$8BE0` (`9AD2BA91`), `$8BE1-$9237` (`344298FE`), `$9280-$9329`
@@ -1311,6 +1311,18 @@ exact same-pack TGMO-1 (`6C82A137`), and retains Bank06 `$81F7-$82D3`
 (`71331A96`). Keep exact sizes, full-ROM identity, descriptors, source records,
 zero padding/reserved bytes, handler table, command opcodes, canonical payload,
 provenance, and dependency fail-closed.
+
+Opcode 15 is a separate, harness-only raw selected-defender contract. Its
+canonical Bank04 records `$0037/$004B` dispatch through Bank06 `$9172`; the
+raw resolver may execute only the `$91C8` selected-defender stores after every
+named RAM owner is captured at that exact command point. In particular,
+`$91F1-$91F5` compares new X to `$06D5`; only equality reaches
+`$91F6-$91F8` and replaces `$06D5` with old Y, otherwise `$06D5` is preserved.
+The canonical Rev1 `$9208-$9216` tail sets new `$057C=07` and `$059E=X` before
+selector 4 reaches `$C711`; the selector is observed, not executed. LIVE keeps
+opcode 15 deferred because `$0499` and the related raw lifecycle owners are not
+faithfully retained. Do not add shadow mirrors or claim the deterministic
+harness is a natural FCEUX `$91C8` capture; that capture remains open research.
 
 Bank06 state 4 adds the actor-local `$0547/$0551` command offset to `$9F2E`.
 Fixed `$C006->$CBE0` maps Bank04, copies one five-byte record into `$C7-$CB`,
@@ -1364,7 +1376,7 @@ movement, zero-vector neutral, primary/secondary role coherence, clamp,
 snapshot re-evaluation, and
 malformed state/profile inputs.
 
-`TecmoGameplayScene` loads TGAI-1 and evaluates every non-controlled actor from
+`TecmoGameplayScene` loads TGAI-2 and evaluates every non-controlled actor from
 one immutable post-human-input ten-coordinate snapshot. Candidates commit
 together. The holder uses the native `48/48/40` hoop approach; other actors use
 scene-owned fixed opposing roster links. Keep the zero-vector neutral bridge,
@@ -1420,7 +1432,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/asset_pack/tecmo_asset_pack_gameplay_movement.c`: strict TGMO-1 ordinary-actor movement importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_ball_dribble.c`: strict TGBD-1 held-ball animation importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_fatigue.c`: strict TGFT-1 fatigue-evolution importer
-- `src/asset_pack/tecmo_asset_pack_gameplay_cpu_steering.c`: strict TGAI-1 CPU command/target/direction evidence importer
+- `src/asset_pack/tecmo_asset_pack_gameplay_cpu_steering.c`: strict TGAI-2 CPU command/target/direction evidence importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_close_shots.c`: strict TGCS-1 numeric close-shot importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c`: strict TGDK-1 screen/palette/CHR/staged-sprite importer
 - `src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c`: strict TGJS-2 ordinary-jump importer
@@ -1441,7 +1453,7 @@ This is a native port, not an emulator wrapper. Current modules of interest:
 - `src/tecmo_gameplay_movement.c`: strict TGMO-1 parser, transactional locomotion/clamp kernel, and developer-harness vectors
 - `src/tecmo_gameplay_ball_dribble.c`: strict TGBD-1 parser and transactional held-ball geometry/phase resolver
 - `src/tecmo_gameplay_fatigue.c`: strict TGFT-1 parser and transactional active-decay/bench-recovery state evolution
-- `src/tecmo_gameplay_cpu_steering.c`: strict TGAI-1 parser plus console-only command inspection, shared full-snapshot direction evaluator, and transactional live/CLI TGMO movement adapter
+- `src/tecmo_gameplay_cpu_steering.c`: strict TGAI-2 parser plus console-only command inspection, raw opcode-15 source-contract resolver, shared full-snapshot direction evaluator, and transactional live/CLI TGMO movement adapter
 - `src/tecmo_gameplay_court.c`: strict TGCT-1 parser, full-world decoder, and camera-positioned viewport slicer
 - `src/tecmo_gameplay_court_orientation.c`: strict TGOR-1 parser and possession-synchronized orientation state API
 - `src/tecmo_gameplay_backcourt.c`: strict TGBC-1 parser and transactional frontcourt/return detector

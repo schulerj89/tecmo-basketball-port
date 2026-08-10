@@ -16,8 +16,13 @@ $ErrorActionPreference = 'Stop'
 $ExpectedRomSha256 = '076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4'
 $ExpectedFceuxSha256 = 'F89812F4E9506EF7090D9D0310D368ABD79BACA362B7BFC4A2E7E499754F2A1B'
 $ExpectedBaseSha = '6d8f9c7a99a7ce188f1a523247d3a9b9093860fb'
-$ExpectedTgaiBytes = 7616
-$ExpectedTgaiFnv1a32 = 'D6C4DB35'
+$ExpectedTgaiVersion = 'TGAI-2'
+$ExpectedTgaiPayloadVersion = 2
+$ExpectedTgaiBytes = 7632
+$ExpectedTgaiFnv1a32 = 'C8CFFDC0'
+$ExpectedFocusedRomMutations = 23
+$ExpectedFocusedMutationSummary =
+    '23 ROM mutations \(7 lifecycle anchor/table; 6 opcode-15\)'
 $ReferenceFrameCount = 120
 $ReferenceScreenshotCount = 12
 $ReferenceWidth = 256
@@ -409,8 +414,12 @@ $LuaPath = Join-Path $PSScriptRoot 'tecmo_cpu_lifecycle.lua'
 $MapPath = Join-Path $PSScriptRoot 'tecmo_cpu_lifecycle_rev1_map.lua'
 $Executable = Join-Path $ProjectRoot 'build\tecmo_port.exe'
 $GitState = Get-GitState
-if ($GitState.branch -ne $GitState.expected_branch) {
+if ($RequirePass -and $GitState.branch -ne $GitState.expected_branch) {
     throw "CPU lifecycle proof requires branch '$($GitState.expected_branch)'; found '$($GitState.branch)'."
+}
+if (!$RequirePass -and $GitState.branch -ne $GitState.expected_branch) {
+    Write-Warning ("CPU lifecycle draft proof runs on branch '$($GitState.branch)'; " +
+        "formal -RequirePass remains restricted to '$($GitState.expected_branch)'.")
 }
 if ($RequirePass -and !$GitState.tracked_clean) {
     throw 'CPU lifecycle -RequirePass refuses tracked worktree dirtiness.'
@@ -678,7 +687,9 @@ try {
     $Focused = Invoke-Logged -Command 'powershell.exe' -Arguments $FocusedArguments `
         -LogPath (Join-Path $OutputRoot 'cpu-focused.log') -Label 'cpu-focused'
     [void]$Commands.Add('powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\Run-GameplayCpuSteeringTests.ps1 -RomPath [LOCAL_REV1_ROM] -ProjectRoot [PROJECT] -Build')
-    if ($Focused.code -ne 0 -or $Focused.tail -notmatch '17 ROM mutations') {
+    if ($Focused.code -ne 0 -or $Focused.tail -notmatch
+            ("{0} ROM mutations" -f $ExpectedFocusedRomMutations) -or
+        $Focused.tail -notmatch $ExpectedFocusedMutationSummary) {
         throw "CPU focused wrapper failed.`n$($Focused.tail)"
     }
     $PackRun = Invoke-Logged -Command $Executable -Arguments @('--build-assetpack', $RomPath, $PackPath) `
@@ -691,21 +702,32 @@ try {
     $PackBytes = [IO.File]::ReadAllBytes($PackPath)
     $TgaiEntry = Get-AssetPackEntry $PackBytes 'gameplay/cpu-steering'
     $TgaiPayload = Get-EntryBytes $PackBytes $TgaiEntry
+    if ($TgaiPayload.Length -lt 6) {
+        throw 'Fresh CPU proof pack has a truncated TGAI payload header.'
+    }
+    $TgaiMagic = [Text.Encoding]::ASCII.GetString($TgaiPayload, 0, 4)
+    $TgaiPayloadHeaderVersion = [BitConverter]::ToUInt16($TgaiPayload, 4)
+    $TgaiSchema = '{0}-{1}' -f $TgaiMagic, $TgaiPayloadHeaderVersion
     $PackIdentity = [ordered]@{
         pack_sha256 = (Get-FileHash -LiteralPath $PackPath -Algorithm SHA256).Hash.ToUpperInvariant()
         entry = 'gameplay/cpu-steering'
+        schema = $TgaiSchema
         bytes = [int]$TgaiEntry.byte_count
         fnv1a32 = Get-Fnv1a32 $TgaiPayload
         pack_bytes = $PackRecord.bytes
     }
-    if ($PackIdentity.bytes -ne $ExpectedTgaiBytes -or $PackIdentity.fnv1a32 -ne $ExpectedTgaiFnv1a32) {
-        throw 'Fresh CPU proof pack failed TGAI-1 identity.'
+    if ($PackIdentity.schema -ne $ExpectedTgaiVersion -or
+        $TgaiPayloadHeaderVersion -ne $ExpectedTgaiPayloadVersion -or
+        $PackIdentity.bytes -ne $ExpectedTgaiBytes -or
+        $PackIdentity.fnv1a32 -ne $ExpectedTgaiFnv1a32) {
+        throw "Fresh CPU proof pack failed $ExpectedTgaiVersion identity."
     }
     $env:TECMO_ASSETPACK = $PackPath
     $TestRun = Invoke-Logged -Command $Executable -Arguments @('--gameplay-cpu-steering-test', $PackPath) `
         -LogPath (Join-Path $NativeRoot 'cpu-lifecycle-self-test.log') -Label 'cpu-lifecycle-self-test'
     [void]$Commands.Add('tecmo_port.exe --gameplay-cpu-steering-test [IGNORED_PROOF_PACK]')
-    if ($TestRun.code -ne 0 -or $TestRun.tail -notmatch 'TGAI-1 CPU steering isolated') {
+    if ($TestRun.code -ne 0 -or $TestRun.tail -notmatch
+            ("{0} CPU steering isolated" -f $ExpectedTgaiVersion)) {
         throw "Fresh CPU lifecycle self-test failed.`n$($TestRun.tail)"
     }
 
@@ -953,6 +975,7 @@ try {
         limitations = @(
             'production scene is legacy native harness/formation continuity evidence only',
             'isolated lifecycle engine is not consumed by normal scene flow; integration is R1-LIVE',
+            'TGAI-2 opcode-15 selected-defender resolver is harness-only; this proof is not a natural FCEUX $91C8 capture',
             'original trace proves source-pinned execution evidence, not inferred handler intent',
             'native frames are deterministic regression evidence, not one-to-one lifecycle parity',
             'shot request outcome/release/make/miss and dynamic candidate ownership remain deferred'
@@ -980,14 +1003,14 @@ try {
         "final_sha=$FinalSha",
         "rom_sha256=$RomHash",
         "fceux_sha256=$FceuxHash",
-        "tgai_bytes=$($PackIdentity.bytes) tgai_fnv1a32=$($PackIdentity.fnv1a32)",
+        "tgai_version=$ExpectedTgaiVersion tgai_bytes=$($PackIdentity.bytes) tgai_fnv1a32=$($PackIdentity.fnv1a32)",
         'original=two deterministic/authentic 120-frame source traces; 256x224 FCEUX PNG raster; separate 256x240 original AVI/video contract; 12 screenshots each',
         'original_contact_sheets=two separate 768x896 3x4 sheets; equal SHA-256 required',
         'native=12 contiguous 640x480 legacy continuity frames rendered twice; 1920x1920 contact sheet',
         "video=$($VideoInfo.status) sha256=$($VideoInfo.sha256) repeat_sha256=$($VideoInfo.repeat_sha256) cadence=$NativeFrameRate",
         "video_encode_commands=$VideoEncodeSummary",
         "video_probe_commands=$VideoProbeSummary",
-        'limitations=scene integration remains R1-LIVE; visual output is regression evidence only',
+        'limitations=scene integration remains R1-LIVE; opcode-15 raw resolver is harness-only and natural $91C8 capture remains open; visual output is regression evidence only',
         "personal_sol_inspection=$InspectionValue"
     ) | Set-Content -LiteralPath $SummaryPath -Encoding UTF8
     if (!(Test-Path -LiteralPath $ManifestPath -PathType Leaf) -or

@@ -2518,6 +2518,19 @@ static bool opcode15_raw_resolver_self_test(
     }
 
     opcode15_raw_fixture(&input);
+    input.raw_06d5 = 5U;
+    if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            assets, &input, &output, &result) ||
+        result.branch !=
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFENDER_REPLACED ||
+        !result.committed || result.raw_06d5_before != 5U ||
+        result.raw_06d5_after != 5U || output.raw_06d5 != 5U ||
+        result.raw_06d6_before != 2U || result.raw_06d6_after != 9U ||
+        output.raw_06d6 != 9U) {
+        return false;
+    }
+
+    opcode15_raw_fixture(&input);
     input.actor[9U].raw_0463_direction = 8U;
     before = input;
     if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(

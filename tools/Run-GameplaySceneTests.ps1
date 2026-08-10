@@ -1148,7 +1148,16 @@ try {
         $Opcode15Contract.lifted_source_discrepancy.lifted_listing_omits -ne '$9208-$9211' -or
         $Opcode15Contract.c711.selector -ne 4 -or
         ![bool]$Opcode15Contract.c711.observed_unexecuted -or
-        $Opcode15Contract.live_missing_raw_reason -notmatch 'deferred_missing_raw_0499') {
+        $Opcode15Contract.conditional_06d5.gate -ne
+            '$91F1-$91F5: CPX $06D5; BNE' -or
+        $Opcode15Contract.conditional_06d5.store -ne
+            '$91F6-$91F8: STY $06D5' -or
+        $Opcode15Contract.conditional_06d5.'when' -ne 'new X == $06D5' -or
+        $Opcode15Contract.conditional_06d5.'then' -ne '$06D5=old Y' -or
+        $Opcode15Contract.conditional_06d5.'otherwise' -ne 'preserve $06D5' -or
+        $Opcode15Contract.live_missing_raw_reason -notmatch 'deferred_missing_raw_0499' -or
+        $Opcode15Contract.natural_fceux_capture -notmatch
+            'synthetic.*not a natural \$91C8 capture') {
         throw "TGAI-2 opcode-15 raw-owner provenance is incomplete."
     }
     if ($BallDribbleMaps.Count -ne 1 -or

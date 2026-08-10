@@ -406,8 +406,20 @@ try {
             $Map.opcode15_source_contract.lifted_source_discrepancy.lifted_listing_omits -eq '$9208-$9211' -and
             $Map.opcode15_source_contract.c711.selector -eq 4 -and
             [bool]$Map.opcode15_source_contract.c711.observed_unexecuted -and
+            $Map.opcode15_source_contract.conditional_06d5.gate -eq
+                '$91F1-$91F5: CPX $06D5; BNE' -and
+            $Map.opcode15_source_contract.conditional_06d5.store -eq
+                '$91F6-$91F8: STY $06D5' -and
+            $Map.opcode15_source_contract.conditional_06d5.'when' -eq
+                'new X == $06D5' -and
+            $Map.opcode15_source_contract.conditional_06d5.'then' -eq
+                '$06D5=old Y' -and
+            $Map.opcode15_source_contract.conditional_06d5.'otherwise' -eq
+                'preserve $06D5' -and
             $Map.opcode15_source_contract.live_missing_raw_reason -match
                 'deferred_missing_raw_0499' -and
+            $Map.opcode15_source_contract.natural_fceux_capture -match
+                'synthetic.*not a natural \$91C8 capture' -and
             (@($Map.opcode15_source_contract.required_memory_watch) -join '|') -match
                 '\$0499 slot 10.*\$059E' -and
             $Map.native_contract.actor_slots -eq 10 -and

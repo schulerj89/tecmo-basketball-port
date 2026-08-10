@@ -342,6 +342,10 @@ Bank06 opcode-15 dispatch/handler anchors and canonical records, but only
 exposes the selected-defender branch as a raw transactional harness contract:
 LIVE has no faithful owner for `$0499` and the related actor lifecycle bytes,
 so ordinary opcode-15 execution remains a no-mutation deferred diagnostic.
+The exact `$91F1-$91F5` compare preserves `$06D5` unless new X equals it; only
+then does `$91F6-$91F8` store old Y to `$06D5`, before the unconditional
+`$06D6=09`. The deterministic harness is synthetic source-contract evidence;
+a natural FCEUX `$91C8` capture remains open.
 The state-4 path adds the actor's
 `$0547/$0551` offset to `$9F2E`; the fixed reader temporarily maps Bank04 and
 copies one five-byte record to `$C7-$CB`; Bank06 then dispatches its opcode

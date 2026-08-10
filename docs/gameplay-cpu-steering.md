@@ -140,7 +140,10 @@ stores when an external capture supplies every raw owner at the same command
 execution point. It writes the old defender's `$057C=04`, `$0547/$0551=$005A`,
 `$046E=0`, `$0442/$044D` and `$0479/$0458` through `$88B0-$88D9`; then it
 sets the new defender's `$0479=81`, `$057C=07`, `$059E=X`, `$06D6=09`, and the
-side-indexed `$000E=X`. Gate-noop is exact below `$0499 < $46`; primary-retry,
+side-indexed `$000E=X`. At `$91F1-$91F5`, the newly selected X is compared to
+`$06D5`; only the equality path falls through to `$91F6-$91F8` and stores the
+old defender Y into `$06D5`. A non-equal X preserves `$06D5`; `$06D6=09` is
+then unconditional. Gate-noop is exact below `$0499 < $46`; primary-retry,
 primary-swap, mark-other, invalid-direction, and missing-owner paths are
 classified/deferred without mutation.
 
@@ -151,7 +154,9 @@ capture a future valid live sample, watch `$0499` (slot 10), `$04B0,X`, `$007E`,
 `$0308/$0309/$030A/$030B`, `$000E,Y`, `$06D5/$06D6`, `$0547/$0551`, `$057C`,
 `$046E`, `$0463`, `$0442/$044D`, `$0479`, `$0458`, and `$059E` at a naturally
 executed canonical record. The `--gameplay-cpu-steering-opcode15-harness`
-command is deterministic source-contract proof only, not a gameplay command.
+command is deterministic synthetic source-contract proof only, not a gameplay
+command or a natural FCEUX `$91C8` capture. That natural capture remains open
+research evidence.
 
 The core API, with CLI-only inspection wrappers, provides:
 
