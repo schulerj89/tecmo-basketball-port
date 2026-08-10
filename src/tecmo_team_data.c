@@ -2047,6 +2047,7 @@ static bool player_data_presentation_self_test(void)
     TecmoTeamDataState cursor_state;
     char percentage[6];
     char points[5];
+    char count[4];
 
     memset(&player, 0, sizeof(player));
     memset(&totals, 0, sizeof(totals));
@@ -2082,7 +2083,9 @@ static bool player_data_presentation_self_test(void)
         return false;
     format_detail_percentage(percentage, true, 1000U);
     format_detail_points(points, true, stats.points_per_game_hundredths);
-    if (strcmp(percentage, "1.000") != 0 || strcmp(points, "10.0") != 0)
+    format_detail_integer(count, stats.rebounds_available, stats.rebounds);
+    if (strcmp(percentage, "1.000") != 0 || strcmp(points, "10.0") != 0 ||
+        strcmp(count, "---") != 0)
         return false;
 
     /* Zero attempts are a real .000, not a divide-by-zero or an invented

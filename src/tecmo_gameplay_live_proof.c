@@ -1282,7 +1282,10 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
     bool live_foul_event;
     bool claimant_event;
     bool foul_overlay_visible = false;
+    bool scene_rebounds_nonzero = false;
     uint8_t foul_group = 255U;
+    TecmoGameplayReboundAuditInput rebound_input;
+    TecmoGameplayReboundAuditDecision rebound_decision;
     if (scene == NULL || event == NULL || output_png_path == NULL ||
         evidence == NULL || message == NULL || message_size == 0U) {
         return false;
@@ -1300,6 +1303,35 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             TECMO_GAMEPLAY_SCENE_POSSESSION_TRACE_TAG &&
         evidence->claimant_settlement.after.contract_tag ==
             TECMO_GAMEPLAY_SCENE_POSSESSION_TRACE_TAG;
+    /* The LIVE bridge may demonstrate a native claimant settlement, but it
+       does not retain raw $BA, $0588, or the $BE/$BF owner at $C042. Keep all
+       unsupported values absent rather than deriving them from a miss. */
+    memset(&rebound_input, 0, sizeof(rebound_input));
+    if (claimant_event && evidence->claimant_actor <
+                              TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        const TecmoGameplaySceneActor *claimant =
+            &scene->actors[evidence->claimant_actor];
+        rebound_input.claimant_settlement_valid = true;
+        rebound_input.claimant_actor = evidence->claimant_actor;
+        rebound_input.claimant_team = claimant->team;
+        rebound_input.claimant_roster_index = claimant->roster_index;
+        rebound_input.claimant_event_serial =
+            evidence->claimant_settlement.event_serial;
+    }
+    if (!tecmo_gameplay_rebound_audit_resolve(
+            &scene->rebound_audit, &rebound_input, &rebound_decision)) {
+        return false;
+    }
+    for (size_t side = 0U; side < TECMO_PLAYER_STATS_GAME_SIDE_COUNT;
+         ++side) {
+        for (size_t roster = 0U; roster < TECMO_PLAYER_STATS_ROSTER_COUNT;
+             ++roster) {
+            if (scene->player_stats.counters[side][roster]
+                    [TECMO_PLAYER_STATS_COUNTER_REBOUNDS] != 0U) {
+                scene_rebounds_nonzero = true;
+            }
+        }
+    }
     if (live_foul_event && scene->foul_presentation.valid &&
         scene->state.phase == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION) {
         foul_overlay_visible = scene->state.phase_frame >=
@@ -1456,6 +1488,37 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             (unsigned)foul_group,
              live_foul_event && evidence->foul_overlay_retained
                  ? "true" : "false")) {
+        return false;
+    }
+    if (!live_proof_append(
+            message, message_size, &length,
+            "\"rebound_audit\":{\"contract\":\"TGRB-1\","
+            "\"ledger_write_enabled\":%s,\"coverage_bit8\":%s,"
+            "\"scene_ledger_coverage_bit8\":%s,"
+            "\"scene_ledger_rebounds_nonzero\":%s,"
+            "\"assets_available\":%s,\"raw_ba_available\":%s,"
+            "\"raw_0588_available\":%s,\"be_bf_identity_fresh\":%s,"
+            "\"claimant_bridge_observed\":%s,\"claimant_serial\":%u,"
+            "\"source_gate_eligible\":%s,\"decision\":\"%s\","
+            "\"limitation\":\"native TGLP has no raw $BA/$0588 or fresh $BE/$BF-at-$C042 ownership; REB remains unsupported\"},",
+            rebound_decision.ledger_write_enabled ? "true" : "false",
+            (TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE &
+                 tecmo_player_stats_counter_bit(
+                     TECMO_PLAYER_STATS_COUNTER_REBOUNDS)) != 0U
+                ? "true" : "false",
+            (scene->player_stats.coverage & tecmo_player_stats_counter_bit(
+                 TECMO_PLAYER_STATS_COUNTER_REBOUNDS)) != 0U
+                ? "true" : "false",
+            scene_rebounds_nonzero ? "true" : "false",
+            scene->rebound_audit.available ? "true" : "false",
+            rebound_input.raw_ba_available ? "true" : "false",
+            rebound_input.raw_0588_available ? "true" : "false",
+            rebound_input.be_bf_identity_fresh ? "true" : "false",
+            claimant_event ? "true" : "false",
+            (unsigned)rebound_input.claimant_event_serial,
+            rebound_decision.source_gate_eligible ? "true" : "false",
+            tecmo_gameplay_rebound_audit_reason_name(
+                rebound_decision.reason))) {
         return false;
     }
     if (!live_proof_append(

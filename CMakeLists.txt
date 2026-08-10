@@ -16,6 +16,7 @@ set(TECMO_PORT_SOURCES
     src/tecmo_cli_gameplay_asset_contract.c
     src/tecmo_cli_gameplay_shots.c
     src/tecmo_cli_gameplay_shot_resolution.c
+    src/tecmo_cli_gameplay_rebound_audit.c
     src/tecmo_cli_render_support.c
     src/tecmo_cli_render_gameplay_checkpoint.c
     src/tecmo_cli_render_diagnostics.c
@@ -45,6 +46,7 @@ set(TECMO_PORT_SOURCES
     src/asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.c
     src/asset_pack/tecmo_asset_pack_gameplay_jump_shots.c
     src/asset_pack/tecmo_asset_pack_gameplay_shot_resolution.c
+    src/asset_pack/tecmo_asset_pack_gameplay_rebound_audit.c
     src/asset_pack/tecmo_asset_pack_gameplay_penalties.c
     src/asset_pack/tecmo_asset_pack_gameplay_violation_referee.c
     src/asset_pack/tecmo_asset_pack_gameplay_pretip.c
@@ -88,6 +90,7 @@ set(TECMO_PORT_SOURCES
     src/tecmo_gameplay_dunk_cutaway.c
     src/tecmo_gameplay_jump_shots.c
     src/tecmo_gameplay_shot_resolution.c
+    src/tecmo_gameplay_rebound_audit.c
     src/tecmo_gameplay_penalties.c
     src/tecmo_gameplay_violation_referee.c
     src/tecmo_gameplay_pretip.c

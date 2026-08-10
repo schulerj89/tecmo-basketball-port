@@ -21,6 +21,7 @@
 #include "asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_jump_shots.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_shot_resolution.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_rebound_audit.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_penalties.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_violation_referee.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_pretip.h"
@@ -105,6 +106,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           TecmoGameplayDunkProvenance *dunk_provenance,
                                           TecmoGameplayJumpShotProvenance *jump_shot_provenance,
                                           TecmoGameplayShotResolutionProvenance *shot_resolution_provenance,
+                                          TecmoGameplayReboundAuditProvenance *rebound_audit_provenance,
                                           TecmoGameplayPenaltyProvenance *penalty_provenance,
                                           TecmoGameplayViolationRefereeProvenance *violation_referee_provenance,
                                           TecmoGameplayFreeThrowLineupProvenance *free_throw_lineup_provenance,
@@ -154,6 +156,8 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
         TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_SIZE];
     uint8_t shot_resolution_payload[
         TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_SIZE];
+    uint8_t rebound_audit_payload[
+        TECMO_ASSET_PACK_GAMEPLAY_REBOUND_AUDIT_SIZE];
     uint8_t penalty_payload[TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_SIZE];
     uint8_t violation_referee_payload[
         TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_SIZE];
@@ -208,6 +212,14 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
             enforce_finale_revision_fingerprints,
             shot_resolution_payload, sizeof(shot_resolution_payload),
             shot_resolution_provenance, message, message_size) != 0) {
+        return -1;
+    }
+    if (enforce_finale_revision_fingerprints != 0 &&
+        tecmo_asset_pack_build_gameplay_rebound_audit(
+            rom, rom_size, prg_offset, prg_banks,
+            enforce_finale_revision_fingerprints,
+            rebound_audit_payload, sizeof(rebound_audit_payload),
+            rebound_audit_provenance, message, message_size) != 0) {
         return -1;
     }
     if (enforce_finale_revision_fingerprints != 0 &&
@@ -1138,6 +1150,20 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
             return -1;
         }
         entry_info = tecmo_asset_pack_make_entry_info(
+            TECMO_ASSET_PACK_GAMEPLAY_REBOUND_AUDIT_ID,
+            TECMO_ASSET_PACK_TYPE_DATA, 5U, 0xA977U,
+            rebound_audit_provenance->source_offsets[0U],
+            TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+        if (tecmo_asset_pack_builder_add_memory(
+                builder, &entry_info, rebound_audit_payload,
+                sizeof(rebound_audit_payload), message,
+                message_size) != 0) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Could not write strict TGRB-1 rebound audit entry.");
+            return -1;
+        }
+        entry_info = tecmo_asset_pack_make_entry_info(
             TECMO_ASSET_PACK_GAMEPLAY_PENALTIES_ID,
             TECMO_ASSET_PACK_TYPE_DATA, 5U, 0x9571U,
             penalty_provenance->source_offsets[0],
@@ -1235,6 +1261,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
     TecmoGameplayDunkProvenance dunk_provenance;
     TecmoGameplayJumpShotProvenance jump_shot_provenance;
     TecmoGameplayShotResolutionProvenance shot_resolution_provenance;
+    TecmoGameplayReboundAuditProvenance rebound_audit_provenance;
     TecmoGameplayPenaltyProvenance penalty_provenance;
     TecmoGameplayViolationRefereeProvenance violation_referee_provenance;
     TecmoGameplayFreeThrowLineupProvenance free_throw_lineup_provenance;
@@ -1434,6 +1461,8 @@ static int tecmo_asset_pack_build_from_ines_internal(
     memset(&jump_shot_provenance, 0, sizeof(jump_shot_provenance));
     memset(&shot_resolution_provenance, 0,
            sizeof(shot_resolution_provenance));
+    memset(&rebound_audit_provenance, 0,
+           sizeof(rebound_audit_provenance));
     memset(&penalty_provenance, 0, sizeof(penalty_provenance));
     memset(&violation_referee_provenance, 0,
            sizeof(violation_referee_provenance));
@@ -1477,6 +1506,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &dunk_provenance,
                                        &jump_shot_provenance,
                                        &shot_resolution_provenance,
+                                       &rebound_audit_provenance,
                                        &penalty_provenance,
                                        &violation_referee_provenance,
                                        &free_throw_lineup_provenance,
@@ -1522,6 +1552,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &dunk_provenance,
                                        &jump_shot_provenance,
                                        &shot_resolution_provenance,
+                                       &rebound_audit_provenance,
                                        &penalty_provenance,
                                        &violation_referee_provenance,
                                        &free_throw_lineup_provenance,
@@ -2642,6 +2673,10 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         goto cleanup;
     }
     if (tecmo_asset_pack_gameplay_shot_resolution_self_test(
+            message, message_size) != 0) {
+        goto cleanup;
+    }
+    if (tecmo_asset_pack_gameplay_rebound_audit_self_test(
             message, message_size) != 0) {
         goto cleanup;
     }

@@ -23,6 +23,7 @@
 #include "tecmo_gameplay_violation_referee.h"
 #include "tecmo_gameplay_pretip.h"
 #include "tecmo_gameplay_shot_resolution.h"
+#include "tecmo_gameplay_rebound_audit.h"
 #include "tecmo_gameplay_state.h"
 #include "tecmo_intro_post_arena.h"
 #include "tecmo_music.h"
@@ -276,6 +277,9 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayDunkCutawayAssets dunk_cutaway;
     TecmoGameplayJumpShotAssets jump_shots;
     TecmoGameplayShotResolutionAssets shot_resolution;
+    /* TGRB-1 is passive provenance/eligibility diagnostics only; it does not
+       own a rebound counter or change the player-stat coverage mask. */
+    TecmoGameplayReboundAuditAssets rebound_audit;
     TecmoGameplayPreTipAssets pretip_assets;
     TecmoGameplayPreTipState pretip_state;
     uint8_t pretip_jumper_actor[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
@@ -400,7 +404,7 @@ typedef struct TecmoGameplayScene {
 void tecmo_gameplay_scene_init(TecmoGameplayScene *scene);
 
 /* Loads TGPL-1, TGCT-1, TGCP-2, TGMO-1, TGBD-1, TGAI-1, TGFT-1, TPNL-1, TGOR-1, TGFL-1,
-   THUD-1, TGCS-1, TGDK-1, TGJS-2, TGSR-4, TSFX-1, and TDMC-1 from one pack.
+   THUD-1, TGCS-1, TGDK-1, TGJS-2, TGSR-4, TGRB-1, TSFX-1, and TDMC-1 from one pack.
    `asset_pack_path` may be NULL to use the strict runtime search order.
    Runtime data is never read from decompilation/capture paths. */
 bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,

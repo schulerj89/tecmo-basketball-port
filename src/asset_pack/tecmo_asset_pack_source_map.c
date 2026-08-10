@@ -3123,6 +3123,87 @@ static int append_gameplay_shot_resolution_source_map_entry(
         "ROM\"}");
 }
 
+static int append_gameplay_rebound_audit_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoGameplayReboundAuditProvenance *p)
+{
+    static const char *const roles[
+        TECMO_GAMEPLAY_REBOUND_AUDIT_SOURCE_COUNT] = {
+        "direct-carom-producer-$A8E9-$A9D9",
+        "direct-carom-gates-$B6E5-$B73D",
+        "claimant-settlement-consumer-$BA56-$BAC0",
+        "fixed-counter-entry-$C042-$C044",
+        "fixed-counter-plane-$CC00-$CC2F"
+    };
+    const char *prefix = *first != 0 ? "" : ",\n";
+
+    *first = 0;
+    if (tecmo_asset_pack_append_text(
+            buffer, capacity, length,
+            "%s"
+            "    {\"id\":\"%s\",\"kind\":\"gameplay-rebound-audit-fail-closed\","
+            "\"schema\":\"tecmo.gameplay-rebound-audit/TGRB-1\",\"size\":%u,"
+            "\"fingerprint_fnv1a32\":\"%08X\","
+            "\"fingerprint_fnv1a64\":\"%016llX\","
+            "\"revision_sha256\":\"076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4\","
+            "\"source_spans\":[",
+            prefix, TECMO_ASSET_PACK_GAMEPLAY_REBOUND_AUDIT_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_REBOUND_AUDIT_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_REBOUND_AUDIT_FNV1A32,
+            (unsigned long long)
+                TECMO_ASSET_PACK_GAMEPLAY_REBOUND_AUDIT_FNV1A64) != 0) {
+        return -1;
+    }
+    for (size_t index = 0U;
+         index < TECMO_GAMEPLAY_REBOUND_AUDIT_SOURCE_COUNT; ++index) {
+        const TecmoGameplayReboundAuditExpectedSource *source =
+            &tecmo_gameplay_rebound_audit_expected_sources[index];
+        const char *source_entry = source->fixed_bank != 0U
+            ? "prg/fixed" : "prg/bank05";
+        if (tecmo_asset_pack_append_text(
+                buffer, capacity, length,
+                "%s{\"role\":\"%s\",\"source_entry\":\"%s\","
+                "\"source_offset\":%llu,\"bank\":%u,"
+                "\"fixed_bank\":%s,\"cpu_start\":%u,\"cpu_end\":%u,"
+                "\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\","
+                "\"fingerprint_fnv1a64\":\"%016llX\"}",
+                index == 0U ? "" : ",", roles[index], source_entry,
+                (unsigned long long)p->source_offsets[index],
+                (unsigned)source->bank,
+                source->fixed_bank != 0U ? "true" : "false",
+                (unsigned)source->cpu_start,
+                (unsigned)((uint32_t)source->cpu_start +
+                           source->byte_count - 1U),
+                (unsigned)source->byte_count,
+                (unsigned)source->fingerprint_fnv1a32,
+                (unsigned long long)source->fingerprint_fnv1a64) != 0) {
+            return -1;
+        }
+    }
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "],\"source_gate\":{"
+        "\"producer\":\"Bank05 $A977 reads $BA & 3 and sets $0588 bit $80 only on the direct-carom route\","
+        "\"consumer\":\"Bank05 $BA56-$BAC0 clears bit $40, requires surviving $0588 bit $80, then selects X=8 and jumps fixed $C042\","
+        "\"caller_ordering\":\"$BA8C calls $B87C then $96B6 before the $0588 bit-$80 test; neither span is asserted here to refresh $BE/$BF\","
+        "\"raw_requirements\":[\"$BA & 3 == 0\",\"$0588 & $80 != 0\",\"fresh $BE/$BF identity\",\"claimant relation and event serial\"]},"
+        "\"counter_plane\":{\"counter_index\":8,\"counter_offset\":192,"
+        "\"counter_base\":31576,\"entry\":\"$C042 -> $CC12 -> $CC1E -> $CC00\","
+        "\"increment\":\"$CC1E executes INC $7B58,X after $CC27[X] lookup; $CC27[8]=$C0\","
+        "\"wraps_u8\":true},"
+        "\"native_contract\":{\"mode\":\"strict-audit-only\","
+        "\"ledger_write_enabled\":false,\"implemented_ledger_coverage_bit8\":false,"
+        "\"team_data_rebounds\":\"---\",\"leader_category_enabled\":false},"
+        "\"limitations\":[\"miss plus claimant does not prove direct carom\","
+        "\"native runtime does not retain raw $BA/$0588 lifetime or source-fresh $BE/$BF at terminal settlement\","
+        "\"no player, team, season, save, display, or leader rebound counter is emitted\","
+        "\"steals, blocks, makes, period expiry, debug fixtures, and generic recovery remain outside this contract\"],"
+        "\"runtime_inputs\":\"TGRB-1 is parsed transactionally and its pure resolver emits only deferred/source-gate diagnostics; source-map metadata is supplementary to the strict importer/parser\"}");
+}
+
 static int append_gameplay_penalty_source_map_entry(
     char *buffer,
     size_t capacity,
@@ -3682,13 +3763,14 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoGameplayDunkProvenance *dunk_provenance,
                                    const TecmoGameplayJumpShotProvenance *jump_shot_provenance,
                                    const TecmoGameplayShotResolutionProvenance *shot_resolution_provenance,
+                                   const TecmoGameplayReboundAuditProvenance *rebound_audit_provenance,
     const TecmoGameplayPenaltyProvenance *penalty_provenance,
     const TecmoGameplayViolationRefereeProvenance *violation_referee_provenance,
     const TecmoGameplayFreeThrowLineupProvenance *free_throw_lineup_provenance,
     const TecmoGameplayPreTipProvenance *pretip_provenance,
     size_t *source_map_size_out)
 {
-    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 33U;
+    size_t entry_count = (size_t)prg_banks + (size_t)chr_banks + 34U;
     size_t capacity;
     size_t length = 0U;
     char *source_map;
@@ -3969,6 +4051,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
          append_gameplay_shot_resolution_source_map_entry(
              source_map, capacity, &length, &first_logical,
              shot_resolution_provenance) != 0) ||
+        (rebound_audit_provenance->source_offsets[0] != 0U &&
+         append_gameplay_rebound_audit_source_map_entry(
+             source_map, capacity, &length, &first_logical,
+             rebound_audit_provenance) != 0) ||
         (penalty_provenance->source_offsets[0] != 0U &&
          append_gameplay_penalty_source_map_entry(
              source_map, capacity, &length, &first_logical,
