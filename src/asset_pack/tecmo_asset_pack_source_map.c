@@ -2427,7 +2427,7 @@ static int append_gameplay_cpu_steering_source_map_entry(
             buffer, capacity, length,
             "%s"
             "    {\"id\":\"%s\",\"kind\":\"gameplay-cpu-steering-evidence\","
-            "\"schema\":\"tecmo.gameplay-cpu-steering/TGAI-1\",\"size\":%u,"
+            "\"schema\":\"tecmo.gameplay-cpu-steering/TGAI-2\",\"size\":%u,"
             "\"fingerprint_fnv1a32\":\"%08X\","
             "\"revision_sha256_identity\":\"076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4\","
             "\"revision_full_rom_fnv1a32\":\"0650F5B0\","
@@ -2476,7 +2476,22 @@ static int append_gameplay_cpu_steering_source_map_entry(
     }
     return tecmo_asset_pack_append_text(
         buffer, capacity, length,
-        "],\"native_contract\":{"
+        "],\"opcode15_source_contract\":{"
+        "\"scope\":\"harness-only; LIVE opcode 15 remains deferred\","
+        "\"dispatch\":{\"bank\":6,\"address\":\"$8B90-$8BE0\",\"opcode\":15,\"handler\":\"$9172\"},"
+        "\"canonical_records\":[{\"bank\":4,\"address\":\"$9F65-$9F69\",\"stream_offset\":\"$0037\",\"fnv1a32\":\"735536DE\"},{\"bank\":4,\"address\":\"$9F79-$9F7D\",\"stream_offset\":\"$004B\",\"fnv1a32\":\"735536DE\"}],"
+        "\"parent_source_span\":{\"role\":\"command-handler-cluster-$8BE1-$9237\",\"copied_source\":true},"
+        "\"semantic_anchors\":[{\"address\":\"$9146-$9216\",\"size\":209,\"fnv1a32\":\"FA3E6C5E\"},{\"address\":\"$9208-$9216\",\"size\":15,\"fnv1a32\":\"839F9D07\",\"overlaps_parent_source\":true},{\"address\":\"$88B0-$88D9\",\"size\":42,\"fnv1a32\":\"AD834719\",\"raw_contract_payload\":true}],"
+        "\"lifted_source_discrepancy\":{\"authority\":\"canonical Rev1 ROM\",\"lifted_listing_omits\":\"$9208-$9211\",\"canonical_tail\":\"LDA #$07; STA $057C,X; STX $059E; TXA; TAY; LDA #$04; JMP $C711\"},"
+        "\"supported_raw_branch\":\"$91C8 selected defender only when every named raw owner is supplied\","
+        "\"classified_deferred\":[\"$9181 primary retry\",\"$9187 primary swap\",\"$9146 mark-other\",\"missing raw owner\",\"invalid $0463 direction\"],"
+        "\"selected_defender_writes\":[\"old $057C=04\",\"old $0547/$0551=$005A\",\"old $046E=0\",\"old $0442/$044D via $88B0\",\"old $0479=$C1\",\"old $0458=$30\",\"new $0479=$81\",\"new $057C=07\",\"$059E=X\",\"$06D6=09\",\"side-indexed $000E=X\"],"
+        "\"conditional_06d5\":{\"gate\":\"$91F1-$91F5: CPX $06D5; BNE\",\"store\":\"$91F6-$91F8: STY $06D5\",\"when\":\"new X == $06D5\",\"then\":\"$06D5=old Y\",\"otherwise\":\"preserve $06D5\"},"
+        "\"c711\":{\"selector\":4,\"x_and_y\":\"new actor X\",\"observed_unexecuted\":true},"
+        "\"required_memory_watch\":[\"$0499 slot 10\",\"$04B0,X\",\"$007E\",\"$0308/$0309/$030A/$030B\",\"$000E,Y\",\"$06D5/$06D6\",\"$0547/$0551\",\"$057C\",\"$046E\",\"$0463\",\"$0442/$044D\",\"$0479\",\"$0458\",\"$059E\"],"
+        "\"live_missing_raw_reason\":\"deferred_missing_raw_0499 and other unavailable raw lifecycle owners; no shadow mirrors\","
+        "\"natural_fceux_capture\":\"open; deterministic raw harness is synthetic and is not a natural $91C8 capture\"},"
+        "\"native_contract\":{"
         "\"actor_slots\":10,\"script_state\":4,"
         "\"command_transport\":{\"actor_offset_ram\":\"$0547/$0551\","
         "\"bank04_cpu_base\":\"$9F2E\",\"fixed_trampoline\":\"$C006\","
@@ -2566,7 +2581,7 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "\"transactional\":true},"
         "\"normal_game_flow_exposed\":false},"
         "\"live_foundation_integration\":{"
-        "\"scope\":\"bound production LIVE scene launch and normal game flow; this additive adapter does not rewrite the accepted TGAI-1 harness contract\","
+        "\"scope\":\"bound production LIVE scene launch and normal game flow; this additive adapter does not rewrite the accepted TGAI-2 harness contract\","
         "\"normal_game_flow_exposed\":true,\"live_wired\":true,"
         "\"evidence\":{"
         "\"rom\":{\"revision\":\"Rev1\",\"length\":393232,"
@@ -2605,7 +2620,7 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "\"workspace_native_approximation\":true,\"shot_request_native_approximation\":true},"
         "\"shot_request_adapter\":\"accepted deterministic predicate with native random/workspace approximation; unsupported shots.c playback is explicit deferred/non-launch\","
         "\"serial_contract\":\"adapter observation counters wrap modulo 2^32; accepted CPU step_serial wraps modulo 2^16\"},"
-        "\"runtime_inputs\":\"TGAI-1 plus same-pack TGMO-1; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
+        "\"runtime_inputs\":\"TGAI-2 plus same-pack TGMO-1; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
 }
 
 static int append_gameplay_close_shot_source_map_entry(

@@ -1363,9 +1363,40 @@ static bool live_proof_append_possession_snapshot(
             TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) ||
         !live_proof_append(
             buffer, capacity, length,
-            "},\"semantic\":{\"scene_possession\":%u,"
+            "},\"opcode15\":{\"observed\":%s,\"opcode\":%u,"
+            "\"record_offset\":%u,\"branch\":\"%s\","
+            "\"missing_raw_mask\":\"%08X\","
+            "\"raw_gate_available\":{\"$0499\":%s,\"$04B0\":%s,"
+            "\"$007E\":%s,\"$06D5_$06D6\":%s,\"$0479\":%s,"
+            "\"$0442_$044D\":%s,\"$059E\":%s,"
+            "\"actor_lifecycle\":%s},\"typed_before_after\":{"
+            "\"$0308\":[%u,%u],\"$0309\":[%u,%u],"
+            "\"$0547_$0551\":[%u,%u],\"$057C\":[%u,%u]}},"
+            "\"semantic\":{\"scene_possession\":%u,"
             "\"ball_holder\":%u,\"live_last_possession\":%u,"
             "\"live_last_ball_holder\":%u,\"live_synchronized\":%s}}",
+            snapshot->opcode15_trace.observed ? "true" : "false",
+            (unsigned)snapshot->opcode15_trace.opcode,
+            (unsigned)snapshot->opcode15_trace.command_record_offset,
+            tecmo_gameplay_cpu_steering_opcode15_branch_name(
+                snapshot->opcode15_trace.branch),
+            (unsigned)snapshot->opcode15_trace.missing_raw_mask,
+            snapshot->opcode15_trace.raw_0499_available ? "true" : "false",
+            snapshot->opcode15_trace.raw_04b0_available ? "true" : "false",
+            snapshot->opcode15_trace.raw_007e_available ? "true" : "false",
+            snapshot->opcode15_trace.raw_06d5_06d6_available ? "true" : "false",
+            snapshot->opcode15_trace.raw_0479_available ? "true" : "false",
+            snapshot->opcode15_trace.raw_0442_044d_available ? "true" : "false",
+            snapshot->opcode15_trace.raw_059e_available ? "true" : "false",
+            snapshot->opcode15_trace.raw_actor_lifecycle_available ? "true" : "false",
+            (unsigned)snapshot->opcode15_trace.raw_0308_before,
+            (unsigned)snapshot->opcode15_trace.raw_0308_after,
+            (unsigned)snapshot->opcode15_trace.raw_0309_before,
+            (unsigned)snapshot->opcode15_trace.raw_0309_after,
+            (unsigned)snapshot->opcode15_trace.actor_stream_before,
+            (unsigned)snapshot->opcode15_trace.actor_stream_after,
+            (unsigned)snapshot->opcode15_trace.actor_state_before,
+            (unsigned)snapshot->opcode15_trace.actor_state_after,
             (unsigned)snapshot->semantic_scene_possession,
             (unsigned)snapshot->semantic_ball_holder,
             (unsigned)snapshot->semantic_live_last_possession,

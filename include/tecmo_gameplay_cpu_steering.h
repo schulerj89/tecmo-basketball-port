@@ -47,6 +47,8 @@
 #define TECMO_GAMEPLAY_CPU_STEERING_ROUTE_RESULT_TAG 0x52525454U
 #define TECMO_GAMEPLAY_CPU_STEERING_SHOT_INPUT_TAG 0x49534854U
 #define TECMO_GAMEPLAY_CPU_STEERING_SHOT_RESULT_TAG 0x52534854U
+#define TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_INPUT_TAG 0x49353154U
+#define TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_RESULT_TAG 0x52353154U
 
 typedef enum TecmoGameplayCpuSteeringSourceKind {
     TECMO_GAMEPLAY_CPU_STEERING_SOURCE_ACTOR_DISPATCH = 1,
@@ -166,6 +168,13 @@ typedef struct TecmoGameplayCpuSteeringAssets {
     TecmoGameplayCpuSteeringEffectMetadata effect_metadata[
         TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT];
     uint8_t direction_map[TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT];
+    /* Exact Bank06 $88B0 helper table, imported as a separately
+       fingerprinted opcode-15 source contract. This remains a harness-only
+       input to the raw resolver; LIVE does not manufacture its raw owners. */
+    uint8_t opcode15_pose_low_0442[
+        TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT];
+    uint8_t opcode15_pose_high_044d[
+        TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT];
     uint8_t fixed_link[TECMO_GAMEPLAY_CPU_STEERING_FIXED_LINK_COUNT];
     uint16_t formation_start_count;
     uint16_t formation_source_pinned_count;
@@ -313,6 +322,127 @@ typedef struct TecmoGameplayCpuSteeringPlayResult {
        its prior direction.  This flag is meaningful for opcode 4 only. */
     bool target_vector_zero;
 } TecmoGameplayCpuSteeringPlayResult;
+
+/* Bank06 $9172 opcode-15 branch classification. Only GATE_NOOP and the
+   selected-defender write path are executable in the raw harness. The other
+   labels are source-control-flow observations, deliberately not native
+   gameplay policy. */
+typedef enum TecmoGameplayCpuSteeringOpcode15Branch {
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_NONE = 0,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_GATE_NOOP,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MISSING_RAW,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_RETRY,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_SWAP,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MARK_OTHER,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_INVALID_DIRECTION,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFENDER_REPLACED
+} TecmoGameplayCpuSteeringOpcode15Branch;
+
+/* The raw contract intentionally names RAM ownership rather than providing
+   values through PlayInput. A caller may only claim a bit after observing the
+   corresponding value at the exact opcode-15 execution point. */
+typedef enum TecmoGameplayCpuSteeringOpcode15RawObserved {
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SLOT10_0499 = 1U << 0U,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_ACTOR_04B0 = 1U << 1U,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_FLAGS_007E = 1U << 2U,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_PRIMARY_0308 = 1U << 3U,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_DEFENDER_0309 = 1U << 4U,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_OFFENSE_SIDE_030A = 1U << 5U,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_DEFENSE_SIDE_030B = 1U << 6U,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SIDE_SELECTION_000E = 1U << 7U,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SELECTION_06D5 = 1U << 8U,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SELECTION_06D6 = 1U << 9U,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_ACTOR_LIFECYCLE = 1U << 10U,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_DIRECTION_0463 = 1U << 11U,
+    /* Canonical Rev1 $920D stores the selected X into $059E before it
+       passes selector 4 to Bank07 $C711. */
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SELECTION_059E = 1U << 12U
+} TecmoGameplayCpuSteeringOpcode15RawObserved;
+
+#define TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_KNOWN_MASK \
+    ((uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SLOT10_0499 | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_ACTOR_04B0 | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_FLAGS_007E | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_PRIMARY_0308 | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_DEFENDER_0309 | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_OFFENSE_SIDE_030A | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_DEFENSE_SIDE_030B | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SIDE_SELECTION_000E | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SELECTION_06D5 | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SELECTION_06D6 | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_ACTOR_LIFECYCLE | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_DIRECTION_0463 | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SELECTION_059E)
+
+typedef struct TecmoGameplayCpuSteeringOpcode15RawActor {
+    uint16_t raw_0547_0551_stream_offset;
+    uint8_t raw_057c_state;
+    uint8_t raw_046e_timer;
+    uint8_t raw_0463_direction;
+    uint8_t raw_0442_pose_low;
+    uint8_t raw_044d_pose_high;
+    uint8_t raw_0479_sprite_flags;
+    uint8_t raw_0458_action;
+} TecmoGameplayCpuSteeringOpcode15RawActor;
+
+/* Complete externally captured raw snapshot for one opcode-15 record. It is
+   intentionally separate from the LIVE scene and uses no shadow mirrors. */
+typedef struct TecmoGameplayCpuSteeringOpcode15RawInput {
+    uint32_t contract_tag;
+    uint32_t observed_mask;
+    uint16_t command_record_offset;
+    uint8_t actor_x;
+    uint8_t raw_0499_slot10;
+    uint8_t raw_04b0_actor_x;
+    uint8_t raw_007e;
+    uint8_t raw_0308_primary;
+    uint8_t raw_0309_defender;
+    uint8_t raw_030a_offense_side;
+    uint8_t raw_030b_defense_side;
+    uint8_t raw_000e_000f_selected_actor[
+        TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT];
+    uint8_t raw_06d5;
+    uint8_t raw_06d6;
+    uint8_t raw_059e;
+    TecmoGameplayCpuSteeringOpcode15RawActor actor[
+        TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+} TecmoGameplayCpuSteeringOpcode15RawInput;
+
+typedef struct TecmoGameplayCpuSteeringOpcode15RawResult {
+    uint32_t contract_tag;
+    uint32_t observed_mask;
+    uint32_t missing_raw_mask;
+    uint16_t command_record_offset;
+    uint8_t opcode;
+    uint8_t actor_x;
+    uint8_t raw_0499_slot10;
+    uint8_t raw_04b0_actor_x;
+    uint8_t raw_007e;
+    uint8_t raw_0308_before;
+    uint8_t raw_0308_after;
+    uint8_t raw_0309_before;
+    uint8_t raw_0309_after;
+    uint16_t defender_stream_before;
+    uint16_t defender_stream_after;
+    uint8_t defender_state_before;
+    uint8_t defender_state_after;
+    uint8_t new_actor_state_before;
+    uint8_t new_actor_state_after;
+    uint8_t raw_06d5_before;
+    uint8_t raw_06d5_after;
+    uint8_t raw_06d6_before;
+    uint8_t raw_06d6_after;
+    uint8_t raw_059e_before;
+    uint8_t raw_059e_after;
+    uint8_t c711_selector;
+    uint8_t c711_x_actor;
+    uint8_t c711_y_actor;
+    TecmoGameplayCpuSteeringOpcode15Branch branch;
+    bool committed;
+    /* The resolver captures the immediately preceding selector/X/Y state;
+       it does not claim to execute or translate Bank07 $C711. */
+    bool c711_selector_observed_unexecuted;
+} TecmoGameplayCpuSteeringOpcode15RawResult;
 
 typedef struct TecmoGameplayCpuSteeringShotInput {
     uint32_t contract_tag;
@@ -491,6 +621,19 @@ bool tecmo_gameplay_cpu_steering_play_step(
     const TecmoGameplayCpuSteeringPlayInput *input,
     TecmoGameplayCpuSteeringPlayState *state_out,
     TecmoGameplayCpuSteeringPlayResult *result_out);
+
+/* Harness-only Bank06 $9172-$9216 source contract. This resolver never reads
+   or writes LIVE scene state. It copies input to output transactionally,
+   classifies gate/primary/mark-other branches without inventing their missing
+   owners, and applies the exact selected-defender stores only when the raw
+   snapshot explicitly observes every required field. */
+bool tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    const TecmoGameplayCpuSteeringOpcode15RawInput *input,
+    TecmoGameplayCpuSteeringOpcode15RawInput *output,
+    TecmoGameplayCpuSteeringOpcode15RawResult *result_out);
+const char *tecmo_gameplay_cpu_steering_opcode15_branch_name(
+    TecmoGameplayCpuSteeringOpcode15Branch branch);
 bool tecmo_gameplay_cpu_steering_shot_request(
     const TecmoGameplayCpuSteeringAssets *assets,
     const TecmoGameplayCpuSteeringShotInput *input,

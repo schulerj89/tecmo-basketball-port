@@ -2,7 +2,7 @@
 
 Ordinary live CPU actors now use the transactional TGAI-to-TGMO adapter. This
 note describes the exact Rev 1 routines isolated behind
-`gameplay/cpu-steering` TGAI-1 and the bounded native target policy that feeds
+`gameplay/cpu-steering` TGAI-2 and the bounded native target policy that feeds
 their direction identity into the existing TGMO locomotion kernel. This is a
 live movement integration seam, not a ROM CPU command-policy claim.
 
@@ -95,7 +95,7 @@ caller-owned output.
 
 ## Strict asset contract
 
-TGAI-1 is 7616 bytes with FNV1a32 `D6C4DB35`. It requires exact same-pack
+TGAI-2 is 7632 bytes with FNV1a32 `C8CFFDC0`. It requires exact same-pack
 TGMO-1 (`gameplay/movement`, 1664 bytes, `6C82A137`) so direction identities
 cannot silently diverge from the locomotion boundary. Its ten Rev 1 source
 spans are:
@@ -118,6 +118,45 @@ source fingerprints, fixed header/descriptors, zero-reserved bytes, alignment
 padding, handler-table agreement with the ROM dispatch table, all 680 aligned
 opcodes, the canonical payload hash, and the same-pack TGMO dependency.
 Malformed or wrong-sized input fails closed.
+
+## Opcode 15: raw selected-defender source contract
+
+Opcode 15 has exactly two canonical five-byte records in the retained Bank04
+command corpus: `$9F65-$9F69` / stream `$0037` and `$9F79-$9F7D` / stream
+`$004B`, both `0F 00 00 00 00`. The Bank06 dispatcher `$8B90-$8BE0` maps the
+record to `$9172`; the relevant source region is `$9146-$9216` (209 bytes,
+FNV1a32 `FA3E6C5E`). `$9146-$9216` is an overlapping semantic anchor inside
+the existing copied `$8BE1-$9237` handler span, not an additional source span.
+
+The canonical Rev1 ROM is authoritative over the lifted listing here. Its
+separately revision-locked `$9208-$9216` tail (15 bytes, `839F9D07`) performs
+`$057C,X = 07`, `$059E = X`, `TXA/TAY`, then passes selector `4` to Bank07
+`$C711`. The lifted source stops too early and omits the state/`$059E` writes.
+The resolver records the selector and X/Y as **observed, unexecuted**; it does
+not invent a C meaning for `$C711`.
+
+The pure raw harness implements only the exact `$91C8` selected-defender
+stores when an external capture supplies every raw owner at the same command
+execution point. It writes the old defender's `$057C=04`, `$0547/$0551=$005A`,
+`$046E=0`, `$0442/$044D` and `$0479/$0458` through `$88B0-$88D9`; then it
+sets the new defender's `$0479=81`, `$057C=07`, `$059E=X`, `$06D6=09`, and the
+side-indexed `$000E=X`. At `$91F1-$91F5`, the newly selected X is compared to
+`$06D5`; only the equality path falls through to `$91F6-$91F8` and stores the
+old defender Y into `$06D5`. A non-equal X preserves `$06D5`; `$06D6=09` is
+then unconditional. Gate-noop is exact below `$0499 < $46`; primary-retry,
+primary-swap, mark-other, invalid-direction, and missing-owner paths are
+classified/deferred without mutation.
+
+LIVE intentionally still defers opcode 15. It has no faithful owner at the
+command point for `$0499`, `$007E`, `$06D5/$06D6`, `$0479`, the `$0442/$044D`
+pointer pair, or `$059E`; adding a detached mirror would not prove parity. To
+capture a future valid live sample, watch `$0499` (slot 10), `$04B0,X`, `$007E`,
+`$0308/$0309/$030A/$030B`, `$000E,Y`, `$06D5/$06D6`, `$0547/$0551`, `$057C`,
+`$046E`, `$0463`, `$0442/$044D`, `$0479`, `$0458`, and `$059E` at a naturally
+executed canonical record. The `--gameplay-cpu-steering-opcode15-harness`
+command is deterministic synthetic source-contract proof only, not a gameplay
+command or a natural FCEUX `$91C8` capture. That natural capture remains open
+research evidence.
 
 The core API, with CLI-only inspection wrappers, provides:
 
@@ -189,6 +228,7 @@ Run:
 .\build\tecmo_port.exe --gameplay-cpu-steering-inspect <PACK> <OFFSET> <DX> <DY>
 .\build\tecmo_port.exe --gameplay-cpu-steering-harness <PACK> <ACTOR> <POSSESSION> <ORIENTATION> <HOLDER> <MATCHUP> <DIFFICULTY> <X0,Y0> ... <X9,Y9>
 .\build\tecmo_port.exe --gameplay-cpu-steering-movement-harness <PACK> <ACTOR> <POSSESSION> <ORIENTATION> <HOLDER> <MATCHUP> <DIFFICULTY> <RATING> <CONDITION> <SPEED> <FRAMES> <X0,Y0> ... <X9,Y9>
+.\build\tecmo_port.exe --gameplay-cpu-steering-opcode15-harness <PACK>
 ```
 
 These commands are developer tooling only and never add an in-game debug mode;
@@ -196,7 +236,7 @@ normal play calls the pure API directly.
 
 ## Deliberate limits and next integration
 
-TGAI-1 does not claim a complete CPU play policy. In particular, it does not
+TGAI-2 does not claim a complete CPU play policy. In particular, it does not
 identify the shot/pass/steal selector, reconstruct every actor-link assignment,
 own live collision/contact or speed-setting policy, or treat the nearby Bank06
 `$B081-$B32E` candidate scan as ordinary movement targeting. That scan is now

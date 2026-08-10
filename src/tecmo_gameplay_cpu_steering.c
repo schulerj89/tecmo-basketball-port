@@ -122,6 +122,9 @@ static const uint8_t cpu_steering_rev1_sha256[32] = {
     0xF2U,0xC2U,0xBDU,0xE1U,0xF9U,0x74U,0x75U,0xC4U
 };
 
+#define CPU_STEERING_OPCODE15_DEFENDER_REQUIRED_RAW \
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_KNOWN_MASK
+
 static uint16_t read_u16(const uint8_t *bytes)
 {
     return (uint16_t)((uint16_t)bytes[0] |
@@ -170,6 +173,10 @@ static bool reject(TecmoGameplayCpuSteeringAssets *assets,
            sizeof(assets->command_count_by_opcode));
     memset(assets->effect_metadata, 0, sizeof(assets->effect_metadata));
     memset(assets->direction_map, 0, sizeof(assets->direction_map));
+    memset(assets->opcode15_pose_low_0442, 0,
+           sizeof(assets->opcode15_pose_low_0442));
+    memset(assets->opcode15_pose_high_044d, 0,
+           sizeof(assets->opcode15_pose_high_044d));
     memset(assets->fixed_link, 0, sizeof(assets->fixed_link));
     memset(assets->formation_stream_offsets, 0,
            sizeof(assets->formation_stream_offsets));
@@ -182,7 +189,7 @@ static bool reject(TecmoGameplayCpuSteeringAssets *assets,
     assets->movement_fingerprint = 0U;
     assets->available = false;
     (void)snprintf(assets->status, sizeof(assets->status), "%s",
-                   message != NULL ? message : "TGAI-1 rejected");
+                   message != NULL ? message : "TGAI-2 rejected");
     return false;
 }
 
@@ -250,9 +257,45 @@ static bool validate_header(const uint8_t *payload, size_t payload_size)
                direction_map, sizeof(direction_map)) != 0 ||
         read_u32(payload + 264U) != 0x00113415U ||
         payload[268U] != 5U ||
-        !bytes_are_zero(payload + 269U,
+        !bytes_are_zero(payload + 269U, 3U) ||
+        read_u16(payload +
+                     TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_DESCRIPTOR_OFFSET) !=
+            15U ||
+        payload[TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_DESCRIPTOR_OFFSET +
+                2U] !=
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_BANK ||
+        payload[TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_DESCRIPTOR_OFFSET +
+                3U] != 0U ||
+        read_u16(payload +
+                     TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_DESCRIPTOR_OFFSET +
+                 4U) !=
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_CPU_START ||
+        read_u16(payload +
+                     TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_DESCRIPTOR_OFFSET +
+                 6U) !=
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_SIZE ||
+        read_u32(payload +
+                     TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_DESCRIPTOR_OFFSET +
+                 8U) !=
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_FNV1A32 ||
+        read_u16(payload +
+                     TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_DESCRIPTOR_OFFSET +
+                 12U) !=
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_OFFSET ||
+        read_u16(payload +
+                     TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_DESCRIPTOR_OFFSET +
+                 14U) !=
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_SIZE ||
+        fnv1a32(payload +
+                    TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_OFFSET,
+                TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_FNV1A32 ||
+        !bytes_are_zero(payload +
+                            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_OFFSET +
+                            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_SIZE,
                         TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_HEADER_SIZE -
-                            269U)) {
+                            (TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_OFFSET +
+                             TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_SIZE))) {
         return false;
     }
     for (size_t index = 0U;
@@ -361,6 +404,90 @@ static bool validate_handlers_and_commands(const uint8_t *payload)
                       TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_PLAY_COMMANDS_SIZE -
                       TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE,
                   "\x01\x80\x0C\x00\x00", 5U) == 0;
+}
+
+static const char *opcode15_contract_error(const uint8_t *payload)
+{
+    const uint8_t *handlers = payload +
+        TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_COMMAND_HANDLERS_OFFSET;
+    const uint8_t *commands = payload +
+        TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_PLAY_COMMANDS_OFFSET;
+    const uint8_t *helper = payload +
+        TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_OFFSET;
+    static const uint8_t record[5] = {0x0FU,0U,0U,0U,0U};
+    size_t handler_offset =
+        TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_HANDLER_CPU_START -
+        0x8BE1U;
+    if (!range_ok(handler_offset,
+                  TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_HANDLER_SIZE,
+                  TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_COMMAND_HANDLERS_SIZE)) {
+        return "TGAI-2 opcode-15 handler range rejected";
+    }
+    if (fnv1a32(handlers + handler_offset,
+                TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_HANDLER_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_HANDLER_FNV1A32) {
+        return "TGAI-2 opcode-15 full handler anchor rejected";
+    }
+    if (memcmp(handlers + handler_offset,
+               "\xA0\x09\x84\xA4\xE4\xA4\xF0\x16"
+               "\xB9\xB0\x04\x29\x10\xF0\x0F"
+               "\xA9\x23\x99\x47\x05\xA9\x00"
+               "\x99\x51\x05\xA9\x04\x99\x7C\x05",
+               30U) != 0) {
+        return "TGAI-2 opcode-15 mark-other anchor rejected";
+    }
+    if (memcmp(handlers + (0x9172U - 0x8BE1U),
+               "\xAD\x99\x04\xC9\x46\xB0\x01\x60"
+               "\xBD\xB0\x04\x29\x10\xD0\x41",
+               15U) != 0) {
+        return "TGAI-2 opcode-15 gate anchor rejected";
+    }
+    if (memcmp(handlers + (0x91C8U - 0x8BE1U),
+               "\xAC\x09\x03\x8E\x09\x03\xA9\x04"
+               "\x99\x7C\x05\xA9\x5A\x99\x47\x05"
+               "\xA9\x00\x99\x51\x05\xA9\x00\x99\x6E\x04",
+               26U) != 0) {
+        return "TGAI-2 opcode-15 defender-write anchor rejected";
+    }
+    if (memcmp(handlers + (0x9208U - 0x8BE1U),
+               "\xA9\x07\x9D\x7C\x05\x8E\x9E\x05"
+               "\x8A\xA8\xA9\x04\x4C\x11\xC7", 15U) != 0 ||
+        fnv1a32(handlers + (0x9208U - 0x8BE1U),
+                TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_FINAL_TAIL_SIZE) !=
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_FINAL_TAIL_FNV1A32) {
+        return "TGAI-2 opcode-15 canonical Rev1 tail anchor rejected";
+    }
+    if (memcmp(helper,
+               "\xBC\x63\x04\xB9\xCA\x88\x9D\x42\x04"
+               "\xB9\xD2\x88\x9D\x4D\x04\xA9\xC1\x9D"
+               "\x79\x04\xA9\x30\x9D\x58\x04\x60"
+               "\x0C\x0A\x10\x0C\x0A\x0E\x0C\x0A"
+               "\x04\x04\x04\x04\x04\x04\x04\x04",
+               TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_SIZE) != 0) {
+        return "TGAI-2 opcode-15 $88B0 helper raw anchor rejected";
+    }
+    if (memcmp(commands +
+                   TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_A_OFFSET,
+               record, sizeof(record)) != 0 ||
+        memcmp(commands +
+                   TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_B_OFFSET,
+               record, sizeof(record)) != 0 ||
+        fnv1a32(commands +
+                    TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_A_OFFSET,
+                sizeof(record)) !=
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_FNV1A32 ||
+        fnv1a32(commands +
+                    TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_B_OFFSET,
+                sizeof(record)) !=
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_FNV1A32) {
+        return "TGAI-2 canonical opcode-15 record anchor rejected";
+    }
+    return NULL;
+}
+
+static bool validate_opcode15_contract(const uint8_t *payload)
+{
+    return opcode15_contract_error(payload) == NULL;
 }
 
 static bool validate_lifecycle_command_corpus(const uint8_t *payload)
@@ -474,26 +601,33 @@ bool tecmo_gameplay_cpu_steering_assets_parse(
     tecmo_gameplay_cpu_steering_assets_destroy(assets);
     if (payload == NULL || !validate_header(payload, payload_size)) {
         return reject(
-            assets, "TGAI-1 header/size/reserved contract rejected");
+            assets, "TGAI-2 header/size/reserved contract rejected");
     }
     if (fnv1a32(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_FNV1A32) {
         return reject(
-            assets, "TGAI-1 canonical payload fingerprint rejected");
+            assets, "TGAI-2 canonical payload fingerprint rejected");
     }
-    if (!validate_source_records(payload, payload_size) ||
-        !validate_padding(payload) ||
-        !validate_handlers_and_commands(payload) ||
+    if (!validate_source_records(payload, payload_size)) {
+        return reject(assets, "TGAI-2 source descriptor/raw contract rejected");
+    }
+    if (!validate_padding(payload)) {
+        return reject(assets, "TGAI-2 payload padding contract rejected");
+    }
+    if (!validate_handlers_and_commands(payload) ||
         !validate_lifecycle_command_corpus(payload)) {
-        return reject(assets, "TGAI-1 source/command contract rejected");
+        return reject(assets, "TGAI-2 command corpus contract rejected");
+    }
+    if (!validate_opcode15_contract(payload)) {
+        return reject(assets, opcode15_contract_error(payload));
     }
     if (!validate_dependency(movement, movement_size)) {
         return reject(
-            assets, "TGAI-1 same-pack TGMO-1 dependency rejected");
+            assets, "TGAI-2 same-pack TGMO-1 dependency rejected");
     }
 
     storage = (uint8_t *)malloc(payload_size);
-    if (storage == NULL) return reject(assets, "TGAI-1 allocation failed");
+    if (storage == NULL) return reject(assets, "TGAI-2 allocation failed");
     memcpy(storage, payload, payload_size);
     assets->storage = storage;
     assets->storage_size = payload_size;
@@ -547,19 +681,29 @@ bool tecmo_gameplay_cpu_steering_assets_parse(
            storage +
                TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_DIRECTION_OFFSET,
            sizeof(assets->direction_map));
+    memcpy(assets->opcode15_pose_low_0442,
+           storage +
+               TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_OFFSET +
+               TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_POSE_LOW_OFFSET,
+           sizeof(assets->opcode15_pose_low_0442));
+    memcpy(assets->opcode15_pose_high_044d,
+           storage +
+               TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_OFFSET +
+               TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_POSE_HIGH_OFFSET,
+           sizeof(assets->opcode15_pose_high_044d));
     memcpy(assets->fixed_link, cpu_steering_fixed_link,
            sizeof(assets->fixed_link));
     assets->formation_start_count =
         TECMO_GAMEPLAY_CPU_STEERING_FORMATION_START_COUNT;
     if (!decode_formation_native_fields(assets)) {
-        return reject(assets, "TGAI-1 formation semantic decode rejected");
+        return reject(assets, "TGAI-2 formation semantic decode rejected");
     }
     assets->movement_fingerprint =
         TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_FNV1A32;
     assets->available = true;
     (void)snprintf(
         assets->status, sizeof(assets->status),
-        "TGAI-1 CPU steering evidence assetpack (isolated lifecycle semantics; scene integration deferred)");
+        "TGAI-2 CPU steering evidence assetpack (opcode-15 raw contract; LIVE integration deferred)");
     return true;
 }
 
@@ -586,7 +730,7 @@ bool tecmo_gameplay_cpu_steering_assets_load(
             &payload, &payload_size) != 0) {
         return reject(
             assets,
-            "TGAI-1 gameplay/cpu-steering entry missing or wrong-sized");
+            "TGAI-2 gameplay/cpu-steering entry missing or wrong-sized");
     }
     if (tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_ID,
@@ -594,7 +738,7 @@ bool tecmo_gameplay_cpu_steering_assets_load(
             &movement, &movement_size) != 0) {
         tecmo_asset_pack_free(payload);
         return reject(
-            assets, "TGAI-1 same-pack TGMO-1 dependency missing");
+            assets, "TGAI-2 same-pack TGMO-1 dependency missing");
     }
     loaded = tecmo_gameplay_cpu_steering_assets_parse(
         assets, payload, (size_t)payload_size,
@@ -743,6 +887,29 @@ const char *tecmo_gameplay_cpu_steering_effect_name(
         return "direction-pose-alt";
     default:
         return "unknown";
+    }
+}
+
+const char *tecmo_gameplay_cpu_steering_opcode15_branch_name(
+    TecmoGameplayCpuSteeringOpcode15Branch branch)
+{
+    switch (branch) {
+    case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_GATE_NOOP:
+        return "gate-noop";
+    case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MISSING_RAW:
+        return "deferred-missing-raw";
+    case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_RETRY:
+        return "deferred-primary-retry";
+    case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_SWAP:
+        return "deferred-primary-swap";
+    case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MARK_OTHER:
+        return "deferred-mark-other";
+    case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_INVALID_DIRECTION:
+        return "deferred-invalid-direction";
+    case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFENDER_REPLACED:
+        return "defender-replaced";
+    default:
+        return "none";
     }
 }
 
@@ -946,6 +1113,273 @@ bool tecmo_gameplay_cpu_steering_play_state_initialize(
     state.matchup_seed[1U] = 7U;
     state.candidate_actor = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     *state_out = state;
+    return true;
+}
+
+static bool opcode15_record_is_canonical(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint16_t stream_offset)
+{
+    TecmoGameplayCpuSteeringCommand command;
+    if (stream_offset !=
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_A_OFFSET &&
+        stream_offset !=
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_B_OFFSET ||
+        !tecmo_gameplay_cpu_steering_decode_command(
+            assets, stream_offset, &command)) {
+        return false;
+    }
+    return command.opcode == 15U && command.handler_cpu == 0x9172U &&
+           command.arguments[0U] == 0U && command.arguments[1U] == 0U &&
+           command.arguments[2U] == 0U && command.arguments[3U] == 0U;
+}
+
+static bool opcode15_raw_input_valid(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    const TecmoGameplayCpuSteeringOpcode15RawInput *input)
+{
+    uint32_t observed;
+    if (assets == NULL || !assets->available || input == NULL ||
+        input->contract_tag !=
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_INPUT_TAG ||
+        !play_valid_actor(input->actor_x) ||
+        !opcode15_record_is_canonical(assets, input->command_record_offset)) {
+        return false;
+    }
+    observed = input->observed_mask;
+    if ((observed &
+         ~TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_KNOWN_MASK) != 0U ||
+        ((observed & TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_PRIMARY_0308) !=
+             0U &&
+         !play_valid_actor(input->raw_0308_primary)) ||
+        ((observed & TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_DEFENDER_0309) !=
+             0U &&
+         !play_valid_actor(input->raw_0309_defender)) ||
+        ((observed &
+          TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_OFFENSE_SIDE_030A) != 0U &&
+         input->raw_030a_offense_side >=
+             TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT) ||
+        ((observed &
+          TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_DEFENSE_SIDE_030B) != 0U &&
+         input->raw_030b_defense_side >=
+             TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT)) {
+        return false;
+    }
+    return true;
+}
+
+static void opcode15_result_capture_before(
+    const TecmoGameplayCpuSteeringOpcode15RawInput *input,
+    TecmoGameplayCpuSteeringOpcode15RawResult *result)
+{
+    uint32_t observed = input->observed_mask;
+    result->observed_mask = observed;
+    result->missing_raw_mask =
+        TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_KNOWN_MASK & ~observed;
+    result->command_record_offset = input->command_record_offset;
+    result->opcode = 15U;
+    result->actor_x = input->actor_x;
+    result->raw_0499_slot10 = input->raw_0499_slot10;
+    result->raw_04b0_actor_x = input->raw_04b0_actor_x;
+    result->raw_007e = input->raw_007e;
+    result->raw_0308_before = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    result->raw_0308_after = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    result->raw_0309_before = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    result->raw_0309_after = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    result->new_actor_state_before = 0U;
+    result->new_actor_state_after = 0U;
+    if ((observed & TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_PRIMARY_0308) !=
+        0U) {
+        result->raw_0308_before = input->raw_0308_primary;
+        result->raw_0308_after = input->raw_0308_primary;
+    }
+    if ((observed & TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_DEFENDER_0309) !=
+        0U) {
+        result->raw_0309_before = input->raw_0309_defender;
+        result->raw_0309_after = input->raw_0309_defender;
+        if ((observed &
+             TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_ACTOR_LIFECYCLE) !=
+            0U) {
+            result->defender_stream_before =
+                input->actor[input->raw_0309_defender]
+                    .raw_0547_0551_stream_offset;
+            result->defender_stream_after =
+                result->defender_stream_before;
+            result->defender_state_before =
+                input->actor[input->raw_0309_defender].raw_057c_state;
+            result->defender_state_after = result->defender_state_before;
+        }
+    }
+    if ((observed &
+         TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SELECTION_06D5) != 0U) {
+        result->raw_06d5_before = input->raw_06d5;
+        result->raw_06d5_after = input->raw_06d5;
+    }
+    if ((observed &
+         TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SELECTION_06D6) != 0U) {
+        result->raw_06d6_before = input->raw_06d6;
+        result->raw_06d6_after = input->raw_06d6;
+    }
+    if ((observed &
+         TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SELECTION_059E) != 0U) {
+        result->raw_059e_before = input->raw_059e;
+        result->raw_059e_after = input->raw_059e;
+    }
+    if ((observed &
+         TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_ACTOR_LIFECYCLE) != 0U) {
+        result->new_actor_state_before =
+            input->actor[input->actor_x].raw_057c_state;
+        result->new_actor_state_after = result->new_actor_state_before;
+    }
+}
+
+bool tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    const TecmoGameplayCpuSteeringOpcode15RawInput *input,
+    TecmoGameplayCpuSteeringOpcode15RawInput *output,
+    TecmoGameplayCpuSteeringOpcode15RawResult *result_out)
+{
+    TecmoGameplayCpuSteeringOpcode15RawInput candidate;
+    TecmoGameplayCpuSteeringOpcode15RawResult result;
+    uint32_t observed;
+    uint8_t old_defender;
+    uint8_t direction;
+    if (input == NULL || output == NULL || result_out == NULL ||
+        (const void *)output == (const void *)input ||
+        (const void *)result_out == (const void *)input ||
+        (const void *)result_out == (const void *)output ||
+        !opcode15_raw_input_valid(assets, input)) {
+        return false;
+    }
+    candidate = *input;
+    memset(&result, 0, sizeof(result));
+    result.contract_tag =
+        TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_RESULT_TAG;
+    opcode15_result_capture_before(input, &result);
+    observed = input->observed_mask;
+
+    /* $9172-$9179: the altitude/object-plane gate returns before every
+       other handler input. A below-$46 observation is therefore a complete
+       source no-op even if later raw owners were not captured. */
+    if ((observed & TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SLOT10_0499) ==
+        0U) {
+        result.branch =
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MISSING_RAW;
+        *output = candidate;
+        *result_out = result;
+        return true;
+    }
+    if (input->raw_0499_slot10 < 0x46U) {
+        result.branch =
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_GATE_NOOP;
+        *output = candidate;
+        *result_out = result;
+        return true;
+    }
+    if ((observed &
+         TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_ACTOR_04B0) == 0U) {
+        result.branch =
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MISSING_RAW;
+        *output = candidate;
+        *result_out = result;
+        return true;
+    }
+    if ((input->raw_04b0_actor_x & 0x10U) == 0U) {
+        if ((observed &
+             TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_FLAGS_007E) == 0U) {
+            result.branch =
+                TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MISSING_RAW;
+        } else if ((input->raw_007e & 0x04U) != 0U) {
+            /* $9181-$9185 branches back to the raw $0499 gate. The bounded
+               harness records the retry rather than iterating or mutating
+               primary ownership. */
+            result.branch =
+                TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_RETRY;
+        } else {
+            result.branch =
+                TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_SWAP;
+        }
+        *output = candidate;
+        *result_out = result;
+        return true;
+    }
+    if ((observed & TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_FLAGS_007E) ==
+        0U) {
+        result.branch =
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MISSING_RAW;
+        *output = candidate;
+        *result_out = result;
+        return true;
+    }
+    if ((input->raw_007e & 0x08U) != 0U) {
+        /* $91C2-$91C7 selects the $9146 mark-other path. Its full actor-loop
+           ownership and $8FD9/$9070 tails are intentionally not inferred. */
+        result.branch =
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MARK_OTHER;
+        *output = candidate;
+        *result_out = result;
+        return true;
+    }
+    if ((observed & CPU_STEERING_OPCODE15_DEFENDER_REQUIRED_RAW) !=
+        CPU_STEERING_OPCODE15_DEFENDER_REQUIRED_RAW) {
+        result.branch =
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MISSING_RAW;
+        *output = candidate;
+        *result_out = result;
+        return true;
+    }
+
+    old_defender = input->raw_0309_defender;
+    direction = input->actor[old_defender].raw_0463_direction;
+    if (direction >= TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT) {
+        result.branch =
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_INVALID_DIRECTION;
+        *output = candidate;
+        *result_out = result;
+        return true;
+    }
+
+    /* Exact $91C8-$9216 selected-defender branch. $88B0 acts on the old
+       defender after Y->$X; the final $0479/$057C/$059E writes act on the
+       new X. Bank07 $C711 itself remains observed, not executed. */
+    candidate.raw_0309_defender = input->actor_x;
+    candidate.actor[old_defender].raw_057c_state = 0x04U;
+    candidate.actor[old_defender].raw_0547_0551_stream_offset = 0x005AU;
+    candidate.actor[old_defender].raw_046e_timer = 0U;
+    candidate.actor[old_defender].raw_0442_pose_low =
+        assets->opcode15_pose_low_0442[direction];
+    candidate.actor[old_defender].raw_044d_pose_high =
+        assets->opcode15_pose_high_044d[direction];
+    candidate.actor[old_defender].raw_0479_sprite_flags = 0xC1U;
+    candidate.actor[old_defender].raw_0458_action = 0x30U;
+    candidate.actor[input->actor_x].raw_0479_sprite_flags = 0x81U;
+    if (input->actor_x == input->raw_06d5) {
+        candidate.raw_06d5 = old_defender;
+    }
+    candidate.raw_06d6 = 0x09U;
+    candidate.raw_000e_000f_selected_actor[
+        input->raw_030b_defense_side] = input->actor_x;
+    candidate.actor[input->actor_x].raw_057c_state = 0x07U;
+    candidate.raw_059e = input->actor_x;
+
+    result.raw_0309_after = candidate.raw_0309_defender;
+    result.defender_stream_after =
+        candidate.actor[old_defender].raw_0547_0551_stream_offset;
+    result.defender_state_after = candidate.actor[old_defender].raw_057c_state;
+    result.new_actor_state_after =
+        candidate.actor[input->actor_x].raw_057c_state;
+    result.raw_06d5_after = candidate.raw_06d5;
+    result.raw_06d6_after = candidate.raw_06d6;
+    result.raw_059e_after = candidate.raw_059e;
+    result.c711_selector = 0x04U;
+    result.c711_x_actor = input->actor_x;
+    result.c711_y_actor = input->actor_x;
+    result.c711_selector_observed_unexecuted = true;
+    result.committed = true;
+    result.branch =
+        TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFENDER_REPLACED;
+    *output = candidate;
+    *result_out = result;
     return true;
 }
 
@@ -1806,7 +2240,7 @@ static bool movement_composition_self_test(
             result.movement.direction != direction) {
             (void)snprintf(
                 message, message_size,
-                "TGAI-1 to TGMO-1 direction composition failed.");
+                "TGAI-2 to TGMO-1 direction composition failed.");
             tecmo_gameplay_movement_assets_destroy(&movement_assets);
             return false;
         }
@@ -1849,7 +2283,7 @@ static bool movement_composition_self_test(
             TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL) {
         (void)snprintf(
             message, message_size,
-            "TGAI-1 zero-vector neutral composition failed.");
+            "TGAI-2 zero-vector neutral composition failed.");
         tecmo_gameplay_movement_assets_destroy(&movement_assets);
         return false;
     }
@@ -1905,14 +2339,14 @@ static bool movement_composition_self_test(
 
 movement_vector_failure:
     (void)snprintf(message, message_size,
-                   "TGAI-1 to TGMO-1 movement vector failed.");
+                   "TGAI-2 to TGMO-1 movement vector failed.");
     tecmo_gameplay_movement_assets_destroy(&movement_assets);
     return false;
 
 movement_transaction_failure:
     (void)snprintf(
         message, message_size,
-        "TGAI-1 to TGMO-1 transactional rejection failed.");
+        "TGAI-2 to TGMO-1 transactional rejection failed.");
     tecmo_gameplay_movement_assets_destroy(&movement_assets);
     return false;
 }
@@ -1939,6 +2373,263 @@ static bool find_lifecycle_opcode_offset(
         }
     }
     return false;
+}
+
+static void opcode15_raw_fixture(
+    TecmoGameplayCpuSteeringOpcode15RawInput *input)
+{
+    memset(input, 0, sizeof(*input));
+    input->contract_tag =
+        TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_INPUT_TAG;
+    input->observed_mask =
+        TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_KNOWN_MASK;
+    input->command_record_offset =
+        TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_A_OFFSET;
+    input->actor_x = 6U;
+    input->raw_0499_slot10 = 0x46U;
+    input->raw_04b0_actor_x = 0x10U;
+    input->raw_007e = 0U;
+    input->raw_0308_primary = 4U;
+    input->raw_0309_defender = 9U;
+    input->raw_030a_offense_side = 0U;
+    input->raw_030b_defense_side = 1U;
+    input->raw_000e_000f_selected_actor[0U] = 4U;
+    input->raw_000e_000f_selected_actor[1U] = 9U;
+    input->raw_06d5 = 6U;
+    input->raw_06d6 = 2U;
+    input->raw_059e = 5U;
+    for (uint8_t actor = 0U;
+         actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT;
+         ++actor) {
+        input->actor[actor].raw_0547_0551_stream_offset =
+            (uint16_t)(0x0100U + actor * 5U);
+        input->actor[actor].raw_057c_state = 0x04U;
+        input->actor[actor].raw_046e_timer = (uint8_t)(0x20U + actor);
+        input->actor[actor].raw_0463_direction =
+            (uint8_t)(actor % TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT);
+        input->actor[actor].raw_0442_pose_low = 0xAAU;
+        input->actor[actor].raw_044d_pose_high = 0xBBU;
+        input->actor[actor].raw_0479_sprite_flags = 0x40U;
+        input->actor[actor].raw_0458_action = 0x50U;
+    }
+    input->actor[9U].raw_0547_0551_stream_offset = 0x1234U;
+    input->actor[9U].raw_057c_state = 0x08U;
+    input->actor[9U].raw_046e_timer = 0xC3U;
+    input->actor[9U].raw_0463_direction = 5U;
+}
+
+static bool opcode15_raw_resolver_self_test(
+    const TecmoGameplayCpuSteeringAssets *assets)
+{
+    TecmoGameplayCpuSteeringOpcode15RawInput input;
+    TecmoGameplayCpuSteeringOpcode15RawInput output;
+    TecmoGameplayCpuSteeringOpcode15RawInput before;
+    TecmoGameplayCpuSteeringOpcode15RawInput output_before;
+    TecmoGameplayCpuSteeringOpcode15RawResult result;
+    TecmoGameplayCpuSteeringOpcode15RawResult result_before;
+
+    opcode15_raw_fixture(&input);
+    input.observed_mask =
+        TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SLOT10_0499;
+    input.raw_0499_slot10 = 0x45U;
+    before = input;
+    if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            assets, &input, &output, &result) ||
+        result.contract_tag !=
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_RESULT_TAG ||
+        result.branch !=
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_GATE_NOOP ||
+        result.committed || memcmp(&output, &before, sizeof(output)) != 0) {
+        return false;
+    }
+
+    opcode15_raw_fixture(&input);
+    input.raw_04b0_actor_x = 0U;
+    input.raw_007e = 0x04U;
+    before = input;
+    if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            assets, &input, &output, &result) ||
+        result.branch !=
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_RETRY ||
+        result.committed || memcmp(&output, &before, sizeof(output)) != 0) {
+        return false;
+    }
+    input.raw_007e = 0U;
+    before = input;
+    if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            assets, &input, &output, &result) ||
+        result.branch !=
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_SWAP ||
+        result.committed || memcmp(&output, &before, sizeof(output)) != 0) {
+        return false;
+    }
+    input.raw_04b0_actor_x = 0x10U;
+    input.raw_007e = 0x08U;
+    before = input;
+    if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            assets, &input, &output, &result) ||
+        result.branch !=
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MARK_OTHER ||
+        result.committed || memcmp(&output, &before, sizeof(output)) != 0) {
+        return false;
+    }
+
+    opcode15_raw_fixture(&input);
+    if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            assets, &input, &output, &result) ||
+        result.branch !=
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFENDER_REPLACED ||
+        !result.committed || result.raw_0308_before != 4U ||
+        result.raw_0308_after != 4U || result.raw_0309_before != 9U ||
+        result.raw_0309_after != 6U || result.defender_stream_before != 0x1234U ||
+        result.defender_stream_after != 0x005AU ||
+        result.defender_state_before != 0x08U ||
+        result.defender_state_after != 0x04U ||
+        result.new_actor_state_before != 0x04U ||
+        result.new_actor_state_after != 0x07U ||
+        result.raw_06d5_before != 6U || result.raw_06d5_after != 9U ||
+        result.raw_06d6_before != 2U || result.raw_06d6_after != 9U ||
+        result.raw_059e_before != 5U || result.raw_059e_after != 6U ||
+        result.c711_selector != 4U || result.c711_x_actor != 6U ||
+        result.c711_y_actor != 6U ||
+        !result.c711_selector_observed_unexecuted ||
+        output.raw_0309_defender != 6U ||
+        output.actor[9U].raw_0547_0551_stream_offset != 0x005AU ||
+        output.actor[9U].raw_057c_state != 0x04U ||
+        output.actor[9U].raw_046e_timer != 0U ||
+        output.actor[9U].raw_0442_pose_low != 0x0EU ||
+        output.actor[9U].raw_044d_pose_high != 0x04U ||
+        output.actor[9U].raw_0479_sprite_flags != 0xC1U ||
+        output.actor[9U].raw_0458_action != 0x30U ||
+        output.actor[6U].raw_0479_sprite_flags != 0x81U ||
+        output.actor[6U].raw_057c_state != 0x07U ||
+        output.raw_000e_000f_selected_actor[1U] != 6U ||
+        output.raw_06d5 != 9U || output.raw_06d6 != 9U ||
+        output.raw_059e != 6U) {
+        return false;
+    }
+    input.command_record_offset =
+        TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_B_OFFSET;
+    if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            assets, &input, &output, &result) ||
+        result.branch !=
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFENDER_REPLACED) {
+        return false;
+    }
+
+    opcode15_raw_fixture(&input);
+    input.raw_06d5 = 5U;
+    if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            assets, &input, &output, &result) ||
+        result.branch !=
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFENDER_REPLACED ||
+        !result.committed || result.raw_06d5_before != 5U ||
+        result.raw_06d5_after != 5U || output.raw_06d5 != 5U ||
+        result.raw_06d6_before != 2U || result.raw_06d6_after != 9U ||
+        output.raw_06d6 != 9U) {
+        return false;
+    }
+
+    opcode15_raw_fixture(&input);
+    input.actor[9U].raw_0463_direction = 8U;
+    before = input;
+    if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            assets, &input, &output, &result) ||
+        result.branch !=
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_INVALID_DIRECTION ||
+        result.committed || memcmp(&output, &before, sizeof(output)) != 0) {
+        return false;
+    }
+    opcode15_raw_fixture(&input);
+    input.observed_mask &=
+        ~((uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SELECTION_059E);
+    before = input;
+    if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            assets, &input, &output, &result) ||
+        result.branch !=
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MISSING_RAW ||
+        result.committed || memcmp(&output, &before, sizeof(output)) != 0 ||
+        (result.missing_raw_mask &
+         TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SELECTION_059E) == 0U) {
+        return false;
+    }
+
+    opcode15_raw_fixture(&input);
+    before = input;
+    memset(&output, 0xA5, sizeof(output));
+    output_before = output;
+    memset(&result, 0xA5, sizeof(result));
+    result_before = result;
+    input.contract_tag = 0U;
+    if (tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            assets, &input, &output, &result) ||
+        memcmp(&output, &output_before, sizeof(output)) != 0) {
+        return false;
+    }
+    /* Invalid inputs must leave caller outputs untouched. */
+    if (memcmp(&result, &result_before, sizeof(result)) != 0) return false;
+    input = before;
+    memset(&result, 0xA5, sizeof(result));
+    result_before = result;
+    if (tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            assets, &input, &input, &result) ||
+        memcmp(&input, &before, sizeof(input)) != 0 ||
+        memcmp(&result, &result_before, sizeof(result)) != 0) {
+        return false;
+    }
+    return true;
+}
+
+/* These are independent parser-layer mutations: the normal public parser
+   also rejects them at its immutable whole-payload fingerprint, while this
+   narrow test proves the nested opcode-15 descriptor/raw/anchor checks are
+   not merely metadata beside an unchecked payload. */
+static bool opcode15_parser_anchor_self_test(
+    const TecmoGameplayCpuSteeringAssets *assets)
+{
+    uint8_t *mutated;
+    size_t handler_offset;
+    bool valid = assets != NULL && assets->storage != NULL &&
+        assets->storage_size == TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_SIZE;
+    if (!valid) return false;
+    mutated = (uint8_t *)malloc(assets->storage_size);
+    if (mutated == NULL) return false;
+    handler_offset =
+        TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_COMMAND_HANDLERS_OFFSET +
+        (0x9146U - 0x8BE1U);
+
+    memcpy(mutated, assets->storage, assets->storage_size);
+    mutated[handler_offset + (0x920DU - 0x9146U)] ^= 1U;
+    valid = !validate_opcode15_contract(mutated);
+
+    memcpy(mutated, assets->storage, assets->storage_size);
+    mutated[TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_OFFSET +
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_POSE_LOW_OFFSET] ^= 1U;
+    valid = valid && !validate_opcode15_contract(mutated) &&
+        !validate_header(mutated, assets->storage_size);
+
+    memcpy(mutated, assets->storage, assets->storage_size);
+    mutated[TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_PLAY_COMMANDS_OFFSET +
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_A_OFFSET] ^= 1U;
+    valid = valid && !validate_opcode15_contract(mutated);
+
+    memcpy(mutated, assets->storage, assets->storage_size);
+    mutated[TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_PLAY_COMMANDS_OFFSET +
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_B_OFFSET] ^= 1U;
+    valid = valid && !validate_opcode15_contract(mutated);
+
+    memcpy(mutated, assets->storage, assets->storage_size);
+    mutated[TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_DESCRIPTOR_OFFSET +
+            8U] ^= 1U;
+    valid = valid && !validate_header(mutated, assets->storage_size);
+
+    memcpy(mutated, assets->storage, assets->storage_size);
+    mutated[TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_SOURCES_OFFSET +
+            (TECMO_GAMEPLAY_CPU_STEERING_SOURCE_COMMAND_HANDLERS - 1U) *
+                TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_SOURCE_STRIDE + 12U] ^= 1U;
+    valid = valid && !validate_source_records(mutated, assets->storage_size);
+    free(mutated);
+    return valid;
 }
 
 bool tecmo_gameplay_cpu_steering_self_test(
@@ -1983,6 +2674,18 @@ bool tecmo_gameplay_cpu_steering_self_test(
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
+    if (!opcode15_raw_resolver_self_test(&assets)) {
+        (void)snprintf(message, message_size,
+                       "TGAI-2 opcode-15 raw resolver contract failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    if (!opcode15_parser_anchor_self_test(&assets)) {
+        (void)snprintf(message, message_size,
+                       "TGAI-2 opcode-15 parser/anchor mutations failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
     if (!tecmo_gameplay_cpu_steering_decode_command(
             &assets, 0U, &command) ||
         command.opcode != 4U || command.handler_cpu != 0x8FFAU ||
@@ -1999,7 +2702,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         command.kind !=
             TECMO_GAMEPLAY_CPU_STEERING_COMMAND_ABSOLUTE_TARGET) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 command decode vectors failed.");
+                       "TGAI-2 command decode vectors failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2014,7 +2717,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &command) ||
         memcmp(&command, &before, sizeof(command)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 transactional decode rejection failed.");
+                       "TGAI-2 transactional decode rejection failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2033,7 +2736,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         formation_result.actor_count !=
             TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 formation lifecycle contract failed.");
+                       "TGAI-2 formation lifecycle contract failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2044,7 +2747,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         memcmp(&formation_result, &formation_before,
                sizeof(formation_result)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 formation boundary rejection failed.");
+                       "TGAI-2 formation boundary rejection failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2064,7 +2767,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         route_result.stream_offset != 0x007DU ||
         route_result.actor_state != 0x04U) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 short route selector golden failed.");
+                       "TGAI-2 short route selector golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2073,7 +2776,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &route_input, &route_result) ||
         !route_result.used_long_route || route_result.stream_offset != 0x00D7U) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 long route selector golden failed.");
+                       "TGAI-2 long route selector golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2083,7 +2786,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &route_input, &route_result) ||
         !route_result.used_long_route) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 route flag branch golden failed.");
+                       "TGAI-2 route flag branch golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2093,7 +2796,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &route_input, &route_result) ||
         !route_result.used_long_route) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 route age branch golden failed.");
+                       "TGAI-2 route age branch golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2104,7 +2807,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         route_result.wrote_route || route_result.stream_offset != 0U ||
         route_result.actor_state != 0U) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 route no-write branch golden failed.");
+                       "TGAI-2 route no-write branch golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2114,7 +2817,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &route_input, &route_result) ||
         memcmp(&route_result, &route_before, sizeof(route_result)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 route bad-tag transaction failed.");
+                       "TGAI-2 route bad-tag transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2125,7 +2828,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &route_input, &route_result) ||
         memcmp(&route_result, &route_before, sizeof(route_result)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 route bad-index transaction failed.");
+                       "TGAI-2 route bad-index transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2164,7 +2867,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
                 TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_CONDITIONAL_FIVE_OR_TEN ||
             metadata_10->native_approximation) {
             (void)snprintf(message, message_size,
-                           "TGAI-1 lifecycle effect metadata failed.");
+                           "TGAI-2 lifecycle effect metadata failed.");
             tecmo_gameplay_cpu_steering_assets_destroy(&assets);
             return false;
         }
@@ -2175,7 +2878,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             !find_lifecycle_opcode_offset(&assets, opcode,
                                           &opcode_offsets[opcode])) {
             (void)snprintf(message, message_size,
-                           "TGAI-1 lifecycle opcode coverage failed.");
+                           "TGAI-2 lifecycle opcode coverage failed.");
             tecmo_gameplay_cpu_steering_assets_destroy(&assets);
             return false;
         }
@@ -2184,7 +2887,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, 0U, &play_state) ||
         play_state.matchup_seed[0U] != 2U || play_state.matchup_seed[1U] != 7U) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 lifecycle startup state failed.");
+                       "TGAI-2 lifecycle startup state failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2193,7 +2896,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         if (play_state.native_matchup_actor[actor] !=
                 TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR) {
             (void)snprintf(message, message_size,
-                           "TGAI-1 fixed startup seeds leaked into matchup state.");
+                           "TGAI-2 fixed startup seeds leaked into matchup state.");
             tecmo_gameplay_cpu_steering_assets_destroy(&assets);
             return false;
         }
@@ -2241,7 +2944,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.direction[0U] !=
             TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 opcode-4 canonical ball target borrow failed.");
+                       "TGAI-2 opcode-4 canonical ball target borrow failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2266,7 +2969,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.actor_state[0U] != 0x04U ||
         play_out.direction[0U] != 3U) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 opcode-4 zero-vector guard failed.");
+                       "TGAI-2 opcode-4 zero-vector guard failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2284,7 +2987,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.stream_offset[0U] != 0x0140U ||
         play_out.actor_state[0U] != 0x04U) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 opcode-7 equal-probe golden failed.");
+                       "TGAI-2 opcode-7 equal-probe golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2302,7 +3005,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_result.next_offset != 0x013BU || play_result.advanced ||
         play_out.stream_offset[0U] != 0x013BU) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 opcode-7 mismatch-probe golden failed.");
+                       "TGAI-2 opcode-7 mismatch-probe golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2321,7 +3024,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &play_state, &play_input, &play_out, &play_result) ||
         play_result.steps_executed != 1U || play_result.command.opcode != 0U) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 one-handler-per-tick golden failed.");
+                       "TGAI-2 one-handler-per-tick golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2347,7 +3050,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT ||
         play_out.stream_offset[0U] != 0x0005U) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 goto-chain two-step golden failed.");
+                       "TGAI-2 goto-chain two-step golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2366,7 +3069,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_result.next_offset != 0x0000U ||
         !play_result.budget_exhausted || play_out.stream_offset[0U] != 0x0000U) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 goto-chain budget golden failed.");
+                       "TGAI-2 goto-chain budget golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2389,7 +3092,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_result.next_offset != opcode_offsets[10U] ||
         play_out.stream_offset[0U] != opcode_offsets[10U]) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 opcode-10 deferred retry golden failed.");
+                       "TGAI-2 opcode-10 deferred retry golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2419,7 +3122,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             play_result.proximity_met != (delta >= -8 && delta <= 7) ||
             play_result.advanced != (delta >= -8 && delta <= 7)) {
             (void)snprintf(message, message_size,
-                           "TGAI-1 opcode-10 proximity boundary failed at %d.",
+                           "TGAI-2 opcode-10 proximity boundary failed at %d.",
                            delta);
             tecmo_gameplay_cpu_steering_assets_destroy(&assets);
             return false;
@@ -2452,7 +3155,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
                 (int16_t)(play_input.actor_position[9U].x +
                     ((branch & 1U) != 0U ? -16 : 16)))) {
             (void)snprintf(message, message_size,
-                           "TGAI-1 opcode-16 adjustment branch %u failed.",
+                           "TGAI-2 opcode-16 adjustment branch %u failed.",
                            (unsigned)branch);
             tecmo_gameplay_cpu_steering_assets_destroy(&assets);
             return false;
@@ -2478,7 +3181,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.actor_state[0U] != 0x04U ||
         play_out.stream_offset[0U] != play_before.stream_offset[0U]) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 wait-expiry golden failed.");
+                       "TGAI-2 wait-expiry golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2502,7 +3205,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.actor_state[0U] != 0x04U ||
         play_out.stream_offset[0U] != (uint16_t)(opcode_offsets[14U] + 5U)) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 opcode-14 $04B0 golden failed.");
+                       "TGAI-2 opcode-14 $04B0 golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2522,7 +3225,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.aggregation_06df != 1U ||
         play_out.aggregation_06e1 != 0x01U) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 aggregation barrier golden failed.");
+                       "TGAI-2 aggregation barrier golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2542,7 +3245,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &play_state, &play_input, &play_out, &play_result) ||
         play_result.next_offset != (uint16_t)(opcode_offsets[21U] + 5U)) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 opcode-21 one-record golden failed.");
+                       "TGAI-2 opcode-21 one-record golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2560,7 +3263,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &play_state, &play_input, &play_out, &play_result) ||
         play_result.next_offset != (uint16_t)(opcode_offsets[21U] + 10U)) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 opcode-21 two-record golden failed.");
+                       "TGAI-2 opcode-21 two-record golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2581,7 +3284,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.global_0790 !=
             (uint8_t)(0x80U | play_result.command.arguments[2U])) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 opcode-22 mask retention golden failed.");
+                       "TGAI-2 opcode-22 mask retention golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2599,7 +3302,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &play_state, &play_input, &play_out, &play_result) ||
         play_result.command.opcode != 0U || !play_result.advanced) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 opcode-0 forward golden failed.");
+                       "TGAI-2 opcode-0 forward golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2622,7 +3325,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
                             play_result.command.arguments[1U])) ||
         play_before.target_x[0U] == play_out.target_x[0U]) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 opcode-0 orientation/BA golden failed.");
+                       "TGAI-2 opcode-0 orientation/BA golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2645,11 +3348,46 @@ bool tecmo_gameplay_cpu_steering_self_test(
             play_result.next_offset !=
                 (uint16_t)(opcode_offsets[deferred_opcode] + 5U)) {
             (void)snprintf(message, message_size,
-                           "TGAI-1 deferred transport golden failed for opcode %u.",
+                           "TGAI-2 deferred transport golden failed for opcode %u.",
                            (unsigned)deferred_opcode);
             tecmo_gameplay_cpu_steering_assets_destroy(&assets);
             return false;
         }
+    }
+
+    /* LIVE's existing opcode-15 boundary remains explicitly deferred. The
+       raw resolver above is a source-contract harness only; no caller may
+       accidentally use it to mutate this typed play state without the raw
+       `$0499/$007E/$06D5/$06D6/$0479/$0442/$044D/$059E` owners. */
+    if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+            &assets, 0U, &play_state)) {
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_state.stream_offset[0U] =
+        TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_A_OFFSET;
+    play_state.primary_actor = 4U;
+    play_state.defender_actor = 9U;
+    play_state.actor_state[0U] = 0x0BU;
+    play_state.timer[0U] = 0xC3U;
+    play_before = play_state;
+    play_input.actor = 0U;
+    play_input.step_budget = 1U;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.command.opcode != 15U || !play_result.deferred ||
+        play_result.advanced ||
+        play_result.next_offset !=
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_A_OFFSET ||
+        play_out.stream_offset[0U] != play_before.stream_offset[0U] ||
+        play_out.primary_actor != play_before.primary_actor ||
+        play_out.defender_actor != play_before.defender_actor ||
+        play_out.actor_state[0U] != play_before.actor_state[0U] ||
+        play_out.timer[0U] != play_before.timer[0U]) {
+        (void)snprintf(message, message_size,
+                       "TGAI-2 opcode-15 LIVE deferred boundary failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
     }
 
     /* Every invalid/aliased play contract leaves both outputs untouched. */
@@ -2670,7 +3408,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         memcmp(&play_result, &play_result_before,
                sizeof(play_result)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 play state alias rejection failed.");
+                       "TGAI-2 play state alias rejection failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2683,7 +3421,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         memcmp(&play_input, &play_input_before, sizeof(play_input)) != 0 ||
         memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 play input/result alias rejection failed.");
+                       "TGAI-2 play input/result alias rejection failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2696,7 +3434,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         memcmp(&play_result, &play_result_before,
                sizeof(play_result)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 play input validation rejection failed.");
+                       "TGAI-2 play input validation rejection failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2711,7 +3449,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         memcmp(&play_result, &play_result_before,
                sizeof(play_result)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 opcode-4 ball input transaction failed.");
+                       "TGAI-2 opcode-4 ball input transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2727,7 +3465,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         memcmp(&play_result, &play_result_before,
                sizeof(play_result)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 opcode-4 object-state transaction failed.");
+                       "TGAI-2 opcode-4 object-state transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2750,7 +3488,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             shot_result.action != 0x32U || shot_result.timer != 0x12U ||
             shot_result.handoff_code != 0x03U) {
             (void)snprintf(message, message_size,
-                           "TGAI-1 shot-request difficulty golden failed.");
+                           "TGAI-2 shot-request difficulty golden failed.");
             tecmo_gameplay_cpu_steering_assets_destroy(&assets);
             return false;
         }
@@ -2760,7 +3498,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     if (!tecmo_gameplay_cpu_steering_shot_request(
             &assets, &shot_input, &shot_result) || shot_result.request) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 shot-request distance boundary failed.");
+                       "TGAI-2 shot-request distance boundary failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2769,7 +3507,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     if (!tecmo_gameplay_cpu_steering_shot_request(
             &assets, &shot_input, &shot_result) || shot_result.request) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 shot-request high-distance boundary failed.");
+                       "TGAI-2 shot-request high-distance boundary failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2778,7 +3516,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     if (!tecmo_gameplay_cpu_steering_shot_request(
             &assets, &shot_input, &shot_result) || shot_result.request) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 shot-request timer boundary failed.");
+                       "TGAI-2 shot-request timer boundary failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2788,7 +3526,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     if (!tecmo_gameplay_cpu_steering_shot_request(
             &assets, &shot_input, &shot_result) || shot_result.request) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 shot-request rating boundary failed.");
+                       "TGAI-2 shot-request rating boundary failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2798,7 +3536,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     if (!tecmo_gameplay_cpu_steering_shot_request(
             &assets, &shot_input, &shot_result) || shot_result.request) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 shot-request state gate failed.");
+                       "TGAI-2 shot-request state gate failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2807,7 +3545,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     if (!tecmo_gameplay_cpu_steering_shot_request(
             &assets, &shot_input, &shot_result) || shot_result.request) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 shot-request BA gate failed.");
+                       "TGAI-2 shot-request BA gate failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2818,7 +3556,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &shot_input, &shot_result) ||
         memcmp(&shot_result, &shot_before, sizeof(shot_result)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 shot-request transaction rejection failed.");
+                       "TGAI-2 shot-request transaction rejection failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2846,7 +3584,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         tecmo_gameplay_cpu_steering_direction_for_delta(
             &assets, 0, 0, &direction) || direction != 0xA5U) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 exact octant/transaction vectors failed.");
+                       "TGAI-2 exact octant/transaction vectors failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2881,7 +3619,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         !harness_result.writes_direction ||
         harness_result.direction != 1U) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 harness linked-actor vector failed.");
+                       "TGAI-2 harness linked-actor vector failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2895,7 +3633,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             repeat_result.input_fingerprint == baseline_fingerprint) {
             (void)snprintf(
                 message, message_size,
-                "TGAI-1 harness ten-coordinate fingerprint failed.");
+                "TGAI-2 harness ten-coordinate fingerprint failed.");
             tecmo_gameplay_cpu_steering_assets_destroy(&assets);
             return false;
         }
@@ -2917,7 +3655,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         harness_result.direction != 1U ||
         !harness_result.writes_direction) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 harness left-hoop vector failed.");
+                       "TGAI-2 harness left-hoop vector failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2930,7 +3668,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         harness_result.direction != 0U ||
         !harness_result.writes_direction) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 harness right-hoop vector failed.");
+                       "TGAI-2 harness right-hoop vector failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2957,7 +3695,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         harness_result.direction != 0U ||
         !harness_result.writes_direction) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 explicit target vector failed.");
+                       "TGAI-2 explicit target vector failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2982,7 +3720,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         harness_result.direction !=
             TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION) {
         (void)snprintf(message, message_size,
-                       "TGAI-1 harness zero-vector gate failed.");
+                       "TGAI-2 harness zero-vector gate failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3054,12 +3792,12 @@ bool tecmo_gameplay_cpu_steering_self_test(
     tecmo_gameplay_cpu_steering_assets_destroy(&assets);
     (void)snprintf(
         message, message_size,
-        "TGAI-1 CPU steering isolated: commands=680 handlers=24 directions=8 tgmo_adapter=1 scene_adapter=1 rom_policy=0");
+        "TGAI-2 CPU steering isolated: commands=680 handlers=24 directions=8 tgmo_adapter=1 scene_adapter=1 rom_policy=0");
     return true;
 
 malformed_harness_failure:
     (void)snprintf(message, message_size,
-                   "TGAI-1 transactional harness rejection failed.");
+                   "TGAI-2 transactional harness rejection failed.");
     tecmo_gameplay_cpu_steering_assets_destroy(&assets);
     return false;
 }

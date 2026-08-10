@@ -39,7 +39,7 @@ static const uint8_t cpu_steering_direction_map[
     3U,6U,4U,7U,0U,1U,2U,5U
 };
 
-/* These native lifecycle consumers use bytes outside the unchanged TGAI-1
+/* These native lifecycle consumers use bytes outside the retained TGAI-2
    payload spans. The importer validates their canonical Rev1 source ranges;
    runtime code receives only the semantic constants derived from them. */
 static const uint8_t cpu_steering_anchor_ac76_acf0_sha256[32] = {
@@ -82,6 +82,48 @@ static const uint8_t cpu_steering_anchor_b06_candidate_sha256[32] = {
     0x61U,0x4FU,0x92U,0x5AU,0x26U,0x66U,0x74U,0x89U,
     0x3AU,0x35U,0x2BU,0xB2U,0xDBU,0x3AU,0x8FU,0x41U,
     0x58U,0xF6U,0x1CU,0x8AU,0xE8U,0x91U,0xAEU,0x36U
+};
+
+/* Opcode-15's helper and handler are consumed only by the explicit raw
+   harness. These anchors are separate from the broad retained command span:
+   they prevent a compatible-looking surrounding payload from silently
+   changing the exact branch or $88B0 pose/action contract. */
+static const uint8_t cpu_steering_anchor_opcode15_helper_sha256[32] = {
+    0x3BU,0x39U,0x4BU,0xE6U,0x4BU,0x0FU,0x27U,0xB2U,
+    0x51U,0xBEU,0xE5U,0x55U,0x4DU,0x2DU,0xCCU,0xC8U,
+    0xFAU,0x9EU,0xBDU,0x0EU,0xEEU,0x3AU,0x5AU,0x55U,
+    0xEBU,0xE1U,0xF5U,0xF3U,0xBCU,0xCBU,0x99U,0x40U
+};
+
+static const uint8_t cpu_steering_anchor_opcode15_handler_sha256[32] = {
+    0x3BU,0xECU,0x82U,0x71U,0x6EU,0x43U,0xD2U,0x3CU,
+    0xBEU,0xAAU,0x3FU,0xB4U,0x31U,0xB1U,0x52U,0xB6U,
+    0x5AU,0x31U,0x42U,0x6BU,0x65U,0xE6U,0x25U,0xE2U,
+    0x74U,0x07U,0x6EU,0xD1U,0x41U,0x92U,0xC7U,0x94U
+};
+
+/* This is intentionally an overlapping semantic anchor, not an eleventh
+   imported TGAI source span. The broad Bank06 handlers source retains the
+   bytes; this verifies the Rev1-only tail that the lifted listing omits. */
+static const uint8_t cpu_steering_anchor_opcode15_tail_sha256[32] = {
+    0x3BU,0x13U,0x8EU,0xD7U,0x10U,0x99U,0xF3U,0x03U,
+    0x9FU,0x13U,0xC6U,0x61U,0xDDU,0x77U,0x42U,0xF2U,
+    0x88U,0xDAU,0xDCU,0x54U,0xB2U,0x96U,0x48U,0xA5U,
+    0x47U,0xD6U,0xAFU,0x31U,0x5CU,0xDFU,0xADU,0x72U
+};
+
+static const uint8_t cpu_steering_anchor_opcode15_dispatch_sha256[32] = {
+    0x90U,0x63U,0xB5U,0x8CU,0x6AU,0x27U,0x00U,0xB8U,
+    0x09U,0x95U,0xA7U,0xF5U,0x3BU,0x9EU,0xF4U,0xE6U,
+    0xF1U,0xB6U,0x4DU,0x30U,0xE2U,0xE5U,0x81U,0x31U,
+    0x35U,0xDCU,0xE6U,0xE6U,0xCDU,0x0BU,0xBBU,0xC2U
+};
+
+static const uint8_t cpu_steering_anchor_opcode15_record_sha256[32] = {
+    0xB7U,0xBEU,0x62U,0x4DU,0xCBU,0x1DU,0xFDU,0xACU,
+    0xD7U,0x84U,0xF4U,0xA7U,0x96U,0x98U,0xEEU,0x22U,
+    0xC0U,0x42U,0x2AU,0x16U,0x63U,0x67U,0xF2U,0xC5U,
+    0xC9U,0x27U,0xF0U,0x1BU,0x37U,0xA2U,0xD9U,0x3EU
 };
 
 const TecmoGameplayCpuSteeringExpectedSource
@@ -178,6 +220,7 @@ static int validate_lifecycle_anchor(
     uint32_t bank,
     uint16_t cpu_start,
     uint16_t cpu_end,
+    uint32_t expected_fingerprint,
     const uint8_t expected_sha256[32])
 {
     uint8_t digest[32];
@@ -189,6 +232,10 @@ static int validate_lifecycle_anchor(
     offset = cpu_steering_switchable_rom_offset(
         prg_offset, bank, cpu_start);
     if (!range_ok(offset, byte_count, rom_size) ||
+        (expected_fingerprint != 0U &&
+         tecmo_asset_pack_fnv1a32(
+             rom + (size_t)offset, (size_t)byte_count) !=
+             expected_fingerprint) ||
         tecmo_asset_pack_sha256_digest(
             rom + (size_t)offset, (size_t)byte_count, digest) != 0 ||
         memcmp(digest, expected_sha256, sizeof(digest)) != 0) {
@@ -207,27 +254,104 @@ static int validate_lifecycle_anchors(
         prg_offset, 5U, 0x9709U);
     if (!validate_lifecycle_anchor(
             rom, rom_size, prg_offset, 4U, 0xAC76U, 0xACF0U,
+            0U,
             cpu_steering_anchor_ac76_acf0_sha256) ||
         !validate_lifecycle_anchor(
             rom, rom_size, prg_offset, 4U, 0xACD9U, 0xACE3U,
+            0U,
             cpu_steering_anchor_acd9_ace3_sha256) ||
         !validate_lifecycle_anchor(
             rom, rom_size, prg_offset, 4U, 0xADD6U, 0xADDFU,
+            0U,
             cpu_steering_anchor_add6_addf_sha256) ||
         !validate_lifecycle_anchor(
             rom, rom_size, prg_offset, 5U, 0x96B6U, 0x9708U,
+            0U,
             cpu_steering_anchor_b05_route_sha256) ||
         !validate_lifecycle_anchor(
             rom, rom_size, prg_offset, 6U, 0x8374U, 0x84B6U,
+            0U,
             cpu_steering_anchor_b06_shot_sha256) ||
         !validate_lifecycle_anchor(
             rom, rom_size, prg_offset, 6U, 0xB081U, 0xB365U,
+            0U,
             cpu_steering_anchor_b06_candidate_sha256) ||
+        !validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 6U, 0x88B0U, 0x88D9U,
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_FNV1A32,
+            cpu_steering_anchor_opcode15_helper_sha256) ||
+        !validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 6U, 0x8B90U, 0x8BE0U,
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_COMMAND_DISPATCH_FNV1A32,
+            cpu_steering_anchor_opcode15_dispatch_sha256) ||
+        !validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 6U, 0x9146U, 0x9216U,
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_HANDLER_FNV1A32,
+            cpu_steering_anchor_opcode15_handler_sha256) ||
+        !validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 6U, 0x9208U, 0x9216U,
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_FINAL_TAIL_FNV1A32,
+            cpu_steering_anchor_opcode15_tail_sha256) ||
+        !validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 4U, 0x9F65U, 0x9F69U,
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_FNV1A32,
+            cpu_steering_anchor_opcode15_record_sha256) ||
+        !validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 4U, 0x9F79U, 0x9F7DU,
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_FNV1A32,
+            cpu_steering_anchor_opcode15_record_sha256) ||
         !range_ok(route_table_offset, sizeof(route_table), rom_size) ||
         memcmp(rom + (size_t)route_table_offset,
                route_table, sizeof(route_table)) != 0) {
         return 0;
     }
+    return 1;
+}
+
+/* The full-ROM revision fingerprint rejects any mutated input before the
+   importer reaches the nested anchor checks. Exercise each opcode-15 source
+   or semantic anchor directly here as well, so these six checks remain an
+   independently enforced contract rather than metadata hidden behind the
+   broader Rev1 gate. The tail intentionally overlaps the handler source and
+   is tested separately because it is the canonical-ROM/lifted-source
+   discrepancy boundary. */
+static int validate_opcode15_anchor_mutation_rejection(
+    const uint8_t *rom,
+    uint64_t rom_size,
+    uint64_t prg_offset)
+{
+    static const struct {
+        uint32_t bank;
+        uint16_t cpu_start;
+    } anchors[] = {
+        {6U, 0x88B0U}, {6U, 0x8B90U}, {6U, 0x9146U},
+        {6U, 0x9208U}, {4U, 0x9F65U}, {4U, 0x9F79U}
+    };
+    uint8_t *mutated;
+    size_t index;
+    if (rom == NULL || !validate_lifecycle_anchors(
+            rom, rom_size, prg_offset)) {
+        return 0;
+    }
+    if (rom_size > SIZE_MAX ||
+        (mutated = (uint8_t *)malloc((size_t)rom_size)) == NULL) {
+        return 0;
+    }
+    for (index = 0U; index < sizeof(anchors) / sizeof(anchors[0U]); ++index) {
+        uint64_t offset = cpu_steering_switchable_rom_offset(
+            prg_offset, anchors[index].bank, anchors[index].cpu_start);
+        if (!range_ok(offset, 1U, rom_size)) {
+            free(mutated);
+            return 0;
+        }
+        memcpy(mutated, rom, (size_t)rom_size);
+        mutated[(size_t)offset] ^= 1U;
+        if (validate_lifecycle_anchors(mutated, rom_size, prg_offset)) {
+            free(mutated);
+            return 0;
+        }
+    }
+    free(mutated);
     return 1;
 }
 
@@ -237,12 +361,29 @@ static int play_commands_valid(const uint8_t *commands)
     static const uint8_t free_throw_a[5] = {0x03U,0x08U,0U,0U,0U};
     static const uint8_t free_throw_b[5] = {0x02U,0xB4U,0U,0x96U,0U};
     static const uint8_t last_command[5] = {0x01U,0x80U,0x0CU,0U,0U};
+    static const uint8_t opcode15_command[5] = {0x0FU,0U,0U,0U,0U};
     if (commands == NULL ||
         memcmp(commands, first_command, sizeof(first_command)) != 0 ||
         memcmp(commands + 0x007DU, free_throw_a,
                sizeof(free_throw_a)) != 0 ||
         memcmp(commands + 0x00D7U, free_throw_b,
                sizeof(free_throw_b)) != 0 ||
+        memcmp(commands +
+                   TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_A_OFFSET,
+               opcode15_command, sizeof(opcode15_command)) != 0 ||
+        memcmp(commands +
+                   TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_B_OFFSET,
+               opcode15_command, sizeof(opcode15_command)) != 0 ||
+        tecmo_asset_pack_fnv1a32(
+            commands +
+                TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_A_OFFSET,
+            sizeof(opcode15_command)) !=
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_FNV1A32 ||
+        tecmo_asset_pack_fnv1a32(
+            commands +
+                TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_B_OFFSET,
+            sizeof(opcode15_command)) !=
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_FNV1A32 ||
         memcmp(commands +
                    TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_PLAY_COMMANDS_SIZE -
                    TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE,
@@ -282,6 +423,10 @@ static int validate_semantics(const uint8_t *payload)
         TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_COMMAND_READER_OFFSET;
     const uint8_t *commands = payload +
         TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_PLAY_COMMANDS_OFFSET;
+    const uint8_t *opcode15_descriptor = payload +
+        TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_DESCRIPTOR_OFFSET;
+    const uint8_t *opcode15_raw = payload +
+        TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_OFFSET;
     uint8_t handler_low[TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT];
     uint8_t handler_high[TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT];
 
@@ -293,7 +438,36 @@ static int validate_semantics(const uint8_t *payload)
             (uint8_t)(cpu_steering_handler_cpu[index] >> 8U);
     }
 
-    return memcmp(actor + (0x8284U - 0x81F7U),
+    return tecmo_asset_pack_read_u16(opcode15_descriptor) == 15U &&
+           opcode15_descriptor[2U] ==
+               TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_BANK &&
+           opcode15_descriptor[3U] == 0U &&
+           tecmo_asset_pack_read_u16(opcode15_descriptor + 4U) ==
+               TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_CPU_START &&
+           tecmo_asset_pack_read_u16(opcode15_descriptor + 6U) ==
+               TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_SIZE &&
+           tecmo_asset_pack_read_u32(opcode15_descriptor + 8U) ==
+               TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_FNV1A32 &&
+           tecmo_asset_pack_read_u16(opcode15_descriptor + 12U) ==
+               TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_OFFSET &&
+           tecmo_asset_pack_read_u16(opcode15_descriptor + 14U) ==
+               TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_SIZE &&
+           tecmo_asset_pack_fnv1a32(
+               opcode15_raw,
+               TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_SIZE) ==
+               TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_FNV1A32 &&
+           memcmp(opcode15_raw,
+                  "\xBC\x63\x04\xB9\xCA\x88\x9D\x42\x04"
+                  "\xB9\xD2\x88\x9D\x4D\x04\xA9\xC1\x9D"
+                  "\x79\x04\xA9\x30\x9D\x58\x04\x60",
+                  26U) == 0 &&
+           memcmp(opcode15_raw +
+                      TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_POSE_LOW_OFFSET,
+                  "\x0C\x0A\x10\x0C\x0A\x0E\x0C\x0A", 8U) == 0 &&
+           memcmp(opcode15_raw +
+                      TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_POSE_HIGH_OFFSET,
+                  "\x04\x04\x04\x04\x04\x04\x04\x04", 8U) == 0 &&
+           memcmp(actor + (0x8284U - 0x81F7U),
                   "\xA2\x09\xEC\x08\x03\xF0", 6U) == 0 &&
            memcmp(actor + (0x82B6U - 0x81F7U),
                   "\x9F\x9F\x9F\x9F\x90", 5U) == 0 &&
@@ -374,7 +548,7 @@ int tecmo_asset_pack_build_gameplay_cpu_steering(
                sizeof(input_sha256)) != 0) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGAI-1 import requires the exact Rev1 ROM fingerprint.");
+            "TGAI-2 import requires the exact Rev1 ROM fingerprint.");
         return -1;
     }
 
@@ -400,7 +574,7 @@ int tecmo_asset_pack_build_gameplay_cpu_steering(
                     expected->fingerprint) {
             tecmo_asset_pack_set_messagef(
                 message, message_size,
-                "TGAI-1 %s Bank%02u $%04X-$%04X fingerprint mismatch.",
+                "TGAI-2 %s Bank%02u $%04X-$%04X fingerprint mismatch.",
                 expected->fixed_bank != 0U ? "fixed" : "switchable",
                 (unsigned)expected->bank,
                 (unsigned)expected->cpu_start, (unsigned)cpu_end);
@@ -420,6 +594,51 @@ int tecmo_asset_pack_build_gameplay_cpu_steering(
         provenance->source_offsets[index] = offset;
     }
 
+    {
+        uint64_t opcode15_offset = cpu_steering_switchable_rom_offset(
+            prg_offset,
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_BANK,
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_CPU_START);
+        uint8_t *descriptor = payload +
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_DESCRIPTOR_OFFSET;
+        uint8_t *raw = payload +
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_OFFSET;
+        if (!range_ok(
+                opcode15_offset,
+                TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_SIZE,
+                rom_size) ||
+            tecmo_asset_pack_fnv1a32(
+                rom + (size_t)opcode15_offset,
+                TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_SIZE) !=
+                TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_FNV1A32) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "TGAI-2 Bank06 $88B0-$88D9 opcode-15 helper fingerprint mismatch.");
+            return -1;
+        }
+        tecmo_asset_pack_store_u16(descriptor, 15U);
+        descriptor[2U] =
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_BANK;
+        descriptor[3U] = 0U;
+        tecmo_asset_pack_store_u16(
+            descriptor + 4U,
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_CPU_START);
+        tecmo_asset_pack_store_u16(
+            descriptor + 6U,
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_SIZE);
+        tecmo_asset_pack_store_u32(
+            descriptor + 8U,
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_FNV1A32);
+        tecmo_asset_pack_store_u16(
+            descriptor + 12U,
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_OFFSET);
+        tecmo_asset_pack_store_u16(
+            descriptor + 14U,
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_SIZE);
+        memcpy(raw, rom + (size_t)opcode15_offset,
+               TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_SIZE);
+    }
+
     if (!validate_semantics(payload) ||
         !validate_lifecycle_anchors(rom, rom_size, prg_offset) ||
         /* The byte immediately after the 680th record resumes Bank04 code. */
@@ -428,7 +647,7 @@ int tecmo_asset_pack_build_gameplay_cpu_steering(
             CPU_STEERING_REV1_ROM_FNV1A32) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGAI-1 semantic or full-ROM revision contract rejected.");
+            "TGAI-2 semantic or full-ROM revision contract rejected.");
         return -1;
     }
 
@@ -506,13 +725,13 @@ int tecmo_asset_pack_build_gameplay_cpu_steering(
             TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_FNV1A32) {
         tecmo_asset_pack_set_messagef(
             message, message_size,
-            "TGAI-1 canonical payload fingerprint mismatch (got %08X).",
+            "TGAI-2 canonical payload fingerprint mismatch (got %08X).",
             tecmo_asset_pack_fnv1a32(payload, payload_size));
         return -1;
     }
     tecmo_asset_pack_set_message(
         message, message_size,
-        "Built strict ROM-derived TGAI-1 CPU steering evidence asset.");
+        "Built strict ROM-derived TGAI-2 CPU steering evidence asset.");
     return 0;
 }
 
@@ -537,20 +756,27 @@ int tecmo_asset_pack_gameplay_cpu_steering_source_test(
         tecmo_asset_pack_read_file(rom_path, &rom, &rom_size) != 0) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGAI-1 direct source test could not read the ROM.");
+            "TGAI-2 direct source test could not read the ROM.");
         return -1;
     }
     if (rom_size != CPU_STEERING_REV1_ROM_SIZE ||
         prg_offset + prg_size + chr_size != rom_size) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGAI-1 direct source test requires the exact Rev1 layout.");
+            "TGAI-2 direct source test requires the exact Rev1 layout.");
         free(rom);
         return -1;
     }
     result = tecmo_asset_pack_build_gameplay_cpu_steering(
         rom, rom_size, prg_offset, CPU_STEERING_PRG_BANK_COUNT, 1,
         payload, sizeof(payload), &provenance, message, message_size);
+    if (result == 0 && !validate_opcode15_anchor_mutation_rejection(
+            rom, rom_size, prg_offset)) {
+        tecmo_asset_pack_set_message(
+            message, message_size,
+            "TGAI-2 opcode-15 independent anchor mutation rejection failed.");
+        result = -1;
+    }
     free(rom);
     return result;
 }
@@ -579,11 +805,11 @@ int tecmo_asset_pack_gameplay_cpu_steering_self_test(
             NULL, 0U) == 0) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGAI-1 importer layout/rejection self-test failed.");
+            "TGAI-2 importer layout/rejection self-test failed.");
         return -1;
     }
     tecmo_asset_pack_set_message(
         message, message_size,
-        "TGAI-1 importer self-test passed.");
+        "TGAI-2 importer self-test passed.");
     return 0;
 }

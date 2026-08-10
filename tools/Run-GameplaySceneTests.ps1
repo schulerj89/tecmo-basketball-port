@@ -249,6 +249,39 @@ function Assert-LiveProofRejected {
     }
 }
 
+function Assert-Opcode15PassiveTrace {
+    param(
+        [object]$Snapshot,
+        [string]$Label
+    )
+    if ($null -eq $Snapshot -or $null -eq $Snapshot.opcode15) {
+        throw "LIVE proof $Label has no TGPS opcode-15 trace object."
+    }
+    $Trace = $Snapshot.opcode15
+    $Gate = $Trace.raw_gate_available
+    $Typed = $Trace.typed_before_after
+    if ($null -eq $Gate -or $null -eq $Typed) {
+        throw "LIVE proof $Label has a malformed opcode-15 trace object."
+    }
+    if ([bool]$Trace.observed) {
+        if ($Trace.branch -ne "deferred-missing-raw" -or
+            $Trace.missing_raw_mask -ne "00001FFF" -or
+            [bool]$Gate.'$0499' -or [bool]$Gate.'$04B0' -or
+            [bool]$Gate.'$007E' -or [bool]$Gate.'$06D5_$06D6' -or
+            [bool]$Gate.'$0479' -or [bool]$Gate.'$0442_$044D' -or
+            [bool]$Gate.'$059E' -or [bool]$Gate.actor_lifecycle -or
+            [int]$Typed.'$0308'[0] -ne [int]$Typed.'$0308'[1] -or
+            [int]$Typed.'$0309'[0] -ne [int]$Typed.'$0309'[1] -or
+            [int]$Typed.'$0547_$0551'[0] -ne [int]$Typed.'$0547_$0551'[1] -or
+            [int]$Typed.'$057C'[0] -ne [int]$Typed.'$057C'[1]) {
+            throw "LIVE proof $Label opcode-15 passive-defer contract regressed."
+        }
+    } elseif ($Trace.branch -ne "none" -or
+              $Trace.missing_raw_mask -ne "00000000") {
+        throw "LIVE proof $Label has an invalid unobserved opcode-15 trace."
+    }
+}
+
 function Test-LiveProofManifest {
     param(
         [string]$ManifestPath,
@@ -854,7 +887,7 @@ try {
         [pscustomobject]@{ id="gameplay/movement"; size=1664; hash="6C82A137"; schema="tecmo.gameplay-movement/TGMO-1" },
         [pscustomobject]@{ id="gameplay/ball-dribble"; size=608; hash="E2CE6BFF"; schema="tecmo.gameplay-ball-dribble/TGBD-1" },
         [pscustomobject]@{ id="gameplay/fatigue"; size=512; hash="F80F170D"; schema="tecmo.gameplay-fatigue/TGFT-1" },
-        [pscustomobject]@{ id="gameplay/cpu-steering"; size=7616; hash="D6C4DB35"; schema="tecmo.gameplay-cpu-steering/TGAI-1" },
+        [pscustomobject]@{ id="gameplay/cpu-steering"; size=7632; hash="C8CFFDC0"; schema="tecmo.gameplay-cpu-steering/TGAI-2" },
         [pscustomobject]@{ id="gameplay/hud"; size=864; hash="3D13AA89"; schema="tecmo.gameplay-hud/THUD-1" },
         [pscustomobject]@{ id="gameplay/court-orientation"; size=640; hash="44B0C44E"; schema="tecmo.gameplay-court-orientation/TGOR-1" },
         [pscustomobject]@{ id="gameplay/backcourt"; size=512; hash="810886EF"; schema="tecmo.gameplay-backcourt/TGBC-1" },
@@ -915,6 +948,9 @@ try {
     })
     $LiveEvidence = if ($CpuMaps.Count -eq 1) {
         $CpuMaps[0].live_foundation_integration.evidence
+    } else { $null }
+    $Opcode15Contract = if ($CpuMaps.Count -eq 1) {
+        $CpuMaps[0].opcode15_source_contract
     } else { $null }
     $BallDribbleMaps = @($SourceMap.logical_entries | Where-Object {
         $_.id -eq "gameplay/ball-dribble"
@@ -1036,7 +1072,7 @@ try {
         throw "Production TGMO-1 movement provenance is incomplete."
     }
     if ($CpuMaps.Count -ne 1 -or
-        $CpuMaps[0].fingerprint_fnv1a32 -ne "D6C4DB35" -or
+        $CpuMaps[0].fingerprint_fnv1a32 -ne "C8CFFDC0" -or
         @($CpuMaps[0].source_spans).Count -ne 10 -or
         $LiveEvidence.rom.revision -ne "Rev1" -or
         $LiveEvidence.rom.length -ne 393232 -or
@@ -1093,7 +1129,36 @@ try {
         $CpuMaps[0].live_foundation_integration.play_state.step_budget -ne 1 -or
         ![bool]$CpuMaps[0].live_foundation_integration.play_state.deferred_effects_explicit -or
         ![bool]$CpuMaps[0].live_foundation_integration.normal_game_flow_exposed) {
-        throw "Production TGAI-1 LIVE adapter provenance is incomplete."
+        throw "Production TGAI-2 LIVE adapter provenance is incomplete."
+    }
+    if ($null -eq $Opcode15Contract -or
+        $Opcode15Contract.scope -ne "harness-only; LIVE opcode 15 remains deferred" -or
+        $Opcode15Contract.dispatch.bank -ne 6 -or
+        $Opcode15Contract.dispatch.address -ne '$8B90-$8BE0' -or
+        $Opcode15Contract.dispatch.handler -ne '$9172' -or
+        @($Opcode15Contract.canonical_records).Count -ne 2 -or
+        $Opcode15Contract.canonical_records[0].stream_offset -ne '$0037' -or
+        $Opcode15Contract.canonical_records[1].stream_offset -ne '$004B' -or
+        @($Opcode15Contract.semantic_anchors).Count -ne 3 -or
+        $Opcode15Contract.semantic_anchors[0].address -ne '$9146-$9216' -or
+        $Opcode15Contract.semantic_anchors[1].address -ne '$9208-$9216' -or
+        ![bool]$Opcode15Contract.semantic_anchors[1].overlaps_parent_source -or
+        $Opcode15Contract.semantic_anchors[2].address -ne '$88B0-$88D9' -or
+        $Opcode15Contract.lifted_source_discrepancy.authority -ne "canonical Rev1 ROM" -or
+        $Opcode15Contract.lifted_source_discrepancy.lifted_listing_omits -ne '$9208-$9211' -or
+        $Opcode15Contract.c711.selector -ne 4 -or
+        ![bool]$Opcode15Contract.c711.observed_unexecuted -or
+        $Opcode15Contract.conditional_06d5.gate -ne
+            '$91F1-$91F5: CPX $06D5; BNE' -or
+        $Opcode15Contract.conditional_06d5.store -ne
+            '$91F6-$91F8: STY $06D5' -or
+        $Opcode15Contract.conditional_06d5.'when' -ne 'new X == $06D5' -or
+        $Opcode15Contract.conditional_06d5.'then' -ne '$06D5=old Y' -or
+        $Opcode15Contract.conditional_06d5.'otherwise' -ne 'preserve $06D5' -or
+        $Opcode15Contract.live_missing_raw_reason -notmatch 'deferred_missing_raw_0499' -or
+        $Opcode15Contract.natural_fceux_capture -notmatch
+            'synthetic.*not a natural \$91C8 capture') {
+        throw "TGAI-2 opcode-15 raw-owner provenance is incomplete."
     }
     if ($BallDribbleMaps.Count -ne 1 -or
         $BallDribbleMaps[0].fingerprint_fnv1a32 -ne "E2CE6BFF" -or
@@ -1416,6 +1481,12 @@ try {
                     @($Claimant.after.raw.'$057C').Count -ne 10) {
                     throw "LIVE proof claimant settlement trace/source-state contract regressed."
                 }
+                # This event is an existing production scene path, not an
+                # opcode-15 fixture. If it naturally fetches a canonical
+                # opcode-15 record, the trace must remain a passive raw-owner
+                # diagnostic and leave the typed LIVE state unchanged.
+                Assert-Opcode15PassiveTrace -Snapshot $Claimant.before -Label "claimant-settlement/before"
+                Assert-Opcode15PassiveTrace -Snapshot $Claimant.after -Label "claimant-settlement/after"
             } elseif ([bool]$State.claimant_settlement.emitted) {
                 throw "Non-claimant LIVE proof event unexpectedly emitted Bank05 B87C diagnostics."
             }
@@ -1997,7 +2068,7 @@ try {
         [byte][char]'x'
     [IO.File]::WriteAllBytes($MissingSteeringPath, $MissingSteering)
     Assert-SceneRejected -AssetPack $MissingSteeringPath `
-        -Label "missing-cpu-steering" -ExpectedStatus "TGAI-1"
+        -Label "missing-cpu-steering" -ExpectedStatus "TGAI-2"
 
     $SteeringOffset =
         [int]$Entries["gameplay/cpu-steering"].pack_offset
@@ -2008,17 +2079,17 @@ try {
         $MalformedSteering[$SteeringOffset] -bxor 1
     [IO.File]::WriteAllBytes($MalformedSteeringPath, $MalformedSteering)
     Assert-SceneRejected -AssetPack $MalformedSteeringPath `
-        -Label "malformed-cpu-steering" -ExpectedStatus "TGAI-1"
+        -Label "malformed-cpu-steering" -ExpectedStatus "TGAI-2"
 
     $OversizedSteeringPath =
         Join-Path $Scratch "oversized-cpu-steering.assetpack"
     $OversizedSteering = [byte[]]$PackBytes.Clone()
-    [BitConverter]::GetBytes([uint64]7617).CopyTo(
+    [BitConverter]::GetBytes([uint64]7633).CopyTo(
         $OversizedSteering,
         [int]$Entries["gameplay/cpu-steering"].directory_offset + 92)
     [IO.File]::WriteAllBytes($OversizedSteeringPath, $OversizedSteering)
     Assert-SceneRejected -AssetPack $OversizedSteeringPath `
-        -Label "oversized-cpu-steering" -ExpectedStatus "TGAI-1"
+        -Label "oversized-cpu-steering" -ExpectedStatus "TGAI-2"
 
     $MissingOrientationPath =
         Join-Path $Scratch "missing-court-orientation.assetpack"
@@ -2601,7 +2672,7 @@ try {
 
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
-        "scene controls THUD-1 clean jersey/name HUD TGMO-1 human/CPU walking poses TGBD-1 held-ball bounce/sound TGFT-1 fatigue TPNL-1 out-of-bounds settlement TGBC-1 live backcourt settlement TGVR-1 native violation referee TGAI-1/TGMO-1 transactional ordinary CPU movement TGCP-2 full-world camera fine-scroll guarded-margins actor-camera-projection/possession-slice-render/freeze TGFL-1 orientation-lineup TGOR two-basket shot ownership TGDK TGJS TGSR-4 jump entry/turn/release/flight poses jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
+        "scene controls THUD-1 clean jersey/name HUD TGMO-1 human/CPU walking poses TGBD-1 held-ball bounce/sound TGFT-1 fatigue TPNL-1 out-of-bounds settlement TGBC-1 live backcourt settlement TGVR-1 native violation referee TGAI-2/TGMO-1 transactional ordinary CPU movement with opcode-15 raw-owner defer diagnostics TGCP-2 full-world camera fine-scroll guarded-margins actor-camera-projection/possession-slice-render/freeze TGFL-1 orientation-lineup TGOR two-basket shot ownership TGDK TGJS TGSR-4 jump entry/turn/release/flight poses jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
         "halftime/final render-hashes/determinism missing malformed oversized " +
         "dependency-corrupt chr-mismatch")
     $ProofSummary = ("LIVE PROOF {0}: root={1} manifest={2} native_videos=2 frames={3} contact_sheet=1920x{4}" -f

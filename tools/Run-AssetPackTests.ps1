@@ -356,6 +356,7 @@ function Get-KnownLogicalAssetPackEntries {
         "gameplay/jump-shots",
         "gameplay/actor-command-assignment",
         "gameplay/shot-resolution",
+        "gameplay/rebound-audit",
         "gameplay/penalties",
         "gameplay/violation-referee",
         "gameplay/free-throw-lineup",
@@ -426,6 +427,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "gameplay/jump-shots"
             "gameplay/actor-command-assignment"
             "gameplay/shot-resolution"
+            "gameplay/rebound-audit"
             "gameplay/penalties"
             "gameplay/violation-referee"
             "gameplay/free-throw-lineup"

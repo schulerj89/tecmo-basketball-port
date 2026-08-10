@@ -167,7 +167,7 @@ static int tecmo_cli_run_gameplay_cpu_steering_inspect(int argc,
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return 1;
     }
-    printf("TGAI-1 offset=$%04X cpu=$%04X opcode=%u args=%02X,%02X,%02X,%02X handler=$%04X kind=%s\n",
+    printf("TGAI-2 offset=$%04X cpu=$%04X opcode=%u args=%02X,%02X,%02X,%02X handler=$%04X kind=%s\n",
            (unsigned)command.stream_offset,
            (unsigned)command.cpu_address,
            (unsigned)command.opcode,
@@ -182,6 +182,149 @@ static int tecmo_cli_run_gameplay_cpu_steering_inspect(int argc,
            tecmo_gameplay_cpu_steering_direction_name(direction));
     tecmo_gameplay_cpu_steering_assets_destroy(&assets);
     return 0;
+}
+
+static void tecmo_cli_opcode15_raw_fixture(
+    TecmoGameplayCpuSteeringOpcode15RawInput *input)
+{
+    memset(input, 0, sizeof(*input));
+    input->contract_tag =
+        TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_INPUT_TAG;
+    input->observed_mask =
+        TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_KNOWN_MASK;
+    input->command_record_offset =
+        TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_A_OFFSET;
+    input->actor_x = 6U;
+    input->raw_0499_slot10 = 0x46U;
+    input->raw_04b0_actor_x = 0x10U;
+    input->raw_0308_primary = 4U;
+    input->raw_0309_defender = 9U;
+    input->raw_030a_offense_side = 0U;
+    input->raw_030b_defense_side = 1U;
+    input->raw_000e_000f_selected_actor[0U] = 4U;
+    input->raw_000e_000f_selected_actor[1U] = 9U;
+    input->raw_06d5 = 6U;
+    input->raw_06d6 = 2U;
+    input->raw_059e = 5U;
+    for (uint8_t actor = 0U;
+         actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT;
+         ++actor) {
+        input->actor[actor].raw_0547_0551_stream_offset =
+            (uint16_t)(0x0100U + actor * 5U);
+        input->actor[actor].raw_057c_state = 0x04U;
+        input->actor[actor].raw_046e_timer = (uint8_t)(0x20U + actor);
+        input->actor[actor].raw_0463_direction =
+            (uint8_t)(actor % TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT);
+        input->actor[actor].raw_0442_pose_low = 0xAAU;
+        input->actor[actor].raw_044d_pose_high = 0xBBU;
+        input->actor[actor].raw_0479_sprite_flags = 0x40U;
+        input->actor[actor].raw_0458_action = 0x50U;
+    }
+    input->actor[9U].raw_0547_0551_stream_offset = 0x1234U;
+    input->actor[9U].raw_057c_state = 0x08U;
+    input->actor[9U].raw_046e_timer = 0xC3U;
+    input->actor[9U].raw_0463_direction = 5U;
+}
+
+/* A deterministic raw-contract proof, deliberately separate from LIVE. It
+   captures the exact resolver's transactional state but neither derives raw
+   RAM from native scene state nor executes Bank07 $C711. */
+static int tecmo_cli_run_gameplay_cpu_steering_opcode15_harness(
+    int argc,
+    char **argv,
+    int index)
+{
+    TecmoGameplayCpuSteeringAssets assets;
+    TecmoGameplayCpuSteeringOpcode15RawInput input;
+    TecmoGameplayCpuSteeringOpcode15RawInput output;
+    TecmoGameplayCpuSteeringOpcode15RawResult gate;
+    TecmoGameplayCpuSteeringOpcode15RawResult retry;
+    TecmoGameplayCpuSteeringOpcode15RawResult primary_swap;
+    TecmoGameplayCpuSteeringOpcode15RawResult mark_other;
+    TecmoGameplayCpuSteeringOpcode15RawResult selected;
+    const char *pack_path;
+
+    if (argc - index != 1) {
+        printf("Opcode-15 raw harness requires PACK\n");
+        return 2;
+    }
+    pack_path = argv[index];
+    tecmo_gameplay_cpu_steering_assets_init(&assets);
+    if (!tecmo_gameplay_cpu_steering_assets_load(&assets, pack_path)) {
+        printf("Opcode-15 raw harness load failed: %s\n", assets.status);
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return 1;
+    }
+
+    tecmo_cli_opcode15_raw_fixture(&input);
+    input.observed_mask =
+        TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SLOT10_0499;
+    input.raw_0499_slot10 = 0x45U;
+    if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            &assets, &input, &output, &gate)) goto rejected;
+    tecmo_cli_opcode15_raw_fixture(&input);
+    input.raw_04b0_actor_x = 0U;
+    input.raw_007e = 0x04U;
+    if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            &assets, &input, &output, &retry)) goto rejected;
+    input.raw_007e = 0U;
+    if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            &assets, &input, &output, &primary_swap)) goto rejected;
+    input.raw_04b0_actor_x = 0x10U;
+    input.raw_007e = 0x08U;
+    if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            &assets, &input, &output, &mark_other)) goto rejected;
+    tecmo_cli_opcode15_raw_fixture(&input);
+    if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            &assets, &input, &output, &selected)) goto rejected;
+
+    printf("{\"schema\":\"tecmo.gameplay-cpu-steering/opcode15-raw-harness/TGAI-2\","
+           "\"mode\":\"harness-only\","
+           "\"canonical_records\":[\"0037\",\"004B\"],"
+           "\"branches\":{\"gate_noop\":\"%s\","
+           "\"primary_retry\":\"%s\",\"primary_swap\":\"%s\","
+           "\"mark_other\":\"%s\",\"selected_defender\":\"%s\"},"
+           "\"selected_defender\":{\"committed\":%s,"
+           "\"raw_0308\":[%u,%u],\"raw_0309\":[%u,%u],"
+           "\"old_defender_stream\":[%u,%u],"
+           "\"old_defender_state\":[%u,%u],"
+           "\"new_actor_state\":[%u,%u],\"raw_059E\":[%u,%u],"
+           "\"selection_06D5\":[%u,%u],\"selection_06D6\":[%u,%u],"
+           "\"c711\":{\"selector\":%u,\"x\":%u,\"y\":%u,"
+           "\"observed_unexecuted\":%s}}}\n",
+           tecmo_gameplay_cpu_steering_opcode15_branch_name(gate.branch),
+           tecmo_gameplay_cpu_steering_opcode15_branch_name(retry.branch),
+           tecmo_gameplay_cpu_steering_opcode15_branch_name(primary_swap.branch),
+           tecmo_gameplay_cpu_steering_opcode15_branch_name(mark_other.branch),
+           tecmo_gameplay_cpu_steering_opcode15_branch_name(selected.branch),
+           selected.committed ? "true" : "false",
+           (unsigned)selected.raw_0308_before,
+           (unsigned)selected.raw_0308_after,
+           (unsigned)selected.raw_0309_before,
+           (unsigned)selected.raw_0309_after,
+           (unsigned)selected.defender_stream_before,
+           (unsigned)selected.defender_stream_after,
+           (unsigned)selected.defender_state_before,
+           (unsigned)selected.defender_state_after,
+           (unsigned)selected.new_actor_state_before,
+           (unsigned)selected.new_actor_state_after,
+           (unsigned)selected.raw_059e_before,
+           (unsigned)selected.raw_059e_after,
+           (unsigned)selected.raw_06d5_before,
+           (unsigned)selected.raw_06d5_after,
+           (unsigned)selected.raw_06d6_before,
+           (unsigned)selected.raw_06d6_after,
+           (unsigned)selected.c711_selector,
+           (unsigned)selected.c711_x_actor,
+           (unsigned)selected.c711_y_actor,
+           selected.c711_selector_observed_unexecuted ? "true" : "false");
+    tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+    return 0;
+
+rejected:
+    printf("Opcode-15 raw harness resolver rejected canonical fixture\n");
+    tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+    return 1;
 }
 
 static int tecmo_cli_run_gameplay_cpu_steering_harness(int argc,
@@ -261,7 +404,7 @@ static int tecmo_cli_run_gameplay_cpu_steering_harness(int argc,
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return 1;
     }
-    printf("TGAI-1 harness actor=%u team=%u possession=%u orientation=%u holder=%u matchup=%u difficulty=%u snapshot=%08X normal_flow=0\n",
+    printf("TGAI-2 harness actor=%u team=%u possession=%u orientation=%u holder=%u matchup=%u difficulty=%u snapshot=%08X normal_flow=0\n",
            (unsigned)result.actor, (unsigned)result.actor_team,
            (unsigned)result.possession, (unsigned)result.orientation,
            (unsigned)result.ball_holder, (unsigned)result.matchup_actor,
@@ -512,6 +655,11 @@ int tecmo_cli_run_gameplay_commands(const TecmoCliContext *context)
 
     if (strcmp(command, "--gameplay-cpu-steering-harness") == 0) {
         return tecmo_cli_run_gameplay_cpu_steering_harness(argc, argv, index);
+    }
+
+    if (strcmp(command, "--gameplay-cpu-steering-opcode15-harness") == 0) {
+        return tecmo_cli_run_gameplay_cpu_steering_opcode15_harness(
+            argc, argv, index);
     }
 
     if (strcmp(

@@ -438,7 +438,7 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
     }
     scene->available = true;
     scene_set_status(scene,
-                     "native gameplay ready: TPTI-2/TGPL-1/TTDT-1/TWAR-1/TMUS-1/TGCT-1/TGCP-2/TGMO-1/TGBD-1/TGAI-1/TGFT-1/TPNL-1/TGVR-1/TGOR-1/TGFL-1/THUD-1/TGCS-1/TGDK-1/TGJS-2/TGSR-4/TGRB-1/TSFX-1/TDMC-1");
+                     "native gameplay ready: TPTI-2/TGPL-1/TTDT-1/TWAR-1/TMUS-1/TGCT-1/TGCP-2/TGMO-1/TGBD-1/TGAI-2/TGFT-1/TPNL-1/TGVR-1/TGOR-1/TGFL-1/THUD-1/TGCS-1/TGDK-1/TGJS-2/TGSR-4/TGRB-1/TSFX-1/TDMC-1");
     return true;
 }
 
@@ -2278,6 +2278,7 @@ bool tecmo_gameplay_scene_possession_trace_snapshot(
     memcpy(candidate.raw_057c_actor_state,
            live->play_state.actor_state,
            sizeof(candidate.raw_057c_actor_state));
+    candidate.opcode15_trace = live->opcode15_trace;
     candidate.semantic_scene_possession = (uint8_t)scene->state.possession;
     candidate.semantic_ball_holder = scene->ball_holder;
     candidate.semantic_live_last_possession = live->last_possession;
