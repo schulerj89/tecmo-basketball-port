@@ -207,11 +207,23 @@ adjustments from explicit `$036E/$0370` inputs.
 
 Formation refresh quantizes the current selected ball handler into 64-pixel
 X/depth buckets. A bucket change reloads only ordinary eligible actors,
-retains both `$0308` and `$0309` lifecycles, and invalidates stale targets as
-one transaction; an unchanged bucket is a no-op. Automatic selected defense
-is active on initial possession and after pass handoff. The selected defender
-is excluded from ordinary dispatch and uses the source `+16/-16` orientation
-separation rather than chasing the holder's exact coordinate.
+retains both `$0308` and `$0309` lifecycles, and clears source target/direction
+metadata only for the ordinary actors whose `$0547/$0551` cursor it replaces.
+That matches Bank06 `$944D-$9465`: clearing every actor at a bucket transition
+would erase a selected CPU holder's already-written Bank04 target and stop its
+route before the Bank06 `$8431-$8475` shot predicate could be reached. An
+unchanged bucket is a no-op. Automatic selected defense is active on initial
+possession and after pass handoff. The selected defender is excluded from
+ordinary dispatch and uses the source `+16/-16` orientation separation rather
+than chasing the holder's exact coordinate.
+
+`--gameplay-live-foundation-proof <PACK> cpu-source-shot <PNG>` is a bounded,
+deterministic regression fixture for that seam. It executes a Rev 1 Bank04
+absolute-target record followed by its source wait, crosses one 64-pixel
+formation boundary, and lets the existing CPU shot gate launch a visible close
+shot. It deliberately holds unrelated actor streams, so it proves target
+preservation and the CPU-shot integration path—not a complete reconstructed
+play-selection policy.
 
 The unported `$8D59-$8E21` caller-specific scaling inputs and remaining
 dynamic `$06CB` assignment policy stay explicitly bounded as unresolved; the

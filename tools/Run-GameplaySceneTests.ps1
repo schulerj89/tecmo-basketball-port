@@ -1213,6 +1213,7 @@ try {
         "offensive-pass",
         "defensive-switch",
         "cpu-target-deferred",
+        "cpu-source-shot",
         "shot-path"
     )
     New-Item -ItemType Directory -Force -Path $ProofRoot | Out-Null
@@ -1284,6 +1285,31 @@ try {
                  [int]$State.action_serial -ne 1 -or
                  [int]$State.shot_frame -lt 1)) {
                 throw "LIVE proof shot event did not retain exact-once playback state."
+            }
+            if ($Event -eq "cpu-source-shot") {
+                $CpuSourceShot = $State.cpu_source_shot
+                $AsmEvidence = $State.asm_evidence
+                if (![bool]$CpuSourceShot.executed -or
+                    [string]$CpuSourceShot.record_offset -ne "06A9" -or
+                    [int]$CpuSourceShot.wait_frames -lt 60 -or
+                    [int]($CpuSourceShot.target[0]) -ne 160 -or
+                    [int]($CpuSourceShot.target[1]) -ne 150 -or
+                    [int]($CpuSourceShot.formation_cross[0]) -eq
+                        [int]($CpuSourceShot.formation_cross[1]) -or
+                    [int]$CpuSourceShot.updates_until_shot -le 0 -or
+                    ![bool]$State.live.last_shot_request -or
+                    ![bool]$State.live.last_shot_playback_supported -or
+                    [bool]$State.live.last_shot_deferred -or
+                    [int]$State.action_serial -ne 1 -or
+                    [int]$State.shot_frame -lt 1 -or
+                    [string]$AsmEvidence.formation_refresh -ne
+                        "Bank06 C-0039 `$944D-`$9465" -or
+                    [string]$AsmEvidence.command_stream -ne
+                        "Bank04 `$9F2E five-byte records" -or
+                    [string]$AsmEvidence.cpu_shot_gate -ne
+                        "Bank06 C-0011 `$8431-`$8475") {
+                    throw "LIVE proof CPU source-shot target/refresh/gate evidence regressed."
+                }
             }
             $ProofRecords += [pscustomobject]@{
                 repeat = $Repeat
@@ -1409,6 +1435,7 @@ try {
             "offensive-pass: P1 NES A"
             "defensive-switch: P1 NES A with home possession"
             "cpu-target-deferred: deterministic source-offset fixture"
+            "cpu-source-shot: Bank04 target+wait fixture through formation refresh and CPU shot gate"
             "shot-path: deterministic supported close-shot fixture"
         )
         repeat_count = 2
