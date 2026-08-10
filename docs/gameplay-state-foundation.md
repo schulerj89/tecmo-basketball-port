@@ -339,9 +339,14 @@ handoff as frame 85 plus 26 updates.
 `gameplay/penalties` TPNL-1 is a separate strict 768-byte pure rules asset
 (FNV1a32 `980DDC76`) with same-pack TGPL-1 and TSFX-1 dependencies. It exposes
 bounded foul classification, violation, and presentation data without
-inferring contact, collision, possession, or route state. The scene's current
-deterministic contact/foul branches are implementation-owned and do not yet
-consume TPNL.
+inferring contact, collision, possession, or route state. The scene now
+consumes it only in a bounded human defensive-B bridge: the selected
+primary/defender pair passes B05 `$9968`'s raw envelope, then the ordinary
+Bank05 `$9571` fall-through adapter (`$07E3=0`, `$0478=$19`, no retained
+`$05A8` selector) is classified by TPNL. Counter effects and attempts come
+from that result. This is not a reconstruction of the original caller or all
+routes; special routes and CPU-initiated fouls remain fail-closed. The
+machine-readable map is `docs/live-foul-asm-parity.json`.
 
 `gameplay/violation-referee` TGVR-1 is the separate strict 4752-byte visual
 counterpart. It loads only exact same-pack `chr/all` and TPNL-1, decodes ROM
@@ -592,8 +597,10 @@ decompilation at these CPU-address ranges:
 - TPNL-1 revision-locks Bank 05 `$9571-$9649`, Bank 02 `$B0F8-$B398`,
   fixed `$E95E-$EA11`, `$EA14-$EA2F`, `$EC5B-$ED14`, and `$D2B9-$D2CE`,
   Bank 03 `$BE87-$BFA8`, and Bank 04 `$BA1F-$BA3E`. These feed the pure
-  penalty asset/API only; they are not a claim that the live synthetic contact
-  branches use ROM classification.
+  penalty asset/API. The bounded live defensive-B bridge consumes the first
+  two together with the separately tested Bank05 `$9968` envelope; its
+  ordinary route profile is documented in `live-foul-asm-parity.json` and is
+  not a claim of complete live caller or collision parity.
 - Fixed `$EC06-$EC25` (FNV1a32 `F1BCC8E2`): clears active music, SFX, and DMC;
   bounded call sites are `$E58D`, `$E9A0`, `$E9DE`, and `$ECAF`.
 - Bank 05 `$856B-$85A7` and `$85F3-$8640`: variant-0 presentation trigger and

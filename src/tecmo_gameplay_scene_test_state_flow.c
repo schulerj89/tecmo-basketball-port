@@ -3041,6 +3041,131 @@ static bool scene_test_live_foundation_regressions(
     return true;
 }
 
+static void scene_test_bind_live_foul_launch(
+    TecmoGameplaySceneLaunch *launch)
+{
+    size_t side;
+    size_t actor;
+    if (launch == NULL) return;
+    launch->starter_binding_bound = true;
+    launch->controller_team[0U] = TECMO_GAMEPLAY_TEAM_AWAY;
+    launch->controller_team[1U] = TECMO_GAMEPLAY_TEAM_HOME;
+    for (side = 0U; side < TECMO_GAMEPLAY_TEAM_COUNT; ++side) {
+        for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT;
+             ++actor) {
+            launch->starter_roster_index[side][actor] = (uint8_t)actor;
+        }
+    }
+}
+
+/* The skip-pretip harness still preserves the transactional handoff frame.
+ * Consume that frame before a test supplies B so the proof exercises the
+ * ordinary LIVE action loop rather than a restart suppression boundary. */
+static bool scene_test_live_foul_ready(TecmoGameplayScene *scene)
+{
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    return scene != NULL &&
+           tecmo_gameplay_scene_update(scene, &p1, &p2) &&
+           tecmo_gameplay_scene_update(scene, &p1, &p2) &&
+           scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
+           !tecmo_gameplay_scene_in_pretip(scene) &&
+           !scene->legacy_direct_launch &&
+           tecmo_gameplay_live_foundation_valid(
+               &scene->cpu_steering_assets, &scene->live_foundation);
+}
+
+/* This is intentionally adjacent to the live bridge test rather than a
+ * second classifier implementation.  It locks the strict TPNL source spans
+ * and all classifier consequences that the scene bridge consumes: ordinary
+ * defensive pushing, bonus attempts, the alternate blocking selector, and
+ * offensive charging/turnover/counter behavior. */
+static bool scene_test_live_foul_classifier_contract(
+    const TecmoGameplayScene *scene)
+{
+    const TecmoGameplayPenaltySourceSpan *commit_source;
+    const TecmoGameplayPenaltySourceSpan *rules_source;
+    TecmoGameplayPenaltyContext context;
+    TecmoGameplayPenaltyResult result;
+
+    if (scene == NULL || !scene->penalty_assets.available) return false;
+    commit_source = tecmo_gameplay_penalties_find_source(
+        &scene->penalty_assets, TECMO_GAMEPLAY_PENALTY_SOURCE_FOUL_COMMIT);
+    rules_source = tecmo_gameplay_penalties_find_source(
+        &scene->penalty_assets,
+        TECMO_GAMEPLAY_PENALTY_SOURCE_FOUL_RULES_PRESENTATION);
+    if (commit_source == NULL || commit_source->bank != 5U ||
+        commit_source->fixed_bank || commit_source->cpu_start != 0x9571U ||
+        commit_source->cpu_end != 0x9649U ||
+        commit_source->byte_count != 217U ||
+        commit_source->fingerprint != 0xC83877F7U ||
+        rules_source == NULL || rules_source->bank != 2U ||
+        rules_source->fixed_bank || rules_source->cpu_start != 0xB0F8U ||
+        rules_source->cpu_end != 0xB398U ||
+        rules_source->byte_count != 673U ||
+        rules_source->fingerprint != 0xA06E397CU) {
+        return false;
+    }
+
+    memset(&context, 0, sizeof(context));
+    context.foul_actor = 5U;
+    context.offensive_primary_actor = 0U;
+    context.saved_route = TECMO_GAMEPLAY_LIVE_FOUL_BRIDGE_SAVED_ROUTE;
+    context.current_route = TECMO_GAMEPLAY_LIVE_FOUL_BRIDGE_CURRENT_ROUTE;
+    context.contact_selector =
+        TECMO_GAMEPLAY_LIVE_FOUL_BRIDGE_CONTACT_SELECTOR;
+    context.period_kind = TECMO_GAMEPLAY_PENALTY_PERIOD_REGULATION;
+    if (!tecmo_gameplay_penalties_classify(
+            &scene->penalty_assets, &context, &result) ||
+        result.foul_class != TECMO_GAMEPLAY_FOUL_CLASS_PUSHING ||
+        result.offensive_foul || result.turnover ||
+        result.individual_foul_delta != 1U || result.team_foul_delta != 1U ||
+        result.individual_fouls_after != 1U || result.team_fouls_after != 1U ||
+        result.team_in_bonus || result.free_throw_attempts != 0U ||
+        result.attempts_from_bonus) {
+        return false;
+    }
+    context.individual_fouls = 5U;
+    context.team_fouls = 4U;
+    if (!tecmo_gameplay_penalties_classify(
+            &scene->penalty_assets, &context, &result) ||
+        result.foul_class != TECMO_GAMEPLAY_FOUL_CLASS_PUSHING ||
+        result.individual_foul_delta != 1U || result.team_foul_delta != 1U ||
+        result.individual_fouls_after != 6U || result.team_fouls_after != 5U ||
+        !result.fouled_out || !result.team_in_bonus ||
+        result.free_throw_attempts != 2U || !result.attempts_from_bonus) {
+        return false;
+    }
+    context.individual_fouls = 0U;
+    context.team_fouls = 0U;
+    context.current_route = 0U;
+    context.contact_selector = 4U;
+    if (!tecmo_gameplay_penalties_classify(
+            &scene->penalty_assets, &context, &result) ||
+        result.foul_class != TECMO_GAMEPLAY_FOUL_CLASS_BLOCKING ||
+        result.offensive_foul || result.turnover ||
+        result.individual_foul_delta != 1U || result.team_foul_delta != 1U ||
+        result.free_throw_attempts != 0U) {
+        return false;
+    }
+    context.foul_actor = context.offensive_primary_actor;
+    context.current_route = TECMO_GAMEPLAY_LIVE_FOUL_BRIDGE_CURRENT_ROUTE;
+    context.individual_fouls = 5U;
+    context.team_fouls = 4U;
+    if (!tecmo_gameplay_penalties_classify(
+            &scene->penalty_assets, &context, &result) ||
+        result.foul_class != TECMO_GAMEPLAY_FOUL_CLASS_CHARGING ||
+        !result.offensive_foul || !result.turnover ||
+        result.individual_foul_delta != 1U || result.team_foul_delta != 0U ||
+        result.individual_fouls_after != 6U || result.team_fouls_after != 4U ||
+        !result.fouled_out || result.free_throw_attempts != 0U) {
+        return false;
+    }
+    return true;
+}
+
 static bool scene_test_music_and_steal_policy(
     TecmoGameplayScene *scene,
     TecmoGameplaySceneLaunch *launch_input,
@@ -3137,15 +3262,27 @@ static bool scene_test_music_and_steal_policy(
     tecmo_gameplay_scene_end(scene);
     launch.game_music_enabled = true;
 
-    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
+    scene_test_bind_live_foul_launch(&launch);
+    tecmo_gameplay_scene_test_set_skip_pretip(true);
+    if (!tecmo_gameplay_scene_launch(scene, &launch) ||
+        !scene_sync_live_foundation(scene) ||
+        !scene_test_live_foul_ready(scene)) {
         tecmo_gameplay_scene_test_message(message, message_size,
-                           "native steal-policy launch rejected");
+                           "live B05 contact-boundary launch rejected");
         return false;
     }
     scene->actors[scene->controlled_actor[1]].position.x =
-        scene->actors[scene->ball_holder].position.x + 1;
+        scene->actors[scene->ball_holder].position.x + 8;
     scene->actors[scene->controlled_actor[1]].position.y =
         scene->actors[scene->ball_holder].position.y;
+    scene->actors[scene->controlled_actor[1]].anchor =
+        scene->actors[scene->controlled_actor[1]].position;
+    if (!scene_sync_live_foundation(scene) || !scene_ownership_valid(scene)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "B05 $9968 no-contact fixture did not synchronize");
+        return false;
+    }
     scene->action_serial = 1U;
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
@@ -3154,10 +3291,14 @@ static bool scene_test_music_and_steal_policy(
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
         scene->action_serial != 2U ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
-        scene->ball_holder != scene->controlled_actor[1]) {
-        tecmo_gameplay_scene_test_message(message, message_size,
-                           "native action-serial steal policy diverged");
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->state.team_fouls[TECMO_GAMEPLAY_TEAM_HOME] != 0U ||
+        scene->state.individual_fouls[TECMO_GAMEPLAY_TEAM_HOME][
+            scene->actors[scene->controlled_actor[1]].roster_index] != 0U ||
+        scene->ball_holder != scene->live_foundation.primary_actor) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "B05 $9968 close-contact boundary was not fail-closed");
         return false;
     }
     for (uint8_t side = 0U;
@@ -3169,7 +3310,7 @@ static bool scene_test_music_and_steal_policy(
                 if (scene->player_stats.counters[side][roster][counter] != 0U) {
                     tecmo_gameplay_scene_test_message(
                         message, message_size,
-                        "steal policy emitted unsupported player stats");
+                        "no-contact defense emitted unsupported player stats");
                     return false;
                 }
     tecmo_gameplay_scene_end(scene);
@@ -3191,52 +3332,138 @@ static bool scene_test_foul_and_away_free_throws(
     TecmoControlFrame p1 = *p1_input;
     TecmoControlFrame p2 = *p2_input;
     uint8_t away_shooter_roster;
+    uint8_t home_defender_roster;
     size_t frame;
+    scene_test_bind_live_foul_launch(&launch);
+    tecmo_gameplay_scene_test_set_skip_pretip(true);
     if (!tecmo_gameplay_scene_launch(scene, &launch) ||
-        !scene_test_free_throw_lineup_unbound(scene)) {
+        !scene_sync_live_foundation(scene) ||
+        !scene_test_live_foul_ready(scene) ||
+        !scene_test_free_throw_lineup_unbound(scene) ||
+        !scene_test_live_foul_classifier_contract(scene)) {
         tecmo_gameplay_scene_test_message(message, message_size,
-                           "foul/free-throw gameplay launch rejected");
+                           "strict live-foul bridge/source contract rejected");
         return false;
     }
+    if (scene->live_foundation.primary_actor != scene->ball_holder ||
+        scene->live_foundation.defender_actor != scene->controlled_actor[1U]) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "live foul test lacked the $0308/$0309-shaped selected pair");
+        return false;
+    }
+    home_defender_roster =
+        scene->actors[scene->controlled_actor[1U]].roster_index;
     scene->actors[scene->controlled_actor[1]].position.x =
         scene->actors[scene->ball_holder].position.x + 1;
     scene->actors[scene->controlled_actor[1]].position.y =
         scene->actors[scene->ball_holder].position.y;
-    scene->action_serial = 3U;
+    scene->actors[scene->controlled_actor[1]].anchor =
+        scene->actors[scene->controlled_actor[1]].position;
+    if (!scene_sync_live_foundation(scene) || !scene_ownership_valid(scene)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "ordinary live-foul contact fixture did not synchronize");
+        return false;
+    }
+    /* Ordinary Bank05 fall-through ($07E3=0, $0478=$19) does not select a
+       free throw before the bonus threshold.  This is a real defensive-B
+       contact path; only the counters are fixture setup. */
+    scene->action_serial = 1U;
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
     p2.held.cancel = true;
     p2.pressed.cancel = true;
-    if (!tecmo_gameplay_audio_queue_dmc_clip(
-            &scene->audio_player,
-            TECMO_GAMEPLAY_DMC_BANK05_A8D6_LONG) ||
-        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
         scene->state.team_fouls[TECMO_GAMEPLAY_TEAM_HOME] != 1U ||
-        scene->state.individual_fouls[TECMO_GAMEPLAY_TEAM_HOME][0] != 1U ||
-        scene->action_serial != 4U ||
-        scene->audio_player.sfx_pending || scene->audio_player.dmc.active ||
-        scene->audio_player.music == NULL ||
-        scene->audio_player.music->playing ||
-        scene->audio_player.music->track_pending) {
-        tecmo_gameplay_scene_test_message(message, message_size,
-                           "foul entry audio reset/policy diverged");
+        scene->state.individual_fouls[TECMO_GAMEPLAY_TEAM_HOME]
+            [home_defender_roster] != 1U ||
+        scene->state.free_throws.attempts_remaining != 0U ||
+        scene->action_serial != 2U) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "ordinary live pushing foul did not preserve no-bonus consequences");
         return false;
     }
+    memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
-    if (!tecmo_gameplay_audio_queue_dmc_clip(
-            &scene->audio_player,
-            TECMO_GAMEPLAY_DMC_BANK05_A8D6_LONG)) {
-        tecmo_gameplay_scene_test_message(message, message_size,
-                           "foul exact-once DMC probe failed");
-        return false;
-    }
     for (frame = 0U; frame < TECMO_GAMEPLAY_PRESENTATION_LEAD_IN_FRAMES;
          ++frame) {
         if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
-            !scene->audio_player.dmc.active) {
+            scene->state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "ordinary live foul did not reach release handoff");
+            return false;
+        }
+    }
+    p1.released.shoot = true;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->state.free_throws.attempts_remaining != 0U ||
+        scene->ball_holder != scene->controlled_actor[0U] ||
+        scene->action_serial != 2U) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "ordinary live foul did not hand possession back without attempts");
+        return false;
+    }
+    tecmo_gameplay_scene_end(scene);
+
+    /* Re-enter through the same live contact action one foul below bonus.  The
+       strict TPNL result, rather than a scene-owned fixed count, must now
+       produce exactly two attempts. */
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    if (!tecmo_gameplay_scene_launch(scene, &launch) ||
+        !scene_sync_live_foundation(scene) ||
+        !scene_test_live_foul_ready(scene) ||
+        !scene_test_free_throw_lineup_unbound(scene) ||
+        scene->live_foundation.primary_actor != scene->ball_holder ||
+        scene->live_foundation.defender_actor != scene->controlled_actor[1U]) {
+        tecmo_gameplay_scene_test_message(message, message_size,
+                           "bonus live-foul bridge launch rejected");
+        return false;
+    }
+    home_defender_roster =
+        scene->actors[scene->controlled_actor[1U]].roster_index;
+    scene->actors[scene->controlled_actor[1]].position.x =
+        scene->actors[scene->ball_holder].position.x + 1;
+    scene->actors[scene->controlled_actor[1]].position.y =
+        scene->actors[scene->ball_holder].position.y;
+    scene->actors[scene->controlled_actor[1]].anchor =
+        scene->actors[scene->controlled_actor[1]].position;
+    if (!scene_sync_live_foundation(scene) || !scene_ownership_valid(scene)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "bonus live-foul contact fixture did not synchronize");
+        return false;
+    }
+    scene->state.team_fouls[TECMO_GAMEPLAY_TEAM_HOME] = 4U;
+    scene->action_serial = 1U;
+    p2.held.cancel = true;
+    p2.pressed.cancel = true;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
+        scene->state.team_fouls[TECMO_GAMEPLAY_TEAM_HOME] != 5U ||
+        scene->state.individual_fouls[TECMO_GAMEPLAY_TEAM_HOME]
+            [home_defender_roster] != 1U ||
+        scene->state.free_throws.attempts_remaining != 2U ||
+        scene->action_serial != 2U) {
+        tecmo_gameplay_scene_test_message(message, message_size,
+                           "bonus live pushing foul did not use TPNL counters/attempts");
+        return false;
+    }
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    for (frame = 0U; frame < TECMO_GAMEPLAY_PRESENTATION_LEAD_IN_FRAMES;
+         ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION) {
             tecmo_gameplay_scene_test_message(message, message_size,
-                               "foul audio reset repeated after entry");
+                               "bonus live foul did not retain presentation lead-in");
             return false;
         }
     }
@@ -3293,7 +3520,7 @@ static bool scene_test_foul_and_away_free_throws(
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
         scene->state.free_throws.attempts_remaining != 2U ||
-        scene->free_throw_frame != 0U || scene->action_serial != 4U ||
+        scene->free_throw_frame != 0U || scene->action_serial != 2U ||
         scene->audio_player.sfx_pending ||
         !tecmo_gameplay_state_valid(&scene->state)) {
         tecmo_gameplay_scene_test_message(message, message_size,
@@ -3308,7 +3535,7 @@ static bool scene_test_foul_and_away_free_throws(
         if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
             scene->state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
             scene->state.free_throws.attempts_remaining != 2U ||
-            scene->free_throw_frame != 0U || scene->action_serial != 4U ||
+            scene->free_throw_frame != 0U || scene->action_serial != 2U ||
             scene->audio_player.sfx_pending ||
             !tecmo_gameplay_state_valid(&scene->state)) {
             tecmo_gameplay_scene_test_message(message, message_size,
@@ -3320,7 +3547,7 @@ static bool scene_test_foul_and_away_free_throws(
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
         scene->state.free_throws.attempts_remaining != 1U ||
-        scene->free_throw_frame != 0U || scene->action_serial != 5U ||
+        scene->free_throw_frame != 0U || scene->action_serial != 3U ||
         scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 1U ||
         scene->player_stats.counters[TECMO_GAMEPLAY_TEAM_AWAY][
             away_shooter_roster][TECMO_PLAYER_STATS_COUNTER_FTA] != 1U ||
@@ -3348,7 +3575,7 @@ static bool scene_test_foul_and_away_free_throws(
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
         scene->state.free_throws.attempts_remaining != 1U ||
-        scene->free_throw_frame != 0U || scene->action_serial != 5U ||
+        scene->free_throw_frame != 0U || scene->action_serial != 3U ||
         scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 1U ||
         !tecmo_gameplay_state_valid(&scene->state)) {
         tecmo_gameplay_scene_test_message(message, message_size,
@@ -3361,7 +3588,7 @@ static bool scene_test_foul_and_away_free_throws(
         scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
         scene->state.free_throws.attempts_remaining != 0U ||
         scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
-        scene->free_throw_frame != 0U || scene->action_serial != 6U ||
+        scene->free_throw_frame != 0U || scene->action_serial != 4U ||
         scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY] != 2U ||
         scene->player_stats.counters[TECMO_GAMEPLAY_TEAM_AWAY][
             away_shooter_roster][TECMO_PLAYER_STATS_COUNTER_FTA] != 2U ||

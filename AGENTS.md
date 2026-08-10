@@ -984,9 +984,14 @@ invented selection or RNG.
 TPNL-1 `gameplay/penalties` is a separate strict 768-byte rules foundation
 (FNV1a32 `980DDC76`) with same-pack TGPL-1 and TSFX-1 dependencies. Its pure
 classification/presentation APIs do not infer collision or route state. The
-live scene's current deterministic contact/foul branches remain
-implementation-owned and do not yet consume TPNL; do not describe synthetic
-scene fouls as ROM-derived penalty classification.
+live scene consumes TPNL only through the bounded human defensive-B bridge in
+`scene_try_defense_action`: it requires the selected primary/defender pair,
+uses the B05 `$9968` raw coordinate envelope, and applies the native
+ordinary-fallthrough adapter profile `$07E3=0`, `$0478=$19`, `$05A8=0`.
+The scene does not retain those raw bytes, so this is not a general original
+collision/route reconstruction. Special routes and spontaneous CPU fouls fail
+closed; see `docs/live-foul-asm-parity.json` before describing live fouls as
+ROM-derived.
 
 TGVR-1 `gameplay/violation-referee` is the strict 4752-byte visual companion
 (FNV1a32 `2EB08CF0`) and requires exact same-pack `chr/all` plus TPNL-1. It

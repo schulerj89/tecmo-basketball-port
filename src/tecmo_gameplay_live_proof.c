@@ -82,7 +82,8 @@ static bool live_proof_event_valid(const char *event)
         "defensive-switch",
         "cpu-target-deferred",
         "cpu-source-shot",
-        "shot-path"
+        "shot-path",
+        "defensive-foul-presentation"
     };
     size_t index;
     if (event == NULL || event[0] == '\0') return false;
@@ -358,6 +359,115 @@ static bool live_proof_prepare_cpu_fixture(TecmoGameplayScene *scene)
     return true;
 }
 
+/* This fixture changes only an ordinary LIVE pair's court coordinates and
+ * pre-existing team-foul count.  The foul itself must be accepted from the
+ * normal outer scene update's human defensive-B dispatch; it never calls the
+ * state-level request API or writes a phase. */
+static bool live_proof_trigger_defensive_foul(
+    TecmoGameplayScene *scene,
+    char *message,
+    size_t message_size)
+{
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    uint8_t holder;
+    uint8_t defender;
+    uint8_t defender_roster;
+    uint16_t action_before;
+
+    if (scene == NULL ||
+        !live_proof_force_possession(
+            scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE) {
+        return live_proof_reject(message, message_size,
+                                 "live defensive-foul handoff failed");
+    }
+    holder = scene->ball_holder;
+    defender = scene->controlled_actor[1U];
+    if (holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        defender >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->live_foundation.primary_actor != holder ||
+        scene->actors[holder].team != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->actors[defender].team != TECMO_GAMEPLAY_TEAM_HOME) {
+        return live_proof_reject(message, message_size,
+                                 "live defensive-foul pair was not selected");
+    }
+    /* The real nonidentity launch begins controller two on a different home
+       player than Bank05's selected defender.  Use the ordinary human A
+       switch first, then require its selected defender to be the B contact
+       actor.  This is a production action sequence, not a direct selector
+       or phase mutation. */
+    if (scene->live_foundation.defender_actor != defender) {
+        live_proof_controls_neutral(&p1);
+        live_proof_controls_neutral(&p2);
+        p2.pressed.shoot = true;
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE) {
+            return live_proof_reject(
+                message, message_size,
+                "human defensive A switch rejected before foul proof");
+        }
+        defender = scene->controlled_actor[1U];
+        if (defender >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+            scene->live_foundation.defender_actor != defender ||
+            scene->actors[defender].team != TECMO_GAMEPLAY_TEAM_HOME) {
+            return live_proof_reject(
+                message, message_size,
+                "human defensive A did not select the B contact actor");
+        }
+    }
+    if (scene->actors[defender].roster_index >= TECMO_GAMEPLAY_PLAYER_COUNT) {
+        return live_proof_reject(message, message_size,
+                                 "live defensive-foul roster was invalid");
+    }
+    defender_roster = scene->actors[defender].roster_index;
+    scene->actors[defender].position.x =
+        (int16_t)(scene->actors[holder].position.x + 1);
+    scene->actors[defender].position.y = scene->actors[holder].position.y;
+    scene->actors[defender].anchor = scene->actors[defender].position;
+    if (!scene_sync_live_foundation(scene) || !scene_ownership_valid(scene)) {
+        return live_proof_reject(
+            message, message_size,
+            "live defensive-foul contact fixture did not synchronize");
+    }
+    /* One prior team foul below the strict B02 regulation bonus threshold.
+       This proves the classifier-derived two-attempt branch rather than a
+       scene-owned fixed FTs value. */
+    scene->state.team_fouls[TECMO_GAMEPLAY_TEAM_HOME] = 4U;
+    action_before = scene->action_serial;
+    live_proof_controls_neutral(&p1);
+    live_proof_controls_neutral(&p2);
+    p2.held.cancel = true;
+    p2.pressed.cancel = true;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
+        scene->state.team_fouls[TECMO_GAMEPLAY_TEAM_HOME] != 5U ||
+        scene->state.individual_fouls[TECMO_GAMEPLAY_TEAM_HOME]
+            [defender_roster] != 1U ||
+        scene->state.free_throws.scoring_team != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->state.free_throws.attempts_remaining != 2U ||
+        scene->action_serial != (uint16_t)(action_before + 1U)) {
+        if (message != NULL && message_size != 0U) {
+            (void)snprintf(
+                message, message_size,
+                "human defensive-B did not enter strict live foul presentation (phase=%u serial=%u before=%u holder=%u primary=%u defender=%u controlled=%u possession=%u fouls=%u attempts=%u input=%u/%u controller=%u status=%s)",
+                (unsigned)scene->state.phase,
+                (unsigned)scene->action_serial, (unsigned)action_before,
+                (unsigned)scene->ball_holder,
+                (unsigned)scene->live_foundation.primary_actor,
+                (unsigned)scene->live_foundation.defender_actor,
+                (unsigned)scene->controlled_actor[1U],
+                (unsigned)scene->state.possession,
+                (unsigned)scene->state.team_fouls[TECMO_GAMEPLAY_TEAM_HOME],
+                (unsigned)scene->state.free_throws.attempts_remaining,
+                p2.held.cancel ? 1U : 0U, p2.pressed.cancel ? 1U : 0U,
+                (unsigned)scene->launch.controller_team[1U], scene->status);
+        }
+        return false;
+    }
+    return true;
+}
+
 static bool live_proof_apply_event(TecmoGameplayScene *scene,
                                    const char *event,
                                    LiveProofEventEvidence *evidence,
@@ -400,6 +510,10 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
     }
     if (strcmp(event, "live-handoff") == 0) {
         return live_proof_live_ownership(scene, message, message_size);
+    }
+    if (strcmp(event, "defensive-foul-presentation") == 0) {
+        return live_proof_trigger_defensive_foul(
+            scene, message, message_size);
     }
     if (strcmp(event, "human-movement") == 0) {
         int16_t start_x;
@@ -785,11 +899,14 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
     size_t actor;
     size_t target_count = 0U;
     size_t deferred_count = 0U;
+    bool live_foul_event;
     if (scene == NULL || event == NULL || output_png_path == NULL ||
         evidence == NULL || message == NULL || message_size == 0U) {
         return false;
     }
     (void)output_png_path;
+    live_foul_event = strcmp(event, "defensive-foul-presentation") == 0 ||
+        strcmp(event, "defensive-foul-free-throw") == 0;
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
         if (scene->live_foundation.source_target_valid[actor]) ++target_count;
         if (scene->live_foundation.deferred[actor]) ++deferred_count;
@@ -830,7 +947,14 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             "\"record_offset\":\"%04X\",\"wait_frames\":%u,"
             "\"target\":[%d,%d],\"start\":[%d,%d],"
             "\"formation_cross\":[%u,%u],\"updates_until_shot\":%u},"
-            "\"actors\":[",
+            "\"live_foul\":{\"active\":%s,"
+            "\"entrypoint\":\"%s\",\"direct_phase_injection\":false,"
+            "\"contact_gate\":\"Bank05:$9968-$999D\","
+            "\"commit\":\"Bank05:$9571-$9649:C83877F7\","
+            "\"classifier\":\"Bank02:$B0F8-$B398:A06E397C\","
+            "\"adapter_profile\":[%u,%u,%u],"
+            "\"fouling_team\":%u,\"team_fouls_home\":%u,"
+            "\"attempts_remaining\":%u},\"actors\":[",
               event,
              tecmo_gameplay_scene_in_pretip(scene) ? "true" : "false",
              tecmo_gameplay_pretip_is_presentation(
@@ -881,7 +1005,17 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             (int)evidence->start_position.x, (int)evidence->start_position.y,
             (unsigned)evidence->formation_before_cross,
             (unsigned)evidence->formation_after_cross,
-            (unsigned)evidence->updates_until_shot)) {
+            (unsigned)evidence->updates_until_shot,
+            live_foul_event ? "true" : "false",
+            live_foul_event
+                ? "tecmo_gameplay_scene_update/human-defensive-B"
+                : "none",
+            (unsigned)TECMO_GAMEPLAY_LIVE_FOUL_BRIDGE_SAVED_ROUTE,
+            (unsigned)TECMO_GAMEPLAY_LIVE_FOUL_BRIDGE_CURRENT_ROUTE,
+            (unsigned)TECMO_GAMEPLAY_LIVE_FOUL_BRIDGE_CONTACT_SELECTOR,
+            live_foul_event ? (unsigned)TECMO_GAMEPLAY_TEAM_HOME : 255U,
+            (unsigned)scene->state.team_fouls[TECMO_GAMEPLAY_TEAM_HOME],
+            (unsigned)scene->state.free_throws.attempts_remaining)) {
         return false;
     }
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
