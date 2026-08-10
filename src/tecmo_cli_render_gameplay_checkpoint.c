@@ -56,6 +56,7 @@ typedef struct TecmoCliGameplayCheckpointConfig {
     bool shot_clock_violation;
     bool out_of_bounds_violation;
     bool backcourt_violation;
+    bool foul_presentation;
     int possession_slice;
     int free_throw_orientation;
 } TecmoCliGameplayCheckpointConfig;
@@ -317,6 +318,7 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     bool shot_clock_violation = false;
     bool out_of_bounds_violation = false;
     bool backcourt_violation = false;
+    bool foul_presentation = false;
     int possession_slice = -1;
     int free_throw_orientation = -1;
 
@@ -388,6 +390,9 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
                    mode_name, "gameplay-backcourt-frame",
                    &checkpoint)) {
         backcourt_violation = true;
+    } else if (tecmo_cli_parse_render_frame_suffix(
+                   mode_name, "gameplay-foul-frame", &checkpoint)) {
+        foul_presentation = true;
     } else if (strcmp(mode_name, "gameplay-uniform-pacers") == 0) {
         checkpoint = TECMO_CLI_PRETIP_LIVE_START_FRAME;
         away_team = 3U;
@@ -458,6 +463,10 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
         checkpoint >= TECMO_GAMEPLAY_VIOLATION_PRESENTATION_FRAMES) {
         return false;
     }
+    if (foul_presentation &&
+        checkpoint >= TECMO_GAMEPLAY_FOUL_PRESENTATION_FRAMES) {
+        return false;
+    }
     if ((jump && (checkpoint == 0U ||
                   checkpoint >
                       (jump_make ? 111U : (jump_rattle ? 103U : 87U)))) ||
@@ -488,6 +497,7 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     config->shot_clock_violation = shot_clock_violation;
     config->out_of_bounds_violation = out_of_bounds_violation;
     config->backcourt_violation = backcourt_violation;
+    config->foul_presentation = foul_presentation;
     config->possession_slice = possession_slice;
     config->free_throw_orientation = free_throw_orientation;
     return true;
@@ -1352,9 +1362,36 @@ static bool run_gameplay_violation_checkpoint(
     const bool shot_clock_violation = config->shot_clock_violation;
     const bool out_of_bounds_violation = config->out_of_bounds_violation;
     const bool backcourt_violation = config->backcourt_violation;
+    const bool foul_presentation = config->foul_presentation;
 
     *handled_out = false;
     memset(&input, 0, sizeof(input));
+    if (foul_presentation) {
+        TecmoGameplayScene *scene = &runtime->gameplay_scene;
+        TecmoGameplayFoulRequest request;
+
+        *handled_out = true;
+        /* Deterministic visual checkpoint only. This starts the public
+           presentation state so renderer coverage does not pretend to prove
+           live foul detection/adjudication owned by the penalty subsystem. */
+        memset(&request, 0, sizeof(request));
+        request.fouling_team = TECMO_GAMEPLAY_TEAM_HOME;
+        request.free_throw_team = TECMO_GAMEPLAY_TEAM_AWAY;
+        request.counter_effect = TECMO_GAMEPLAY_FOUL_COUNTER_BOTH;
+        request.player_index = 0U;
+        request.free_throw_attempts = 2U;
+        if (!tecmo_gameplay_request_foul(&scene->state, &request) ||
+            scene->state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
+            scene->state.phase_frame != 0U) {
+            return false;
+        }
+        for (update = 0U; update < checkpoint; ++update) {
+            tecmo_runtime_update(runtime, &input);
+        }
+        return runtime->mode == TECMO_MODE_COURT && scene->active &&
+               scene->state.phase == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION &&
+               scene->state.phase_frame == checkpoint;
+    }
     if (shot_clock_violation) {
         TecmoGameplayScene *scene = &runtime->gameplay_scene;
         *handled_out = true;

@@ -677,31 +677,26 @@ static const TecmoGameplayViolationRefereeMessage *message_for_violation(
     return NULL;
 }
 
-bool tecmo_gameplay_violation_referee_group_for_frame(
+static bool group_for_sequence_frame(
     const TecmoGameplayViolationRefereeAssets *assets,
-    TecmoGameplayViolation violation,
+    uint8_t sequence_id,
+    uint16_t presentation_frames,
     uint16_t phase_frame,
     uint8_t *group_id)
 {
-    const TecmoGameplayViolationRefereeMessage *message;
     const TecmoGameplayViolationRefereeSequence *sequence;
     size_t slot;
     uint8_t selected;
-    if (group_id == NULL ||
-        phase_frame >= TECMO_GAMEPLAY_VIOLATION_PRESENTATION_FRAMES) {
-        return false;
-    }
-    message = message_for_violation(assets, violation);
-    if (message == NULL ||
-        message->sequence_id >=
-            TECMO_GAMEPLAY_VIOLATION_REFEREE_SEQUENCE_COUNT) {
+    if (!assets_valid(assets) || group_id == NULL ||
+        phase_frame >= presentation_frames ||
+        sequence_id >= TECMO_GAMEPLAY_VIOLATION_REFEREE_SEQUENCE_COUNT) {
         return false;
     }
     selected = 0U;
     if (phase_frame >=
         TECMO_GAMEPLAY_VIOLATION_REFEREE_SEQUENCE_START_FRAME) {
-        sequence = &assets->sequences[message->sequence_id];
-        if (sequence->id != message->sequence_id ||
+        sequence = &assets->sequences[sequence_id];
+        if (!assets_valid(assets) || sequence->id != sequence_id ||
             sequence->group_count == 0U ||
             sequence->group_count >
                 TECMO_GAMEPLAY_VIOLATION_REFEREE_MAX_SEQUENCE_GROUPS) {
@@ -718,6 +713,33 @@ bool tecmo_gameplay_violation_referee_group_for_frame(
     }
     *group_id = selected;
     return true;
+}
+
+bool tecmo_gameplay_violation_referee_group_for_frame(
+    const TecmoGameplayViolationRefereeAssets *assets,
+    TecmoGameplayViolation violation,
+    uint16_t phase_frame,
+    uint8_t *group_id)
+{
+    const TecmoGameplayViolationRefereeMessage *message =
+        message_for_violation(assets, violation);
+    if (message == NULL) return false;
+    return group_for_sequence_frame(
+        assets, message->sequence_id,
+        TECMO_GAMEPLAY_VIOLATION_PRESENTATION_FRAMES,
+        phase_frame, group_id);
+}
+
+bool tecmo_gameplay_violation_referee_foul_group_for_frame(
+    const TecmoGameplayViolationRefereeAssets *assets,
+    uint16_t phase_frame,
+    uint8_t *group_id)
+{
+    /* Fixed $E95E: selector $22 -> Bank04 $BA1F. $BA88 maps its foul
+       selector 0 to $B317 sequence 0, whose group stream is 1,2,2,2. */
+    return group_for_sequence_frame(
+        assets, 0U, TECMO_GAMEPLAY_FOUL_PRESENTATION_FRAMES,
+        phase_frame, group_id);
 }
 
 static bool framebuffer_valid(const TecmoFramebuffer *framebuffer,
@@ -753,7 +775,7 @@ static uint8_t faded_color(uint8_t color, uint8_t brightness)
     return original;
 }
 
-bool tecmo_gameplay_violation_referee_draw(
+static bool draw_referee_presentation(
     const TecmoGameplayViolationRefereeAssets *assets,
     const uint8_t *chr,
     size_t chr_size,
@@ -761,10 +783,11 @@ bool tecmo_gameplay_violation_referee_draw(
     int origin_x,
     int origin_y,
     int scale,
-    TecmoGameplayViolation violation,
+    const TecmoGameplayViolationRefereeMessage *message,
+    uint8_t sequence_id,
+    uint16_t presentation_frames,
     uint16_t phase_frame)
 {
-    const TecmoGameplayViolationRefereeMessage *message;
     const TecmoGameplayViolationRefereeGroup *group;
     uint8_t group_id;
     uint8_t brightness;
@@ -774,8 +797,9 @@ bool tecmo_gameplay_violation_referee_draw(
         chr_size != TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_CHR_SIZE ||
         fnv1a32(chr, chr_size) != assets->chr_fingerprint ||
         !framebuffer_valid(framebuffer, origin_x, origin_y, scale) ||
-        !tecmo_gameplay_violation_referee_group_for_frame(
-            assets, violation, phase_frame, &group_id)) {
+        !group_for_sequence_frame(
+            assets, sequence_id, presentation_frames,
+            phase_frame, &group_id)) {
         return false;
     }
     if (phase_frame < TECMO_GAMEPLAY_VIOLATION_REFEREE_BLACK_FRAMES) {
@@ -784,12 +808,14 @@ bool tecmo_gameplay_violation_referee_draw(
                   tecmo_nes_2c02_rgba(0x0FU));
         return true;
     }
-    message = message_for_violation(assets, violation);
-    if (message == NULL || message->ppu_address < 0x2000U) return false;
-    message_offset = (size_t)(message->ppu_address - 0x2000U);
-    if (message_offset >= 960U ||
-        message->tile_count > 960U - message_offset) {
-        return false;
+    message_offset = 0U;
+    if (message != NULL) {
+        if (message->ppu_address < 0x2000U) return false;
+        message_offset = (size_t)(message->ppu_address - 0x2000U);
+        if (message_offset >= 960U ||
+            message->tile_count > 960U - message_offset) {
+            return false;
+        }
     }
     brightness = (uint8_t)((phase_frame -
                             TECMO_GAMEPLAY_VIOLATION_REFEREE_BLACK_FRAMES) /
@@ -808,7 +834,7 @@ bool tecmo_gameplay_violation_referee_draw(
         size_t chr_offset;
         uint32_t palette[4] = {0U,0U,0U,0U};
         size_t color;
-        if (cell >= message_offset &&
+        if (message != NULL && cell >= message_offset &&
             cell < message_offset + message->tile_count) {
             tile = message->tiles[cell - message_offset];
         }
@@ -879,6 +905,45 @@ bool tecmo_gameplay_violation_referee_draw(
     return true;
 }
 
+bool tecmo_gameplay_violation_referee_draw(
+    const TecmoGameplayViolationRefereeAssets *assets,
+    const uint8_t *chr,
+    size_t chr_size,
+    TecmoFramebuffer *framebuffer,
+    int origin_x,
+    int origin_y,
+    int scale,
+    TecmoGameplayViolation violation,
+    uint16_t phase_frame)
+{
+    const TecmoGameplayViolationRefereeMessage *message =
+        message_for_violation(assets, violation);
+    if (message == NULL) return false;
+    return draw_referee_presentation(
+        assets, chr, chr_size, framebuffer, origin_x, origin_y, scale,
+        message, message->sequence_id,
+        TECMO_GAMEPLAY_VIOLATION_PRESENTATION_FRAMES, phase_frame);
+}
+
+bool tecmo_gameplay_violation_referee_draw_foul(
+    const TecmoGameplayViolationRefereeAssets *assets,
+    const uint8_t *chr,
+    size_t chr_size,
+    TecmoFramebuffer *framebuffer,
+    int origin_x,
+    int origin_y,
+    int scale,
+    uint16_t phase_frame)
+{
+    /* $B0F8 supplies the context-sensitive foul text in the original. The
+       native state does not yet preserve that text payload, so retain the
+       source screen and Bank04 selector-0 sprite sequence without inventing
+       a type/name overlay. */
+    return draw_referee_presentation(
+        assets, chr, chr_size, framebuffer, origin_x, origin_y, scale,
+        NULL, 0U, TECMO_GAMEPLAY_FOUL_PRESENTATION_FRAMES, phase_frame);
+}
+
 bool tecmo_gameplay_violation_referee_self_test(
     const char *asset_pack_path, char *message, size_t message_size)
 {
@@ -889,6 +954,8 @@ bool tecmo_gameplay_violation_referee_self_test(
     uint32_t *pixels_b = NULL;
     TecmoFramebuffer framebuffer_a;
     TecmoFramebuffer framebuffer_b;
+    const TecmoGameplayViolationRefereeSourceSpan *controller;
+    const TecmoGameplayViolationRefereeSourceSpan *sequence_tables;
     uint8_t group_id;
     bool ok = false;
     tecmo_gameplay_violation_referee_init(&assets);
@@ -898,6 +965,27 @@ bool tecmo_gameplay_violation_referee_self_test(
             TECMO_ASSET_PACK_GAMEPLAY_VIOLATION_REFEREE_CHR_SIZE,
             &chr, &chr_size) != 0) {
         (void)snprintf(message, message_size, "%s", assets.status);
+        goto cleanup;
+    }
+    controller = tecmo_gameplay_violation_referee_find_source(
+        &assets, TECMO_GAMEPLAY_VIOLATION_REFEREE_SOURCE_CONTROLLER);
+    sequence_tables = tecmo_gameplay_violation_referee_find_source(
+        &assets,
+        TECMO_GAMEPLAY_VIOLATION_REFEREE_SOURCE_SEQUENCE_TABLES);
+    if (controller == NULL || sequence_tables == NULL ||
+        controller->bank != 4U || controller->fixed_bank ||
+        controller->cpu_start != 0xBA1FU || controller->byte_count != 211U ||
+        sequence_tables->bank != 4U || sequence_tables->fixed_bank ||
+        sequence_tables->cpu_start != 0xB317U ||
+        sequence_tables->byte_count != 40U ||
+        assets.sequences[0U].id != 0U ||
+        assets.sequences[0U].group_count != 4U ||
+        assets.sequences[0U].groups[0U] != 1U ||
+        assets.sequences[0U].groups[1U] != 2U ||
+        assets.sequences[0U].groups[2U] != 2U ||
+        assets.sequences[0U].groups[3U] != 2U) {
+        (void)snprintf(message, message_size,
+                       "TGVR-1 Bank04 foul selector-0 provenance failed");
         goto cleanup;
     }
     if (!tecmo_gameplay_violation_referee_group_for_frame(
@@ -914,6 +1002,24 @@ bool tecmo_gameplay_violation_referee_self_test(
             &group_id) || group_id != 3U) {
         (void)snprintf(message, message_size,
                        "TGVR-1 selector-specific group schedule failed");
+        goto cleanup;
+    }
+    if (!tecmo_gameplay_violation_referee_foul_group_for_frame(
+            &assets, 22U, &group_id) || group_id != 0U ||
+        !tecmo_gameplay_violation_referee_foul_group_for_frame(
+            &assets, 23U, &group_id) || group_id != 1U ||
+        !tecmo_gameplay_violation_referee_foul_group_for_frame(
+            &assets, 27U, &group_id) || group_id != 2U ||
+        !tecmo_gameplay_violation_referee_foul_group_for_frame(
+            &assets, 31U, &group_id) || group_id != 2U ||
+        !tecmo_gameplay_violation_referee_foul_group_for_frame(
+            &assets, TECMO_GAMEPLAY_FOUL_PRESENTATION_FRAMES - 1U,
+            &group_id) || group_id != 2U ||
+        tecmo_gameplay_violation_referee_foul_group_for_frame(
+            &assets, TECMO_GAMEPLAY_FOUL_PRESENTATION_FRAMES,
+            &group_id)) {
+        (void)snprintf(message, message_size,
+                       "TGVR-1 Bank04 foul selector-0 schedule failed");
         goto cleanup;
     }
     pixels_a = (uint32_t *)calloc(256U * 240U, sizeof(*pixels_a));
@@ -969,6 +1075,30 @@ bool tecmo_gameplay_violation_referee_self_test(
                256U * 240U * sizeof(*pixels_a)) != 0) {
         (void)snprintf(message, message_size,
                        "TGVR-1 out-of-bounds terminal group 5 did not hold");
+        goto cleanup;
+    }
+    if (!tecmo_gameplay_violation_referee_draw_foul(
+            &assets, chr, (size_t)chr_size, &framebuffer_a,
+            0, 0, 1, 23U) ||
+        !tecmo_gameplay_violation_referee_draw_foul(
+            &assets, chr, (size_t)chr_size, &framebuffer_b,
+            0, 0, 1, 27U) ||
+        memcmp(pixels_a, pixels_b,
+               256U * 240U * sizeof(*pixels_a)) == 0) {
+        (void)snprintf(message, message_size,
+                       "TGVR-1 foul referee groups 1 and 2 did not animate");
+        goto cleanup;
+    }
+    if (!tecmo_gameplay_violation_referee_draw_foul(
+            &assets, chr, (size_t)chr_size, &framebuffer_a,
+            0, 0, 1, TECMO_GAMEPLAY_FOUL_PRESENTATION_FRAMES - 1U) ||
+        memcmp(pixels_a, pixels_b,
+               256U * 240U * sizeof(*pixels_a)) != 0 ||
+        tecmo_gameplay_violation_referee_draw_foul(
+            &assets, chr, (size_t)chr_size, &framebuffer_b,
+            0, 0, 1, TECMO_GAMEPLAY_FOUL_PRESENTATION_FRAMES)) {
+        (void)snprintf(message, message_size,
+                       "TGVR-1 foul terminal group did not hold/reject");
         goto cleanup;
     }
     ok = true;

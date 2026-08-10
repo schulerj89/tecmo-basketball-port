@@ -123,6 +123,15 @@ bool tecmo_gameplay_violation_referee_group_for_frame(
     uint16_t phase_frame,
     uint8_t *group_id);
 
+/* Fixed $E95E selects $22, whose Bank04 $BA1F controller maps selector 0
+   to the first referee sequence ($B317): groups 1, 2, 2, 2.  Foul state
+   currently owns no Bank02 $B0F8 text payload, so this API deliberately
+   exposes only the source-derived visual controller, not synthetic text. */
+bool tecmo_gameplay_violation_referee_foul_group_for_frame(
+    const TecmoGameplayViolationRefereeAssets *assets,
+    uint16_t phase_frame,
+    uint8_t *group_id);
+
 bool tecmo_gameplay_violation_referee_draw(
     const TecmoGameplayViolationRefereeAssets *assets,
     const uint8_t *chr,
@@ -132,6 +141,18 @@ bool tecmo_gameplay_violation_referee_draw(
     int origin_y,
     int scale,
     TecmoGameplayViolation violation,
+    uint16_t phase_frame);
+
+/* Draw the fixed-script foul cutaway: TGVR screen/palettes/CHR plus the
+   Bank04 selector-0 referee metasprite sequence. */
+bool tecmo_gameplay_violation_referee_draw_foul(
+    const TecmoGameplayViolationRefereeAssets *assets,
+    const uint8_t *chr,
+    size_t chr_size,
+    TecmoFramebuffer *framebuffer,
+    int origin_x,
+    int origin_y,
+    int scale,
     uint16_t phase_frame);
 
 bool tecmo_gameplay_violation_referee_self_test(
