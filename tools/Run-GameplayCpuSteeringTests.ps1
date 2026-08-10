@@ -348,6 +348,28 @@ try {
             $Map.native_contract.opcode_dispatch.count -eq 24 -and
             (@($Map.native_contract.opcode_dispatch.handler_cpu) -join ',') -eq
                 ($ExpectedHandlers -join ',') -and
+            $Map.native_contract.opcode4_ball_target.caller_path -match
+                '\$81F7-\$82D3.*\$8B90-\$8BE0.*\$8FFA.*\$8FF5-\$8FF9.*C8' -and
+            $Map.native_contract.opcode4_ball_target.handler -eq
+                'Bank06 contiguous delta routine $8FF5-$9027; dispatch vector $8FFA' -and
+            $Map.native_contract.opcode4_ball_target.corpus_count -eq 2 -and
+            (@($Map.native_contract.opcode4_ball_target.record_offsets) -join ',') -eq
+                '0,365' -and
+            $Map.native_contract.opcode4_ball_target.object_slot -eq 10 -and
+            $Map.native_contract.opcode4_ball_target.object_kind -match
+                'ball object; never an actor stream' -and
+            $Map.native_contract.opcode4_ball_target.x_delta -match
+                '16-bit borrow' -and
+            $Map.native_contract.opcode4_ball_target.depth_delta -match
+                'sign-extended' -and
+            $Map.native_contract.opcode4_ball_target.zero_vector -match
+                'skips \$88DA' -and
+            $Map.native_contract.opcode4_ball_target.c_contract.input -eq
+                'TecmoGameplayCpuSteeringPlayInput.ball_position' -and
+            $Map.native_contract.opcode4_ball_target.c_contract.state -eq
+                'TecmoGameplayCpuSteeringPlayState.target_object' -and
+            $Map.native_contract.opcode4_ball_target.c_contract.production_adapter -match
+                'immutable Q8 ball snapshot' -and
             $Map.native_contract.direction_quantizer.cpu -eq
                 '$92D4-$92DD; $92FE -> $88DA-$899D' -and
             $Map.native_contract.direction_quantizer.dominant_axis_ratio -match

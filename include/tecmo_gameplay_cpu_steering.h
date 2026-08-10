@@ -14,6 +14,14 @@
 #define TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE 5U
 #define TECMO_GAMEPLAY_CPU_STEERING_COMMAND_COUNT 680U
 #define TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT 10U
+/* Bank04 startup owns object slots 0..10: the ten player slots and the
+   separately initialized ball object.  The bounded play executor never
+   treats the ball as an actor stream; this identifier is valid only where a
+   Bank06 handler reads an object coordinate such as opcode 4 C8. */
+#define TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT \
+    TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT
+#define TECMO_GAMEPLAY_CPU_STEERING_OBJECT_COUNT \
+    (TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT + 1U)
 #define TECMO_GAMEPLAY_CPU_STEERING_TEAM_ACTOR_COUNT 5U
 #define TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT 2U
 #define TECMO_GAMEPLAY_CPU_STEERING_ORIENTATION_COUNT 2U
@@ -211,7 +219,10 @@ typedef struct TecmoGameplayCpuSteeringPlayState {
     uint8_t action[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     /* Actor-local $046E values used by the source command handlers. */
     uint8_t timer[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
-    uint8_t target_actor[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    /* Source target-object identity. Slots 0..9 identify player
+       coordinates; slot 10 is the typed ball coordinate for the exact
+       opcode-4 C8 lookup. NO_ACTOR remains the no-object sentinel. */
+    uint8_t target_object[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     int16_t target_x[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     int16_t target_depth[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t fixed_link[TECMO_GAMEPLAY_CPU_STEERING_FIXED_LINK_COUNT];
@@ -267,6 +278,11 @@ typedef struct TecmoGameplayCpuSteeringPlayInput {
     uint16_t workspace_0370;
     TecmoGameplayCourtCoordinate
         actor_position[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    /* Production supplies the canonical visible ball coordinate separately
+       from the ten player coordinates.  This narrowly represents Bank06
+       opcode 4's validated C8=$0A object lookup; it is not an eleventh actor
+       stream or a CPU play-selection input. */
+    TecmoGameplayCourtCoordinate ball_position;
 } TecmoGameplayCpuSteeringPlayInput;
 
 typedef struct TecmoGameplayCpuSteeringPlayResult {
@@ -279,9 +295,13 @@ typedef struct TecmoGameplayCpuSteeringPlayResult {
     uint16_t previous_offset;
     uint16_t next_offset;
     uint16_t jump_offset;
-    uint8_t target_actor;
+    uint8_t target_object;
     int16_t target_x;
     int16_t target_depth;
+    /* Exact opcode-4 $8FFD-$9027 subtraction evidence. X is 16-bit with
+       borrow; depth is the 8-bit subtraction sign-extended to 16 bits. */
+    int16_t target_horizontal_delta;
+    int16_t target_depth_delta;
     bool fetched;
     bool advanced;
     bool jumped;
@@ -289,6 +309,9 @@ typedef struct TecmoGameplayCpuSteeringPlayResult {
     bool budget_exhausted;
     bool deferred;
     bool proximity_met;
+    /* The handler ORs both 16-bit deltas and skips $88DA on zero, preserving
+       its prior direction.  This flag is meaningful for opcode 4 only. */
+    bool target_vector_zero;
 } TecmoGameplayCpuSteeringPlayResult;
 
 typedef struct TecmoGameplayCpuSteeringShotInput {
@@ -331,6 +354,9 @@ typedef enum TecmoGameplayCpuSteeringHarnessTargetKind {
     TECMO_GAMEPLAY_CPU_STEERING_HARNESS_LINKED_ACTOR = 0,
     TECMO_GAMEPLAY_CPU_STEERING_HARNESS_HOOP_APPROACH,
     TECMO_GAMEPLAY_CPU_STEERING_HARNESS_EXPLICIT_TARGET,
+    /* LIVE-only source opcode-4 target: Bank04 object slot 10's canonical
+       ball coordinate. The general harness does not select this policy. */
+    TECMO_GAMEPLAY_CPU_STEERING_HARNESS_BALL_OBJECT_TARGET,
     TECMO_GAMEPLAY_CPU_STEERING_HARNESS_TARGET_KIND_COUNT
 } TecmoGameplayCpuSteeringHarnessTargetKind;
 

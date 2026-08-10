@@ -18,6 +18,12 @@
 #define LIVE_PROOF_CPU_SOURCE_SHOT_START_DELTA_X 70
 
 typedef struct LiveProofEventEvidence {
+    bool opcode4_ball_target;
+    uint16_t opcode4_record_offset;
+    uint8_t opcode4_argument_c8;
+    uint8_t opcode4_target_object;
+    TecmoGameplayCourtCoordinate opcode4_ball_snapshot;
+    TecmoGameplayCourtCoordinate opcode4_source_target;
     bool cpu_source_shot;
     uint16_t source_record_offset;
     uint8_t source_wait_frames;
@@ -339,14 +345,14 @@ static bool live_proof_prepare_cpu_fixture(TecmoGameplayScene *scene)
     candidate = scene->live_foundation;
     candidate.play_state.stream_offset[1U] = target_offset;
     candidate.last_step_offset[1U] = target_offset;
-    candidate.play_state.target_actor[1U] =
+    candidate.play_state.target_object[1U] =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     candidate.play_state.target_x[1U] = 0;
     candidate.play_state.target_depth[1U] = 0;
     candidate.source_target_valid[1U] = false;
     candidate.play_state.stream_offset[2U] = deferred_offset;
     candidate.last_step_offset[2U] = deferred_offset;
-    candidate.play_state.target_actor[2U] =
+    candidate.play_state.target_object[2U] =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     candidate.play_state.target_x[2U] = 0;
     candidate.play_state.target_depth[2U] = 0;
@@ -590,10 +596,19 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
         return live_proof_live_ownership(scene, message, message_size);
     }
     if (strcmp(event, "cpu-target-deferred") == 0) {
+        TecmoGameplayCpuSteeringCommand opcode4;
         size_t target_count = 0U;
         size_t deferred_count = 0U;
         size_t actor;
         if (!live_proof_prepare_cpu_fixture(scene) ||
+            !tecmo_gameplay_cpu_steering_decode_command(
+                &scene->cpu_steering_assets,
+                scene->live_foundation.play_state.stream_offset[1U],
+                &opcode4) || opcode4.opcode != 4U ||
+            opcode4.arguments[0U] !=
+                TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT ||
+            !tecmo_gameplay_court_coordinate_q8_floor(
+                &scene->ball_position, &evidence->opcode4_ball_snapshot) ||
             !tecmo_gameplay_scene_update(scene, &p1, &p2)) {
             return live_proof_reject(message, message_size,
                                      "CPU target/deferred fixture update failed");
@@ -609,6 +624,34 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
                 message, message_size,
                 "CPU event did not expose both source target and deferred actors");
         }
+        evidence->opcode4_record_offset = opcode4.stream_offset;
+        evidence->opcode4_argument_c8 = opcode4.arguments[0U];
+        evidence->opcode4_target_object =
+            scene->live_foundation.play_state.target_object[1U];
+        evidence->opcode4_source_target.x =
+            scene->live_foundation.play_state.target_x[1U];
+        evidence->opcode4_source_target.y =
+            scene->live_foundation.play_state.target_depth[1U];
+        if (!scene->live_foundation.source_target_valid[1U] ||
+            scene->live_foundation.deferred[1U] ||
+            evidence->opcode4_target_object !=
+                TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT ||
+            evidence->opcode4_source_target.x !=
+                evidence->opcode4_ball_snapshot.x ||
+            evidence->opcode4_source_target.y !=
+                evidence->opcode4_ball_snapshot.y ||
+            !scene->cpu_actors[1U].target_valid ||
+            scene->cpu_actors[1U].target_kind !=
+                TECMO_GAMEPLAY_CPU_STEERING_HARNESS_BALL_OBJECT_TARGET ||
+            scene->cpu_actors[1U].target_position.x !=
+                evidence->opcode4_ball_snapshot.x ||
+            scene->cpu_actors[1U].target_position.y !=
+                evidence->opcode4_ball_snapshot.y) {
+            return live_proof_reject(
+                message, message_size,
+                "CPU opcode-4 canonical ball target was not retained");
+        }
+        evidence->opcode4_ball_target = true;
         return live_proof_live_ownership(scene, message, message_size);
     }
     if (strcmp(event, "cpu-source-shot") == 0) {
@@ -650,7 +693,7 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
         candidate.last_step_offset[0U] = source_offset;
         candidate.play_state.actor_state[0U] = 0x04U;
         candidate.play_state.wait_counter[0U] = 0U;
-        candidate.play_state.target_actor[0U] =
+        candidate.play_state.target_object[0U] =
             TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
         candidate.play_state.target_x[0U] = 0;
         candidate.play_state.target_depth[0U] = 0;
@@ -947,6 +990,10 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             "\"record_offset\":\"%04X\",\"wait_frames\":%u,"
             "\"target\":[%d,%d],\"start\":[%d,%d],"
             "\"formation_cross\":[%u,%u],\"updates_until_shot\":%u},"
+            "\"opcode4_ball_target\":{\"executed\":%s,"
+            "\"record_offset\":\"%04X\",\"argument_c8\":%u,"
+            "\"target_object\":%u,\"snapshot_ball\":[%d,%d],"
+            "\"source_target\":[%d,%d]},"
             "\"live_foul\":{\"active\":%s,"
             "\"entrypoint\":\"%s\",\"direct_phase_injection\":false,"
             "\"contact_gate\":\"Bank05:$9968-$999D\","
@@ -1006,6 +1053,14 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             (unsigned)evidence->formation_before_cross,
             (unsigned)evidence->formation_after_cross,
             (unsigned)evidence->updates_until_shot,
+            evidence->opcode4_ball_target ? "true" : "false",
+            (unsigned)evidence->opcode4_record_offset,
+            (unsigned)evidence->opcode4_argument_c8,
+            (unsigned)evidence->opcode4_target_object,
+            (int)evidence->opcode4_ball_snapshot.x,
+            (int)evidence->opcode4_ball_snapshot.y,
+            (int)evidence->opcode4_source_target.x,
+            (int)evidence->opcode4_source_target.y,
             live_foul_event ? "true" : "false",
             live_foul_event
                 ? "tecmo_gameplay_scene_update/human-defensive-B"
@@ -1027,7 +1082,7 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
                 "\"x\":%d,\"y\":%d,\"link\":%u,\"cpu\":{"
                 "\"target_valid\":%s,\"kind\":%u,\"x\":%d,"
                 "\"y\":%d,\"direction\":%u},"
-                "\"source_target_valid\":%s,\"source_target_actor\":%u,"
+                "\"source_target_valid\":%s,\"source_target_object\":%u,"
                 "\"source_target_x\":%d,\"source_target_y\":%d,"
                 "\"source_direction_valid\":%s,\"source_direction\":%u,"
                 "\"deferred\":%s}",
@@ -1042,7 +1097,7 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
                 scene->live_foundation.source_target_valid[actor]
                     ? "true" : "false",
                 (unsigned)scene->live_foundation.play_state
-                    .target_actor[actor],
+                    .target_object[actor],
                 (int)scene->live_foundation.play_state.target_x[actor],
                 (int)scene->live_foundation.play_state.target_depth[actor],
                 scene->live_foundation.source_direction_valid[actor]
