@@ -17,6 +17,7 @@
 #include "tecmo_asset_pack_gameplay_dunk_cutaway.h"
 #include "tecmo_asset_pack_gameplay_jump_shots.h"
 #include "tecmo_asset_pack_gameplay_shot_resolution.h"
+#include "tecmo_asset_pack_gameplay_rebound_audit.h"
 #include "tecmo_asset_pack_gameplay_penalties.h"
 #include "tecmo_asset_pack_gameplay_violation_referee.h"
 #include "tecmo_asset_pack_gameplay_free_throw_lineup.h"
@@ -63,6 +64,7 @@ char *tecmo_asset_pack_build_ines_source_map(
     const TecmoGameplayDunkProvenance *dunk_provenance,
     const TecmoGameplayJumpShotProvenance *jump_shot_provenance,
     const TecmoGameplayShotResolutionProvenance *shot_resolution_provenance,
+    const TecmoGameplayReboundAuditProvenance *rebound_audit_provenance,
     const TecmoGameplayPenaltyProvenance *penalty_provenance,
     const TecmoGameplayViolationRefereeProvenance *violation_referee_provenance,
     const TecmoGameplayFreeThrowLineupProvenance *free_throw_lineup_provenance,

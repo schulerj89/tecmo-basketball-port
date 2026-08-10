@@ -48,6 +48,8 @@ int tecmo_cli_run_gameplay_jump_shots_command(
     const TecmoCliContext *context);
 int tecmo_cli_run_gameplay_shot_resolution_command(
     const TecmoCliContext *context);
+int tecmo_cli_run_gameplay_rebound_audit_command(
+    const TecmoCliContext *context);
 int tecmo_cli_run_render_command(const TecmoCliContext *context);
 int tecmo_cli_run_asset_commands(const TecmoCliContext *context);
 

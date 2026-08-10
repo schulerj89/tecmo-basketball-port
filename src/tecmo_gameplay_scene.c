@@ -130,6 +130,7 @@ static void scene_release_owned(TecmoGameplayScene *scene)
     tecmo_gameplay_dunk_cutaway_destroy(&scene->dunk_cutaway);
     tecmo_gameplay_jump_shots_destroy(&scene->jump_shots);
     tecmo_gameplay_shot_resolution_destroy(&scene->shot_resolution);
+    tecmo_gameplay_rebound_audit_destroy(&scene->rebound_audit);
     tecmo_gameplay_pretip_destroy(&scene->pretip_assets);
     free(scene->pretip_closeup);
     free(scene->pretip_team_data);
@@ -174,6 +175,7 @@ static void scene_release_owned(TecmoGameplayScene *scene)
     tecmo_gameplay_dunk_cutaway_init(&scene->dunk_cutaway);
     tecmo_gameplay_jump_shots_init(&scene->jump_shots);
     tecmo_gameplay_shot_resolution_init(&scene->shot_resolution);
+    tecmo_gameplay_rebound_audit_init(&scene->rebound_audit);
     tecmo_gameplay_pretip_init(&scene->pretip_assets);
     scene_set_status(scene, "gameplay scene initialized; assets not loaded");
 }
@@ -204,6 +206,7 @@ void tecmo_gameplay_scene_init(TecmoGameplayScene *scene)
     tecmo_gameplay_dunk_cutaway_init(&scene->dunk_cutaway);
     tecmo_gameplay_jump_shots_init(&scene->jump_shots);
     tecmo_gameplay_shot_resolution_init(&scene->shot_resolution);
+    tecmo_gameplay_rebound_audit_init(&scene->rebound_audit);
     tecmo_gameplay_pretip_init(&scene->pretip_assets);
     scene_set_status(scene, "gameplay scene initialized; assets not loaded");
 }
@@ -236,6 +239,13 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
                                               selected)) {
         (void)snprintf(failure, sizeof(failure), "%s",
                        scene->shot_resolution.status);
+        scene_release_owned(scene);
+        scene_set_status(scene, failure);
+        return false;
+    }
+    if (!tecmo_gameplay_rebound_audit_load(&scene->rebound_audit, selected)) {
+        (void)snprintf(failure, sizeof(failure), "%s",
+                       scene->rebound_audit.status);
         scene_release_owned(scene);
         scene_set_status(scene, failure);
         return false;
@@ -428,7 +438,7 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
     }
     scene->available = true;
     scene_set_status(scene,
-                     "native gameplay ready: TPTI-2/TGPL-1/TTDT-1/TWAR-1/TMUS-1/TGCT-1/TGCP-2/TGMO-1/TGBD-1/TGAI-1/TGFT-1/TPNL-1/TGVR-1/TGOR-1/TGFL-1/THUD-1/TGCS-1/TGDK-1/TGJS-2/TGSR-4/TSFX-1/TDMC-1");
+                     "native gameplay ready: TPTI-2/TGPL-1/TTDT-1/TWAR-1/TMUS-1/TGCT-1/TGCP-2/TGMO-1/TGBD-1/TGAI-1/TGFT-1/TPNL-1/TGVR-1/TGOR-1/TGFL-1/THUD-1/TGCS-1/TGDK-1/TGJS-2/TGSR-4/TGRB-1/TSFX-1/TDMC-1");
     return true;
 }
 
