@@ -71,6 +71,13 @@
 #define TECMO_GAMEPLAY_SCENE_CENTER_SLICE_FNV1A32 0xAA4B4E7DU
 #define TECMO_GAMEPLAY_SCENE_LEFT_SLICE_FNV1A32 0x770FAE95U
 #define TECMO_GAMEPLAY_SCENE_RIGHT_SLICE_FNV1A32 0x2DBDF155U
+/* Native live-foul bridge inputs. Bank05 $957E saves an ordinary pre-commit
+ * route zero in $07E3 and installs $19 in $0478; $05A8 is not retained by
+ * the scene. These constants are an explicitly limited adapter profile, not
+ * reconstructed original RAM or a general route/collision model. */
+#define TECMO_GAMEPLAY_LIVE_FOUL_BRIDGE_SAVED_ROUTE 0x00U
+#define TECMO_GAMEPLAY_LIVE_FOUL_BRIDGE_CURRENT_ROUTE 0x19U
+#define TECMO_GAMEPLAY_LIVE_FOUL_BRIDGE_CONTACT_SELECTOR 0x00U
 #define TECMO_GAMEPLAY_FREE_THROW_ORIENTATION_0_CAMERA_X 0x0066U
 #define TECMO_GAMEPLAY_FREE_THROW_ORIENTATION_1_CAMERA_X 0x0198U
 #define TECMO_GAMEPLAY_PRETIP_DESCENT_START_Y 71

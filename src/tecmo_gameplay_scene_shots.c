@@ -4,6 +4,7 @@
 
 #include "tecmo_gameplay_scene_internal.h"
 #include "tecmo_asset_pack.h"
+#include "tecmo_gameplay_defense_contact.h"
 #include "tecmo_nes_video.h"
 
 #include <limits.h>
@@ -22,6 +23,21 @@ static bool scene_update_shot_mutating(
     const TecmoControlFrame *shooting_controls);
 static bool scene_begin_shot_rim_tail(TecmoGameplayScene *scene);
 static bool scene_update_shot_rim_tail_mutating(TecmoGameplayScene *scene);
+
+/*
+ * Live foul bridge, revision 1.
+ *
+ * Bank05 $957E saves the pre-commit $0478 route in $07E3, then its ordinary
+ * (not 05/07/08) fall-through installs $19 in $0478.  The native scene does
+ * not yet retain original $0478/$07E3/$05A8 state, so this is deliberately a
+ * narrow native adapter for the ordinary route-zero fall-through only.  These
+ * are inputs to the strict TPNL classifier, not reconstructed live RAM.
+ *
+ * Do not add the special 05/07/08 routes or infer their semantics here until
+ * the caller-owned source bytes exist in the scene.  In particular, no CPU
+ * proximity policy is synthesized: only an explicit human defensive-B action
+ * reaches this bridge.
+ */
 
 static bool scene_record_shot_attempt_stats(
     TecmoGameplayScene *scene)
@@ -2553,17 +2569,143 @@ bool scene_update_shot(TecmoGameplayScene *scene,
     return true;
 }
 
+static bool scene_live_foul_geometry_gate(
+    const TecmoGameplaySceneActor *defender,
+    const TecmoGameplaySceneActor *holder,
+    bool *contact_out)
+{
+    TecmoGameplayDefenseContactB05GeometryInput input;
+    TecmoGameplayDefenseContactB05GeometryResult result;
+
+    if (defender == NULL || holder == NULL || contact_out == NULL) return false;
+    memset(&input, 0, sizeof(input));
+    memset(&result, 0, sizeof(result));
+    input.contract_tag =
+        TECMO_GAMEPLAY_DEFENSE_CONTACT_B05_GEOMETRY_INPUT_TAG;
+    input.routine_cpu =
+        TECMO_GAMEPLAY_DEFENSE_CONTACT_B05_GEOMETRY_ROUTINE_CPU;
+    /* The scene coordinate adapter deliberately preserves the raw-width
+       subtraction shape of $9968.  It is a bounded contact envelope only;
+       $9968 is not claimed to be the complete Bank05 foul caller. */
+    input.raw_x_candidate = (uint16_t)defender->position.x;
+    input.raw_x_reference = (uint16_t)holder->position.x;
+    input.raw_depth_candidate = (uint8_t)defender->position.y;
+    input.raw_depth_reference = (uint8_t)holder->position.y;
+    if (!tecmo_gameplay_defense_contact_b05_geometry_gate_9968(
+            &input, &result)) {
+        return false;
+    }
+    *contact_out = result.raw_gate ==
+        TECMO_GAMEPLAY_DEFENSE_CONTACT_B05_GEOMETRY_RESULT_FLAG_PASS;
+    return true;
+}
+
+static bool scene_foul_counter_effect_from_result(
+    const TecmoGameplayPenaltyResult *result,
+    TecmoGameplayFoulCounterEffect *effect_out)
+{
+    TecmoGameplayFoulCounterEffect effect = TECMO_GAMEPLAY_FOUL_COUNTER_NONE;
+    if (result == NULL || effect_out == NULL ||
+        result->individual_foul_delta > 1U || result->team_foul_delta > 1U) {
+        return false;
+    }
+    if (result->individual_foul_delta != 0U) {
+        effect = TECMO_GAMEPLAY_FOUL_COUNTER_INDIVIDUAL;
+    }
+    if (result->team_foul_delta != 0U) {
+        effect = (TecmoGameplayFoulCounterEffect)(
+            effect | TECMO_GAMEPLAY_FOUL_COUNTER_TEAM);
+    }
+    *effect_out = effect;
+    return true;
+}
+
+/* Returns a successful no-op when the native scene lacks a source-shaped
+ * human-contact tuple.  A false return is reserved for malformed strict
+ * inputs or a failed state transition, so callers can fail closed. */
+static bool scene_try_live_defensive_foul_bridge(
+    TecmoGameplayScene *scene,
+    TecmoGameplayTeam defending_team,
+    uint8_t defender,
+    bool *committed_out)
+{
+    const TecmoGameplaySceneActor *holder;
+    const TecmoGameplaySceneActor *defender_actor;
+    TecmoGameplayPenaltyContext context;
+    TecmoGameplayPenaltyResult result;
+    TecmoGameplayFoulCounterEffect counter_effect;
+    TecmoGameplayFoulRequest request;
+    bool close_contact;
+
+    if (scene == NULL || committed_out == NULL) return false;
+    *committed_out = false;
+    if (scene->legacy_direct_launch) return true;
+    if (!scene->penalty_assets.available ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        defender >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        !tecmo_gameplay_live_foundation_valid(
+            &scene->cpu_steering_assets, &scene->live_foundation)) {
+        return false;
+    }
+    holder = &scene->actors[scene->ball_holder];
+    defender_actor = &scene->actors[defender];
+    /* $9571 admits only the primary/selected relationship around $0308/$0309.
+       The live foundation is the only scene state that preserves that pairing.
+       An ordinary player may switch defenders first; an arbitrary nearby actor
+       is intentionally not promoted into a foul candidate. */
+    if (scene->live_foundation.primary_actor != scene->ball_holder ||
+        scene->live_foundation.defender_actor != defender ||
+        holder->team != (uint8_t)scene->state.possession ||
+        defender_actor->team != (uint8_t)defending_team ||
+        defender_actor->roster_index >= TECMO_GAMEPLAY_PLAYER_COUNT ||
+        defending_team == scene->state.possession) {
+        return true;
+    }
+    if (!scene_live_foul_geometry_gate(defender_actor, holder,
+                                       &close_contact)) {
+        return false;
+    }
+    if (!close_contact) return true;
+
+    memset(&context, 0, sizeof(context));
+    context.foul_actor = defender;
+    context.offensive_primary_actor = scene->ball_holder;
+    context.saved_route = TECMO_GAMEPLAY_LIVE_FOUL_BRIDGE_SAVED_ROUTE;
+    context.current_route = TECMO_GAMEPLAY_LIVE_FOUL_BRIDGE_CURRENT_ROUTE;
+    context.contact_selector = TECMO_GAMEPLAY_LIVE_FOUL_BRIDGE_CONTACT_SELECTOR;
+    context.individual_fouls = scene->state.individual_fouls[defending_team]
+        [defender_actor->roster_index];
+    context.team_fouls = scene->state.team_fouls[defending_team];
+    context.period_kind = scene->state.period >= 5U
+        ? TECMO_GAMEPLAY_PENALTY_PERIOD_OVERTIME
+        : TECMO_GAMEPLAY_PENALTY_PERIOD_REGULATION;
+    if (!tecmo_gameplay_penalties_classify(
+            &scene->penalty_assets, &context, &result) ||
+        result.offensive_foul || result.turnover ||
+        result.foul_class != TECMO_GAMEPLAY_FOUL_CLASS_PUSHING ||
+        !scene_foul_counter_effect_from_result(&result, &counter_effect)) {
+        return false;
+    }
+
+    memset(&request, 0, sizeof(request));
+    request.fouling_team = defending_team;
+    request.free_throw_team = scene->state.possession;
+    request.counter_effect = counter_effect;
+    request.player_index = defender_actor->roster_index;
+    request.free_throw_attempts = result.free_throw_attempts;
+    if (!tecmo_gameplay_request_foul(&scene->state, &request)) return false;
+    scene->free_throw_frame = 0U;
+    *committed_out = true;
+    return true;
+}
+
 bool scene_try_defense_action(TecmoGameplayScene *scene,
-                                     size_t controller)
+                              size_t controller)
 {
     uint8_t defender;
     TecmoGameplayTeam defending_team;
-    const TecmoGameplaySceneActor *holder;
-    const TecmoGameplaySceneActor *defender_actor;
-    uint32_t distance;
-    /* Deterministic native contact/steal/foul policy. Distance and action-
-       serial branches are implementation-owned approximations, not ROM-exact
-       collision or penalty detection. */
+    bool foul_committed;
     if (controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
         scene->launch.controller_team[controller] ==
             TECMO_GAMEPLAY_SCENE_NO_TEAM ||
@@ -2575,26 +2717,15 @@ bool scene_try_defense_action(TecmoGameplayScene *scene,
     if (defending_team == scene->state.possession) return false;
     defender = scene->controlled_actor[controller];
     if (defender >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) return false;
-    holder = &scene->actors[scene->ball_holder];
-    defender_actor = &scene->actors[defender];
-    distance = scene_distance_squared(defender_actor, holder);
-    ++scene->action_serial;
-    if (distance > 22U * 22U) return true;
-    if (scene->action_serial % 4U == 0U) {
-        TecmoGameplayFoulRequest request;
-        request.fouling_team = defending_team;
-        request.free_throw_team = scene_other_team(defending_team);
-        request.counter_effect = TECMO_GAMEPLAY_FOUL_COUNTER_BOTH;
-        request.player_index = defender_actor->roster_index;
-        request.free_throw_attempts = 2U;
-        if (!tecmo_gameplay_request_foul(&scene->state, &request)) {
-            return false;
-        }
-        scene->free_throw_frame = 0U;
-    } else if (scene->action_serial % 2U == 0U) {
-        if (!scene_handoff_possession(scene, defending_team, defender)) {
-            return false;
-        }
+    if (!scene_try_live_defensive_foul_bridge(
+            scene, defending_team, defender, &foul_committed)) {
+        return false;
     }
+    /* The serial remains an owned deterministic action counter, but no longer
+       chooses a contact outcome.  `foul_committed` is intentionally not used
+       as a branch: a source-shaped B action and a bounded no-contact attempt
+       both consume one live action. */
+    (void)foul_committed;
+    ++scene->action_serial;
     return true;
 }

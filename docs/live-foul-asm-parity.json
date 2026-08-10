@@ -1,0 +1,74 @@
+{
+  "schema": "tecmo.live-foul-asm-parity/TLFP-1",
+  "scope": "bounded native human defensive-B foul bridge",
+  "source_spans": [
+    {
+      "role": "selected-pair foul commit",
+      "assembly": "bank05/C-0107_bank05_transition_and_targeting_cluster_94C8_9674.asm",
+      "bank": 5,
+      "cpu_start": "0x9571",
+      "cpu_end": "0x9649",
+      "bytes": 217,
+      "fnv1a32": "C83877F7"
+    },
+    {
+      "role": "bounded raw contact envelope",
+      "assembly": "bank05/C-0111_bank05_large_state_and_trajectory_cluster_985B_BFA7.asm",
+      "bank": 5,
+      "cpu_start": "0x9968",
+      "cpu_end": "0x999D",
+      "direct_span_exclusive_end": "0x999E",
+      "fnv1a32": "FF699FE9"
+    },
+    {
+      "role": "foul class, counters, bonus, and attempts",
+      "assembly": "bank02/C-0177_bank02_roster_team_player_data_9000_BFFF.asm",
+      "bank": 2,
+      "cpu_start": "0xB0F8",
+      "cpu_end": "0xB398",
+      "bytes": 673,
+      "fnv1a32": "A06E397C"
+    }
+  ],
+  "native_mapping": {
+    "outer_input_entrypoint": "tecmo_gameplay_scene_update / human defensive NES-B",
+    "bridge": "scene_try_defense_action -> scene_try_live_defensive_foul_bridge",
+    "selected_pair": "live_foundation.primary_actor/defender_actor as the scene-owned $0308/$0309-shaped tuple",
+    "contact_gate": "tecmo_gameplay_defense_contact_b05_geometry_gate_9968",
+    "classifier": "tecmo_gameplay_penalties_classify",
+    "ordinary_fallthrough_profile": {
+      "saved_route_07e3": "0x00",
+      "current_route_0478": "0x19",
+      "contact_selector_05a8": "0x00"
+    },
+    "request_consequences": "classifier output supplies counter effect and free-throw attempts to tecmo_gameplay_request_foul"
+  },
+  "proven_covered": [
+    "B05 raw signed X/depth envelope including no-contact boundary",
+    "defensive pushing counter increments",
+    "regulation bonus threshold and two-attempt consequence",
+    "strict classifier blocking and charging/turnover branches",
+    "ordinary scene foul presentation and normal foul-to-free-throw handoff"
+  ],
+  "fail_closed_or_excluded": [
+    "B05 $9968 is not claimed as the complete original foul caller",
+    "raw $07E3/$0478/$05A8 are not retained by the native scene",
+    "special 0x05/0x07/0x08 commit routes are not inferred",
+    "no spontaneous CPU foul policy is invented",
+    "other collision, possession, and route callers remain unsupported"
+  ],
+  "deterministic_proof": {
+    "event": "defensive-foul-presentation",
+    "command": "--gameplay-live-foundation-proof <assetpack> defensive-foul-presentation <png>",
+    "trigger": "real PRETIP, ordinary possession handoff, human A defensive switch when required, then outer-scene human defensive-B",
+    "direct_phase_injection": false,
+    "state_fields": [
+      "live_foul.contact_gate",
+      "live_foul.commit",
+      "live_foul.classifier",
+      "live_foul.adapter_profile",
+      "live_foul.team_fouls_home",
+      "live_foul.attempts_remaining"
+    ]
+  }
+}
