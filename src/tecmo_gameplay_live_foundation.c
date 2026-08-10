@@ -417,6 +417,27 @@ static void live_seed_native_matchup(
     }
 }
 
+static void live_invalidate_source_metadata_actor(
+    TecmoGameplayLiveFoundation *foundation,
+    size_t actor)
+{
+    if (foundation == NULL || actor >=
+            TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT) {
+        return;
+    }
+    foundation->play_state.target_actor[actor] =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    foundation->play_state.target_x[actor] = 0;
+    foundation->play_state.target_depth[actor] = 0;
+    foundation->play_state.direction[actor] =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+    foundation->source_target_valid[actor] = false;
+    foundation->source_direction_valid[actor] = false;
+    foundation->source_direction[actor] =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+    foundation->deferred[actor] = false;
+}
+
 static void live_invalidate_source_metadata(
     TecmoGameplayLiveFoundation *foundation)
 {
@@ -424,17 +445,7 @@ static void live_invalidate_source_metadata(
     if (foundation == NULL) return;
     for (actor = 0U;
          actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
-        foundation->play_state.target_actor[actor] =
-            TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
-        foundation->play_state.target_x[actor] = 0;
-        foundation->play_state.target_depth[actor] = 0;
-        foundation->play_state.direction[actor] =
-            TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
-        foundation->source_target_valid[actor] = false;
-        foundation->source_direction_valid[actor] = false;
-        foundation->source_direction[actor] =
-            TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
-        foundation->deferred[actor] = false;
+        live_invalidate_source_metadata_actor(foundation, actor);
     }
 }
 
@@ -446,6 +457,7 @@ bool tecmo_gameplay_live_foundation_refresh_formation(
 {
     TecmoGameplayLiveFoundation candidate;
     TecmoGameplayCpuSteeringFormationResult formation;
+    bool reloaded[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT] = {false};
     uint8_t formation_index;
     size_t actor;
     if (assets == NULL || !assets->available || actor_position == NULL ||
@@ -475,9 +487,21 @@ bool tecmo_gameplay_live_foundation_refresh_formation(
                 formation.stream_offset[actor];
             candidate.play_state.actor_state[actor] = 0x04U;
             candidate.last_step_offset[actor] = formation.stream_offset[actor];
+            reloaded[actor] = true;
         }
     }
-    live_invalidate_source_metadata(&candidate);
+    /* Bank06 $944D does not reload $0308, and $9452 excludes bit-$10
+       actors.  Those slots keep their existing stream cursor and their
+       previously written $055B/$0566/$0571 movement state; clearing every
+       native target here made a selected CPU ball-handler stop at the first
+       64-pixel formation boundary.  Reset source metadata only for the
+       slots whose command stream this refresh actually replaces. */
+    for (actor = 0U; actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT;
+         ++actor) {
+        if (reloaded[actor]) {
+            live_invalidate_source_metadata_actor(&candidate, actor);
+        }
+    }
     candidate.sync_serial = live_serial_next(candidate.sync_serial);
     if (!live_play_state_valid(assets, &candidate)) return false;
     *foundation_io = candidate;

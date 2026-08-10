@@ -1535,6 +1535,7 @@ static bool scene_test_live_foundation_regressions(
     TecmoGameplayCpuSteeringMovementInput movement_input;
     TecmoGameplayCpuSteeringMovementResult movement_result;
     TecmoGameplayCourtCoordinate positions[10];
+    TecmoGameplayCourtCoordinate refresh_positions[10];
     uint8_t actor_team[10];
     TecmoGameplaySceneCpuShotRequest shot_request;
     const TecmoTeamDataPlayer *player;
@@ -1546,9 +1547,12 @@ static bool scene_test_live_foundation_regressions(
     uint8_t deferred_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     uint8_t advanced_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     uint8_t expected_direction = TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+    int16_t preserved_target_x = 0;
+    int16_t preserved_target_depth = 0;
     uint32_t sync_serial_before;
     bool found_deferred = false;
     bool found_advance = false;
+    bool found_absolute_target = false;
     size_t actor;
     uint16_t offset;
 
@@ -1972,6 +1976,89 @@ static bool scene_test_live_foundation_regressions(
     }
     if (!found_advance || advanced_actor >= 10U || advanced_offset == 0U) {
         LIVE_FAIL("LIVE source-order step did not advance one bounded record");
+    }
+
+    /* Bank06 $9441-$946E reloads only ordinary state-4 actors: $944D skips
+       $0308 and $9452 skips bit-$10 slots.  A selected CPU ball-handler must
+       therefore retain the source target written by its prior Bank04 command
+       when it crosses a 64-pixel formation bucket. */
+    candidate_foundation = foundation_before;
+    memset(&play_input, 0, sizeof(play_input));
+    play_input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG;
+    play_input.actor = candidate_foundation.primary_actor;
+    play_input.step_budget = 1U;
+    play_input.orientation_035a = candidate_foundation.orientation;
+    memcpy(play_input.actor_position, candidate_foundation.actor_position,
+           sizeof(play_input.actor_position));
+    for (offset = 0U;
+         offset < scene->cpu_steering_assets.command_record_count * 5U;
+         offset = (uint16_t)(offset + 5U)) {
+        if (!tecmo_gameplay_cpu_steering_decode_command(
+                &scene->cpu_steering_assets, offset, &command) ||
+            command.opcode != 2U) {
+            continue;
+        }
+        candidate_foundation.play_state.stream_offset[
+            candidate_foundation.primary_actor] = offset;
+        candidate_foundation.last_step_offset[
+            candidate_foundation.primary_actor] = offset;
+        if (tecmo_gameplay_live_foundation_play_step(
+                &scene->cpu_steering_assets, &play_input,
+                &candidate_foundation, &play_result) &&
+            !play_result.deferred &&
+            candidate_foundation.source_target_valid[
+                candidate_foundation.primary_actor]) {
+            found_absolute_target = true;
+            break;
+        }
+        candidate_foundation = foundation_before;
+    }
+    if (!found_absolute_target) {
+        LIVE_FAIL("LIVE Bank04 absolute-target fixture missing");
+    }
+    preserved_target_x = candidate_foundation.play_state.target_x[
+        candidate_foundation.primary_actor];
+    preserved_target_depth = candidate_foundation.play_state.target_depth[
+        candidate_foundation.primary_actor];
+    /* Seed an ordinary actor target too, proving reloads discard only the
+       metadata belonging to the replaced command stream. */
+    candidate_foundation.play_state.target_actor[1U] =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    candidate_foundation.play_state.target_x[1U] = positions[1U].x;
+    candidate_foundation.play_state.target_depth[1U] = positions[1U].y;
+    candidate_foundation.source_target_valid[1U] = true;
+    memcpy(refresh_positions, candidate_foundation.actor_position,
+           sizeof(refresh_positions));
+    if (refresh_positions[candidate_foundation.primary_actor].x >= 64) {
+        refresh_positions[candidate_foundation.primary_actor].x =
+            (int16_t)(refresh_positions[
+                candidate_foundation.primary_actor].x - 64);
+    } else {
+        refresh_positions[candidate_foundation.primary_actor].x =
+            (int16_t)(refresh_positions[
+                candidate_foundation.primary_actor].x + 64);
+    }
+    advanced_offset = candidate_foundation.play_state.stream_offset[
+        candidate_foundation.primary_actor];
+    if (!tecmo_gameplay_live_foundation_refresh_formation(
+            &scene->cpu_steering_assets, refresh_positions,
+            &candidate_foundation) ||
+        candidate_foundation.play_state.stream_offset[
+            candidate_foundation.primary_actor] != advanced_offset ||
+        !candidate_foundation.source_target_valid[
+            candidate_foundation.primary_actor] ||
+        candidate_foundation.play_state.target_x[
+            candidate_foundation.primary_actor] != preserved_target_x ||
+        candidate_foundation.play_state.target_depth[
+            candidate_foundation.primary_actor] != preserved_target_depth ||
+        candidate_foundation.source_target_valid[1U] ||
+        candidate_foundation.play_state.target_actor[1U] !=
+            TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
+        candidate_foundation.play_state.target_x[1U] != 0 ||
+        candidate_foundation.play_state.target_depth[1U] != 0 ||
+        !tecmo_gameplay_live_foundation_valid(
+            &scene->cpu_steering_assets, &candidate_foundation)) {
+        LIVE_FAIL("LIVE $944D selected-target preservation regressed");
     }
     candidate_foundation = foundation_before;
     candidate_foundation.tick_serial = UINT32_MAX;

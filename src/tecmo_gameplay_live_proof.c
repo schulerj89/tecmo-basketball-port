@@ -14,6 +14,19 @@
 #define LIVE_PROOF_HEIGHT 480
 #define LIVE_PROOF_MEMORY_SIZE (16U * 1024U * 1024U)
 #define LIVE_PROOF_MAX_PRETIP_UPDATES 2048U
+#define LIVE_PROOF_MAX_CPU_SOURCE_SHOT_UPDATES 96U
+#define LIVE_PROOF_CPU_SOURCE_SHOT_START_DELTA_X 70
+
+typedef struct LiveProofEventEvidence {
+    bool cpu_source_shot;
+    uint16_t source_record_offset;
+    uint8_t source_wait_frames;
+    uint8_t formation_before_cross;
+    uint8_t formation_after_cross;
+    uint8_t updates_until_shot;
+    TecmoGameplayCourtCoordinate source_target;
+    TecmoGameplayCourtCoordinate start_position;
+} LiveProofEventEvidence;
 
 static void live_proof_error(char *message, size_t message_size,
                              const char *text)
@@ -68,6 +81,7 @@ static bool live_proof_event_valid(const char *event)
         "offensive-pass",
         "defensive-switch",
         "cpu-target-deferred",
+        "cpu-source-shot",
         "shot-path"
     };
     size_t index;
@@ -226,6 +240,78 @@ static bool live_proof_find_offset(
     return false;
 }
 
+/* Choose a real Bank04 absolute-target record followed by a real Bank04 wait
+   record.  The fixture never fabricates a movement target or invokes a shot
+   entry directly: it makes the selected CPU holder execute that source record
+   through the normal scene tick.  The deliberately short start distance lets
+   the native 60-frame source wait cover a formation-bucket crossing and the
+   existing Bank06 $8431-$8475 shot gate in a deterministic proof run. */
+static bool live_proof_find_cpu_source_shot_record(
+    const TecmoGameplayScene *scene,
+    uint16_t *offset_out,
+    uint8_t *wait_out,
+    TecmoGameplayCourtCoordinate *target_out)
+{
+    const TecmoGameplayCpuSteeringAssets *assets;
+    uint16_t offset;
+    if (scene == NULL || offset_out == NULL || wait_out == NULL ||
+        target_out == NULL ||
+        scene->orientation_state.current_direction >=
+            TECMO_GAMEPLAY_COURT_ORIENTATION_COUNT) {
+        return false;
+    }
+    assets = &scene->cpu_steering_assets;
+    if (!assets->available ||
+        scene->orientation_state.offensive_hoop.x <
+            TECMO_GAMEPLAY_COURT_WORLD_MIN_X ||
+        scene->orientation_state.offensive_hoop.x >
+            TECMO_GAMEPLAY_COURT_WORLD_MAX_X) {
+        return false;
+    }
+    for (offset = 0U;
+         offset + 2U * TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE <=
+             assets->command_record_count *
+                 TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE;
+         offset = (uint16_t)(offset +
+             TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE)) {
+        TecmoGameplayCpuSteeringCommand target_command;
+        TecmoGameplayCpuSteeringCommand wait_command;
+        uint16_t target_x;
+        int32_t target_delta;
+        if (!tecmo_gameplay_cpu_steering_decode_command(
+                assets, offset, &target_command) ||
+            !tecmo_gameplay_cpu_steering_decode_command(
+                assets, (uint16_t)(offset +
+                    TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE),
+                &wait_command) ||
+            target_command.opcode != 2U || wait_command.opcode != 3U ||
+            wait_command.arguments[0U] < 60U) {
+            continue;
+        }
+        target_x = (uint16_t)target_command.arguments[0U] |
+            ((uint16_t)target_command.arguments[1U] << 8U);
+        if (scene->orientation_state.current_direction != 0U) {
+            target_x = (uint16_t)(0x0300U - target_x);
+        }
+        target_out->x = (int16_t)target_x;
+        target_out->y = (int16_t)((uint16_t)target_command.arguments[2U] |
+            ((uint16_t)target_command.arguments[3U] << 8U));
+        target_delta = (int32_t)target_out->x -
+            scene->orientation_state.offensive_hoop.x;
+        if (target_delta < 0) target_delta = -target_delta;
+        if (!tecmo_gameplay_court_coordinate_valid(target_out) ||
+            target_delta != 0 ||
+            target_out->y < TECMO_GAMEPLAY_SHOT_TARGET_Y - 12 ||
+            target_out->y > TECMO_GAMEPLAY_SHOT_TARGET_Y + 12) {
+            continue;
+        }
+        *offset_out = offset;
+        *wait_out = wait_command.arguments[0U];
+        return true;
+    }
+    return false;
+}
+
 static bool live_proof_prepare_cpu_fixture(TecmoGameplayScene *scene)
 {
     TecmoGameplayLiveFoundation candidate;
@@ -274,12 +360,13 @@ static bool live_proof_prepare_cpu_fixture(TecmoGameplayScene *scene)
 
 static bool live_proof_apply_event(TecmoGameplayScene *scene,
                                    const char *event,
+                                   LiveProofEventEvidence *evidence,
                                    char *message,
                                    size_t message_size)
 {
     TecmoControlFrame p1;
     TecmoControlFrame p2;
-    if (scene == NULL || event == NULL) {
+    if (scene == NULL || event == NULL || evidence == NULL) {
         return live_proof_reject(message, message_size,
                                  "LIVE proof event context missing");
     }
@@ -410,6 +497,181 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
         }
         return live_proof_live_ownership(scene, message, message_size);
     }
+    if (strcmp(event, "cpu-source-shot") == 0) {
+        TecmoGameplayLiveFoundation candidate;
+        TecmoGameplayCourtCoordinate start;
+        uint16_t source_offset;
+        uint16_t action_before;
+        uint8_t source_wait;
+        uint8_t source_formation = 0U;
+        bool saw_source_target = false;
+        bool saw_refresh_with_target = false;
+        size_t update;
+        scene->launch.controller_team[0U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+        scene->launch.controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+        scene->controlled_actor[0U] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+        scene->controlled_actor[1U] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+        if (!live_proof_force_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+            !live_proof_find_cpu_source_shot_record(
+                scene, &source_offset, &source_wait,
+                &evidence->source_target)) {
+            return live_proof_reject(
+                message, message_size,
+                "CPU source-shot fixture could not locate Bank04 target/wait");
+        }
+        start = evidence->source_target;
+        start.x = (int16_t)(start.x +
+            (scene->orientation_state.offensive_hoop.x ==
+                    TECMO_GAMEPLAY_COURT_LEFT_HOOP_X
+                ? LIVE_PROOF_CPU_SOURCE_SHOT_START_DELTA_X
+                : -LIVE_PROOF_CPU_SOURCE_SHOT_START_DELTA_X));
+        if (!scene_actor_coordinate_valid(&start)) {
+            return live_proof_reject(
+                message, message_size,
+                "CPU source-shot fixture start was outside court bounds");
+        }
+        candidate = scene->live_foundation;
+        candidate.play_state.stream_offset[0U] = source_offset;
+        candidate.last_step_offset[0U] = source_offset;
+        candidate.play_state.actor_state[0U] = 0x04U;
+        candidate.play_state.wait_counter[0U] = 0U;
+        candidate.play_state.target_actor[0U] =
+            TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+        candidate.play_state.target_x[0U] = 0;
+        candidate.play_state.target_depth[0U] = 0;
+        candidate.play_state.direction[0U] =
+            TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+        candidate.source_target_valid[0U] = false;
+        candidate.source_direction_valid[0U] = false;
+        candidate.source_direction[0U] =
+            TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+        candidate.deferred[0U] = false;
+        candidate.actor_position[0U] = start;
+        /* Hold unrelated actor streams for this one-thread proof. Their
+           source handlers can legitimately retarget selected slots, which
+           would test a different unported interaction instead of the
+           $944D preservation seam exercised here. */
+        for (size_t actor = 1U;
+             actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            candidate.play_state.wait_counter[actor] =
+                LIVE_PROOF_MAX_CPU_SOURCE_SHOT_UPDATES;
+            candidate.play_state.actor_state[actor] = 0x06U;
+            candidate.deferred[actor] = false;
+        }
+        if (!tecmo_gameplay_live_foundation_valid(
+                &scene->cpu_steering_assets, &candidate)) {
+            return live_proof_reject(
+                message, message_size,
+                "CPU source-shot fixture foundation was rejected");
+        }
+        scene->live_foundation = candidate;
+        scene->actors[0U].position = start;
+        scene->actors[0U].anchor = start;
+        scene->actors[0U].movement_boundary_latched = false;
+        scene->state.shot_clock = 12U;
+        scene->state.clock_divider = 1U;
+        if (!scene_attach_ball(scene)) {
+            return live_proof_reject(message, message_size,
+                                     "CPU source-shot ball attach failed");
+        }
+        action_before = scene->action_serial;
+        for (update = 0U;
+             update < LIVE_PROOF_MAX_CPU_SOURCE_SHOT_UPDATES; ++update) {
+            if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+                if (message != NULL && message_size != 0U) {
+                    (void)snprintf(
+                        message, message_size,
+                        "CPU source-shot production update failed update=%u "
+                        "status=%s phase=%u holder=%u form=%u source=%u "
+                        "cursor=%04X target=%d,%d",
+                        (unsigned)update, scene->status,
+                        (unsigned)scene->state.phase,
+                        (unsigned)scene->ball_holder,
+                        (unsigned)scene->live_foundation.formation_index,
+                        scene->live_foundation.source_target_valid[0U] ? 1U : 0U,
+                        (unsigned)scene->live_foundation.play_state
+                            .stream_offset[0U],
+                        (int)scene->live_foundation.play_state.target_x[0U],
+                        (int)scene->live_foundation.play_state.target_depth[0U]);
+                }
+                return false;
+            }
+            if (scene->live_foundation.source_target_valid[0U]) {
+                if (!saw_source_target) {
+                    saw_source_target = true;
+                    source_formation = scene->live_foundation.formation_index;
+                } else if (scene->live_foundation.formation_index !=
+                               source_formation) {
+                    if (!scene->live_foundation.source_target_valid[0U] ||
+                        scene->live_foundation.play_state.target_x[0U] !=
+                            evidence->source_target.x ||
+                        scene->live_foundation.play_state.target_depth[0U] !=
+                            evidence->source_target.y) {
+                        if (message != NULL && message_size != 0U) {
+                            (void)snprintf(
+                                message, message_size,
+                                "CPU source target lost at refresh source=%u "
+                                "actual=%d,%d expected=%d,%d form=%u->%u "
+                                "cursor=%04X wait=%u",
+                                scene->live_foundation.source_target_valid[0U]
+                                    ? 1U : 0U,
+                                (int)scene->live_foundation.play_state
+                                    .target_x[0U],
+                                (int)scene->live_foundation.play_state
+                                    .target_depth[0U],
+                                (int)evidence->source_target.x,
+                                (int)evidence->source_target.y,
+                                (unsigned)source_formation,
+                                (unsigned)scene->live_foundation.formation_index,
+                                (unsigned)scene->live_foundation.play_state
+                                    .stream_offset[0U],
+                                (unsigned)scene->live_foundation.play_state
+                                    .wait_counter[0U]);
+                        }
+                        return false;
+                    }
+                    saw_refresh_with_target = true;
+                    evidence->formation_before_cross = source_formation;
+                    evidence->formation_after_cross =
+                        scene->live_foundation.formation_index;
+                }
+            }
+            if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
+                evidence->updates_until_shot = (uint8_t)(update + 1U);
+                break;
+            }
+        }
+        if (!saw_source_target || !saw_refresh_with_target ||
+            scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+            scene->shot_actor != 0U ||
+            scene->action_serial != (uint16_t)(action_before + 1U) ||
+            !scene->live_foundation.last_shot_request ||
+            !scene->live_foundation.last_shot_playback_supported ||
+            scene->live_foundation.last_shot_deferred) {
+            return live_proof_reject(
+                message, message_size,
+                "CPU source target did not reach the supported shot gate");
+        }
+        /* Render an actual visible shot frame after the CPU-owned launch.
+           The second update stays in the normal outer scene path, so this is
+           not a direct playback injection. */
+        for (size_t visible_update = 0U; visible_update < 3U;
+             ++visible_update) {
+            if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+                scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+                scene->shot_actor != 0U || scene->shot_frame == 0U) {
+                return live_proof_reject(
+                    message, message_size,
+                    "CPU source-shot playback did not become visible");
+            }
+        }
+        evidence->cpu_source_shot = true;
+        evidence->source_record_offset = source_offset;
+        evidence->source_wait_frames = source_wait;
+        evidence->start_position = start;
+        return true;
+    }
     if (strcmp(event, "shot-path") == 0) {
         TecmoGameplayCourtCoordinate close_position;
         TecmoGameplaySceneCpuShotRequest shot_request;
@@ -516,6 +778,7 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
                             const char *event,
                             const char *output_png_path,
                             uint32_t frame_hash,
+                            const LiveProofEventEvidence *evidence,
                             char *message, size_t message_size)
 {
     size_t length = 0U;
@@ -523,7 +786,9 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
     size_t target_count = 0U;
     size_t deferred_count = 0U;
     if (scene == NULL || event == NULL || output_png_path == NULL ||
-        message == NULL || message_size == 0U) return false;
+        evidence == NULL || message == NULL || message_size == 0U) {
+        return false;
+    }
     (void)output_png_path;
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
         if (scene->live_foundation.source_target_valid[actor]) ++target_count;
@@ -556,7 +821,16 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             "\"last_shot_request\":%s,\"last_shot_deferred\":%s,"
             "\"last_shot_playback_supported\":%s,"
             "\"last_shot_actor\":%u,\"source_target_count\":%u,"
-            "\"deferred_count\":%u},\"actors\":[",
+            "\"deferred_count\":%u},"
+            "\"asm_evidence\":{\"formation_refresh\":"
+            "\"Bank06 C-0039 $944D-$9465\","
+            "\"command_stream\":\"Bank04 $9F2E five-byte records\","
+            "\"cpu_shot_gate\":\"Bank06 C-0011 $8431-$8475\"},"
+            "\"cpu_source_shot\":{\"executed\":%s,"
+            "\"record_offset\":\"%04X\",\"wait_frames\":%u,"
+            "\"target\":[%d,%d],\"start\":[%d,%d],"
+            "\"formation_cross\":[%u,%u],\"updates_until_shot\":%u},"
+            "\"actors\":[",
               event,
              tecmo_gameplay_scene_in_pretip(scene) ? "true" : "false",
              tecmo_gameplay_pretip_is_presentation(
@@ -599,7 +873,15 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             scene->live_foundation.last_shot_playback_supported ? "true" :
                                                                   "false",
             (unsigned)scene->live_foundation.last_shot_actor,
-            (unsigned)target_count, (unsigned)deferred_count)) {
+            (unsigned)target_count, (unsigned)deferred_count,
+            evidence->cpu_source_shot ? "true" : "false",
+            (unsigned)evidence->source_record_offset,
+            (unsigned)evidence->source_wait_frames,
+            (int)evidence->source_target.x, (int)evidence->source_target.y,
+            (int)evidence->start_position.x, (int)evidence->start_position.y,
+            (unsigned)evidence->formation_before_cross,
+            (unsigned)evidence->formation_after_cross,
+            (unsigned)evidence->updates_until_shot)) {
         return false;
     }
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
@@ -650,6 +932,7 @@ bool tecmo_gameplay_live_foundation_proof(
     TecmoRuntime runtime;
     TecmoGameMemory memory;
     TecmoGameplaySceneLaunch launch;
+    LiveProofEventEvidence evidence;
     void *permanent_block;
     void *transient_block;
     uint32_t frame_hash;
@@ -663,6 +946,7 @@ bool tecmo_gameplay_live_foundation_proof(
     }
     memset(&runtime, 0, sizeof(runtime));
     memset(&memory, 0, sizeof(memory));
+    memset(&evidence, 0, sizeof(evidence));
     permanent_block = malloc(LIVE_PROOF_MEMORY_SIZE);
     transient_block = malloc(LIVE_PROOF_MEMORY_SIZE);
     if (permanent_block == NULL || transient_block == NULL) {
@@ -700,7 +984,7 @@ bool tecmo_gameplay_live_foundation_proof(
                              : "bound LIVE proof launch rejected");
         goto cleanup;
     }
-    if (!live_proof_apply_event(&runtime.gameplay_scene, event,
+    if (!live_proof_apply_event(&runtime.gameplay_scene, event, &evidence,
                                 message, message_size)) {
         if (message == NULL || message[0] == '\0') {
             live_proof_error(message, message_size,
@@ -718,7 +1002,7 @@ bool tecmo_gameplay_live_foundation_proof(
     runtime.frame_seconds = 1.0f / 60.0f;
     if (!live_proof_render(&runtime, output_png_path, &frame_hash) ||
         !live_proof_json(&runtime.gameplay_scene, event, output_png_path,
-                         frame_hash, message, message_size)) {
+                         frame_hash, &evidence, message, message_size)) {
         live_proof_error(message, message_size,
                          "LIVE proof render or JSON emission failed");
         goto cleanup;
