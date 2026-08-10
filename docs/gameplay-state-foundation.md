@@ -169,6 +169,42 @@ data, not terminal ownership injection.  It is console-only developer proof:
 normal play does not render it and never reads a ROM, decompilation, FCEUX,
 Lua, log, screenshot, or state file at runtime.
 
+### A023 actor-command-assignment boundary
+
+`gameplay/actor-command-assignment` TGCA-1 is a strict eight-span Rev1
+evidence asset for Bank05 `$A023-$A0DC`, its `$9DF6/$9E0A` distance helper,
+the source-complete object callers `$B73A`, `$B783`, and `$B7B6`, plus the
+fixed `$C711` action-`$1D` selector/table path.  The pure typed resolver
+preserves only the proven `$A0A6/$A046` stream/state writes: side-indexed
+automatic selected actors receive `$000A/$0019` and state `$04`; the two
+`$04B0` bit-`$10` scans descend from 9 to 0, exclude `$0308/$0309`, use
+`abs16(X)+abs8(depth)` with initial `$0505`, and let an equal score replace the
+earlier candidate.  Thus an equal-distance tie selects the lower actor index.
+The full machine-readable span/caller/fixture boundary is
+`docs/a023-actor-command-assignment-provenance.json`.
+
+This is **not** integrated into normal tip-off, jump, pass, claimant, rebound,
+or generic possession handling.  The native scene's numeric `jump_ball_state`
+does not own the object-slot-10 state/coordinate or the `$BA`, `$05A1`,
+`$0499`, `$0588`, `$67/$68`, and `$04AF` gate family required by
+`$B6E5->$B73A` or `$B775/$B7B6->$B783`; its defensive-contact path is
+`$9968/$9A24`-shaped rather than the preceding `$9F2F->$9FE2` geometry,
+property, direction, and `$A0DD` target-construction path.  Therefore all
+source-complete calls remain synthetic fixture inputs.  `$046E`,
+`$0484/$048F`, fixed `$C711`, and terminal scratch effects are observations,
+not native mutations.
+
+The opt-in `TGLP-1` `actor-command-assignment-deferred` event follows an
+ordinary PRETIP-to-LIVE scene route and emits `caller_identity:"none"`,
+`emitted:false`, and `production_mutated:false`; it records the selected
+exclusions, unexecuted scan/winner/score fields, and unchanged selected
+stream/state snapshots.  Its screenshot proves only that the normal native
+scene remained intact—it is explicitly not A023 gameplay-parity evidence.
+Run `tools\Run-GameplayActorCommandAssignmentTests.ps1 -RomPath <LOCAL_ROM>`
+for the isolated resolver/importer/mutation suite and
+`tools\Run-GameplaySceneTests.ps1 -RomPath <LOCAL_ROM>` for the real-flow
+deferred JSONL/screenshot proof.
+
 `gameplay/camera-projection` TGCP-2 is both a strict pure API and a
 compound-scene dependency. Its 1536-byte canonical payload
 (`53247856`) requires same-pack TGPL-1 and TGCT-1 and preserves the fixed-bank

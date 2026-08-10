@@ -41,6 +41,27 @@ typedef struct LiveProofEventEvidence {
     uint8_t claimant_shooting_actor;
     uint8_t claimant_actor;
     TecmoGameplaySceneClaimantSettlementTrace claimant_settlement;
+    /* Bank05 $A023-$A0DC remains a source-shaped deferred diagnostic in the
+       production scene.  These fields prove the ordinary pretip-to-LIVE
+       route did not synthesize its raw object-dispatch caller state. */
+    bool actor_command_assignment_deferred;
+    bool actor_command_assignment_production_mutated;
+    uint8_t actor_command_assignment_observed_jump_ball_state;
+    uint8_t actor_command_assignment_observed_ball_target_object;
+    uint8_t actor_command_assignment_primary_actor;
+    uint8_t actor_command_assignment_defender_actor;
+    uint16_t actor_command_assignment_primary_stream_before;
+    uint16_t actor_command_assignment_primary_stream_after;
+    uint8_t actor_command_assignment_primary_state_before;
+    uint8_t actor_command_assignment_primary_state_after;
+    uint16_t actor_command_assignment_defender_stream_before;
+    uint16_t actor_command_assignment_defender_stream_after;
+    uint8_t actor_command_assignment_defender_state_before;
+    uint8_t actor_command_assignment_defender_state_after;
+    uint32_t actor_command_assignment_scene_frame_before;
+    uint32_t actor_command_assignment_scene_frame_after;
+    uint32_t actor_command_assignment_sync_serial_before;
+    uint32_t actor_command_assignment_sync_serial_after;
     TecmoGameplayCourtCoordinate source_target;
     TecmoGameplayCourtCoordinate start_position;
 } LiveProofEventEvidence;
@@ -98,6 +119,7 @@ static bool live_proof_event_valid(const char *event)
         "offensive-pass",
         "defensive-switch",
         "cpu-target-deferred",
+        "actor-command-assignment-deferred",
         "cpu-source-shot",
         "shot-path",
         "claimant-settlement",
@@ -702,6 +724,88 @@ static bool live_proof_trigger_claimant_settlement(
     return true;
 }
 
+/* There is intentionally no call to the TGCA fixture resolver here.  The
+ * normal scene owns a numeric jump-ball state, but it does not retain the
+ * Bank05 object-slot-10 state/coordinate nor the raw $BA/$05A1/$0499/$0588/
+ * $67/$68/$04AF gates that select B73A/B783/B7B6.  Invoking a fixture with
+ * fabricated inputs would make this proof look like a gameplay attachment. */
+static bool live_proof_observe_actor_command_assignment_deferred(
+    TecmoGameplayScene *scene,
+    LiveProofEventEvidence *evidence,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplayLiveFoundation foundation_before;
+    uint32_t frame_before;
+    uint8_t phase_before;
+    uint8_t possession_before;
+    uint8_t holder_before;
+    if (scene == NULL || evidence == NULL ||
+        !live_proof_live_ownership(scene, message, message_size)) {
+        return false;
+    }
+    foundation_before = scene->live_foundation;
+    frame_before = scene->frame;
+    phase_before = (uint8_t)scene->state.phase;
+    possession_before = (uint8_t)scene->state.possession;
+    holder_before = scene->ball_holder;
+
+    /* This event is a deliberately empty production observation.  It must
+       stay so until a scene transition supplies a complete raw caller. */
+    if (memcmp(&foundation_before, &scene->live_foundation,
+               sizeof(foundation_before)) != 0 ||
+        frame_before != scene->frame || phase_before != (uint8_t)scene->state.phase ||
+        possession_before != (uint8_t)scene->state.possession ||
+        holder_before != scene->ball_holder) {
+        return live_proof_reject(
+            message, message_size,
+            "actor-command-assignment deferred observation mutated production");
+    }
+    evidence->actor_command_assignment_deferred = true;
+    evidence->actor_command_assignment_production_mutated = false;
+    evidence->actor_command_assignment_observed_jump_ball_state =
+        scene->jump_ball_state;
+    evidence->actor_command_assignment_observed_ball_target_object =
+        holder_before < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT
+            ? scene->live_foundation.play_state.target_object[holder_before]
+            : TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    evidence->actor_command_assignment_primary_actor =
+        foundation_before.primary_actor;
+    evidence->actor_command_assignment_defender_actor =
+        foundation_before.defender_actor;
+    evidence->actor_command_assignment_primary_stream_before =
+        foundation_before.play_state.stream_offset[
+            foundation_before.primary_actor];
+    evidence->actor_command_assignment_primary_stream_after =
+        scene->live_foundation.play_state.stream_offset[
+            scene->live_foundation.primary_actor];
+    evidence->actor_command_assignment_primary_state_before =
+        foundation_before.play_state.actor_state[
+            foundation_before.primary_actor];
+    evidence->actor_command_assignment_primary_state_after =
+        scene->live_foundation.play_state.actor_state[
+            scene->live_foundation.primary_actor];
+    evidence->actor_command_assignment_defender_stream_before =
+        foundation_before.play_state.stream_offset[
+            foundation_before.defender_actor];
+    evidence->actor_command_assignment_defender_stream_after =
+        scene->live_foundation.play_state.stream_offset[
+            scene->live_foundation.defender_actor];
+    evidence->actor_command_assignment_defender_state_before =
+        foundation_before.play_state.actor_state[
+            foundation_before.defender_actor];
+    evidence->actor_command_assignment_defender_state_after =
+        scene->live_foundation.play_state.actor_state[
+            scene->live_foundation.defender_actor];
+    evidence->actor_command_assignment_scene_frame_before = frame_before;
+    evidence->actor_command_assignment_scene_frame_after = scene->frame;
+    evidence->actor_command_assignment_sync_serial_before =
+        foundation_before.sync_serial;
+    evidence->actor_command_assignment_sync_serial_after =
+        scene->live_foundation.sync_serial;
+    return true;
+}
+
 static bool live_proof_apply_event(TecmoGameplayScene *scene,
                                    const char *event,
                                    LiveProofEventEvidence *evidence,
@@ -751,6 +855,10 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
     }
     if (strcmp(event, "claimant-settlement") == 0) {
         return live_proof_trigger_claimant_settlement(
+            scene, evidence, message, message_size);
+    }
+    if (strcmp(event, "actor-command-assignment-deferred") == 0) {
+        return live_proof_observe_actor_command_assignment_deferred(
             scene, evidence, message, message_size);
     }
     if (strcmp(event, "human-movement") == 0) {
@@ -1456,6 +1564,48 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             (unsigned)foul_group,
              live_foul_event && evidence->foul_overlay_retained
                  ? "true" : "false")) {
+        return false;
+    }
+    if (!live_proof_append(
+            message, message_size, &length,
+            "\"actor_command_assignment\":{\"deferred_diagnostic\":%s,"
+            "\"emitted\":false,"
+            "\"caller_identity\":\"none\","
+            "\"no_op_reason\":\"missing-source-shaped-object-dispatch-inputs\","
+            "\"production_mutated\":%s,"
+            "\"direct_fixture_input\":false,"
+            "\"asm\":\"Bank05:$A023-$A0DC; callers $9F2F->$9FE2, $B73A, $B783, $B7B6\","
+            "\"missing\":{\"object_slot10_state\":true,"
+            "\"object_slot10_coordinate\":true,"
+            "\"raw_ba_05a1_0499_0588_0067_0068_04af\":true,"
+            "\"interaction_9f2f_predecessors\":true},"
+            "\"observed_jump_ball_state\":%u,"
+            "\"observed_holder_target_object\":%u,"
+            "\"scene_frame\":[%u,%u],\"sync_serial\":[%u,%u],"
+            "\"exclusions\":{\"primary\":%u,\"defender\":%u},"
+            "\"scans\":{\"side10\":{\"executed\":false,\"winner\":null,\"score\":null},"
+            "\"side00\":{\"executed\":false,\"winner\":null,\"score\":null}},"
+            "\"selected_before_after\":{\"primary\":{\"stream\":[%u,%u],\"state\":[%u,%u]},"
+            "\"defender\":{\"stream\":[%u,%u],\"state\":[%u,%u]}},"
+            "\"screenshot_scope\":\"ordinary native pretip-to-live flow; not A023 gameplay parity\"},",
+            evidence->actor_command_assignment_deferred ? "true" : "false",
+            evidence->actor_command_assignment_production_mutated ? "true" : "false",
+            (unsigned)evidence->actor_command_assignment_observed_jump_ball_state,
+            (unsigned)evidence->actor_command_assignment_observed_ball_target_object,
+            (unsigned)evidence->actor_command_assignment_scene_frame_before,
+            (unsigned)evidence->actor_command_assignment_scene_frame_after,
+            (unsigned)evidence->actor_command_assignment_sync_serial_before,
+            (unsigned)evidence->actor_command_assignment_sync_serial_after,
+            (unsigned)evidence->actor_command_assignment_primary_actor,
+            (unsigned)evidence->actor_command_assignment_defender_actor,
+            (unsigned)evidence->actor_command_assignment_primary_stream_before,
+            (unsigned)evidence->actor_command_assignment_primary_stream_after,
+            (unsigned)evidence->actor_command_assignment_primary_state_before,
+            (unsigned)evidence->actor_command_assignment_primary_state_after,
+            (unsigned)evidence->actor_command_assignment_defender_stream_before,
+            (unsigned)evidence->actor_command_assignment_defender_stream_after,
+            (unsigned)evidence->actor_command_assignment_defender_state_before,
+            (unsigned)evidence->actor_command_assignment_defender_state_after)) {
         return false;
     }
     if (!live_proof_append(

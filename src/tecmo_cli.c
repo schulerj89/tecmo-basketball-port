@@ -47,6 +47,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-court-viewport-test PACK  Validate TGCT-1 full-court decode and viewport slicing\n");
     printf("  --gameplay-court-orientation-test PACK [ROM]  Validate strict TGOR-1 state and optional Rev1 source\n");
     printf("  --gameplay-backcourt-test PACK [ROM]  Validate strict TGBC-1 detector and optional Rev1 source\n");
+    printf("  --gameplay-actor-command-assignment-test PACK [ROM]  Validate bounded TGCA-1 $A023 callers/assignment evidence\n");
     printf("  --gameplay-camera-projection-test PACK  Validate strict TGCP-2 camera/projector/clamp assets\n");
     printf("  --gameplay-movement-test PACK  Validate strict TGMO-1 ordinary actor movement\n");
     printf("  --gameplay-ball-dribble-test PACK [ROM]  Validate strict TGBD-1 held-ball bounce\n");
