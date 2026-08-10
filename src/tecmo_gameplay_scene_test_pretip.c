@@ -79,7 +79,7 @@ static bool tecmo_gameplay_scene_test_pretip_load(
         scene->shot_resolution.gameplay_core_fingerprint !=
             scene->jump_shots.gameplay_core_fingerprint) {
         tecmo_gameplay_scene_test_message(message, message_size,
-                           "TGSR-3 scene dependency contract failed");
+                           "TGSR-4 scene dependency contract failed");
         tecmo_gameplay_scene_destroy(scene);
         return false;
     }

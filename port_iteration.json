@@ -42,7 +42,7 @@
       "gameplay/core TGPL-1 23416 bytes FNV1a32 2047CCE0",
       "gameplay/court TGCT-1 6559 bytes FNV1a32 ECAB7A93",
       "gameplay/camera-projection TGCP-2 1536 bytes FNV1a32 53247856",
-      "gameplay/court-orientation TGOR-1 640 bytes FNV1a32 F9152C0A",
+      "gameplay/court-orientation TGOR-1 640 bytes FNV1a32 44B0C44E",
       "gameplay/close-shots TGCS-1 3144 bytes FNV1a32 DACDC976",
       "audio/music TMUS-1 36784 bytes FNV1a32 05C00ECB",
       "audio/frontend-sfx TFSX-1 1792 bytes FNV1a32 985DC7ED",
@@ -118,7 +118,7 @@
       "status": "active",
       "command": ".\\tools\\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>",
       "description": "Builds an exact Rev1 full asset pack, runs the compound native gameplay scene self-test and rejection cases, then verifies deterministic 640x480 start, ordinary-jump, and dunk render checkpoints under ignored build scratch.",
-      "expected_output": "GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance scene controls TGCP-2 full-world camera fine-scroll guarded-margins possession/freeze TGDK TGJS TGSR-3 jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state halftime/final render-hashes/determinism missing malformed oversized dependency-corrupt chr-mismatch"
+      "expected_output": "GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance scene controls TGCP-2 full-world camera fine-scroll guarded-margins possession/freeze TGDK TGJS TGSR-4 jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state halftime/final render-hashes/determinism missing malformed oversized dependency-corrupt chr-mismatch"
     },
     {
       "id": "run_frontend_audio_test",

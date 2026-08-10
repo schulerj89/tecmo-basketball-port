@@ -1806,7 +1806,7 @@ static int append_gameplay_court_orientation_source_map_entry(
         "\"evidence\":\"fixed $E537-$E548 derives $0758 from $04FC bit 7; "
         "$E699-$E69A supplies screen IDs $1B/$2E; presentation selector only, "
         "not orientation ownership\"},"
-        "{\"id\":\"%s\",\"schema\":\"tecmo.gameplay-shot-resolution/TGSR-3\","
+        "{\"id\":\"%s\",\"schema\":\"tecmo.gameplay-shot-resolution/TGSR-4\","
         "\"payload_size\":%u,\"payload_fingerprint_fnv1a32\":\"%08X\","
         "\"evidence\":\"Bank05 $B87C-$B8F5 is a conditional alternate "
         "claimant-settlement path, not a universal post-shot path\"}],"
@@ -1852,7 +1852,7 @@ static int append_gameplay_court_orientation_source_map_entry(
         "production TGFL-1 orientation selection; TGFL-1 remains the "
         "coordinate/pose-data owner; ordinary flight Y=$8F remains a separate endpoint; no "
         "generalized post-shot dispatcher semantics\","
-        "\"runtime_inputs\":\"TGOR-1 plus same-pack TGPL-1 and TGSR-3; no ROM, "
+        "\"runtime_inputs\":\"TGOR-1 plus same-pack TGPL-1 and TGSR-4; no ROM, "
         "decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua "
         "output, or save state\"}",
         prefix,
@@ -2926,7 +2926,10 @@ static int append_gameplay_shot_resolution_source_map_entry(
         "outcome-calculation-and-bit-helpers-$91BC-$943A",
         "numeric-rim-route-dispatch-$A6EE-$A9D9",
         "claimant-scan-and-proximity-$B73E-$B87B",
-        "claimant-driven-settlement-$B87C-$B8F5"
+        "claimant-driven-settlement-$B87C-$B8F5",
+        "claimant-settlement-caller-gates-$BA56-$BA9C",
+        "claimant-selector-toggle-$9042-$9053",
+        "claimant-remap-table-$B98B-$B994"
     };
     const char *prefix = *first != 0 ? "" : ",\n";
 
@@ -2935,7 +2938,7 @@ static int append_gameplay_shot_resolution_source_map_entry(
             buffer, capacity, length,
             "%s"
             "    {\"id\":\"%s\",\"kind\":\"gameplay-shot-resolution-native\","
-            "\"schema\":\"tecmo.gameplay-shot-resolution/TGSR-3\",\"size\":%u,"
+            "\"schema\":\"tecmo.gameplay-shot-resolution/TGSR-4\",\"size\":%u,"
             "\"fingerprint_fnv1a32\":\"%08X\","
             "\"fingerprint_fnv1a64\":\"%016llX\","
             "\"dependencies\":[{\"entry\":\"%s\",\"size\":%u,"
@@ -3093,13 +3096,14 @@ static int append_gameplay_shot_resolution_source_map_entry(
         "\"settlement\":{\"same_team\":\"select claimant without possession change\","
         "\"other_team\":\"select claimant and change possession\"},"
         "\"claimant_settlement_bridge\":{"
-        "\"source\":\"Bank05 $BA56-$BA9C -> $B87C-$B98A; $9042-$9053\","
+        "\"source\":\"Bank05 $BA56-$BA9C -> $B87C-$B98A; $9042-$9053; $B98B-$B994\","
         "\"caller_paths\":\"$A214 state-$11 dispatch -> $BA56; $B751 -> $BA65; $B180 -> $BA8C\","
-        "\"fingerprints\":{\"caller_BA56_BA9C\":\"35FB80C4\","
+        "\"fingerprints\":{\"caller_BA56_BA9C\":\"B779AC48\","
         "\"settlement_B87C_B8F5\":\"9E2F1F28\","
         "\"caller_prefix_B87C_B888\":\"E903D8F9\","
         "\"claimant_context_B73E_B87B\":\"574FEE44\","
-        "\"toggle_9042_9053\":\"CE6C9466\"},"
+        "\"toggle_9042_9053\":\"CE6C9466\","
+        "\"remap_B98B_B994\":\"404311FE\"},"
         "\"caller_predicates\":\"$BA65 caller gates precede $BA8C JSR; "
         "$B8C1 requires candidate != old $0308 and $B8CE requires $04B0 bit $10\","
         "\"native_entrypoint\":\"terminal miss claimant only; "
@@ -3113,7 +3117,7 @@ static int append_gameplay_shot_resolution_source_map_entry(
         "$046E/$0479, $06D5, $035A/$035B mutation, helper/action calls, and all semantic stats\","
         "\"integration_is_additional_rom_claim\":false},"
         "\"limits\":\"an address hit alone is not terminal; $9434 also occurs in nonterminal close animations; claimant is not labeled rebound, steal, block, or recovery\","
-        "\"runtime_inputs\":\"TGSR-3 plus same-pack TGPL-1; the debug screen "
+        "\"runtime_inputs\":\"TGSR-4 plus same-pack TGPL-1; the debug screen "
         "mapping additionally requires same-pack TGCS-1; no decompilation, "
         "ASM, trace, capture, screenshot, log, dump, state, Lua, video, or "
         "ROM\"}");

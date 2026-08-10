@@ -1134,7 +1134,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                 message_size) != 0) {
             tecmo_asset_pack_set_message(
                 message, message_size,
-                "Could not write strict TGSR-3 gameplay entry.");
+                "Could not write strict TGSR-4 gameplay entry.");
             return -1;
         }
         entry_info = tecmo_asset_pack_make_entry_info(

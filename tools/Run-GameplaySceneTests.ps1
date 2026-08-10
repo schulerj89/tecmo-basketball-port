@@ -856,13 +856,13 @@ try {
         [pscustomobject]@{ id="gameplay/fatigue"; size=512; hash="F80F170D"; schema="tecmo.gameplay-fatigue/TGFT-1" },
         [pscustomobject]@{ id="gameplay/cpu-steering"; size=7616; hash="D6C4DB35"; schema="tecmo.gameplay-cpu-steering/TGAI-1" },
         [pscustomobject]@{ id="gameplay/hud"; size=864; hash="3D13AA89"; schema="tecmo.gameplay-hud/THUD-1" },
-        [pscustomobject]@{ id="gameplay/court-orientation"; size=640; hash="F9152C0A"; schema="tecmo.gameplay-court-orientation/TGOR-1" },
-        [pscustomobject]@{ id="gameplay/backcourt"; size=512; hash="2C7BAF1D"; schema="tecmo.gameplay-backcourt/TGBC-1" },
+        [pscustomobject]@{ id="gameplay/court-orientation"; size=640; hash="44B0C44E"; schema="tecmo.gameplay-court-orientation/TGOR-1" },
+        [pscustomobject]@{ id="gameplay/backcourt"; size=512; hash="810886EF"; schema="tecmo.gameplay-backcourt/TGBC-1" },
         [pscustomobject]@{ id="gameplay/free-throw-lineup"; size=1216; hash="B17B9A3F"; schema="tecmo.gameplay-free-throw-lineup/TGFL-1" },
         [pscustomobject]@{ id="gameplay/close-shots"; size=3144; hash="DACDC976"; schema="tecmo.gameplay-close-shots/TGCS-1" },
         [pscustomobject]@{ id="gameplay/dunk-cutaway"; size=20272; hash="E02F2D21"; schema="tecmo.gameplay-dunk-cutaway/TGDK-1" },
         [pscustomobject]@{ id="gameplay/jump-shots"; size=2776; hash="A66EE873"; schema="tecmo.gameplay-jump-shots/TGJS-2" },
-        [pscustomobject]@{ id="gameplay/shot-resolution"; size=512; hash="164DC568"; schema="tecmo.gameplay-shot-resolution/TGSR-3" },
+        [pscustomobject]@{ id="gameplay/shot-resolution"; size=608; hash="5376E82B"; schema="tecmo.gameplay-shot-resolution/TGSR-4" },
         [pscustomobject]@{ id="gameplay/penalties"; size=768; hash="980DDC76"; schema="tecmo.gameplay-penalties/TPNL-1" },
         [pscustomobject]@{ id="gameplay/violation-referee"; size=4752; hash="2EB08CF0"; schema="tecmo.gameplay-violation-referee/TGVR-1" },
         [pscustomobject]@{ id="audio/music"; size=36784; hash="05C00ECB"; schema="tecmo.music/TMUS-1" },
@@ -1171,15 +1171,16 @@ try {
         $ShotResolutionMaps[0].claimant_settlement_bridge
     } else { $null }
     if ($ShotResolutionMaps.Count -ne 1 -or
-        $ClaimantBridge.source -notmatch 'Bank05 \$BA56-\$BA9C.*\$B87C-\$B98A.*\$9042-\$9053' -or
+        $ClaimantBridge.source -notmatch 'Bank05 \$BA56-\$BA9C.*\$B87C-\$B98A.*\$9042-\$9053.*\$B98B-\$B994' -or
         $ClaimantBridge.caller_paths -notmatch '\$A214 state-\$11 dispatch -> \$BA56' -or
         $ClaimantBridge.caller_paths -notmatch '\$B751 -> \$BA65' -or
         $ClaimantBridge.caller_paths -notmatch '\$B180 -> \$BA8C' -or
-        $ClaimantBridge.fingerprints.caller_BA56_BA9C -ne '35FB80C4' -or
+        $ClaimantBridge.fingerprints.caller_BA56_BA9C -ne 'B779AC48' -or
         $ClaimantBridge.fingerprints.settlement_B87C_B8F5 -ne '9E2F1F28' -or
         $ClaimantBridge.fingerprints.caller_prefix_B87C_B888 -ne 'E903D8F9' -or
         $ClaimantBridge.fingerprints.claimant_context_B73E_B87B -ne '574FEE44' -or
         $ClaimantBridge.fingerprints.toggle_9042_9053 -ne 'CE6C9466' -or
+        $ClaimantBridge.fingerprints.remap_B98B_B994 -ne '404311FE' -or
         $ClaimantBridge.caller_predicates -notmatch '\$B8C1.*candidate != old \$0308' -or
         $ClaimantBridge.caller_predicates -notmatch '\$B8CE.*\$04B0 bit \$10' -or
         $ClaimantBridge.native_entrypoint -notmatch 'terminal miss claimant only' -or
@@ -2126,7 +2127,7 @@ try {
         [byte][char]'x'
     [IO.File]::WriteAllBytes($MissingResolutionPath, $MissingResolution)
     Assert-SceneRejected -AssetPack $MissingResolutionPath `
-        -Label "missing-shot-resolution" -ExpectedStatus "TGSR-3"
+        -Label "missing-shot-resolution" -ExpectedStatus "TGSR-4"
 
     $MalformedResolutionPath = Join-Path $Scratch "malformed-shot-resolution.assetpack"
     $MalformedResolution = [byte[]]$PackBytes.Clone()
@@ -2135,16 +2136,16 @@ try {
         $MalformedResolution[$ResolutionOffset] -bxor 1
     [IO.File]::WriteAllBytes($MalformedResolutionPath, $MalformedResolution)
     Assert-SceneRejected -AssetPack $MalformedResolutionPath `
-        -Label "malformed-shot-resolution" -ExpectedStatus "TGSR-3"
+        -Label "malformed-shot-resolution" -ExpectedStatus "TGSR-4"
 
     $OversizedResolutionPath = Join-Path $Scratch "oversized-shot-resolution.assetpack"
     $OversizedResolution = [byte[]]$PackBytes.Clone()
-    [BitConverter]::GetBytes([uint64]513).CopyTo(
+    [BitConverter]::GetBytes([uint64]609).CopyTo(
         $OversizedResolution,
         [int]$Entries["gameplay/shot-resolution"].directory_offset + 92)
     [IO.File]::WriteAllBytes($OversizedResolutionPath, $OversizedResolution)
     Assert-SceneRejected -AssetPack $OversizedResolutionPath `
-        -Label "oversized-shot-resolution" -ExpectedStatus "TGSR-3"
+        -Label "oversized-shot-resolution" -ExpectedStatus "TGSR-4"
 
     $WrongResolutionPath = Join-Path $Scratch "wrong-revision-shot-resolution.assetpack"
     $WrongResolution = [byte[]]$PackBytes.Clone()
@@ -2152,7 +2153,7 @@ try {
         $WrongResolution[$ResolutionOffset + 80] -bxor 1
     [IO.File]::WriteAllBytes($WrongResolutionPath, $WrongResolution)
     Assert-SceneRejected -AssetPack $WrongResolutionPath `
-        -Label "wrong-revision-shot-resolution" -ExpectedStatus "TGSR-3"
+        -Label "wrong-revision-shot-resolution" -ExpectedStatus "TGSR-4"
 
     $CrossPackResolutionPath = Join-Path $Scratch "cross-pack-shot-resolution.assetpack"
     $CrossPackResolution = [byte[]]$PackBytes.Clone()
@@ -2161,7 +2162,7 @@ try {
         $CrossPackResolution[$CoreOffset + 128] -bxor 1
     [IO.File]::WriteAllBytes($CrossPackResolutionPath, $CrossPackResolution)
     Assert-SceneRejected -AssetPack $CrossPackResolutionPath `
-        -Label "cross-pack-shot-resolution" -ExpectedStatus "TGSR-3"
+        -Label "cross-pack-shot-resolution" -ExpectedStatus "TGSR-4"
 
     $OversizedPath = Join-Path $Scratch "oversized-core.assetpack"
     $Oversized = [byte[]]$PackBytes.Clone()
@@ -2555,7 +2556,7 @@ try {
 
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
-        "scene controls THUD-1 clean jersey/name HUD TGMO-1 human/CPU walking poses TGBD-1 held-ball bounce/sound TGFT-1 fatigue TPNL-1 out-of-bounds settlement TGBC-1 live backcourt settlement TGVR-1 native violation referee TGAI-1/TGMO-1 transactional ordinary CPU movement TGCP-2 full-world camera fine-scroll guarded-margins actor-camera-projection/possession-slice-render/freeze TGFL-1 orientation-lineup TGOR two-basket shot ownership TGDK TGJS TGSR-3 jump entry/turn/release/flight poses jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
+        "scene controls THUD-1 clean jersey/name HUD TGMO-1 human/CPU walking poses TGBD-1 held-ball bounce/sound TGFT-1 fatigue TPNL-1 out-of-bounds settlement TGBC-1 live backcourt settlement TGVR-1 native violation referee TGAI-1/TGMO-1 transactional ordinary CPU movement TGCP-2 full-world camera fine-scroll guarded-margins actor-camera-projection/possession-slice-render/freeze TGFL-1 orientation-lineup TGOR two-basket shot ownership TGDK TGJS TGSR-4 jump entry/turn/release/flight poses jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
         "halftime/final render-hashes/determinism missing malformed oversized " +
         "dependency-corrupt chr-mismatch")
     $ProofSummary = ("LIVE PROOF {0}: root={1} manifest={2} native_videos=2 frames={3} contact_sheet=1920x{4}" -f

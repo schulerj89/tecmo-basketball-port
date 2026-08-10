@@ -167,7 +167,7 @@ try {
     $SourceMap = Get-Entry $PackBytes "system/source-map"
     $Payload = Get-EntryBytes $PackBytes $Backcourt
     if ($Backcourt.byte_count -ne 512 -or
-        (Get-Fnv1a32 $Payload) -ne "2C7BAF1D" -or
+        (Get-Fnv1a32 $Payload) -ne "810886EF" -or
         [Text.Encoding]::ASCII.GetString($Payload, 0, 4) -ne "TGBC" -or
         [BitConverter]::ToUInt16($Payload, 80) -ne 376 -or
         [BitConverter]::ToUInt16($Payload, 84) -ne 392) {
@@ -180,7 +180,7 @@ try {
     })
     if ($Mapped.Count -ne 1 -or
         $Mapped[0].schema -ne "tecmo.gameplay-backcourt/TGBC-1" -or
-        $Mapped[0].fingerprint_fnv1a32 -ne "2C7BAF1D" -or
+        $Mapped[0].fingerprint_fnv1a32 -ne "810886EF" -or
         @($Mapped[0].source_spans).Count -ne 1 -or
         $Mapped[0].source_spans[0].fingerprint_fnv1a32 -ne "C137674F" -or
         $Mapped[0].native_contract.violation_selector -ne 2 -or

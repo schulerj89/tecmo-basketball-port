@@ -41,14 +41,14 @@ The compound scene loads `gameplay/core` TGPL-1 (23416 bytes,
 `gameplay/ball-dribble` TGBD-1 (608 bytes, `E2CE6BFF`),
 `gameplay/cpu-steering` TGAI-1 (7616 bytes, `D6C4DB35`),
 `gameplay/fatigue` TGFT-1 (512 bytes, `F80F170D`),
-`gameplay/court-orientation` TGOR-1 (640 bytes, `F9152C0A`),
+`gameplay/court-orientation` TGOR-1 (640 bytes, `44B0C44E`),
 `gameplay/hud` THUD-1 (864 bytes, `3D13AA89`),
 `gameplay/penalties` TPNL-1 (768 bytes, `980DDC76`),
 `gameplay/violation-referee` TGVR-1 (4752 bytes, `2EB08CF0`),
 `gameplay/close-shots` TGCS-1 (3144 bytes, `DACDC976`),
 `gameplay/dunk-cutaway` TGDK-1 (20272 bytes, `E02F2D21`),
 `gameplay/jump-shots` TGJS-2 (2776 bytes, `A66EE873`),
-`gameplay/shot-resolution` TGSR-3 (512 bytes, `164DC568`), `audio/music`
+`gameplay/shot-resolution` TGSR-4 (608 bytes, `5376E82B`), `audio/music`
 TMUS-1 (36784 bytes, `05C00ECB`), `audio/gameplay-sfx` TSFX-1 (2824
 bytes, `968A5DE6`), `audio/gameplay-dmc` TDMC-1 (2515 bytes,
 `AD70E6E8`), and the exact 262144-byte `chr/all` revision from one asset pack.
@@ -101,11 +101,11 @@ save-before-toggle evidence. Direct `$035A` stores are limited to `$8FC4` and
 
 The native `LIVE` bridge deliberately exposes only a narrow typed transaction
 for Bank 05 `$B87C-$B98A`. Its direct integrated caller is `$BA56-$BA9C`
-(FNV-1a32 `35FB80C4`): state `$11` reaches `$BA56` through `$A214`'s slot-10
+(FNV-1a32 `B779AC48`, FNV-1a64 `367ED7AC43F1ACA8`): state `$11` reaches `$BA56` through `$A214`'s slot-10
 dispatch table, while `$B751` reaches `$BA65` from the claimant path and
 `$B180` can jump directly to `$BA8C`. After `$BA65`'s `$05A1`, `$AD01`,
 `$07DE`, and `$0588` gates, `$BA8C` clears its local pending fields and calls
-`$B87C`. The source span `$B87C-$B8F5` is revision locked by TGSR-3
+`$B87C`. The source span `$B87C-$B8F5` is revision locked by TGSR-4
 (FNV-1a32 `9E2F1F28`), and the caller-prefix `$B87C-$B888` is independently
 fingerprinted as `E903D8F9`. The claimant candidate arrives through `$9C`; the
 preceding `$B73E-$B87B` scan (FNV-1a32 `574FEE44`) is evidence for the bounded
@@ -278,7 +278,7 @@ the holder across this production boundary rather than injecting a violation
 state.
 
 Backcourt is owned independently by strict TGBC-1, not TGMO. The 512-byte
-payload (`2C7BAF1D`) imports Bank05 `$970B-$9786` (`C137674F`) and depends on
+payload (`810886EF`) imports Bank05 `$970B-$9786` (`C137674F`) and depends on
 same-pack TGOR-1 and TPNL-1. The exact `$971F-$9786` ordinary live detector uses
 object state zero, `$0588` bit 4, the current orientation, and the 16-bit ball
 X. Orientation 0 establishes at X `<=375` and violates on a return to X
@@ -379,13 +379,16 @@ fixed link, holder approach, zero-vector neutral bridge, object state/flags,
 and shot proximity/cadence remain native policy. No ROM command offset or
 advance is fabricated: live state carries an explicit no-command sentinel.
 
-TGSR-3 also has FNV1a64 `5C5170460C8305A8` and requires exact same-pack
+TGSR-4 also has FNV1a64 `FACCE42B52382D6B` and requires exact same-pack
 TGPL-1. Its revision-fingerprinted sources are Bank05 `$91BC-$943A`,
-`$A6EE-$A9D9`, `$B73E-$B87B`, and `$B87C-$B8F5`, plus focused state-`$15`
+`$A6EE-$A9D9`, `$B73E-$B87B`, `$B87C-$B8F5`, `$BA56-$BA9C`
+(`B779AC48`), `$9042-$9053` (`CE6C9466`), and `$B98B-$B994` (`404311FE`),
+plus focused state-`$15`
 convergence `$A2DF-$A2F7`, launch target `$AD4E-$AD64`, and orientation snap
 table `$BDF3-$BDF6`, plus the exact 124-byte point-arc boundary table
-`$BEEF-$BF6A` (`9EF1061B`, FNV1a64 `E8A0728513DD8BDB`): four primary
-plus four focused source spans.
+`$BEEF-$BF6A` (`9EF1061B`, FNV1a64 `E8A0728513DD8BDB`): seven primary
+plus four focused source spans. The older `35FB80C4` fingerprint applies only
+to `$BA65-$BA9C`; it is not used for the full caller descriptor.
 The safe native semantics are terminal outcome polarity, numeric
 rim-route selection, the state-`$15` one-to-four-pass horizontal rattle
 prefix, claimant thresholds, and claimant-driven handler/possession
@@ -505,7 +508,7 @@ actor. A simultaneous period expiry queues only crowd 11 and retains the
 current side. Outcome state clears after settlement and no rebound/block/steal
 stat event is synthesized.
 
-TGSR-3 adds a separate deterministic diagnostic for the proven state-`$15`
+TGSR-4 adds a separate deterministic diagnostic for the proven state-`$15`
 prefix without changing the normal frame-87 miss. Its canonical source uses
 four passes. Frame 73 snaps the exact orientation-0 state to raw `(157,147)`,
 altitude `$38`, timer 4, and positive `$0040` velocity. The visible
@@ -653,13 +656,15 @@ decompilation at these CPU-address ranges:
   `$8C7D-$8CE4` (FNV1a32 `00A4D185`) is its bounded close-shot caller path.
 - Bank 05 `$B1D1-$B1E6` (FNV1a32 `CFCD9759`): above-0:01 clock gate and
   pre-handoff side-result request 12/13; `$B19D-$B1A4` (FNV1a32 `ED5EE105`)
-  is the bounded result caller path. `$BA65-$BA9C` (FNV1a32 `35FB80C4`) and
+  is the bounded result caller path. `$BA56-$BA9C` (FNV1a32 `B779AC48`) and
   `$B87C-$B888` (FNV1a32 `E903D8F9`) supply the integrated jump-shot settlement
   caller evidence.
-- TGSR-3 revision-locks Bank 05 `$91BC-$943A` (`4A0C68AC`),
-  `$A6EE-$A9D9` (`21A416FD`), `$B73E-$B87B` (`574FEE44`), and
-  `$B87C-$B8F5` (`9E2F1F28`) for terminal polarity, numeric rim dispatch,
-  claimant scanning, and claimant-driven settlement respectively. Focused
+- TGSR-4 revision-locks Bank 05 `$91BC-$943A` (`4A0C68AC`),
+  `$A6EE-$A9D9` (`21A416FD`), `$B73E-$B87B` (`574FEE44`),
+  `$B87C-$B8F5` (`9E2F1F28`), `$BA56-$BA9C` (`B779AC48`),
+  `$9042-$9053` (`CE6C9466`), and `$B98B-$B994` (`404311FE`) for terminal
+  polarity, numeric rim dispatch, claimant scanning, claimant-driven
+  settlement, caller gates, selector toggle, and candidate remap respectively. Focused
   provenance additionally locks `$A2DF-$A2F7` (`9D918043`),
   `$AD4E-$AD64` (`AF1D6B17`), `$BDF3-$BDF6` (`79F66DB3`), and
   `$BEEF-$BF6A` (`9EF1061B`) for conditional convergence, launch target,
@@ -750,7 +755,7 @@ These are provenance only and are not runtime inputs.
   debug/test API only; live selection remains unchanged. Unsupported
   profiles/directions/outcomes, ordinary two-point makes, the longer +157-update
   claimant route, and make ball geometry do not inherit those frame
-  checkpoints. TGSR-3 can classify an input coordinate as two points and
+  checkpoints. TGSR-4 can classify an input coordinate as two points and
   TGJS-2 can simulate distance flight from explicit raw inputs; neither owns
   live `$AD6E` launch inputs or admits the route. No semantic rebound,
   block, steal, or player-stat event is claimed.

@@ -88,7 +88,7 @@ static bool reject(
     memset(&candidate->rim_rattle, 0, sizeof(candidate->rim_rattle));
     candidate->available = false;
     (void)snprintf(candidate->status, sizeof(candidate->status), "%s",
-                   message != NULL ? message : "TGSR-3 rejected");
+                   message != NULL ? message : "TGSR-4 rejected");
     if (publish_fresh_status) {
         (void)snprintf(destination->status, sizeof(destination->status), "%s",
                        candidate->status);
@@ -180,7 +180,6 @@ static bool validate_header(const uint8_t *payload, size_t payload_size)
 
 static bool validate_sources(const uint8_t *payload)
 {
-    uint32_t prior_end = 0U;
     for (size_t index = 0U;
          index < TECMO_GAMEPLAY_SHOT_RESOLUTION_SOURCE_COUNT; ++index) {
         const TecmoGameplayShotResolutionExpectedSource *expected =
@@ -200,11 +199,21 @@ static bool validate_sources(const uint8_t *payload)
             read_u32(record + 12U) != expected->fingerprint_fnv1a32 ||
             read_u64(record + 16U) != expected->fingerprint_fnv1a64 ||
             read_u16(record + 24U) != (uint16_t)index ||
-            !bytes_are_zero(record + 26U, 6U) ||
-            (index != 0U && expected->cpu_start <= prior_end)) {
+            !bytes_are_zero(record + 26U, 6U)) {
             return false;
         }
-        prior_end = end;
+        for (size_t other = 0U;
+             other < TECMO_GAMEPLAY_SHOT_RESOLUTION_SOURCE_COUNT;
+             ++other) {
+            const TecmoGameplayShotResolutionExpectedSource *other_expected =
+                &tecmo_gameplay_shot_resolution_expected_sources[other];
+            uint32_t other_end = (uint32_t)other_expected->cpu_start +
+                                 other_expected->byte_count - 1U;
+            if (other != index && expected->cpu_start <= other_end &&
+                other_expected->cpu_start <= end) {
+                return false;
+            }
+        }
     }
     return true;
 }
@@ -314,27 +323,27 @@ bool tecmo_gameplay_shot_resolution_parse(
     tecmo_gameplay_shot_resolution_init(&candidate);
     if (payload == NULL || !validate_header(payload, payload_size)) {
         return reject(&candidate, assets,
-                      "TGSR-3 header/size/reserved contract rejected");
+                      "TGSR-4 header/size/reserved contract rejected");
     }
     if (fnv1a32(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_FNV1A32 ||
         fnv1a64(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_FNV1A64) {
         return reject(&candidate, assets,
-                      "TGSR-3 canonical payload fingerprint rejected");
+                      "TGSR-4 canonical payload fingerprint rejected");
     }
     if (!validate_sources(payload) || !validate_semantics(payload)) {
         return reject(&candidate, assets,
-                      "TGSR-3 source/semantic contract rejected");
+                      "TGSR-4 source/semantic contract rejected");
     }
     if (!validate_gameplay_core(gameplay_core, gameplay_core_size)) {
         return reject(&candidate, assets,
-                      "TGSR-3 same-pack TGPL-1 dependency rejected");
+                      "TGSR-4 same-pack TGPL-1 dependency rejected");
     }
 
     storage = (uint8_t *)malloc(payload_size);
     if (storage == NULL) {
-        return reject(&candidate, assets, "TGSR-3 allocation failed");
+        return reject(&candidate, assets, "TGSR-4 allocation failed");
     }
     memcpy(storage, payload, payload_size);
     candidate.storage = storage;
@@ -422,7 +431,7 @@ bool tecmo_gameplay_shot_resolution_parse(
     candidate.gameplay_core_fingerprint = TECMO_ASSET_PACK_GAMEPLAY_FNV1A32;
     candidate.available = true;
     (void)snprintf(candidate.status, sizeof(candidate.status),
-                   "TGSR-3 gameplay shot-resolution assetpack");
+                   "TGSR-4 gameplay shot-resolution assetpack");
     previous = *assets;
     *assets = candidate;
     free(previous.storage);
@@ -451,7 +460,7 @@ bool tecmo_gameplay_shot_resolution_load(
             &payload, &payload_size) != 0) {
         if (!assets->available) {
             (void)snprintf(assets->status, sizeof(assets->status),
-                           "TGSR-3 gameplay/shot-resolution entry missing or wrong-sized");
+                           "TGSR-4 gameplay/shot-resolution entry missing or wrong-sized");
         }
         return false;
     }
@@ -462,7 +471,7 @@ bool tecmo_gameplay_shot_resolution_load(
         tecmo_asset_pack_free(payload);
         if (!assets->available) {
             (void)snprintf(assets->status, sizeof(assets->status),
-                           "TGSR-3 gameplay/core dependency missing or wrong-sized");
+                           "TGSR-4 gameplay/core dependency missing or wrong-sized");
         }
         return false;
     }

@@ -711,7 +711,7 @@ ordering. The same controlled family/profile/direction context also admits one
 captured deterministic three-point make. Current NES B remains held through
 frames 1-8 and releases at 9; the already-selected entry pose 325 remains for
 frames 1-4, followed by 1060 for 5-8, 1061 at 9, 213 through flight, and 469
-after recovery. TGSR-3 classifies
+after recovery. TGSR-4 classifies
 the terminal clear-bit result as MAKE at frame 19. Uninterrupted Q8.8 motion
 starts at frame 20 with velocity `$0308` and gravity `$0028`, lands at native
 frame 57, recovers through 62, and becomes neutral at 63. The emulator displayed
@@ -730,7 +730,7 @@ captured frame-9 transition so normal input cannot strand the scene; no
 earlier-release ROM timing is claimed. If the period expires before frame 111,
 the frame-85 score is applied exactly once without an invalid shot-clock reset,
 then the settled action retains the shooting side/holder for the normal period
-banner transition. TGSR-3 classifies TGJS's bit-7-set terminal flag as MISS and proves
+banner transition. TGSR-4 classifies TGJS's bit-7-set terminal flag as MISS and proves
 the non-current, other-team claimant handler/possession decision. Native play
 applies that one decision at frame 87, awards zero points, uses an explicitly
 approximate opposing actor, and queues crowd 11 followed by clock-gated side
@@ -897,7 +897,7 @@ The scene must obtain TGPL-1 `gameplay/core`, TGCT-1 `gameplay/court`, TGCP-2
 `gameplay/court-orientation`, THUD-1 `gameplay/hud`, TGCS-1
 `gameplay/close-shots`, TGDK-1 `gameplay/dunk-cutaway`,
 TGJS-2 `gameplay/jump-shots` (2776 bytes,
-`A66EE873`), TGSR-3 `gameplay/shot-resolution` (512 bytes, `164DC568`),
+`A66EE873`), TGSR-4 `gameplay/shot-resolution` (608 bytes, `5376E82B`),
 TMUS-1 `audio/music`, TSFX-1
 `audio/gameplay-sfx`, TDMC-1 `audio/gameplay-dmc`, and `chr/all` from the same
 explicit pack. Exact-size reads, canonical fingerprints, deep bounds/reserved
@@ -928,15 +928,21 @@ court uses the equal 32-pixel court-side offset before final validation. An
 explicit no-command sentinel keeps the still-unported ROM command/advance
 lifecycle out of the exactness claim.
 
-TGSR-3 is 512 bytes (FNV1a32 `164DC568`, FNV1a64
-`5C5170460C8305A8`) and revision-locks Bank05 `$91BC-$943A`, `$A6EE-$A9D9`,
-`$B73E-$B87B`, and `$B87C-$B8F5`. It requires exact same-pack TGPL-1;
+TGSR-4 is 608 bytes (FNV1a32 `5376E82B`, FNV1a64
+`FACCE42B52382D6B`) and revision-locks Bank05 `$91BC-$943A`, `$A6EE-$A9D9`,
+`$B73E-$B87B`, `$B87C-$B8F5`, `$BA56-$BA9C` (`B779AC48`,
+`367ED7AC43F1ACA8`), `$9042-$9053` (`CE6C9466`,
+`EC5906B34DC6D566`), and `$B98B-$B994` (`404311FE`,
+`7CCF6AAD4241C4FE`) as explicit source records. The full `$BA56-$BA9C`
+caller span intentionally includes its incoming predicate; the older
+`35FB80C4` value described only the narrower `$BA65-$BA9C` subrange and is
+not a source fingerprint. TGSR-4 requires exact same-pack TGPL-1;
 missing, malformed, wrong-sized, wrong-revision, and cross-pack dependencies
 reject the scene before availability. Its safe semantics are terminal outcome
 polarity, numeric rim routes, claimant thresholds, and handler/possession
 decisions; it does not label rebounds, blocks, steals, or generic makes.
 
-TGSR-3 additionally carries the exact 124-byte Bank05 `$BEEF-$BF6A`
+TGSR-4 additionally carries the exact 124-byte Bank05 `$BEEF-$BF6A`
 three-point arc boundary table (FNV1a32 `9EF1061B`, FNV1a64
 `E8A0728513DD8BDB`). Its pure C API reproduces `$B995`'s free-throw/field-goal/
 three-point classification for raw world X/Y, orientation 0/1, and shot-flag
@@ -952,7 +958,7 @@ frame-111 handoff from `$AC0A-$AC6E`'s 26-update state-08 timer after frame 85.
 The exact `$91BC` evaluator remains documentation-only because the live scene
 lacks its TTDT condition, matchup, motion, and RNG inputs.
 
-TGSR-3 uses metadata bytes 29..63 for the strict state-`$15` rim-rattle
+TGSR-4 uses metadata bytes 29..63 for the strict state-`$15` rim-rattle
 contract. It imports orientation starts `$009D/$0263`, Y `$93`, velocity
 magnitude `$0040`, altitude `$38`, timer 4, pass derivation
 `(($53 & 3) + 1) << 4` with the low nibble preserved, repeat DMC length `$0A`,
@@ -964,10 +970,10 @@ updates per pass, reverses on each nonterminal pass, requests the existing
 address-bound A8D6-short DMC clip, and restores velocity on completion.
 Focused provenance adds `$A2DF-$A2F7` (`9D918043`), `$AD4E-$AD64`
 (`AF1D6B17`), `$BDF3-$BDF6` (`79F66DB3`), and `$BEEF-$BF6A`
-(`9EF1061B`), for four primary plus four focused source spans. The debug mapper
+(`9EF1061B`), for seven primary plus four focused source spans. The debug mapper
 reads the X launch target from the
 required same-pack TGCS-1 `$BDEF-$BDF6` source and cross-checks its snap bytes
-against TGSR-3; `$AD4E-$AD64` proves the BDEF/BDF1 loads and Y target `$8F`.
+against TGSR-4; `$AD4E-$AD64` proves the BDEF/BDF1 loads and Y target `$8F`.
 `$A2DF` does not universally enter state `$10`: nonzero `$036F`
 or raw `$6A >= $18` selects that path; otherwise the original relaunches state
 `$05`. Only the deterministic `gameplay-jump-rattle-frameN` debug route uses
@@ -1020,7 +1026,7 @@ path with direct phase injection. Frames 23, 27, and 31 are distinct referee
 groups 3, 4, and 5, while frames 31, 39, and 80 retain group 5.
 
 TGBC-1 `gameplay/backcourt` is the independent strict 512-byte live detector
-(FNV1a32 `2C7BAF1D`). It retains Bank05 `$970B-$9786` (`C137674F`) behind the
+(FNV1a32 `810886EF`). It retains Bank05 `$970B-$9786` (`C137674F`) behind the
 exact Rev1 fingerprint and requires same-pack TGOR-1 and TPNL-1. The ported
 span is `$971F-$9786`: `$0478` must be zero, `$0588` bit 4 is the frontcourt
 latch, and selector `$0742=2` is BACKCOURT. Orientation 0 establishes at ball
@@ -1073,8 +1079,8 @@ closed. Verify it with
 `tools\Run-GameplayFreeThrowLineupTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 
 TGOR-1 `gameplay/court-orientation` is the strict 640-byte live ownership
-foundation (FNV1a32 `F9152C0A`) and requires exact same-pack TGPL-1
-(`2047CCE0`) and TGSR-3 (`164DC568`). It preserves Bank05
+foundation (FNV1a32 `44B0C44E`) and requires exact same-pack TGPL-1
+(`2047CCE0`) and TGSR-4 (`5376E82B`). It preserves Bank05
 `$8FAD-$8FE7` (`7C94E5EA`) as the possession transition gate-and-swap,
 `$9042-$9053` (`CE6C9466`) as the exact slots-0..9 `$04B0` bit-`$10`
 toggle plus queue-`$17` operation, `$9054-$90AF` (`FE092D62`) as the
@@ -1095,7 +1101,7 @@ left-to-right court.
 TGPL-1 fixed `$E537-$E548` derives presentation selector `$0758` from
 `$04FC` bit 7 (slot-10 horizontal-velocity high byte/sign), with screen IDs
 `$1B/$2E` at `$E699`; it is cross-check evidence, not orientation ownership.
-TGSR-3 `$B87C-$B8F5` is a conditional alternate claimant-settlement path, not
+TGSR-4 `$B87C-$B8F5` is a conditional alternate claimant-settlement path, not
 a universal post-shot path. `$035B` is only observed as save-before-toggle and
 has no direct reads; the only direct `$035A` stores are `$8FC4` and `$B8E0`.
 The broad `STA $0300,X` initializer appears only at fixed-bank cold boot
