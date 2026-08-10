@@ -21,7 +21,7 @@ const TecmoGameplayShotResolutionExpectedSource
         {TECMO_GAMEPLAY_SHOT_RESOLUTION_SOURCE_CLAIMANT_SETTLEMENT,
          0xB87CU, 122U, 0x9E2F1F28U, 0xC4F3A0BCC17BFCA8ULL},
         /* $BA56 begins the incoming claimant-state gate.  Keep all 71
-           bytes through the direct $B87C caller's post-call branch so the
+           bytes through the direct JSR $B87C call site so the
            caller contract is revision-locked as one contiguous source. */
         {TECMO_GAMEPLAY_SHOT_RESOLUTION_SOURCE_CLAIMANT_SETTLEMENT_CALLER,
          0xBA56U, 71U, 0xB779AC48U, 0x367ED7AC43F1ACA8ULL},
