@@ -1275,7 +1275,15 @@ try {
             }
             if ($Event -eq "cpu-target-deferred" -and
                 ([int]$State.live.source_target_count -lt 1 -or
-                 [int]$State.live.deferred_count -lt 1)) {
+                 [int]$State.live.deferred_count -lt 1 -or
+                 ![bool]$State.opcode4_ball_target.executed -or
+                 [string]$State.opcode4_ball_target.record_offset -ne "0000" -or
+                 [int]$State.opcode4_ball_target.argument_c8 -ne 10 -or
+                 [int]$State.opcode4_ball_target.target_object -ne 10 -or
+                 [int]$State.opcode4_ball_target.snapshot_ball[0] -ne
+                    [int]$State.opcode4_ball_target.source_target[0] -or
+                 [int]$State.opcode4_ball_target.snapshot_ball[1] -ne
+                    [int]$State.opcode4_ball_target.source_target[1])) {
                 throw "LIVE proof CPU event did not retain target/deferred evidence."
             }
             if ($Event -eq "shot-path" -and

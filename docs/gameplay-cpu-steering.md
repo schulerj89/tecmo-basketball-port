@@ -35,6 +35,34 @@ Bank06 `$938B-$9620` selects formation streams and writes actor command offsets.
 That proves one initialization path into the command transport; it does not
 prove every condition that selects a play or formation.
 
+## Opcode 4: canonical ball-object target
+
+Opcode 4 is the bounded exception to the ordinary ten-player coordinate
+snapshot. The state-4 caller path is Bank06 `$81F7-$82D3` to `$8B90-$8BE0`,
+then fixed `$C006/$CBE0-$CBF6`, and then dispatch-table vector `$8FFA` into
+the contiguous Bank06 `$8FF5-$9027` delta routine. Its `$8FF5-$8FF9` prelude
+loads `$C8` as the target-object index before the subtraction tail. The strict
+TGAI corpus contains exactly two
+opcode-4 records, at stream offsets `$0000` and `$016D`; both select object
+slot `$0A`.
+
+Bank04's pre-tip setup initializes object slots `0..10`; slots `0..9` are the
+player coordinates while slot `10` is the separately initialized ball object.
+The native port therefore represents slot `10` as
+`TecmoGameplayCpuSteeringPlayInput.ball_position` and records its identity in
+`TecmoGameplayCpuSteeringPlayState.target_object`. It is not an eleventh actor,
+does not receive a command stream, and is not used by dynamic `$06CB` or full
+play-selection policy.
+
+The handler subtracts the selected actor from the target object as a 16-bit X
+value (low/high bytes with borrow), then subtracts depth as an 8-bit value and
+sign-extends its borrow to a 16-bit delta. It ORs the two complete deltas; a
+zero vector skips `$88DA` and keeps the prior direction. The C result records
+these bounded opcode-4 deltas for regression coverage, while the production
+scene resolves slot `10` from one immutable floored-Q8 ball snapshot before
+its normal TGMO composition. This is source-to-C target transport, not a claim
+to reconstruct offensive play selection.
+
 ## Exact direction selection
 
 Two bounded paths write the same actor direction field `$0463`:
@@ -224,6 +252,14 @@ formation boundary, and lets the existing CPU shot gate launch a visible close
 shot. It deliberately holds unrelated actor streams, so it proves target
 preservation and the CPU-shot integration path—not a complete reconstructed
 play-selection policy.
+
+`tools/Invoke-CpuBallTargetOpcode4Proof.ps1 -RomPath <LOCAL_ROM.nes>` creates
+an ignored two-run production proof under `build/cpu-ball-target-opcode4-proof`.
+It renders the normal LIVE path and records that the canonical `$0000`
+opcode-4 record has `C8=$0A`, resolves target object `10`, and uses the same
+immutable ball snapshot coordinate as the stored source target. The screenshot
+is integration evidence only; the handler semantics remain anchored by the
+TGAI source span, focused executor tests, and source-map provenance above.
 
 The unported `$8D59-$8E21` caller-specific scaling inputs and remaining
 dynamic `$06CB` assignment policy stay explicitly bounded as unresolved; the

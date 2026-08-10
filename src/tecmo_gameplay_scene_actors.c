@@ -1002,29 +1002,41 @@ static bool scene_cpu_source_target(
     const TecmoGameplayCpuSteeringPlayState *play_state,
     const TecmoGameplayCourtCoordinate
         actor_position[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT],
+    const TecmoGameplayCourtCoordinate *ball_position,
     size_t actor,
     TecmoGameplayCourtCoordinate *target_out,
     TecmoGameplayCpuSteeringHarnessTargetKind *target_kind_out)
 {
-    uint8_t target_actor;
+    uint8_t target_object;
     TecmoGameplayCourtCoordinate target;
-    if (play_state == NULL || actor_position == NULL || target_out == NULL ||
+    if (play_state == NULL || actor_position == NULL || ball_position == NULL ||
+        target_out == NULL ||
         target_kind_out == NULL ||
         actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
         return false;
     }
-    target_actor = play_state->target_actor[actor];
-    if (target_actor != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR) {
-        if (target_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) return false;
-        /* Native-faithful adapter policy: an actor-target command follows
-           the current referenced actor's coordinate on every immutable
-           post-human snapshot/tick. The foundation's stored target
-           coordinate remains validated source evidence; original Bank05
-           dynamic retarget/matchup semantics remain incomplete/unproven. */
-        target = actor_position[target_actor];
+    target_object = play_state->target_object[actor];
+    if (target_object < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        /* Native-faithful adapter policy: a player-object target follows the
+           current referenced player coordinate on every immutable post-human
+           snapshot/tick. The stored source coordinate remains evidence;
+           original Bank05 dynamic retarget/matchup semantics remain
+           incomplete/unproven. */
+        target = actor_position[target_object];
         *target_kind_out =
             TECMO_GAMEPLAY_CPU_STEERING_HARNESS_LINKED_ACTOR;
+    } else if (target_object ==
+               TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT) {
+        /* Bank06 opcode 4 loads C8 as an object index. The strict corpus's
+           C8=$0A record resolves to the separately owned production ball
+           coordinate, never an eleventh actor stream. */
+        target = *ball_position;
+        *target_kind_out =
+            TECMO_GAMEPLAY_CPU_STEERING_HARNESS_BALL_OBJECT_TARGET;
     } else {
+        if (target_object != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR) {
+            return false;
+        }
         target.x = play_state->target_x[actor];
         target.y = play_state->target_depth[actor];
         *target_kind_out =
@@ -1112,12 +1124,15 @@ bool scene_cpu_target_for_source_direction(
     return true;
 }
 
-static void scene_cpu_build_play_input(
+static bool scene_cpu_build_play_input(
     const TecmoGameplayScene *scene,
     const TecmoGameplayCourtCoordinate
         actor_position[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT],
     TecmoGameplayCpuSteeringPlayInput *input)
 {
+    if (scene == NULL || actor_position == NULL || input == NULL) {
+        return false;
+    }
     memset(input, 0, sizeof(*input));
     input->contract_tag = TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG;
     /* Bank06 advances one bounded source record for the selected actor per
@@ -1136,6 +1151,11 @@ static void scene_cpu_build_play_input(
     input->flags_007e = 0U;
     memcpy(input->actor_position, actor_position,
            sizeof(input->actor_position));
+    if (!tecmo_gameplay_court_coordinate_q8_floor(
+            &scene->ball_position, &input->ball_position)) {
+        return false;
+    }
+    return true;
 }
 
 static bool scene_cpu_shot_input(
@@ -1465,7 +1485,9 @@ bool scene_update_ai(
             scene->actors[actor].position;
         actor_team[actor] = scene->actors[actor].team;
     }
-    scene_cpu_build_play_input(scene, steering_snapshot, &play_input);
+    if (!scene_cpu_build_play_input(scene, steering_snapshot, &play_input)) {
+        return false;
+    }
     memcpy(candidate_actors, scene->actors, sizeof(candidate_actors));
     memcpy(candidate_cpu, scene->cpu_actors, sizeof(candidate_cpu));
     candidate_ball = scene->ball_position;
@@ -1559,6 +1581,7 @@ bool scene_update_ai(
         } else if (source_target) {
             if (!scene_cpu_source_target(
                     &candidate_foundation.play_state, steering_snapshot,
+                    &play_input.ball_position,
                     actor, &target, &target_kind)) {
                 return false;
             }

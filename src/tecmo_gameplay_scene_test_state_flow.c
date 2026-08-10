@@ -1847,7 +1847,7 @@ static bool scene_test_live_foundation_regressions(
     }
     /* A real role/orientation transition invalidates all old command writes. */
     candidate_foundation = foundation_before;
-    candidate_foundation.play_state.target_actor[0U] = 5U;
+    candidate_foundation.play_state.target_object[0U] = 5U;
     candidate_foundation.play_state.target_x[0U] = positions[5U].x;
     candidate_foundation.play_state.target_depth[0U] = positions[5U].y;
     candidate_foundation.source_target_valid[0U] = true;
@@ -1861,7 +1861,7 @@ static bool scene_test_live_foundation_regressions(
             TECMO_GAMEPLAY_TEAM_AWAY, 0U, actor_team,
             scene->launch.controller_team, scene->controlled_actor,
             &candidate_foundation) ||
-        candidate_foundation.play_state.target_actor[0U] !=
+        candidate_foundation.play_state.target_object[0U] !=
             TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
         candidate_foundation.play_state.target_x[0U] != 0 ||
         candidate_foundation.play_state.target_depth[0U] != 0 ||
@@ -1946,6 +1946,7 @@ static bool scene_test_live_foundation_regressions(
     play_input.step_budget = 2U;
     play_input.orientation_035a = 0U;
     memcpy(play_input.actor_position, positions, sizeof(positions));
+    play_input.ball_position = positions[0U];
     foundation_before = scene->live_foundation;
     candidate_foundation = foundation_before;
     if (tecmo_gameplay_live_foundation_play_step(
@@ -1962,6 +1963,7 @@ static bool scene_test_live_foundation_regressions(
         play_input.actor = (uint8_t)actor;
         play_input.step_budget = 1U;
         memcpy(play_input.actor_position, positions, sizeof(positions));
+        play_input.ball_position = positions[0U];
         if (tecmo_gameplay_live_foundation_play_step(
                 &scene->cpu_steering_assets, &play_input, &candidate_foundation,
                 &play_result) && play_result.advanced &&
@@ -1990,6 +1992,7 @@ static bool scene_test_live_foundation_regressions(
     play_input.orientation_035a = candidate_foundation.orientation;
     memcpy(play_input.actor_position, candidate_foundation.actor_position,
            sizeof(play_input.actor_position));
+    play_input.ball_position = candidate_foundation.actor_position[0U];
     for (offset = 0U;
          offset < scene->cpu_steering_assets.command_record_count * 5U;
          offset = (uint16_t)(offset + 5U)) {
@@ -2022,7 +2025,7 @@ static bool scene_test_live_foundation_regressions(
         candidate_foundation.primary_actor];
     /* Seed an ordinary actor target too, proving reloads discard only the
        metadata belonging to the replaced command stream. */
-    candidate_foundation.play_state.target_actor[1U] =
+    candidate_foundation.play_state.target_object[1U] =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     candidate_foundation.play_state.target_x[1U] = positions[1U].x;
     candidate_foundation.play_state.target_depth[1U] = positions[1U].y;
@@ -2052,7 +2055,7 @@ static bool scene_test_live_foundation_regressions(
         candidate_foundation.play_state.target_depth[
             candidate_foundation.primary_actor] != preserved_target_depth ||
         candidate_foundation.source_target_valid[1U] ||
-        candidate_foundation.play_state.target_actor[1U] !=
+        candidate_foundation.play_state.target_object[1U] !=
             TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
         candidate_foundation.play_state.target_x[1U] != 0 ||
         candidate_foundation.play_state.target_depth[1U] != 0 ||
@@ -2075,6 +2078,7 @@ static bool scene_test_live_foundation_regressions(
     play_input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG;
     play_input.step_budget = 1U;
     memcpy(play_input.actor_position, positions, sizeof(positions));
+    play_input.ball_position = positions[0U];
     for (offset = 0U;
          offset < scene->cpu_steering_assets.command_record_count * 5U;
          offset = (uint16_t)(offset + 5U)) {
@@ -2098,7 +2102,7 @@ static bool scene_test_live_foundation_regressions(
     candidate_foundation.play_state.stream_offset[deferred_actor] =
         deferred_offset;
     candidate_foundation.last_step_offset[deferred_actor] = deferred_offset;
-    candidate_foundation.play_state.target_actor[deferred_actor] =
+    candidate_foundation.play_state.target_object[deferred_actor] =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     candidate_foundation.play_state.target_x[deferred_actor] = 0;
     candidate_foundation.play_state.target_depth[deferred_actor] = 0;
@@ -2113,7 +2117,7 @@ static bool scene_test_live_foundation_regressions(
         LIVE_FAIL("LIVE deferred target became an unproven movement target");
     }
     candidate_foundation = foundation_before;
-    candidate_foundation.play_state.target_actor[0U] = 5U;
+    candidate_foundation.play_state.target_object[0U] = 5U;
     candidate_foundation.play_state.target_x[0U] = positions[5U].x;
     candidate_foundation.play_state.target_depth[0U] = positions[5U].y;
     candidate_foundation.source_target_valid[0U] = true;
@@ -2280,6 +2284,98 @@ static bool scene_test_live_foundation_regressions(
         scene->controlled_actor[1U] != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
         !scene_sync_live_foundation(scene)) {
         LIVE_FAIL("LIVE CPU-side controller routing was rejected");
+    }
+
+    /* Production path proof for the strict Bank04 $9F2E canonical opcode-4
+       record. The fixture only chooses an already imported record for an
+       ordinary CPU player; scene_update_ai still builds its immutable player
+       and Q8 ball snapshot, executes LIVE, and composes TGMO normally. */
+    {
+        const uint8_t target_actor = 1U;
+        uint16_t opcode4_offset = 0U;
+        bool found_opcode4 = false;
+        TecmoGameplayCourtCoordinate expected_ball;
+        for (offset = 0U;
+             offset < scene->cpu_steering_assets.command_record_count * 5U;
+             offset = (uint16_t)(offset + 5U)) {
+            if (!tecmo_gameplay_cpu_steering_decode_command(
+                    &scene->cpu_steering_assets, offset, &command)) {
+                continue;
+            }
+            if (command.opcode == 4U &&
+                command.arguments[0U] ==
+                    TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT) {
+                opcode4_offset = offset;
+                found_opcode4 = true;
+                break;
+            }
+        }
+        tecmo_gameplay_scene_test_set_skip_pretip(true);
+        if (!found_opcode4 ||
+            !tecmo_gameplay_scene_launch(scene, &cpu_only) ||
+            !scene_handoff_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+            !scene_sync_live_foundation(scene) ||
+            !scene_attach_ball(scene) ||
+            !tecmo_gameplay_court_coordinate_q8_floor(
+                &scene->ball_position, &expected_ball)) {
+            LIVE_FAIL("LIVE opcode-4 ball target fixture setup rejected");
+        }
+        candidate_foundation = scene->live_foundation;
+        for (actor = 0U; actor < 10U; ++actor) {
+            candidate_foundation.play_state.target_object[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+            candidate_foundation.play_state.target_x[actor] = 0;
+            candidate_foundation.play_state.target_depth[actor] = 0;
+            candidate_foundation.play_state.direction[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+            candidate_foundation.source_target_valid[actor] = false;
+            candidate_foundation.source_direction_valid[actor] = false;
+            candidate_foundation.source_direction[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+            candidate_foundation.deferred[actor] = false;
+            if (actor != target_actor) {
+                candidate_foundation.play_state.wait_counter[actor] = 1U;
+                candidate_foundation.play_state.actor_state[actor] = 0x06U;
+            }
+        }
+        candidate_foundation.play_state.wait_counter[target_actor] = 0U;
+        candidate_foundation.play_state.actor_state[target_actor] = 0x04U;
+        candidate_foundation.play_state.stream_offset[target_actor] =
+            opcode4_offset;
+        candidate_foundation.last_step_offset[target_actor] = opcode4_offset;
+        if (!tecmo_gameplay_live_foundation_valid(
+                &scene->cpu_steering_assets, &candidate_foundation)) {
+            LIVE_FAIL("LIVE opcode-4 ball target foundation rejected");
+        }
+        scene->live_foundation = candidate_foundation;
+        memset(&shot_request, 0, sizeof(shot_request));
+        if (!scene_update_ai(scene, &shot_request) ||
+            shot_request.requested || shot_request.playback_supported ||
+            shot_request.deferred ||
+            !scene->live_foundation.source_target_valid[target_actor] ||
+            scene->live_foundation.deferred[target_actor] ||
+            scene->live_foundation.play_state.target_object[target_actor] !=
+                TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT ||
+            scene->live_foundation.play_state.target_x[target_actor] !=
+                expected_ball.x ||
+            scene->live_foundation.play_state.target_depth[target_actor] !=
+                expected_ball.y ||
+            scene->live_foundation.last_effect[target_actor] !=
+                TECMO_GAMEPLAY_CPU_STEERING_EFFECT_ACTOR_TARGET ||
+            scene->live_foundation.last_step_offset[target_actor] !=
+                (uint16_t)(opcode4_offset + 5U) ||
+            !scene->cpu_actors[target_actor].target_valid ||
+            scene->cpu_actors[target_actor].target_kind !=
+                TECMO_GAMEPLAY_CPU_STEERING_HARNESS_BALL_OBJECT_TARGET ||
+            scene->cpu_actors[target_actor].target_position.x !=
+                expected_ball.x ||
+            scene->cpu_actors[target_actor].target_position.y !=
+                expected_ball.y ||
+            !tecmo_gameplay_live_foundation_valid(
+                &scene->cpu_steering_assets, &scene->live_foundation)) {
+            LIVE_FAIL("LIVE canonical opcode-4 C8 ball target was not applied");
+        }
     }
 
     /* Bound LIVE still owns the human TGMO path. Exercise its one-update
@@ -2497,6 +2593,7 @@ static bool scene_test_live_foundation_regressions(
                 scene->orientation_state.current_direction;
             memcpy(play_input.actor_position, edge_positions,
                    sizeof(edge_positions));
+            play_input.ball_position = edge_positions[0U];
             /* The accepted source executor currently leaves its direction
                sentinel false; this bounded fixture injects a validated
                direction metadata record and uses a known deferred source
@@ -2506,7 +2603,7 @@ static bool scene_test_live_foundation_regressions(
                 deferred_offset;
             candidate_foundation.last_step_offset[edge_actor] =
                 deferred_offset;
-            candidate_foundation.play_state.target_actor[edge_actor] =
+            candidate_foundation.play_state.target_object[edge_actor] =
                 TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
             candidate_foundation.play_state.target_x[edge_actor] = 0;
             candidate_foundation.play_state.target_depth[edge_actor] = 0;
@@ -2539,7 +2636,7 @@ static bool scene_test_live_foundation_regressions(
                     deferred_offset;
                 candidate_foundation.last_step_offset[actor] =
                     deferred_offset;
-                candidate_foundation.play_state.target_actor[actor] =
+                candidate_foundation.play_state.target_object[actor] =
                     TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
                 candidate_foundation.play_state.target_x[actor] = 0;
                 candidate_foundation.play_state.target_depth[actor] = 0;
@@ -2617,7 +2714,7 @@ static bool scene_test_live_foundation_regressions(
                 scene->live_foundation.play_state.direction[edge_actor] !=
                     edge_direction ||
                 scene->live_foundation.source_target_valid[edge_actor] ||
-                scene->live_foundation.play_state.target_actor[edge_actor] !=
+                scene->live_foundation.play_state.target_object[edge_actor] !=
                     TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
                 scene->live_foundation.play_state.target_x[edge_actor] != 0 ||
                 scene->live_foundation.play_state.target_depth[edge_actor] != 0 ||
@@ -2684,7 +2781,7 @@ static bool scene_test_live_foundation_regressions(
     candidate_foundation = scene->live_foundation;
     candidate_foundation.play_state.stream_offset[1U] = deferred_offset;
     candidate_foundation.last_step_offset[1U] = deferred_offset;
-    candidate_foundation.play_state.target_actor[1U] =
+    candidate_foundation.play_state.target_object[1U] =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     candidate_foundation.play_state.target_x[1U] = 0;
     candidate_foundation.play_state.target_depth[1U] = 0;
@@ -2764,7 +2861,7 @@ static bool scene_test_live_foundation_regressions(
     if (!found_deferred) LIVE_FAIL("LIVE unsupported-shot fixture unavailable");
     candidate_foundation.play_state.stream_offset[0U] = deferred_offset;
     candidate_foundation.last_step_offset[0U] = deferred_offset;
-    candidate_foundation.play_state.target_actor[0U] =
+    candidate_foundation.play_state.target_object[0U] =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     candidate_foundation.play_state.target_x[0U] = 0;
     candidate_foundation.play_state.target_depth[0U] = 0;
@@ -2808,7 +2905,7 @@ static bool scene_test_live_foundation_regressions(
         candidate_foundation.play_state.stream_offset[far_holder] =
             deferred_offset;
         candidate_foundation.last_step_offset[far_holder] = deferred_offset;
-        candidate_foundation.play_state.target_actor[far_holder] =
+        candidate_foundation.play_state.target_object[far_holder] =
             TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
         candidate_foundation.play_state.target_x[far_holder] = 0;
         candidate_foundation.play_state.target_depth[far_holder] = 0;

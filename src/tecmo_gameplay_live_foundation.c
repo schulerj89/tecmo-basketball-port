@@ -153,30 +153,30 @@ static bool live_target_fields_valid(
     const TecmoGameplayLiveFoundation *foundation,
     size_t actor)
 {
-    uint8_t target_actor;
+    uint8_t target_object;
     TecmoGameplayCourtCoordinate target;
     if (foundation == NULL || actor >=
             TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT) {
         return false;
     }
-    target_actor = foundation->play_state.target_actor[actor];
-    if (target_actor != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR &&
-        target_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT) {
+    target_object = foundation->play_state.target_object[actor];
+    if (target_object != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR &&
+        target_object >= TECMO_GAMEPLAY_CPU_STEERING_OBJECT_COUNT) {
         return false;
     }
     target.x = foundation->play_state.target_x[actor];
     target.y = foundation->play_state.target_depth[actor];
     if (foundation->source_target_valid[actor]) {
-        /* A source actor-target write carries both the referenced slot and a
-           source-recorded coordinate. The coordinate is required evidence;
-           the native adapter follows the current referenced actor on every
-           immutable post-human snapshot/tick. Original Bank05 dynamic
-           retarget/matchup semantics remain incomplete/unproven. */
+        /* A source object-target write carries both a referenced object slot
+           and a source-recorded coordinate. Slots 0..9 follow the current
+           referenced player; slot 10 follows the typed canonical ball
+           coordinate on the immutable post-human snapshot/tick. Original
+           Bank05 dynamic retarget/matchup semantics remain incomplete. */
         return tecmo_gameplay_court_coordinate_valid(&target);
     }
     /* Zero is the accepted uninitialized target sentinel. A deferred source
        effect may also preserve a previously validated target, handled above. */
-    return target_actor == TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR &&
+    return target_object == TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR &&
            target.x == 0 && target.y == 0;
 }
 
@@ -425,7 +425,7 @@ static void live_invalidate_source_metadata_actor(
             TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT) {
         return;
     }
-    foundation->play_state.target_actor[actor] =
+    foundation->play_state.target_object[actor] =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     foundation->play_state.target_x[actor] = 0;
     foundation->play_state.target_depth[actor] = 0;
@@ -817,12 +817,12 @@ bool tecmo_gameplay_live_foundation_play_step(
         if (result.command.opcode == 4U || result.command.opcode == 10U ||
             result.command.opcode == 16U) {
             validated_target_write =
-                next_state.target_actor[actor] <
-                    TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT &&
+                next_state.target_object[actor] <
+                    TECMO_GAMEPLAY_CPU_STEERING_OBJECT_COUNT &&
                 tecmo_gameplay_court_coordinate_valid(&target);
         } else {
             validated_target_write =
-                next_state.target_actor[actor] ==
+                next_state.target_object[actor] ==
                     TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR &&
                 tecmo_gameplay_court_coordinate_valid(&target);
         }

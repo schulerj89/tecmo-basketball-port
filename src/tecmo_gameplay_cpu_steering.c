@@ -99,13 +99,13 @@ static const uint8_t cpu_steering_effect_jumps[
    entries retain handler metadata and advance policy but defer their effect. */
 static const uint8_t cpu_steering_effect_exact[
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT] = {
-    1U,1U,1U,1U,0U,0U,0U,1U,0U,1U,1U,0U,
+    1U,1U,1U,1U,1U,0U,0U,1U,0U,1U,1U,0U,
     0U,0U,1U,0U,1U,1U,1U,1U,0U,1U,1U,0U
 };
 
 static const uint8_t cpu_steering_effect_deferred[
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT] = {
-    0U,0U,0U,0U,1U,1U,1U,0U,1U,0U,0U,1U,
+    0U,0U,0U,0U,0U,1U,1U,0U,1U,0U,0U,1U,
     1U,1U,0U,1U,0U,0U,0U,0U,1U,0U,0U,1U
 };
 
@@ -777,6 +777,12 @@ static bool play_valid_actor(uint8_t actor)
     return actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT;
 }
 
+static bool play_valid_target_object(uint8_t object)
+{
+    return object < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+           object == TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT;
+}
+
 static bool play_valid_positions(
     const TecmoGameplayCourtCoordinate positions[
         TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT])
@@ -801,15 +807,49 @@ static bool play_proximity_axis(int16_t current, int16_t target)
     return delta >= -8 && delta <= 7;
 }
 
-static void play_set_target_from_actor(
+static TecmoGameplayCourtCoordinate play_target_position_for_object(
+    const TecmoGameplayCpuSteeringPlayInput *input,
+    uint8_t target_object)
+{
+    return target_object == TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT
+        ? input->ball_position
+        : input->actor_position[target_object];
+}
+
+static int16_t play_opcode4_x_delta(
+    const TecmoGameplayCourtCoordinate *target,
+    const TecmoGameplayCourtCoordinate *actor)
+{
+    /* $8FFD-$900A: SEC; target X low/high minus actor X low/high. Cast to
+       uint16_t preserves the source borrow and wraps exactly before the
+       signed result is observed by $88DA. */
+    return (int16_t)((uint16_t)target->x - (uint16_t)actor->x);
+}
+
+static int16_t play_opcode4_depth_delta(
+    const TecmoGameplayCourtCoordinate *target,
+    const TecmoGameplayCourtCoordinate *actor)
+{
+    uint8_t target_depth = (uint8_t)target->y;
+    uint8_t actor_depth = (uint8_t)actor->y;
+    uint8_t low = (uint8_t)(target_depth - actor_depth);
+    /* $900C-$9018: SEC depth subtraction, then LDA #0/SBC #0. This creates
+       0x0000 or 0xFF00 above the low byte according to the borrow. */
+    uint16_t high = target_depth < actor_depth ? 0xFF00U : 0x0000U;
+    return (int16_t)(high | low);
+}
+
+static void play_set_target_from_object(
     TecmoGameplayCpuSteeringPlayState *state,
     const TecmoGameplayCpuSteeringPlayInput *input,
     uint8_t actor,
-    uint8_t target_actor)
+    uint8_t target_object)
 {
-    state->target_actor[actor] = target_actor;
-    state->target_x[actor] = input->actor_position[target_actor].x;
-    state->target_depth[actor] = input->actor_position[target_actor].y;
+    TecmoGameplayCourtCoordinate target = play_target_position_for_object(
+        input, target_object);
+    state->target_object[actor] = target_object;
+    state->target_x[actor] = target.x;
+    state->target_depth[actor] = target.y;
 }
 
 bool tecmo_gameplay_cpu_steering_formation_select(
@@ -895,7 +935,7 @@ bool tecmo_gameplay_cpu_steering_play_state_initialize(
          actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
         state.actor_state[actor] = 0x04U;
         state.direction[actor] = TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
-        state.target_actor[actor] = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+        state.target_object[actor] = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
         state.native_matchup_actor[actor] =
             TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     }
@@ -940,6 +980,7 @@ bool tecmo_gameplay_cpu_steering_play_step(
         (input->special_actor_07df != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR &&
          !play_valid_actor(input->special_actor_07df)) ||
         !play_valid_positions(input->actor_position) ||
+        !tecmo_gameplay_court_coordinate_valid(&input->ball_position) ||
         state_in->primary_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
         state_in->defender_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
         state_in->matchup_seed[0U] != 2U ||
@@ -951,9 +992,9 @@ bool tecmo_gameplay_cpu_steering_play_step(
     for (actor = 0U;
          actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
         if (!play_stream_offset_valid(state_in->stream_offset[actor]) ||
-            (state_in->target_actor[actor] !=
+            (state_in->target_object[actor] !=
                  TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR &&
-             !play_valid_actor(state_in->target_actor[actor])) ||
+             !play_valid_target_object(state_in->target_object[actor])) ||
             (state_in->native_matchup_actor[actor] !=
                  TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR &&
              !play_valid_actor(state_in->native_matchup_actor[actor]))) {
@@ -1004,7 +1045,7 @@ bool tecmo_gameplay_cpu_steering_play_step(
                 horizontal = (int16_t)(uint16_t)(0U -
                     (uint16_t)horizontal);
             }
-            next_state.target_actor[actor] =
+            next_state.target_object[actor] =
                 TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
             next_state.target_x[actor] = play_clamp_int16(
                 (int32_t)input->actor_position[actor].x +
@@ -1032,7 +1073,7 @@ bool tecmo_gameplay_cpu_steering_play_step(
             if (input->orientation_035a != 0U) {
                 absolute_x = (uint16_t)(0x0300U - absolute_x);
             }
-            next_state.target_actor[actor] =
+            next_state.target_object[actor] =
                 TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
             next_state.target_x[actor] =
                 (int16_t)absolute_x;
@@ -1046,13 +1087,32 @@ bool tecmo_gameplay_cpu_steering_play_step(
                 command.arguments[0U] != 0U ? 0x06U : 0x04U;
             break;
         case 4U:
-            if (play_valid_actor(command.arguments[0U])) {
-                play_set_target_from_actor(
+            if (play_valid_target_object(command.arguments[0U])) {
+                TecmoGameplayCourtCoordinate target =
+                    play_target_position_for_object(
+                        input, command.arguments[0U]);
+                play_set_target_from_object(
                     &next_state, input, actor, command.arguments[0U]);
+                result.target_horizontal_delta = play_opcode4_x_delta(
+                    &target, &input->actor_position[actor]);
+                result.target_depth_delta = play_opcode4_depth_delta(
+                    &target, &input->actor_position[actor]);
+                /* $901D-$9027 ORs the full X and sign-extended depth
+                   vectors; $9025 takes the no-direction-write branch only
+                   when every byte is zero. */
+                result.target_vector_zero =
+                    result.target_horizontal_delta == 0 &&
+                    result.target_depth_delta == 0;
+                if (result.target_vector_zero) {
+                    /* $902A writes state 4 before it takes the no-direction
+                       tail. The direction field itself is intentionally
+                       untouched. */
+                    next_state.actor_state[actor] = 0x04U;
+                }
             } else {
-                /* The canonical records use C8=$0A, an object index outside
-                   the ten player-coordinate inputs. Preserve the handler's
-                   proven transport while deferring that unresolved lookup. */
+                /* Malformed source data outside the bounded 0..10 object
+                   contract preserves the source record transport but does
+                   not create an unchecked RAM lookup. */
                 result.deferred = true;
             }
             break;
@@ -1086,7 +1146,7 @@ bool tecmo_gameplay_cpu_steering_play_step(
             target_depth = play_wrap_add_i16(
                 input->actor_position[linked].y,
                 input->linked_relative_depth);
-            next_state.target_actor[actor] = linked;
+            next_state.target_object[actor] = linked;
             next_state.target_x[actor] = target_x;
             next_state.target_depth[actor] = target_depth;
             result.proximity_met = actor != next_state.defender_actor &&
@@ -1120,7 +1180,7 @@ bool tecmo_gameplay_cpu_steering_play_step(
             } else {
                 target_x = (uint16_t)(target_x - 16U);
             }
-            next_state.target_actor[actor] = linked;
+            next_state.target_object[actor] = linked;
             next_state.target_x[actor] = (int16_t)target_x;
             next_state.target_depth[actor] = (int16_t)target_depth;
             break;
@@ -1234,7 +1294,7 @@ bool tecmo_gameplay_cpu_steering_play_step(
     if (goto_chain_active && result.steps_executed >= input->step_budget) {
         result.budget_exhausted = true;
     }
-    result.target_actor = next_state.target_actor[actor];
+    result.target_object = next_state.target_object[actor];
     result.target_x = next_state.target_x[actor];
     result.target_depth = next_state.target_depth[actor];
     *state_out = next_state;
@@ -2073,6 +2133,8 @@ bool tecmo_gameplay_cpu_steering_self_test(
     {
         const TecmoGameplayCpuSteeringEffectMetadata *metadata_0 =
             tecmo_gameplay_cpu_steering_effect_metadata(&assets, 0U);
+        const TecmoGameplayCpuSteeringEffectMetadata *metadata_4 =
+            tecmo_gameplay_cpu_steering_effect_metadata(&assets, 4U);
         const TecmoGameplayCpuSteeringEffectMetadata *metadata_7 =
             tecmo_gameplay_cpu_steering_effect_metadata(&assets, 7U);
         const TecmoGameplayCpuSteeringEffectMetadata *metadata_10 =
@@ -2085,10 +2147,11 @@ bool tecmo_gameplay_cpu_steering_self_test(
             tecmo_gameplay_cpu_steering_effect_metadata(&assets, 19U);
         const TecmoGameplayCpuSteeringEffectMetadata *metadata_21 =
             tecmo_gameplay_cpu_steering_effect_metadata(&assets, 21U);
-        if (metadata_0 == NULL || metadata_7 == NULL || metadata_10 == NULL ||
+        if (metadata_0 == NULL || metadata_4 == NULL || metadata_7 == NULL || metadata_10 == NULL ||
             metadata_17 == NULL || metadata_18 == NULL || metadata_19 == NULL ||
             metadata_21 == NULL ||
             !metadata_0->exact_bounded || metadata_0->deferred_inputs ||
+            !metadata_4->exact_bounded || metadata_4->deferred_inputs ||
             metadata_7->advance_policy !=
                 TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_PLUS_FIVE_OR_BRANCH_PLUS_FIVE ||
             !metadata_10->exact_bounded || metadata_10->deferred_inputs ||
@@ -2099,8 +2162,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             !metadata_17->exact_bounded || !metadata_18->exact_bounded ||
             !metadata_19->exact_bounded || metadata_21->advance_policy !=
                 TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_CONDITIONAL_FIVE_OR_TEN ||
-            tecmo_gameplay_cpu_steering_effect_metadata(&assets, 4U)->exact_bounded ||
-            !tecmo_gameplay_cpu_steering_effect_metadata(&assets, 4U)->deferred_inputs) {
+            metadata_10->native_approximation) {
             (void)snprintf(message, message_size,
                            "TGAI-1 lifecycle effect metadata failed.");
             tecmo_gameplay_cpu_steering_assets_destroy(&assets);
@@ -2141,6 +2203,73 @@ bool tecmo_gameplay_cpu_steering_self_test(
     play_input.actor = 0U;
     play_input.step_budget = 4U;
     play_input.special_actor_07df = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    memcpy(play_input.actor_position, harness_positions,
+           sizeof(harness_positions));
+    play_input.ball_position.x = 255;
+    play_input.ball_position.y = 0;
+
+    /* The first canonical record is opcode 4 C8=$0A. Bank06
+       $8FFD-$9018 subtracts target object X as a 16-bit value and target
+       depth as an 8-bit value sign-extended through $A7. Choose adjacent
+       low-byte boundaries so both source borrows are observable. */
+    if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+            &assets, 0U, &play_state)) {
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_state.stream_offset[0U] = 0x0000U;
+    play_input.actor = 0U;
+    play_input.step_budget = 1U;
+    play_input.actor_position[0U].x = 256;
+    play_input.actor_position[0U].y = 1;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.command.stream_offset != 0x0000U ||
+        play_result.command.cpu_address != 0x9F2EU ||
+        play_result.command.opcode != 4U ||
+        play_result.command.arguments[0U] !=
+            TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT ||
+        play_result.deferred || !play_result.advanced ||
+        play_result.target_object !=
+            TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT ||
+        play_out.target_object[0U] !=
+            TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT ||
+        play_out.target_x[0U] != 255 || play_out.target_depth[0U] != 0 ||
+        play_result.target_horizontal_delta != -1 ||
+        play_result.target_depth_delta != -1 ||
+        play_result.target_vector_zero ||
+        play_out.direction[0U] !=
+            TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION) {
+        (void)snprintf(message, message_size,
+                       "TGAI-1 opcode-4 canonical ball target borrow failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+            &assets, 0U, &play_state)) {
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_state.stream_offset[0U] = 0x0000U;
+    play_state.actor_state[0U] = 0x0BU;
+    /* A non-sentinel prior direction proves the $9025 zero-vector branch
+       preserves the existing $0463 value instead of merely retaining the
+       initialized sentinel. */
+    play_state.direction[0U] = 3U;
+    play_input.actor_position[0U] = play_input.ball_position;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.command.opcode != 4U || play_result.deferred ||
+        !play_result.target_vector_zero ||
+        play_result.target_horizontal_delta != 0 ||
+        play_result.target_depth_delta != 0 ||
+        play_out.actor_state[0U] != 0x04U ||
+        play_out.direction[0U] != 3U) {
+        (void)snprintf(message, message_size,
+                       "TGAI-1 opcode-4 zero-vector guard failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
     memcpy(play_input.actor_position, harness_positions,
            sizeof(harness_positions));
 
@@ -2213,7 +2342,9 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_result.command.opcode != 4U || !play_result.jumped ||
         play_result.jump_offset != 0x0000U ||
         play_result.next_offset != 0x0005U ||
-        play_result.budget_exhausted || !play_result.deferred ||
+        play_result.budget_exhausted || play_result.deferred ||
+        play_result.target_object !=
+            TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT ||
         play_out.stream_offset[0U] != 0x0005U) {
         (void)snprintf(message, message_size,
                        "TGAI-1 goto-chain two-step golden failed.");
@@ -2314,7 +2445,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         if (!tecmo_gameplay_cpu_steering_play_step(
                 &assets, &play_state, &play_input, &play_out, &play_result) ||
             play_result.deferred || play_result.command.opcode != 16U ||
-            play_out.target_actor[0U] != 9U ||
+            play_out.target_object[0U] != 9U ||
             (branch < 2U && play_out.target_depth[0U] !=
                 (branch == 1U ? 0x8A : 0x9D)) ||
             (branch >= 2U && play_out.target_x[0U] !=
@@ -2566,6 +2697,37 @@ bool tecmo_gameplay_cpu_steering_self_test(
                sizeof(play_result)) != 0) {
         (void)snprintf(message, message_size,
                        "TGAI-1 play input validation rejection failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.orientation_035a = 0U;
+    play_input.ball_position.x =
+        (int16_t)(TECMO_GAMEPLAY_COURT_WORLD_MAX_X + 1);
+    play_out = play_before;
+    play_result = play_result_before;
+    if (tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_before, &play_input, &play_out, &play_result) ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0 ||
+        memcmp(&play_result, &play_result_before,
+               sizeof(play_result)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-1 opcode-4 ball input transaction failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.ball_position.x = 255;
+    play_input.ball_position.y = 0;
+    play_before.target_object[0U] =
+        TECMO_GAMEPLAY_CPU_STEERING_OBJECT_COUNT;
+    play_out = play_before;
+    play_result = play_result_before;
+    if (tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_before, &play_input, &play_out, &play_result) ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0 ||
+        memcmp(&play_result, &play_result_before,
+               sizeof(play_result)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-1 opcode-4 object-state transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
