@@ -1631,6 +1631,7 @@ static bool flow_expect_team_data_native_path(TecmoRuntime *runtime,
         TecmoTeamDataState before;
         TecmoControlFrame controls = {0};
         TecmoFramebuffer framebuffer;
+        TecmoTeamDataPlayerStatsSource player_stats;
         uint32_t *pixels;
         uint8_t logo_pairs[TECMO_TEAM_DATA_LOGO_CELL_LIMIT * 2U];
         uint8_t uniform_colors[TECMO_GAMEPLAY_TEAM_COUNT] = {0xA5U, 0xA5U};
@@ -1727,9 +1728,14 @@ static bool flow_expect_team_data_native_path(TecmoRuntime *runtime,
         framebuffer.width = 640;
         framebuffer.height = 480;
         framebuffer.pitch_pixels = 640;
+        player_stats.totals = &runtime->season_session.player_stats_totals;
+        player_stats.wins = runtime->season_session.wins;
+        player_stats.losses = runtime->season_session.losses;
+        player_stats.coverage = runtime->season_session.player_stats_coverage;
         if (tecmo_team_data_draw(&framebuffer, asset, &invalid,
                                  &runtime->team_management_asset,
                                  &runtime->team_management_session,
+                                 &player_stats,
                                  runtime->title_chr_bytes,
                                  runtime->title_chr_byte_count,
                                  64, 0, 2)) {

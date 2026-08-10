@@ -28,6 +28,17 @@
 #define TEAM_DATA_PLAYER_PORTRAIT_OFFSET 40U
 #define TEAM_DATA_PROFILE_PALETTES_OFFSET 128U
 
+/* Bank01 $8031 is the generic two-tile cursor.  Its dy=-4 is an OAM-space
+ * delta, so the visible top row is OAM Y + 1 on the NES PPU.  These anchors
+ * are the source emitter coordinates, not the opaque-pixel bounding boxes. */
+#define TEAM_DATA_PROFILE_CURSOR_OAM_X 135U
+#define TEAM_DATA_PROFILE_CURSOR_OAM_Y 80U
+#define TEAM_DATA_PROFILE_CURSOR_STRIDE 8U
+#define TEAM_DATA_ROSTER_CURSOR_OAM_X 40U
+#define TEAM_DATA_ROSTER_CURSOR_OAM_Y 143U
+#define TEAM_DATA_ROSTER_CURSOR_STRIDE 8U
+#define TEAM_DATA_NES_OAM_SCREEN_Y_BIAS 1
+
 /* Fixed $DC19-$DC35, indexed by the selected home-team ID. */
 static const uint8_t team_data_home_uniform_colors[
     TECMO_TEAM_DATA_TEAM_COUNT] = {
@@ -64,6 +75,8 @@ typedef enum TeamDataSelectionAction {
     TEAM_DATA_SELECTION_ACCEPT,
     TEAM_DATA_SELECTION_CANCEL
 } TeamDataSelectionAction;
+
+static bool player_data_presentation_self_test(void);
 
 static uint16_t read_u16(const uint8_t *p)
 {
@@ -229,8 +242,12 @@ static bool parse_payload(TecmoTeamDataAsset *asset,
         bytes[68U] != 16U || bytes[69U] != 5U ||
         bytes[70U] != 5U || bytes[71U] != 8U ||
         bytes[72U] != 32U || bytes[73U] != 8U ||
-        bytes[74U] != 135U || bytes[75U] != 80U || bytes[76U] != 8U ||
-        bytes[77U] != 40U || bytes[78U] != 143U || bytes[79U] != 8U ||
+        bytes[74U] != TEAM_DATA_PROFILE_CURSOR_OAM_X ||
+        bytes[75U] != TEAM_DATA_PROFILE_CURSOR_OAM_Y ||
+        bytes[76U] != TEAM_DATA_PROFILE_CURSOR_STRIDE ||
+        bytes[77U] != TEAM_DATA_ROSTER_CURSOR_OAM_X ||
+        bytes[78U] != TEAM_DATA_ROSTER_CURSOR_OAM_Y ||
+        bytes[79U] != TEAM_DATA_ROSTER_CURSOR_STRIDE ||
         memcmp(bytes + 80U, "\xFA\xFA\xCC\xFA\xFA\xFA", 6U) != 0 ||
         bytes[86U] != 0x0CU || bytes[87U] != 0x0DU || bytes[88U] != 0x0EU ||
         bytes[89U] != 0x20U || bytes[90U] != 59U || bytes[91U] != 3U ||
@@ -865,6 +882,11 @@ bool tecmo_team_data_self_test(char *message, size_t message_size)
         return false;
     }
     }
+    if (!player_data_presentation_self_test()) {
+        (void)snprintf(message, message_size,
+                       "TTDT player-detail presentation self-test failed.");
+        return false;
+    }
     (void)snprintf(message, message_size,
                    "TTDT identity/ranking self-test passed.");
     return true;
@@ -1481,6 +1503,18 @@ static void draw_screen(TecmoFramebuffer *view,
                   (int)(i / 32U) * 8 * scale, scale, -1);
 }
 
+typedef struct TeamDataCursorCoordinates {
+    int oam_x;
+    int top_oam_y;
+    int bottom_oam_y;
+    int visible_x;
+    int top_visible_y;
+    int bottom_visible_y;
+} TeamDataCursorCoordinates;
+
+static TeamDataCursorCoordinates cursor_coordinates(
+    const TecmoTeamDataCursor *cursor, int anchor_x, int anchor_y);
+
 static void draw_cursor(TecmoFramebuffer *view,
                         const TecmoTeamDataCursor *cursor,
                         const uint8_t sprite_palette[16],
@@ -1490,16 +1524,18 @@ static void draw_cursor(TecmoFramebuffer *view,
                         int y,
                         int scale)
 {
+    TeamDataCursorCoordinates coordinates =
+        cursor_coordinates(cursor, x, y);
     uint32_t rgba[4] = {0U, 0U, 0U, 0U};
     for (size_t i = 1U; i < 4U; ++i)
         rgba[i] = tecmo_nes_2c02_rgba(sprite_palette[i]);
     tecmo_draw_chr_tile_at_offset_ex(
         view, chr_bytes, chr_byte_count, cursor->top_chr_offset,
-        (x + cursor->dx) * scale, (y + cursor->dy + 1) * scale,
+        coordinates.visible_x * scale, coordinates.top_visible_y * scale,
         scale, rgba, false, false);
     tecmo_draw_chr_tile_at_offset_ex(
         view, chr_bytes, chr_byte_count, cursor->bottom_chr_offset,
-        (x + cursor->dx) * scale, (y + cursor->dy + 9) * scale,
+        coordinates.visible_x * scale, coordinates.bottom_visible_y * scale,
         scale, rgba, false, false);
 }
 
@@ -1744,9 +1780,377 @@ static void draw_player_meters(TecmoFramebuffer *view,
     }
 }
 
+typedef struct TeamDataPlayerDetailStats {
+    bool field_goals_available;
+    bool free_throws_available;
+    bool three_points_available;
+    bool steals_available;
+    bool blocks_available;
+    bool rebounds_available;
+    bool points_available;
+    uint16_t field_goal_thousandths;
+    uint16_t free_throw_thousandths;
+    uint16_t three_point_thousandths;
+    uint16_t steals;
+    uint16_t blocks;
+    uint16_t rebounds;
+    uint32_t points_per_game_hundredths;
+} TeamDataPlayerDetailStats;
+
+static uint16_t player_stats_mask(uint8_t first, uint8_t second)
+{
+    return (uint16_t)(tecmo_player_stats_counter_bit(first) |
+                      tecmo_player_stats_counter_bit(second));
+}
+
+static bool player_stats_coverage_has(uint16_t coverage, uint16_t required)
+{
+    return required != 0U && (coverage & required) == required;
+}
+
+static bool player_stats_project_ratio(uint16_t numerator,
+                                       uint16_t denominator,
+                                       uint16_t scale,
+                                       uint16_t *result)
+{
+    uint64_t value;
+    if (result == NULL || numerator > denominator) return false;
+    if (denominator == 0U) {
+        if (numerator != 0U) return false;
+        *result = 0U;
+        return true;
+    }
+    value = ((uint64_t)numerator * scale) / denominator;
+    if (value > UINT16_MAX) return false;
+    *result = (uint16_t)value;
+    return true;
+}
+
+static bool player_stats_project_points_per_game(
+    const uint16_t counters[TECMO_PLAYER_STATS_COUNTER_DIMENSION],
+    uint16_t team_games,
+    uint32_t *result)
+{
+    uint64_t points;
+    uint64_t value;
+    if (counters == NULL || result == NULL || team_games == 0U) return false;
+    points = 2U * (uint64_t)counters[TECMO_PLAYER_STATS_COUNTER_FGM] +
+             (uint64_t)counters[TECMO_PLAYER_STATS_COUNTER_THREE_PM] +
+             (uint64_t)counters[TECMO_PLAYER_STATS_COUNTER_FTM];
+    value = (points * 100U) / team_games;
+    if (value > 9999U) return false;
+    *result = (uint32_t)value;
+    return true;
+}
+
+static bool player_stats_shooting_counts_valid(
+    const uint16_t counters[TECMO_PLAYER_STATS_COUNTER_DIMENSION])
+{
+    if (counters == NULL) return false;
+    return counters[TECMO_PLAYER_STATS_COUNTER_FGM] <=
+               counters[TECMO_PLAYER_STATS_COUNTER_FGA] &&
+           counters[TECMO_PLAYER_STATS_COUNTER_THREE_PM] <=
+               counters[TECMO_PLAYER_STATS_COUNTER_THREE_PA] &&
+           counters[TECMO_PLAYER_STATS_COUNTER_THREE_PM] <=
+               counters[TECMO_PLAYER_STATS_COUNTER_FGM] &&
+           counters[TECMO_PLAYER_STATS_COUNTER_FTM] <=
+               counters[TECMO_PLAYER_STATS_COUNTER_FTA];
+}
+
+static bool player_detail_stats_resolve(
+    const TecmoTeamDataPlayer *player,
+    const TecmoTeamDataPlayerStatsSource *source,
+    TeamDataPlayerDetailStats *stats)
+{
+    const uint16_t *counters;
+    uint16_t team_games;
+    uint16_t field_goals_required = player_stats_mask(
+        TECMO_PLAYER_STATS_COUNTER_FGA, TECMO_PLAYER_STATS_COUNTER_FGM);
+    uint16_t free_throws_required = player_stats_mask(
+        TECMO_PLAYER_STATS_COUNTER_FTA, TECMO_PLAYER_STATS_COUNTER_FTM);
+    uint16_t three_points_required = player_stats_mask(
+        TECMO_PLAYER_STATS_COUNTER_THREE_PA,
+        TECMO_PLAYER_STATS_COUNTER_THREE_PM);
+    uint16_t points_required = (uint16_t)(
+        tecmo_player_stats_counter_bit(TECMO_PLAYER_STATS_COUNTER_FGM) |
+        tecmo_player_stats_counter_bit(TECMO_PLAYER_STATS_COUNTER_THREE_PM) |
+        tecmo_player_stats_counter_bit(TECMO_PLAYER_STATS_COUNTER_FTM));
+    if (player == NULL || stats == NULL ||
+        player->source_team >= TECMO_PLAYER_STATS_TEAM_COUNT ||
+        player->source_player >= TECMO_PLAYER_STATS_ROSTER_COUNT)
+        return false;
+    memset(stats, 0, sizeof(*stats));
+
+    /* A clean session has exactly zero games.  Its row is known to be zero,
+     * even for counters whose live gameplay emitters have not been ported. */
+    if (source == NULL || source->totals == NULL || source->wins == NULL ||
+        source->losses == NULL) {
+        stats->field_goals_available = true;
+        stats->free_throws_available = true;
+        stats->three_points_available = true;
+        stats->steals_available = true;
+        stats->blocks_available = true;
+        stats->rebounds_available = true;
+        stats->points_available = true;
+        return true;
+    }
+    team_games = (uint16_t)source->wins[player->source_team] +
+                 (uint16_t)source->losses[player->source_team];
+    if (team_games == 0U) {
+        stats->field_goals_available = true;
+        stats->free_throws_available = true;
+        stats->three_points_available = true;
+        stats->steals_available = true;
+        stats->blocks_available = true;
+        stats->rebounds_available = true;
+        stats->points_available = true;
+        return true;
+    }
+    counters = (*source->totals)[player->source_team][player->source_player];
+    if (player_stats_coverage_has(source->coverage, field_goals_required))
+        stats->field_goals_available = player_stats_project_ratio(
+            counters[TECMO_PLAYER_STATS_COUNTER_FGM],
+            counters[TECMO_PLAYER_STATS_COUNTER_FGA], 1000U,
+            &stats->field_goal_thousandths);
+    if (player_stats_coverage_has(source->coverage, free_throws_required))
+        stats->free_throws_available = player_stats_project_ratio(
+            counters[TECMO_PLAYER_STATS_COUNTER_FTM],
+            counters[TECMO_PLAYER_STATS_COUNTER_FTA], 1000U,
+            &stats->free_throw_thousandths);
+    if (player_stats_coverage_has(source->coverage, three_points_required))
+        stats->three_points_available = player_stats_project_ratio(
+            counters[TECMO_PLAYER_STATS_COUNTER_THREE_PM],
+            counters[TECMO_PLAYER_STATS_COUNTER_THREE_PA], 1000U,
+            &stats->three_point_thousandths);
+    if (player_stats_coverage_has(source->coverage, points_required) &&
+        player_stats_coverage_has(
+            source->coverage, TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE) &&
+        player_stats_shooting_counts_valid(counters))
+        stats->points_available = player_stats_project_points_per_game(
+            counters, team_games, &stats->points_per_game_hundredths);
+    if (player_stats_coverage_has(
+            source->coverage,
+            tecmo_player_stats_counter_bit(TECMO_PLAYER_STATS_COUNTER_STEALS))) {
+        stats->steals_available = true;
+        stats->steals = counters[TECMO_PLAYER_STATS_COUNTER_STEALS];
+    }
+    if (player_stats_coverage_has(
+            source->coverage,
+            tecmo_player_stats_counter_bit(TECMO_PLAYER_STATS_COUNTER_BLOCKS))) {
+        stats->blocks_available = true;
+        stats->blocks = counters[TECMO_PLAYER_STATS_COUNTER_BLOCKS];
+    }
+    if (player_stats_coverage_has(
+            source->coverage,
+            tecmo_player_stats_counter_bit(TECMO_PLAYER_STATS_COUNTER_REBOUNDS))) {
+        stats->rebounds_available = true;
+        stats->rebounds = counters[TECMO_PLAYER_STATS_COUNTER_REBOUNDS];
+    }
+    return true;
+}
+
+static void format_detail_percentage(char output[6], bool available,
+                                     uint16_t thousandths)
+{
+    if (!available) {
+        (void)snprintf(output, 6U, "---");
+        return;
+    }
+    if (thousandths > 1000U) {
+        (void)snprintf(output, 6U, "---");
+        return;
+    }
+    if (thousandths == 1000U) {
+        (void)snprintf(output, 6U, "1.000");
+        return;
+    }
+    (void)snprintf(output, 6U, ".%03u", (unsigned)thousandths);
+}
+
+static void format_detail_integer(char output[4], bool available,
+                                  uint16_t value)
+{
+    if (!available) {
+        (void)snprintf(output, 4U, "---");
+        return;
+    }
+    if (value > 999U) {
+        (void)snprintf(output, 4U, "---");
+        return;
+    }
+    (void)snprintf(output, 4U, "%u", (unsigned)value);
+}
+
+static void format_detail_points(char output[5], bool available,
+                                 uint32_t hundredths)
+{
+    uint32_t tenths;
+    if (!available) {
+        (void)snprintf(output, 5U, "---");
+        return;
+    }
+    tenths = hundredths / 10U;
+    if (tenths == 0U) {
+        (void)snprintf(output, 5U, ".0");
+        return;
+    }
+    if (tenths < 10U) {
+        (void)snprintf(output, 5U, ".%u", (unsigned)tenths);
+        return;
+    }
+    if (tenths > 999U) {
+        (void)snprintf(output, 5U, "---");
+        return;
+    }
+    (void)snprintf(output, 5U, "%u.%u", (unsigned)(tenths / 10U),
+                   (unsigned)(tenths % 10U));
+}
+
+static TeamDataCursorCoordinates cursor_coordinates(
+    const TecmoTeamDataCursor *cursor, int anchor_x, int anchor_y)
+{
+    TeamDataCursorCoordinates coordinates = {0};
+    if (cursor == NULL) return coordinates;
+    coordinates.oam_x = anchor_x + cursor->dx;
+    coordinates.top_oam_y = anchor_y + cursor->dy;
+    coordinates.bottom_oam_y = coordinates.top_oam_y + 8;
+    coordinates.visible_x = coordinates.oam_x;
+    coordinates.top_visible_y = coordinates.top_oam_y +
+                                TEAM_DATA_NES_OAM_SCREEN_Y_BIAS;
+    coordinates.bottom_visible_y = coordinates.bottom_oam_y +
+                                   TEAM_DATA_NES_OAM_SCREEN_Y_BIAS;
+    return coordinates;
+}
+
+static bool generic_cursor_visible(const TecmoTeamDataState *state)
+{
+    return state != NULL &&
+           state->transition == TECMO_TEAM_DATA_TRANSITION_NONE &&
+           state->cursor_delay > 0U;
+}
+
+/* This deliberately stays beside the private projection helpers rather than
+ * exposing a second public statistics API.  The asset-pack build invokes the
+ * enclosing TTDT self-test, so these checks run in the normal ROM-backed test
+ * path as well as in a warning-clean native build. */
+static bool player_data_presentation_self_test(void)
+{
+    TecmoTeamDataPlayer player;
+    TecmoPlayerStatsSeasonTotals totals;
+    uint8_t wins[TECMO_PLAYER_STATS_TEAM_COUNT];
+    uint8_t losses[TECMO_PLAYER_STATS_TEAM_COUNT];
+    TecmoTeamDataPlayerStatsSource source;
+    TeamDataPlayerDetailStats stats;
+    TecmoTeamDataCursor generic_cursor;
+    TeamDataCursorCoordinates profile_coordinates;
+    TeamDataCursorCoordinates roster_coordinates;
+    TecmoTeamDataState cursor_state;
+    char percentage[6];
+    char points[5];
+
+    memset(&player, 0, sizeof(player));
+    memset(&totals, 0, sizeof(totals));
+    memset(wins, 0, sizeof(wins));
+    memset(losses, 0, sizeof(losses));
+    memset(&source, 0, sizeof(source));
+    player.source_team = 0U;
+    player.source_player = 0U;
+    source.totals = &totals;
+    source.wins = wins;
+    source.losses = losses;
+    source.coverage = TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE;
+
+    /* The deliberately non-monotonic values catch the TSAV counter order:
+     * FTA/FGA/3PA/FTM/FGM/3PM = 8/10/4/7/6/1. */
+    wins[0U] = 2U;
+    totals[0U][0U][TECMO_PLAYER_STATS_COUNTER_FTA] = 8U;
+    totals[0U][0U][TECMO_PLAYER_STATS_COUNTER_FGA] = 10U;
+    totals[0U][0U][TECMO_PLAYER_STATS_COUNTER_THREE_PA] = 4U;
+    totals[0U][0U][TECMO_PLAYER_STATS_COUNTER_FTM] = 7U;
+    totals[0U][0U][TECMO_PLAYER_STATS_COUNTER_FGM] = 6U;
+    totals[0U][0U][TECMO_PLAYER_STATS_COUNTER_THREE_PM] = 1U;
+    if (!player_detail_stats_resolve(&player, &source, &stats) ||
+        !stats.field_goals_available ||
+        !stats.free_throws_available ||
+        !stats.three_points_available || !stats.points_available ||
+        stats.field_goal_thousandths != 600U ||
+        stats.free_throw_thousandths != 875U ||
+        stats.three_point_thousandths != 250U ||
+        stats.points_per_game_hundredths != 1000U ||
+        stats.steals_available || stats.blocks_available ||
+        stats.rebounds_available)
+        return false;
+    format_detail_percentage(percentage, true, 1000U);
+    format_detail_points(points, true, stats.points_per_game_hundredths);
+    if (strcmp(percentage, "1.000") != 0 || strcmp(points, "10.0") != 0)
+        return false;
+
+    /* Zero attempts are a real .000, not a divide-by-zero or an invented
+     * missing value.  A made basket without an attempt is invalid and is
+     * therefore deliberately unavailable. */
+    memset(&totals, 0, sizeof(totals));
+    wins[0U] = 1U;
+    if (!player_detail_stats_resolve(&player, &source, &stats) ||
+        !stats.field_goals_available || stats.field_goal_thousandths != 0U ||
+        !stats.free_throws_available || stats.free_throw_thousandths != 0U ||
+        !stats.three_points_available || stats.three_point_thousandths != 0U ||
+        !stats.points_available || stats.points_per_game_hundredths != 0U)
+        return false;
+    totals[0U][0U][TECMO_PLAYER_STATS_COUNTER_FGM] = 1U;
+    if (!player_detail_stats_resolve(&player, &source, &stats) ||
+        stats.field_goals_available || stats.points_available)
+        return false;
+
+    /* A fresh season is exactly zero even though the gameplay project has not
+     * yet implemented mutable steals, blocks, or rebounds. */
+    memset(&totals, 0, sizeof(totals));
+    memset(wins, 0, sizeof(wins));
+    if (!player_detail_stats_resolve(&player, &source, &stats) ||
+        !stats.field_goals_available || !stats.free_throws_available ||
+        !stats.three_points_available || !stats.steals_available ||
+        !stats.blocks_available || !stats.rebounds_available ||
+        !stats.points_available || stats.field_goal_thousandths != 0U ||
+        stats.points_per_game_hundredths != 0U)
+        return false;
+
+    /* Bank01 $8031 is dx=0, dy=-4.  PPU OAM's Y byte is one pixel above the
+     * first visible scanline, which is why the visible coordinate is +1. */
+    memset(&generic_cursor, 0, sizeof(generic_cursor));
+    generic_cursor.dy = -4;
+    profile_coordinates = cursor_coordinates(
+        &generic_cursor, TEAM_DATA_PROFILE_CURSOR_OAM_X,
+        TEAM_DATA_PROFILE_CURSOR_OAM_Y);
+    roster_coordinates = cursor_coordinates(
+        &generic_cursor, TEAM_DATA_ROSTER_CURSOR_OAM_X,
+        TEAM_DATA_ROSTER_CURSOR_OAM_Y);
+    if (profile_coordinates.oam_x != 135 ||
+        profile_coordinates.top_oam_y != 76 ||
+        profile_coordinates.bottom_oam_y != 84 ||
+        profile_coordinates.visible_x != 135 ||
+        profile_coordinates.top_visible_y != 77 ||
+        profile_coordinates.bottom_visible_y != 85 ||
+        roster_coordinates.oam_x != 40 ||
+        roster_coordinates.top_oam_y != 139 ||
+        roster_coordinates.bottom_oam_y != 147 ||
+        roster_coordinates.visible_x != 40 ||
+        roster_coordinates.top_visible_y != 140 ||
+        roster_coordinates.bottom_visible_y != 148)
+        return false;
+
+    memset(&cursor_state, 0, sizeof(cursor_state));
+    cursor_state.transition = TECMO_TEAM_DATA_TRANSITION_NONE;
+    if (generic_cursor_visible(&cursor_state)) return false;
+    cursor_state.cursor_delay = 1U;
+    if (!generic_cursor_visible(&cursor_state)) return false;
+    cursor_state.transition = TECMO_TEAM_DATA_TRANSITION_ROSTER_TO_DETAIL;
+    if (generic_cursor_visible(&cursor_state)) return false;
+    return true;
+}
+
 static void draw_player_detail(TecmoFramebuffer *view,
                                const TecmoTeamDataAsset *asset,
                                const TecmoTeamDataState *state,
+                               const TecmoTeamDataPlayerStatsSource *player_stats,
                                const uint8_t palette[16],
                                const uint8_t *chr_bytes,
                                uint64_t chr_byte_count,
@@ -1758,6 +2162,14 @@ static void draw_player_detail(TecmoFramebuffer *view,
     char title[34];
     char line[40];
     char first_name[21];
+    char field_goals[6];
+    char free_throws[6];
+    char three_points[6];
+    char steals[4];
+    char blocks[4];
+    char rebounds[4];
+    char points[5];
+    TeamDataPlayerDetailStats stats;
     const char *last_name;
     const char *space;
     unsigned number = bcd_byte(player->attributes[1]);
@@ -1800,22 +2212,33 @@ static void draw_player_detail(TecmoFramebuffer *view,
                      tecmo_team_data_condition_name(player->condition_seed),
                      176, 72, scale, 0,
                      chr_bytes, chr_byte_count);
-    /* The imported roster bytes are ratings, not accumulated season stats.
-     * Until a strict mutable player-stat source exists, render the truthful
-     * fresh-season row instead of synthesizing percentages from skills. */
-    draw_text_forced(view, asset, palette, ".000", 8, 112, scale, 0,
+    if (!player_detail_stats_resolve(player, player_stats, &stats))
+        memset(&stats, 0, sizeof(stats));
+    format_detail_percentage(field_goals, stats.field_goals_available,
+                             stats.field_goal_thousandths);
+    format_detail_percentage(free_throws, stats.free_throws_available,
+                             stats.free_throw_thousandths);
+    format_detail_percentage(three_points, stats.three_points_available,
+                             stats.three_point_thousandths);
+    format_detail_integer(steals, stats.steals_available, stats.steals);
+    format_detail_integer(blocks, stats.blocks_available, stats.blocks);
+    format_detail_integer(rebounds, stats.rebounds_available, stats.rebounds);
+    format_detail_points(points, stats.points_available,
+                         stats.points_per_game_hundredths);
+    draw_text_forced(view, asset, palette, field_goals, 8, 112, scale, 0,
                      chr_bytes, chr_byte_count);
-    draw_text_forced(view, asset, palette, ".000", 48, 112, scale, 0,
+    draw_text_forced(view, asset, palette, free_throws, 48, 112, scale, 0,
                      chr_bytes, chr_byte_count);
-    draw_text_forced(view, asset, palette, ".000", 88, 112, scale, 0,
+    draw_text_forced(view, asset, palette, three_points, 88, 112, scale, 0,
                      chr_bytes, chr_byte_count);
-    draw_text_forced(view, asset, palette, "0", 136, 112, scale, 0,
+    draw_text_forced(view, asset, palette, steals, 136, 112, scale, 0,
                      chr_bytes, chr_byte_count);
-    draw_text_forced(view, asset, palette, "0", 168, 112, scale, 0,
+    draw_text_forced(view, asset, palette, blocks, 168, 112, scale, 0,
                      chr_bytes, chr_byte_count);
-    draw_text_forced(view, asset, palette, "0", 200, 112, scale, 0,
+    draw_text_forced(view, asset, palette, rebounds, 200, 112, scale, 0,
                      chr_bytes, chr_byte_count);
-    draw_text_forced(view, asset, palette, ".0", 240, 112, scale, 0,
+    draw_text_forced(view, asset, palette, points,
+                     256 - (int)strlen(points) * 8, 112, scale, 0,
                      chr_bytes, chr_byte_count);
 }
 
@@ -1964,6 +2387,7 @@ bool tecmo_team_data_draw(TecmoFramebuffer *framebuffer,
                           const TecmoTeamDataState *state,
                           const TecmoTeamManagementAsset *management_asset,
                           const TecmoTeamManagementSession *management_session,
+                          const TecmoTeamDataPlayerStatsSource *player_stats,
                           const uint8_t *chr_bytes,
                           uint64_t chr_byte_count,
                           int origin_x,
@@ -2014,14 +2438,13 @@ bool tecmo_team_data_draw(TecmoFramebuffer *framebuffer,
     if (phase == TECMO_TEAM_DATA_TEAM_SELECT) {
         const TecmoTeamDataSelector *selector =
             &asset->selectors[state->selector_index];
-        if (state->transition == TECMO_TEAM_DATA_TRANSITION_NONE &&
-            state->cursor_delay > 0U)
+        if (generic_cursor_visible(state))
             draw_cursor(&view, &asset->cursors[0], sprite_palette, chr_bytes,
                         chr_byte_count, selector->x, selector->y, scale);
         return true;
     }
     if (phase == TECMO_TEAM_DATA_PLAYER_DETAIL) {
-        draw_player_detail(&view, asset, &display_state, palette,
+        draw_player_detail(&view, asset, &display_state, player_stats, palette,
                            chr_bytes, chr_byte_count, scale);
         return true;
     }
@@ -2030,8 +2453,7 @@ bool tecmo_team_data_draw(TecmoFramebuffer *framebuffer,
     if (phase == TECMO_TEAM_DATA_PROFILE) {
         draw_roster_page(&view, asset, &display_state, palette, 0U, 0, chr_bytes,
                          chr_byte_count, scale);
-        if (state->transition == TECMO_TEAM_DATA_TRANSITION_NONE &&
-            state->cursor_delay > 0U)
+        if (generic_cursor_visible(state))
             draw_cursor(&view, &asset->cursors[1], sprite_palette, chr_bytes,
                         chr_byte_count, asset->profile_cursor_x,
                         asset->profile_cursor_y +
@@ -2043,8 +2465,7 @@ bool tecmo_team_data_draw(TecmoFramebuffer *framebuffer,
         draw_roster_page(&view, asset, &display_state, palette,
                          state->roster_page, 0,
                          chr_bytes, chr_byte_count, scale);
-        if (state->transition == TECMO_TEAM_DATA_TRANSITION_NONE &&
-            state->cursor_delay > 0U)
+        if (generic_cursor_visible(state))
             draw_cursor(&view, &asset->cursors[1], sprite_palette, chr_bytes,
                         chr_byte_count, asset->roster_cursor_x,
                         asset->roster_cursor_y +

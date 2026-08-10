@@ -1,0 +1,84 @@
+{
+  "schema": "tecmo.team-data.player-detail-provenance/1",
+  "scope": "Native TEAM DATA player-detail statistics and generic cursor mapping",
+  "rom_sources": [
+    {
+      "bank": 0,
+      "cpu_address": "877D",
+      "role": "player-detail screen descriptor/background"
+    },
+    {
+      "bank": 1,
+      "cpu_address": "8031",
+      "role": "generic two-tile cursor record",
+      "native_mapping": {
+        "file": "src/tecmo_team_data.c",
+        "record": "asset->cursors[1]",
+        "coordinate_space": "NES OAM",
+        "visible_y_rule": "visible_y = oam_y + 1"
+      }
+    },
+    {
+      "bank": 2,
+      "cpu_address": "AA89",
+      "role": "player-detail/profile flow"
+    },
+    {
+      "bank": 3,
+      "cpu_address": "8C9F",
+      "role": "TEAM DATA profile/roster flow"
+    },
+    {
+      "bank": 3,
+      "cpu_address": "A09B",
+      "role": "TEAM DATA profile/roster flow continuation"
+    },
+    {
+      "bank": 3,
+      "cpu_address": "A6C4",
+      "role": "profile layout emitter"
+    },
+    {
+      "bank": 3,
+      "cpu_address": "ADFD",
+      "role": "profile header formatting"
+    }
+  ],
+  "native_layout": {
+    "renderer": "src/tecmo_team_data.c:draw_player_detail",
+    "value_y": 112,
+    "columns": {
+      "fg_percent": 8,
+      "ft_percent": 48,
+      "three_point_percent": 88,
+      "steals": 136,
+      "blocks": 168,
+      "rebounds": 200,
+      "points_right_edge": 256
+    }
+  },
+  "cursor": {
+    "profile_anchor_oam": [135, 80],
+    "roster_anchor_oam": [40, 143],
+    "row_stride": 8,
+    "generic_record_delta": [0, -4],
+    "visible_after_commit": "transition == NONE && cursor_delay > 0"
+  },
+  "statistics_ownership": {
+    "native_source": "TecmoSeasonSession.player_stats_totals",
+    "season_denominator": "TecmoSeasonSession.wins + losses for player.source_team",
+    "counter_order": ["FTA", "FGA", "THREE_PA", "FTM", "FGM", "THREE_PM"],
+    "supported_display_fields": ["FG%", "FT%", "3PT%", "PTS"],
+    "fresh_season": "all fields are known zero",
+    "after_play_without_live_counter": {
+      "fields": ["STL", "BLK", "REB"],
+      "display": "---"
+    },
+    "forbidden_source": "ROM-backed TTDT player ratings/profile bytes are not mutable season statistics"
+  },
+  "verification": {
+    "numeric": "tecmo_team_data_self_test -> player_data_presentation_self_test",
+    "visual": "tools/New-TeamDataPlayerDataProof.ps1",
+    "fixture": "team-data-player-detail-populated uses TecmoPlayerStatsGameLedger emitters plus tecmo_player_stats_merge_game"
+  }
+}

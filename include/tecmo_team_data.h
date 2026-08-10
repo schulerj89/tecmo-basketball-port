@@ -3,6 +3,7 @@
 
 #include "tecmo_controls.h"
 #include "tecmo_framebuffer.h"
+#include "tecmo_player_stats.h"
 #include "tecmo_start_game_menu.h"
 #include "tecmo_team_management.h"
 
@@ -112,6 +113,17 @@ typedef struct TecmoTeamDataPlayer {
     uint8_t condition_seed;
     TecmoStartGameMenuCell portrait[TECMO_TEAM_DATA_PORTRAIT_CELL_COUNT];
 } TecmoTeamDataPlayer;
+
+/* A non-owning view of the native season accumulator.  TEAM DATA owns no
+ * mutable statistics and must never infer them from the ROM-backed TTDT
+ * player records.  The renderer only reads counters whose coverage bit is
+ * present; callers may pass NULL for a truthful fresh-season zero row. */
+typedef struct TecmoTeamDataPlayerStatsSource {
+    const TecmoPlayerStatsSeasonTotals *totals;
+    const uint8_t *wins;
+    const uint8_t *losses;
+    uint16_t coverage;
+} TecmoTeamDataPlayerStatsSource;
 
 typedef struct TecmoTeamDataAsset {
     bool available;
@@ -227,6 +239,7 @@ bool tecmo_team_data_draw(TecmoFramebuffer *framebuffer,
                           const TecmoTeamDataState *state,
                           const TecmoTeamManagementAsset *management_asset,
                           const TecmoTeamManagementSession *management_session,
+                          const TecmoTeamDataPlayerStatsSource *player_stats,
                           const uint8_t *chr_bytes,
                           uint64_t chr_byte_count,
                           int origin_x,

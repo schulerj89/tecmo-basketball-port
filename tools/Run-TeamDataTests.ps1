@@ -135,7 +135,9 @@ try {
     $Checkpoints = @(
         @{ mode = "team-data-select"; hash = "C04A940E9BD78DC9D330AC9E41C2B6F03906A040CE52D442EB08BCE7FE4C7EB8"; status = "palette=3 render=1" },
         @{ mode = "team-data-profile"; hash = "E8BA35AC6C2FF05F882CC6D374BC3D4578992A1304D7018A2FE2D21F25F8D575"; status = "phase=TEAM PROFILE" },
+        @{ mode = "team-data-roster-page1"; hash = "73A7D7502C020348C38D8844599CF215A02B7591FC42CEABB38CD6A41EB89A8C"; status = "phase=PLAYERS DATA" },
         @{ mode = "team-data-player-detail"; hash = "BC717CC2C62A1BAD485BA6307F8F250198476AFBD816162D6311D4A960635174"; status = "phase=PLAYER DETAIL" },
+        @{ mode = "team-data-player-detail-populated"; hash = "60828F2C55C47A97087027950BCC810B06120F316F2FB4A328FB7BC8336909C2"; status = "phase=PLAYER DETAIL" },
         @{ mode = "team-data-entry-transition-frame0"; hash = "2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A"; status = "transition-frame=0 palette=4 render=0" },
         @{ mode = "team-data-entry-transition-frame4"; hash = "2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A"; status = "transition-frame=4 palette=4 render=1" },
         @{ mode = "team-data-entry-transition-frame7"; hash = "1C94880CC9919AFC5C7AB1C482B24C586556F3479421F1B5BBD29DC8808AB34A"; status = "transition-frame=7 palette=0 render=1" },
@@ -178,7 +180,7 @@ try {
     }
 
     $global:LASTEXITCODE = 0
-    Write-Host "TEAM DATA TEST PASS: ROM-only TTDT parser, all-star mapping, input/state transitions, malformed rejection, and 15 pixel checkpoints"
+    Write-Host "TEAM DATA TEST PASS: ROM-only TTDT parser, ledger-backed player detail, all-star mapping, input/state transitions, malformed rejection, and 17 pixel checkpoints"
 } finally {
     $env:TECMO_SKIP_SHORTCUT = $PreviousSkipShortcut
     $env:TECMO_ASSETPACK = $PreviousAssetPack

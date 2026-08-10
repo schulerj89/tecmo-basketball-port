@@ -47,6 +47,62 @@ static void seed_populated_leader_results(TecmoSeasonSession *session)
     session->dirty = false;
 }
 
+/* Render-test fixture only: it takes the same supported path as gameplay
+ * (attempt/make/free-throw emitters, then a ledger merge) instead of writing
+ * directly into season totals.  Player zero on canonical team zero finishes
+ * one game at .600 FG, .875 FT, .500 3PT, and 21.0 points per game. */
+static bool seed_team_data_player_detail_stats(TecmoRuntime *runtime)
+{
+    TecmoSeasonSession *session;
+    TecmoPlayerStatsGameLedger ledger;
+    if (runtime == NULL) return false;
+    session = &runtime->season_session;
+    memset(session->wins, 0, sizeof(session->wins));
+    memset(session->losses, 0, sizeof(session->losses));
+    memset(session->player_stats_totals, 0,
+           sizeof(session->player_stats_totals));
+    session->player_stats_coverage = TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE;
+    tecmo_player_stats_game_ledger_initialize(&ledger);
+    for (uint8_t shot = 0U; shot < 10U; ++shot) {
+        uint8_t point_value = shot < 4U ? 3U : 2U;
+        bool made = shot < 2U || (shot >= 4U && shot < 8U);
+        if (!tecmo_player_stats_record_shot_attempt(
+                &ledger, 0U, 0U, point_value) ||
+            (made && !tecmo_player_stats_record_shot_make(
+                &ledger, 0U, 0U, point_value)))
+            return false;
+    }
+    for (uint8_t attempt = 0U; attempt < 8U; ++attempt)
+        if (!tecmo_player_stats_record_free_throw(
+                &ledger, 0U, 0U, attempt < 7U))
+            return false;
+    if (!tecmo_player_stats_merge_game(
+            session->player_stats_totals, &session->player_stats_coverage,
+            0U, 1U, &ledger))
+        return false;
+    /* The merge is a game result's statistics half; the deterministic render
+     * fixture supplies its matching one-game team denominator without saving
+     * or manufacturing any unsupported player counters. */
+    session->wins[0U] = 1U;
+    session->losses[1U] = 1U;
+    session->dirty = false;
+    return session->player_stats_coverage ==
+           TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE;
+}
+
+static TecmoTeamDataPlayerStatsSource team_data_player_stats_source(
+    const TecmoRuntime *runtime)
+{
+    TecmoTeamDataPlayerStatsSource source;
+    memset(&source, 0, sizeof(source));
+    if (runtime == NULL) return source;
+    source.totals = &runtime->season_session.player_stats_totals;
+    source.wins = runtime->season_session.wins;
+    source.losses = runtime->season_session.losses;
+    source.coverage = runtime->season_session.player_stats_coverage;
+    return source;
+}
+
 static bool configure_start_game_menu_mode(TecmoRuntime *runtime, const char *mode_name, TecmoCliRenderModeState *state, bool *handled_out)
 {
     bool arena_render_succeeded = state->arena_render_succeeded;
@@ -620,8 +676,17 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
                     runtime->team_data_state.slide_direction = 1;
                     runtime->team_data_state.slide_frame = (uint8_t)frame;
                 }
-            } else if (strcmp(mode_name, "team-data-player-detail") == 0) {
+            } else if (strcmp(mode_name, "team-data-player-detail") == 0 ||
+                       strcmp(mode_name,
+                              "team-data-player-detail-populated") == 0) {
                 *handled_out = true;
+                if (strcmp(mode_name,
+                           "team-data-player-detail-populated") == 0 &&
+                    !seed_team_data_player_detail_stats(runtime)) {
+                    printf("TEAM DATA player-detail ledger fixture failed\n");
+                    render_runtime = false;
+                    result = 1;
+                }
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
                 runtime->team_data_state.phase = TECMO_TEAM_DATA_PLAYER_DETAIL;
                 runtime->team_data_state.team_id = 0U;
@@ -709,6 +774,7 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
                     runtime->team_data_state.transition_frame = (uint8_t)frame;
                 }
             } else if (strcmp(mode_name, "team-data-invalid-state") == 0) {
+                TecmoTeamDataPlayerStatsSource player_stats;
                 *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
                 runtime->team_data_state.team_id = TECMO_TEAM_DATA_TEAM_COUNT;
@@ -716,11 +782,13 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
                 framebuffer.width = width;
                 framebuffer.height = height;
                 framebuffer.pitch_pixels = width;
+                player_stats = team_data_player_stats_source(runtime);
                 arena_render_succeeded = tecmo_team_data_draw(
                     &framebuffer, &runtime->team_data_asset,
                     &runtime->team_data_state,
                     &runtime->team_management_asset,
                     &runtime->team_management_session,
+                    &player_stats,
                     runtime->title_chr_bytes,
                     runtime->title_chr_byte_count, 64, 0, 2);
                 render_runtime = false;

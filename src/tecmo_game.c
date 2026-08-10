@@ -1444,11 +1444,17 @@ static void render_all_star_menu_mode(const TecmoRuntime *runtime,
 static void render_team_data_mode(const TecmoRuntime *runtime,
                                   TecmoFramebuffer *fb)
 {
+    TecmoTeamDataPlayerStatsSource player_stats;
     clear(fb, rgb(0, 0, 0));
+    player_stats.totals = &runtime->season_session.player_stats_totals;
+    player_stats.wins = runtime->season_session.wins;
+    player_stats.losses = runtime->season_session.losses;
+    player_stats.coverage = runtime->season_session.player_stats_coverage;
     if (!tecmo_team_data_draw(fb, &runtime->team_data_asset,
                               &runtime->team_data_state,
                               &runtime->team_management_asset,
                               &runtime->team_management_session,
+                              &player_stats,
                               runtime->title_chr_bytes,
                               runtime->title_chr_byte_count,
                               64, 0, 2)) {
