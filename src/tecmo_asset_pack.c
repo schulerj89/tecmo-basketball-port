@@ -1064,7 +1064,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                 message_size) != 0) {
             tecmo_asset_pack_set_message(
                 message, message_size,
-                "Could not write strict TGAI-1 CPU steering entry.");
+                "Could not write strict TGAI-2 CPU steering entry.");
             return -1;
         }
         entry_info = tecmo_asset_pack_make_entry_info(

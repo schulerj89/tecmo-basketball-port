@@ -2304,6 +2304,66 @@ static bool scene_test_live_foundation_regressions(
     play_input.step_budget = 1U;
     memcpy(play_input.actor_position, positions, sizeof(positions));
     play_input.ball_position = positions[0U];
+    /* This direct foundation fixture is a negative LIVE diagnostic test, not
+       a gameplay proof: it places an already decoded canonical opcode-15
+       record at the normal play-step boundary and proves that unavailable
+       raw owners are recorded without a defender/stream/pose mutation. */
+    {
+        TecmoGameplayLiveFoundation opcode15_before = foundation_before;
+        const uint8_t opcode15_actor = 0U;
+        opcode15_before.play_state.stream_offset[opcode15_actor] = 0x0037U;
+        opcode15_before.last_step_offset[opcode15_actor] = 0x0037U;
+        opcode15_before.play_state.actor_state[opcode15_actor] = 0x0BU;
+        opcode15_before.play_state.timer[opcode15_actor] = 0xC3U;
+        if (!tecmo_gameplay_live_foundation_valid(
+                &scene->cpu_steering_assets, &opcode15_before)) {
+            LIVE_FAIL("LIVE opcode-15 negative fixture was invalid");
+        }
+        candidate_foundation = opcode15_before;
+        play_input.actor = opcode15_actor;
+        if (!tecmo_gameplay_live_foundation_play_step(
+                &scene->cpu_steering_assets, &play_input,
+                &candidate_foundation, &play_result) ||
+            play_result.command.opcode != 15U || !play_result.deferred ||
+            play_result.advanced || play_result.next_offset != 0x0037U ||
+            candidate_foundation.primary_actor !=
+                opcode15_before.primary_actor ||
+            candidate_foundation.defender_actor !=
+                opcode15_before.defender_actor ||
+            candidate_foundation.play_state.stream_offset[opcode15_actor] !=
+                opcode15_before.play_state.stream_offset[opcode15_actor] ||
+            candidate_foundation.play_state.actor_state[opcode15_actor] !=
+                opcode15_before.play_state.actor_state[opcode15_actor] ||
+            candidate_foundation.play_state.timer[opcode15_actor] !=
+                opcode15_before.play_state.timer[opcode15_actor] ||
+            !candidate_foundation.opcode15_trace.observed ||
+            candidate_foundation.opcode15_trace.branch !=
+                TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MISSING_RAW ||
+            candidate_foundation.opcode15_trace.command_record_offset !=
+                0x0037U ||
+            candidate_foundation.opcode15_trace.missing_raw_mask !=
+                TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_KNOWN_MASK ||
+            candidate_foundation.opcode15_trace.raw_0499_available ||
+            candidate_foundation.opcode15_trace.raw_04b0_available ||
+            candidate_foundation.opcode15_trace.raw_007e_available ||
+            candidate_foundation.opcode15_trace.raw_06d5_06d6_available ||
+            candidate_foundation.opcode15_trace.raw_0479_available ||
+            candidate_foundation.opcode15_trace.raw_0442_044d_available ||
+            candidate_foundation.opcode15_trace.raw_059e_available ||
+            candidate_foundation.opcode15_trace.raw_actor_lifecycle_available ||
+            candidate_foundation.opcode15_trace.raw_0308_before !=
+                candidate_foundation.opcode15_trace.raw_0308_after ||
+            candidate_foundation.opcode15_trace.raw_0309_before !=
+                candidate_foundation.opcode15_trace.raw_0309_after ||
+            candidate_foundation.opcode15_trace.actor_stream_before !=
+                candidate_foundation.opcode15_trace.actor_stream_after ||
+            candidate_foundation.opcode15_trace.actor_state_before !=
+                candidate_foundation.opcode15_trace.actor_state_after ||
+            !tecmo_gameplay_live_foundation_valid(
+                &scene->cpu_steering_assets, &candidate_foundation)) {
+            LIVE_FAIL("LIVE opcode-15 missing-raw diagnostic mutated state");
+        }
+    }
     for (offset = 0U;
          offset < scene->cpu_steering_assets.command_record_count * 5U;
          offset = (uint16_t)(offset + 5U)) {

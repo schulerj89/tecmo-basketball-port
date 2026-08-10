@@ -52,10 +52,11 @@ static void print_usage(const char *program)
     printf("  --gameplay-ball-dribble-test PACK [ROM]  Validate strict TGBD-1 held-ball bounce\n");
     printf("  --gameplay-fatigue-test PACK [ROM]  Validate strict TGFT-1 fatigue state and optional Rev1 source\n");
     printf("  --gameplay-movement-harness PACK TEAM ROSTER X Y SPEED POSSESSION ORIENTATION INPUT FRAMES  Trace deterministic developer-only movement\n");
-    printf("  --gameplay-cpu-steering-test PACK  Validate isolated TGAI-1 command/direction evidence\n");
+    printf("  --gameplay-cpu-steering-test PACK  Validate isolated TGAI-2 command/direction evidence\n");
     printf("  --gameplay-hud-test PACK  Validate strict THUD-1 live scoreboard assets\n");
     printf("  --gameplay-cpu-steering-inspect PACK OFFSET DX DY  Decode one command and exact direction vector (console only)\n");
     printf("  --gameplay-cpu-steering-harness PACK ACTOR POSSESSION ORIENTATION HOLDER MATCHUP DIFFICULTY X0,Y0 ... X9,Y9  Evaluate one complete court snapshot (console only)\n");
+    printf("  --gameplay-cpu-steering-opcode15-harness PACK  Emit deterministic raw-only Bank06 opcode-15 lifecycle proof\n");
     printf("  --gameplay-cpu-steering-movement-harness PACK ACTOR POSSESSION ORIENTATION HOLDER MATCHUP DIFFICULTY RATING CONDITION SPEED FRAMES X0,Y0 ... X9,Y9  Feed CPU direction into TGMO (console only)\n");
     printf("  --gameplay-close-shots-test PACK  Validate strict TGCS-1 close-shot assets\n");
     printf("  --gameplay-dunk-cutaway-test PACK  Validate strict TGDK-1 dunk presentation assets\n");

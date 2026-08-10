@@ -15,6 +15,7 @@
  */
 #define TECMO_GAMEPLAY_LIVE_FOUNDATION_TAG 0x4C564631U
 #define TECMO_GAMEPLAY_LIVE_CLAIMANT_SETTLEMENT_TAG 0x4C435331U
+#define TECMO_GAMEPLAY_LIVE_OPCODE15_TRACE_TAG 0x4C4F3135U
 #define TECMO_GAMEPLAY_LIVE_FOUNDATION_FORMATION_PINNED_LIMIT \
     TECMO_GAMEPLAY_CPU_STEERING_FORMATION_SOURCE_PINNED_COUNT
 
@@ -44,6 +45,37 @@ typedef struct TecmoGameplayLiveClaimantSettlement {
        observation rather than a native mutation. */
     bool raw_035a_save_and_toggle_observed;
 } TecmoGameplayLiveClaimantSettlement;
+
+/* Passive observation made when a canonical opcode-15 record reaches the
+ * LIVE executor. The native scene deliberately does not own $0499, $007E,
+ * $06D5/$06D6, $0479, $059E, or the raw $0442/$044D pointer pair, so unavailable
+ * fields are represented as availability flags rather than substituted
+ * values. This is diagnostic evidence only, never gameplay state. */
+typedef struct TecmoGameplayLiveOpcode15Trace {
+    uint32_t contract_tag;
+    uint32_t missing_raw_mask;
+    uint16_t command_record_offset;
+    uint16_t actor_stream_before;
+    uint16_t actor_stream_after;
+    uint8_t opcode;
+    uint8_t actor_x;
+    uint8_t raw_0308_before;
+    uint8_t raw_0308_after;
+    uint8_t raw_0309_before;
+    uint8_t raw_0309_after;
+    uint8_t actor_state_before;
+    uint8_t actor_state_after;
+    TecmoGameplayCpuSteeringOpcode15Branch branch;
+    bool observed;
+    bool raw_0499_available;
+    bool raw_04b0_available;
+    bool raw_007e_available;
+    bool raw_06d5_06d6_available;
+    bool raw_0479_available;
+    bool raw_0442_044d_available;
+    bool raw_059e_available;
+    bool raw_actor_lifecycle_available;
+} TecmoGameplayLiveOpcode15Trace;
 
 typedef struct TecmoGameplayLiveFoundation {
     uint32_t contract_tag;
@@ -107,6 +139,7 @@ typedef struct TecmoGameplayLiveFoundation {
     /* Last actor evaluated by the deterministic shot predicate, including a
        negative result; NO_ACTOR means no predicate was evaluated this tick. */
     uint8_t last_shot_actor;
+    TecmoGameplayLiveOpcode15Trace opcode15_trace;
     TecmoGameplayCpuSteeringPlayState play_state;
 } TecmoGameplayLiveFoundation;
 

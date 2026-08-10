@@ -149,6 +149,53 @@ static bool live_stream_offset_valid(
                assets, offset, &command);
 }
 
+static bool live_opcode15_trace_valid(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    const TecmoGameplayLiveOpcode15Trace *trace)
+{
+    TecmoGameplayCpuSteeringCommand command;
+    if (assets == NULL || trace == NULL ||
+        trace->contract_tag != TECMO_GAMEPLAY_LIVE_OPCODE15_TRACE_TAG) {
+        return false;
+    }
+    if (!trace->observed) {
+        return trace->branch ==
+                   TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_NONE &&
+               trace->missing_raw_mask == 0U && trace->opcode == 0U &&
+               !trace->raw_0499_available && !trace->raw_04b0_available &&
+               !trace->raw_007e_available &&
+               !trace->raw_06d5_06d6_available &&
+               !trace->raw_0479_available &&
+               !trace->raw_0442_044d_available &&
+               !trace->raw_059e_available &&
+               !trace->raw_actor_lifecycle_available;
+    }
+    if (trace->opcode != 15U ||
+        trace->branch !=
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MISSING_RAW ||
+        trace->missing_raw_mask !=
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_KNOWN_MASK ||
+        trace->actor_x >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        trace->raw_0308_before >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        trace->raw_0308_after >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        trace->raw_0309_before >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        trace->raw_0309_after >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        trace->raw_0308_before != trace->raw_0308_after ||
+        trace->raw_0309_before != trace->raw_0309_after ||
+        trace->actor_stream_before != trace->actor_stream_after ||
+        trace->actor_state_before != trace->actor_state_after ||
+        trace->raw_0499_available || trace->raw_04b0_available ||
+        trace->raw_007e_available || trace->raw_06d5_06d6_available ||
+        trace->raw_0479_available || trace->raw_0442_044d_available ||
+        trace->raw_059e_available || trace->raw_actor_lifecycle_available ||
+        !tecmo_gameplay_cpu_steering_decode_command(
+            assets, trace->command_record_offset, &command) ||
+        command.opcode != 15U || command.handler_cpu != 0x9172U) {
+        return false;
+    }
+    return true;
+}
+
 static bool live_formation_valid(
     const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t formation_index,
@@ -250,6 +297,7 @@ static bool live_play_state_valid(
         !live_actor_team_valid(foundation->actor_team) ||
         !live_selector_flags_valid(foundation) ||
         !live_actor_positions_valid(foundation->actor_position) ||
+        !live_opcode15_trace_valid(assets, &foundation->opcode15_trace) ||
         foundation->play_state.matchup_seed[0U] != 2U ||
         foundation->play_state.matchup_seed[1U] != 7U ||
         foundation->play_state.primary_actor != foundation->primary_actor ||
@@ -370,6 +418,8 @@ void tecmo_gameplay_live_foundation_init(
     if (foundation == NULL) return;
     memset(foundation, 0, sizeof(*foundation));
     foundation->contract_tag = TECMO_GAMEPLAY_LIVE_FOUNDATION_TAG;
+    foundation->opcode15_trace.contract_tag =
+        TECMO_GAMEPLAY_LIVE_OPCODE15_TRACE_TAG;
     foundation->first_sync_pending = true;
     foundation->last_ball_holder =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
@@ -968,6 +1018,33 @@ bool tecmo_gameplay_live_foundation_play_step(
     candidate.last_step_offset[actor] = result.next_offset;
     candidate.last_effect[actor] = (uint8_t)result.effect;
     candidate.deferred[actor] = result.deferred;
+    if (result.fetched && result.command.opcode == 15U) {
+        TecmoGameplayLiveOpcode15Trace *trace =
+            &candidate.opcode15_trace;
+        /* LIVE deliberately has no faithful raw owner for the Bank06 gate
+           plane or its post-swap registers. Record unavailable inputs rather
+           than treating typed scene values or caller constants as RAM. */
+        memset(trace, 0, sizeof(*trace));
+        trace->contract_tag = TECMO_GAMEPLAY_LIVE_OPCODE15_TRACE_TAG;
+        trace->observed = true;
+        trace->opcode = result.command.opcode;
+        trace->actor_x = actor;
+        trace->command_record_offset = result.command.stream_offset;
+        trace->branch =
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MISSING_RAW;
+        trace->missing_raw_mask =
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_KNOWN_MASK;
+        trace->raw_0308_before = foundation_io->primary_actor;
+        trace->raw_0308_after = candidate.primary_actor;
+        trace->raw_0309_before = foundation_io->defender_actor;
+        trace->raw_0309_after = candidate.defender_actor;
+        trace->actor_stream_before =
+            foundation_io->play_state.stream_offset[actor];
+        trace->actor_stream_after = next_state.stream_offset[actor];
+        trace->actor_state_before =
+            foundation_io->play_state.actor_state[actor];
+        trace->actor_state_after = next_state.actor_state[actor];
+    }
     if (result.fetched && !result.deferred &&
         (result.command.opcode == 0U || result.command.opcode == 2U ||
          result.command.opcode == 4U || result.command.opcode == 10U ||
