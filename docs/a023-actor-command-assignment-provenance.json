@@ -1,0 +1,194 @@
+{
+  "schema": "tecmo.actor-command-assignment-provenance/TGCA-1",
+  "base_commit": "6397bd1e0a0976524ad1569982723a35a39df03f",
+  "scope": "Bank05 $A023-$A0DC actor command assignment; not a generic post-tip, handoff, rebound, or possession operation.",
+  "rom_revision": {
+    "name": "Tecmo NBA Basketball Rev1",
+    "byte_length": 393232,
+    "sha256": "076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4",
+    "fnv1a32": "0650F5B0"
+  },
+  "authoritative_spans": [
+    {
+      "kind": "distance-helper",
+      "bank": 5,
+      "cpu": "$9DF6-$9E63",
+      "bytes": 110,
+      "fnv1a32": "BE56D3D7",
+      "fnv1a64": "BF24D84A61C2F497"
+    },
+    {
+      "kind": "caller-and-assignment",
+      "bank": 5,
+      "cpu": "$9F2F-$A0DC",
+      "bytes": 430,
+      "fnv1a32": "13F3A41B",
+      "fnv1a64": "0C3DED79B8BCFADB"
+    },
+    {
+      "kind": "object-slot10-dispatch-and-pointer-tables",
+      "bank": 5,
+      "cpu": "$A214-$A25E",
+      "bytes": 75,
+      "fnv1a32": "4FC82BF8",
+      "fnv1a64": "84059724738A3C78"
+    },
+    {
+      "kind": "object-state10-caller",
+      "bank": 5,
+      "cpu": "$B6E5-$B774",
+      "bytes": 144,
+      "fnv1a32": "6AD67C6A",
+      "fnv1a64": "C4DDB2D7A58EF6AA"
+    },
+    {
+      "kind": "object-state17-and-state18-callers",
+      "bank": 5,
+      "cpu": "$B775-$B7C0",
+      "bytes": 76,
+      "fnv1a32": "D90B723B",
+      "fnv1a64": "9EBF758818C65AFB"
+    },
+    {
+      "kind": "fixed-action-dispatch",
+      "bank": "fixed",
+      "cpu": "$C711-$C73B",
+      "bytes": 43,
+      "fnv1a32": "AF434105",
+      "fnv1a64": "453F5F11B98924E5"
+    },
+    {
+      "kind": "fixed-action-selector",
+      "bank": "fixed",
+      "cpu": "$CAF5-$CB32",
+      "bytes": 62,
+      "fnv1a32": "798F7231",
+      "fnv1a64": "B65EBECE5F5ECFB1"
+    },
+    {
+      "kind": "fixed-action-table-low",
+      "bank": "fixed",
+      "cpu": "$CB33-$CB70",
+      "bytes": 62,
+      "fnv1a32": "CB4B3C42",
+      "fnv1a64": "25A0A0DFEDDD4702"
+    },
+    {
+      "kind": "fixed-action-table-high",
+      "bank": "fixed",
+      "cpu": "$CB71-$CBAE",
+      "bytes": 62,
+      "fnv1a32": "CD228EDD",
+      "fnv1a64": "F8DCBA38D20596DD"
+    }
+  ],
+  "exact_resolver_semantics": {
+    "A023": {
+      "selected_calls": [
+        "$030A/$0308 -> $A0A6",
+        "$030B/$0309 -> $A0A6"
+      ],
+      "scan_calls": [
+        "$0094=$10 -> $A046",
+        "$0094=$00 -> $A046"
+      ],
+      "tail": "$9DF6"
+    },
+    "A0A6": {
+      "control_predicate": "$030C,Y != 0",
+      "primary": "when X==$0308: unsupported $88A1/$046E=$18 observation, then $0547/$0551=$000A and $057C=$04",
+      "defender": "otherwise: $0547/$0551=$0019 and $057C=$04",
+      "unowned_writes": [
+        "$046E",
+        "$0484",
+        "$048F"
+      ]
+    },
+    "A046": {
+      "scan_order": "X descends $09..$00",
+      "exclusions": [
+        "$0308 primary",
+        "$0309 defender"
+      ],
+      "selector": "$04B0,X & $10 == $0094",
+      "score": "$9E0A: abs16(actor-x - object-slot-10-x) + unsigned_abs8(actor-depth - object-slot-10-depth), with the depth borrow materialized as a 16-bit high byte before negation",
+      "initial_best": "$0505",
+      "tie_rule": "equality replaces the winner; descending scan leaves the lower actor index",
+      "winner_writes": "$C711 #$1D (unowned), then $0019 when selector $10 else $000A, $057C=$04, and $048F/$0484 clears (observed but unowned)"
+    },
+    "caller_gates": {
+      "B73A": "$A214 state $10 -> $B6E5; BA&3==0, $05A1==0, ($0499<$46 || $04AF negative), $0588&$80, $0499==0, and ($67|$68)!=0",
+      "B783": "$A214 state $17 -> $B775; $0499<$04 and $0588&$20",
+      "B7B6": "$A214 state $18 -> $B7B6 -> $B783; $0499==0",
+      "9FE2": "$9F2F predecessor geometry/property/trajectory gates then $A0DD target construction, $A023, and fixed $C009 #$05"
+    }
+  },
+  "asset_and_verifier_contract": {
+    "payload": {
+      "bytes": 1488,
+      "fnv1a32": "4C7C2B34",
+      "raw_bytes": 1064,
+      "raw_fnv1a32": "741A149E",
+      "stored_rom_sha256_compared_by_parser": true
+    },
+    "bounded_span_verifier": "Importer, parser, and focused unit vectors share a one-descriptor/one-span verifier. Direct vectors independently reach descriptor, FNV1a32, and FNV1a64 failure flags behind the outer exact-ROM and aggregate-payload guards.",
+    "raw_rom_mutation_claim": "Nine targeted raw-ROM mutations prove the outer exact-Rev1 importer rejects each changed authority region; those cases alone are not claimed as per-span-branch coverage.",
+    "generated_source_map": "system/source-map contains one gameplay/actor-command-assignment logical entry and all nine exact source offsets, ranges, payload offsets, FNV1a32, and FNV1a64 values."
+  },
+  "fixture_boundary": {
+    "resolver_inputs": "Synthetic typed fixtures may invoke only B73A, B783, or B7B6 after supplying every represented gate and an object-slot-10 target.",
+    "not_production_inputs": [
+      "a numeric native jump_ball_state alone",
+      "generic pretip handoff",
+      "generic pass, claimant, rebound, or possession handoff",
+      "a CPU steering opcode-4 target alone",
+      "a defensive-contact/foul bridge"
+    ],
+    "synthetic_no_candidate": "A valid LIVE foundation always has five actors on each $04B0 bit-$10 selector side. The no-candidate scan test is intentionally a direct invalid-selector fixture, not an organic scene claim."
+  },
+  "native_caller_equivalence": [
+    {
+      "asm_caller": "$B6E5->$B73A->$A023",
+      "current_native_observation": "Normal jump miss exposes numeric jump_ball_state 0x17 then 0x10, but retains none of the object-slot-10 state/target or BA/05A1/0499/0588/67/68/04AF gate family.",
+      "status": "deferred-no-production-attachment"
+    },
+    {
+      "asm_caller": "$B775->$B783->$A023 and $B7B6->$B783->$A023",
+      "current_native_observation": "No source-shaped state-17/state-18 object dispatcher or $0499/$0588 owner exists in the native scene.",
+      "status": "deferred-no-production-attachment"
+    },
+    {
+      "asm_caller": "$9F2F->$9FE2->$A023",
+      "current_native_observation": "The current human defensive-contact/foul bridge is Bank05 $9968/$9A24-shaped, not the preceding $9F2F geometry/property/direction/trajectory gates or $A0DD target construction.",
+      "status": "deferred-no-production-attachment"
+    }
+  ],
+  "production_proof_contract": {
+    "event": "actor-command-assignment-deferred",
+    "path": "ordinary native PRETIP-to-LIVE flow only",
+    "direct_phase_possession_winner_or_fixture_input_injection": false,
+    "expected": {
+      "caller_identity": "none",
+      "emitted": false,
+      "production_mutated": false,
+      "no_op_reason": "missing-source-shaped-object-dispatch-inputs"
+    },
+    "trace_fields": [
+      "caller_identity",
+      "no_op_reason",
+      "exclusions.primary/defender",
+      "scans.side10/side00 executed,winner,score",
+      "selected_before_after primary/defender stream,state",
+      "scene_frame and sync_serial before/after"
+    ],
+    "screenshot_interpretation": "The screenshot proves the ordinary renderer/flow remained intact. It is explicitly not evidence of A023 gameplay parity."
+  },
+  "unowned_or_unrecovered_effects": [
+    "$046E=$18",
+    "$0484/$048F clears",
+    "fixed $C711 action #$1D selector/table effects",
+    "$9DF6/$9E0A scratch ownership beyond the exact resolver metric",
+    "$9F2F predecessor and $A0DD target-construction effects",
+    "complete scene scheduling and object-slot ownership"
+  ]
+}

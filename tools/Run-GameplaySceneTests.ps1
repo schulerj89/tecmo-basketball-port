@@ -1242,6 +1242,7 @@ try {
         "offensive-pass",
         "defensive-switch",
         "cpu-target-deferred",
+        "actor-command-assignment-deferred",
         "cpu-source-shot",
         "shot-path",
         "claimant-settlement",
@@ -1316,6 +1317,48 @@ try {
                  [int]$State.opcode4_ball_target.snapshot_ball[1] -ne
                     [int]$State.opcode4_ball_target.source_target[1])) {
                 throw "LIVE proof CPU event did not retain target/deferred evidence."
+            }
+            if ($Event -eq "actor-command-assignment-deferred") {
+                $ActorCommandAssignment = $State.actor_command_assignment
+                if (![bool]$ActorCommandAssignment.deferred_diagnostic -or
+                    [bool]$ActorCommandAssignment.emitted -or
+                    [bool]$ActorCommandAssignment.production_mutated -or
+                    [bool]$ActorCommandAssignment.direct_fixture_input -or
+                    [string]$ActorCommandAssignment.caller_identity -ne "none" -or
+                    [string]$ActorCommandAssignment.no_op_reason -ne
+                        "missing-source-shaped-object-dispatch-inputs" -or
+                    [string]$ActorCommandAssignment.asm -notmatch
+                        'Bank05:\$A023-\$A0DC' -or
+                    ![bool]$ActorCommandAssignment.missing.object_slot10_state -or
+                    ![bool]$ActorCommandAssignment.missing.object_slot10_coordinate -or
+                    ![bool]$ActorCommandAssignment.missing.raw_ba_05a1_0499_0588_0067_0068_04af -or
+                    ![bool]$ActorCommandAssignment.missing.interaction_9f2f_predecessors -or
+                    [int]$ActorCommandAssignment.scene_frame[0] -ne
+                        [int]$ActorCommandAssignment.scene_frame[1] -or
+                    [int]$ActorCommandAssignment.sync_serial[0] -ne
+                        [int]$ActorCommandAssignment.sync_serial[1] -or
+                    [int]$ActorCommandAssignment.exclusions.primary -ne
+                        [int]$State.live.primary_actor -or
+                    [int]$ActorCommandAssignment.exclusions.defender -ne
+                        [int]$State.live.defender_actor -or
+                    [bool]$ActorCommandAssignment.scans.side10.executed -or
+                    [bool]$ActorCommandAssignment.scans.side00.executed -or
+                    $null -ne $ActorCommandAssignment.scans.side10.winner -or
+                    $null -ne $ActorCommandAssignment.scans.side10.score -or
+                    $null -ne $ActorCommandAssignment.scans.side00.winner -or
+                    $null -ne $ActorCommandAssignment.scans.side00.score -or
+                    [int]$ActorCommandAssignment.selected_before_after.primary.stream[0] -ne
+                        [int]$ActorCommandAssignment.selected_before_after.primary.stream[1] -or
+                    [int]$ActorCommandAssignment.selected_before_after.primary.state[0] -ne
+                        [int]$ActorCommandAssignment.selected_before_after.primary.state[1] -or
+                    [int]$ActorCommandAssignment.selected_before_after.defender.stream[0] -ne
+                        [int]$ActorCommandAssignment.selected_before_after.defender.stream[1] -or
+                    [int]$ActorCommandAssignment.selected_before_after.defender.state[0] -ne
+                        [int]$ActorCommandAssignment.selected_before_after.defender.state[1] -or
+                    [string]$ActorCommandAssignment.screenshot_scope -notmatch
+                        'not A023 gameplay parity') {
+                    throw "LIVE proof A023 event fabricated a production command-assignment path."
+                }
             }
             if ($Event -eq "shot-path" -and
                 (![bool]$State.live.last_shot_request -or
@@ -1556,6 +1599,7 @@ try {
             "offensive-pass: P1 NES A"
             "defensive-switch: P1 NES A with home possession"
             "cpu-target-deferred: deterministic source-offset fixture"
+            "actor-command-assignment-deferred: real PRETIP/live handoff, then no source-shaped A023 caller or mutation"
             "cpu-source-shot: Bank04 target+wait fixture through formation refresh and CPU shot gate"
             "shot-path: deterministic supported close-shot fixture"
             "claimant-settlement: native pre-tip handoff then deterministic coordinate/frame fixture, normal controller-B miss and production terminal claimant handoff (no direct claimant/phase/possession injection)"
@@ -1587,6 +1631,7 @@ try {
             force_possession = "deterministic test fixture; not original or normal-policy evidence"
             source_offset_injection = "deterministic test fixture; not original or normal-policy evidence"
             close_position_injection = "deterministic test fixture; not original or normal-policy evidence"
+            actor_command_assignment = "ordinary pretip-to-LIVE observation; emits a missing-input diagnostic and no A023 fixture or production mutation"
             lineup_binding = "bound production-style scene launch; game.c bridge separately proven by flow tests"
         }
         proof_pack_replay_path = [IO.Path]::GetFullPath($ProofPackPath)

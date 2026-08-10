@@ -354,6 +354,7 @@ function Get-KnownLogicalAssetPackEntries {
         "gameplay/close-shots",
         "gameplay/dunk-cutaway",
         "gameplay/jump-shots",
+        "gameplay/actor-command-assignment",
         "gameplay/shot-resolution",
         "gameplay/penalties",
         "gameplay/violation-referee",
@@ -423,6 +424,7 @@ function Get-ExpectedLogicalAssetPackEntries {
             "gameplay/close-shots"
             "gameplay/dunk-cutaway"
             "gameplay/jump-shots"
+            "gameplay/actor-command-assignment"
             "gameplay/shot-resolution"
             "gameplay/penalties"
             "gameplay/violation-referee"

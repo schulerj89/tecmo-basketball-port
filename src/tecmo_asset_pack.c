@@ -20,6 +20,7 @@
 #include "asset_pack/tecmo_asset_pack_gameplay_close_shots.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_dunk_cutaway.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_jump_shots.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_actor_command_assignment.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_shot_resolution.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_rebound_audit.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_penalties.h"
@@ -105,6 +106,7 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
                                           TecmoGameplayCloseShotProvenance *close_shot_provenance,
                                           TecmoGameplayDunkProvenance *dunk_provenance,
                                           TecmoGameplayJumpShotProvenance *jump_shot_provenance,
+                                          TecmoGameplayActorCommandAssignmentProvenance *actor_command_assignment_provenance,
                                           TecmoGameplayShotResolutionProvenance *shot_resolution_provenance,
                                           TecmoGameplayReboundAuditProvenance *rebound_audit_provenance,
                                           TecmoGameplayPenaltyProvenance *penalty_provenance,
@@ -154,6 +156,8 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
     uint8_t dunk_payload[TECMO_ASSET_PACK_GAMEPLAY_DUNK_SIZE];
     uint8_t jump_shot_payload[
         TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_SIZE];
+    uint8_t actor_command_assignment_payload[
+        TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SIZE];
     uint8_t shot_resolution_payload[
         TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_SIZE];
     uint8_t rebound_audit_payload[
@@ -204,6 +208,15 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
             enforce_finale_revision_fingerprints,
             jump_shot_payload, sizeof(jump_shot_payload),
             jump_shot_provenance, message, message_size) != 0) {
+        return -1;
+    }
+    if (enforce_finale_revision_fingerprints != 0 &&
+        tecmo_asset_pack_build_gameplay_actor_command_assignment(
+            rom, rom_size, prg_offset, prg_banks,
+            enforce_finale_revision_fingerprints,
+            actor_command_assignment_payload,
+            sizeof(actor_command_assignment_payload),
+            actor_command_assignment_provenance, message, message_size) != 0) {
         return -1;
     }
     if (enforce_finale_revision_fingerprints != 0 &&
@@ -1135,6 +1148,20 @@ static int add_native_arena_intro_entries(TecmoAssetPackBuilder *builder,
             return -1;
         }
         entry_info = tecmo_asset_pack_make_entry_info(
+            TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_ID,
+            TECMO_ASSET_PACK_TYPE_DATA, 5U, 0x9DF6U,
+            actor_command_assignment_provenance->source_offsets[0U],
+            TECMO_ASSET_PACK_FLAG_DERIVED | TECMO_ASSET_PACK_FLAG_LOCAL);
+        if (tecmo_asset_pack_builder_add_memory(
+                builder, &entry_info, actor_command_assignment_payload,
+                sizeof(actor_command_assignment_payload), message,
+                message_size) != 0) {
+            tecmo_asset_pack_set_message(
+                message, message_size,
+                "Could not write strict TGCA-1 actor command assignment entry.");
+            return -1;
+        }
+        entry_info = tecmo_asset_pack_make_entry_info(
             TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_ID,
             TECMO_ASSET_PACK_TYPE_DATA,
             TECMO_ASSET_PACK_GAMEPLAY_SHOT_RESOLUTION_BANK, 0x91BCU,
@@ -1260,6 +1287,8 @@ static int tecmo_asset_pack_build_from_ines_internal(
     TecmoGameplayCloseShotProvenance close_shot_provenance;
     TecmoGameplayDunkProvenance dunk_provenance;
     TecmoGameplayJumpShotProvenance jump_shot_provenance;
+    TecmoGameplayActorCommandAssignmentProvenance
+        actor_command_assignment_provenance;
     TecmoGameplayShotResolutionProvenance shot_resolution_provenance;
     TecmoGameplayReboundAuditProvenance rebound_audit_provenance;
     TecmoGameplayPenaltyProvenance penalty_provenance;
@@ -1459,6 +1488,8 @@ static int tecmo_asset_pack_build_from_ines_internal(
     memset(&close_shot_provenance, 0, sizeof(close_shot_provenance));
     memset(&dunk_provenance, 0, sizeof(dunk_provenance));
     memset(&jump_shot_provenance, 0, sizeof(jump_shot_provenance));
+    memset(&actor_command_assignment_provenance, 0,
+           sizeof(actor_command_assignment_provenance));
     memset(&shot_resolution_provenance, 0,
            sizeof(shot_resolution_provenance));
     memset(&rebound_audit_provenance, 0,
@@ -1505,6 +1536,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &close_shot_provenance,
                                        &dunk_provenance,
                                        &jump_shot_provenance,
+                                       &actor_command_assignment_provenance,
                                        &shot_resolution_provenance,
                                        &rebound_audit_provenance,
                                        &penalty_provenance,
@@ -1551,6 +1583,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &close_shot_provenance,
                                        &dunk_provenance,
                                        &jump_shot_provenance,
+                                       &actor_command_assignment_provenance,
                                        &shot_resolution_provenance,
                                        &rebound_audit_provenance,
                                        &penalty_provenance,
@@ -2669,6 +2702,10 @@ int tecmo_asset_pack_self_test(char *message, size_t message_size)
         goto cleanup;
     }
     if (tecmo_asset_pack_gameplay_jump_shots_self_test(
+            message, message_size) != 0) {
+        goto cleanup;
+    }
+    if (tecmo_asset_pack_gameplay_actor_command_assignment_self_test(
             message, message_size) != 0) {
         goto cleanup;
     }

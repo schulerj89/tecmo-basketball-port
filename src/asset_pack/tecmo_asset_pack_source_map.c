@@ -10,6 +10,7 @@
 #include <stdlib.h>
 
 #define TECMO_ASSET_PACK_SOURCE_MAP_BASE_CAPACITY 131072U
+#define TECMO_ASSET_PACK_SOURCE_MAP_TGCA_CAPACITY 4096U
 
 static uint64_t source_map_prg_bank_cpu_source_offset(uint64_t prg_offset,
                                                        uint32_t prg_banks,
@@ -2914,6 +2915,90 @@ static int append_gameplay_jump_shot_source_map_entry(
         (unsigned)TECMO_ASSET_PACK_GAMEPLAY_JUMP_SHOTS_POSES_FNV1A32);
 }
 
+static int append_gameplay_actor_command_assignment_source_map_entry(
+    char *buffer,
+    size_t capacity,
+    size_t *length,
+    int *first,
+    const TecmoGameplayActorCommandAssignmentProvenance *p)
+{
+    static const char *const roles[
+        TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_COUNT] = {
+        "distance-helper-$9DF6-$9E63",
+        "interaction-caller-and-assignment-$9F2F-$A0DC",
+        "object-slot10-dispatch-and-pointer-tables-$A214-$A25E",
+        "object-state10-caller-$B6E5-$B774",
+        "object-state17-and-state18-callers-$B775-$B7C0",
+        "fixed-action-dispatch-$C711-$C73B",
+        "fixed-action-selector-$CAF5-$CB32",
+        "fixed-action-table-low-$CB33-$CB70",
+        "fixed-action-table-high-$CB71-$CBAE"
+    };
+    const char *prefix = *first != 0 ? "" : ",\n";
+    size_t index;
+
+    *first = 0;
+    if (tecmo_asset_pack_append_text(
+            buffer, capacity, length,
+            "%s"
+            "    {\"id\":\"%s\",\"kind\":\"gameplay-actor-command-assignment-native\","
+            "\"schema\":\"tecmo.gameplay-actor-command-assignment/TGCA-1\","
+            "\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\","
+            "\"revision_sha256_identity\":\"076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4\","
+            "\"revision_full_rom_fnv1a32\":\"0650F5B0\","
+            "\"source_spans\":[",
+            prefix,
+            TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_ID,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SIZE,
+            (unsigned)TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_FNV1A32) !=
+        0) {
+        return -1;
+    }
+    for (index = 0U;
+         index < TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_COUNT;
+         ++index) {
+        const TecmoGameplayActorCommandAssignmentExpectedSource *source =
+            &tecmo_gameplay_actor_command_assignment_expected_sources[index];
+        if (tecmo_asset_pack_append_text(
+                buffer, capacity, length,
+                "%s{\"role\":\"%s\",\"source_entry\":\"%s\","
+                "\"source_offset\":%llu,\"bank\":%u,\"fixed_bank\":%s,"
+                "\"cpu_start\":%u,\"cpu_end\":%u,\"size\":%u,"
+                "\"payload_offset\":%u,\"fingerprint_fnv1a32\":\"%08X\","
+                "\"fingerprint_fnv1a64\":\"%016llX\"}",
+                index == 0U ? "" : ",", roles[index],
+                source->fixed_bank != 0U ? "prg/fixed" : "prg/bank05",
+                (unsigned long long)p->source_offsets[index],
+                (unsigned)source->bank,
+                source->fixed_bank != 0U ? "true" : "false",
+                (unsigned)source->cpu_start,
+                (unsigned)((uint32_t)source->cpu_start +
+                           source->byte_count - 1U),
+                (unsigned)source->byte_count,
+                (unsigned)source->payload_offset,
+                (unsigned)source->fingerprint_fnv1a32,
+                (unsigned long long)source->fingerprint_fnv1a64) != 0) {
+            return -1;
+        }
+    }
+    return tecmo_asset_pack_append_text(
+        buffer, capacity, length,
+        "],\"raw_aggregate\":{\"size\":%u,"
+        "\"fingerprint_fnv1a32\":\"%08X\"},"
+        "\"resolver_contract\":{"
+        "\"scan_order\":\"actor slots 9 through 0\","
+        "\"tie_rule\":\"equal score replaces; lower slot wins\","
+        "\"depth_distance\":\"unsigned abs8 promoted to 16 bits\","
+        "\"selected_exclusions\":[\"$0308\",\"$0309\"],"
+        "\"owned_writes\":[\"$0547/$0551 stream offset\",\"$057C state\"]},"
+        "\"production_attachment\":false,"
+        "\"unsupported_effects\":[\"$046E\",\"$0484/$048F\",\"$C711\",\"$9DF6 scratch\"],"
+        "\"runtime_inputs\":\"fixture-only TGCA-1 plus typed LIVE foundation; no ROM, decompilation, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}",
+        (unsigned)TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_RAW_SIZE,
+        (unsigned)
+            TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_RAW_FNV1A32);
+}
+
 static int append_gameplay_shot_resolution_source_map_entry(
     char *buffer,
     size_t capacity,
@@ -3762,6 +3847,8 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
                                    const TecmoGameplayCloseShotProvenance *close_shot_provenance,
                                    const TecmoGameplayDunkProvenance *dunk_provenance,
                                    const TecmoGameplayJumpShotProvenance *jump_shot_provenance,
+    const TecmoGameplayActorCommandAssignmentProvenance
+        *actor_command_assignment_provenance,
                                    const TecmoGameplayShotResolutionProvenance *shot_resolution_provenance,
                                    const TecmoGameplayReboundAuditProvenance *rebound_audit_provenance,
     const TecmoGameplayPenaltyProvenance *penalty_provenance,
@@ -3789,10 +3876,12 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
     int first_logical = 1;
 
     if (entry_count >
-        (SIZE_MAX - TECMO_ASSET_PACK_SOURCE_MAP_BASE_CAPACITY) / 512U) {
+        (SIZE_MAX - TECMO_ASSET_PACK_SOURCE_MAP_BASE_CAPACITY -
+         TECMO_ASSET_PACK_SOURCE_MAP_TGCA_CAPACITY) / 512U) {
         return NULL;
     }
     capacity = TECMO_ASSET_PACK_SOURCE_MAP_BASE_CAPACITY +
+               TECMO_ASSET_PACK_SOURCE_MAP_TGCA_CAPACITY +
                entry_count * 512U;
     source_map = (char *)malloc(capacity);
     if (source_map == NULL) {
@@ -4047,6 +4136,10 @@ char *tecmo_asset_pack_build_ines_source_map(uint32_t mapper,
          append_gameplay_jump_shot_source_map_entry(
              source_map, capacity, &length, &first_logical,
              jump_shot_provenance) != 0) ||
+        (actor_command_assignment_provenance->source_offsets[0] != 0U &&
+         append_gameplay_actor_command_assignment_source_map_entry(
+             source_map, capacity, &length, &first_logical,
+             actor_command_assignment_provenance) != 0) ||
         (shot_resolution_provenance->source_offsets[0] != 0U &&
          append_gameplay_shot_resolution_source_map_entry(
              source_map, capacity, &length, &first_logical,

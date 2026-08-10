@@ -1,9 +1,11 @@
 #include "asset_pack/tecmo_asset_pack_gameplay_backcourt.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_ball_dribble.h"
+#include "asset_pack/tecmo_asset_pack_gameplay_actor_command_assignment.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_court_orientation.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_fatigue.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_violation_referee.h"
 #include "tecmo_gameplay_backcourt.h"
+#include "tecmo_gameplay_actor_command_assignment.h"
 #include "tecmo_gameplay_ball_dribble.h"
 #include "tecmo_gameplay_camera.h"
 #include "tecmo_gameplay_candidate_selection.h"
@@ -37,6 +39,25 @@ int tecmo_cli_run_gameplay_core_commands(const TecmoCliContext *context)
     argc = context->argc;
     argv = context->argv;
     index = context->index;
+    if (strcmp(command, "--gameplay-actor-command-assignment-test") == 0) {
+        const char *pack_path = index < argc ? argv[index] : NULL;
+        const char *rom_path = index + 1 < argc ? argv[index + 1] : NULL;
+        char message[256];
+        if (rom_path != NULL &&
+            tecmo_asset_pack_gameplay_actor_command_assignment_source_test(
+                rom_path, message, sizeof(message)) != 0) {
+            printf("Actor command assignment source test failed: %s\n", message);
+            return 1;
+        }
+        if (!tecmo_gameplay_actor_command_assignment_self_test(
+                pack_path, message, sizeof(message))) {
+            printf("Actor command assignment test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
     if (strcmp(command, "--gameplay-penalties-test") == 0) {
         const char *pack_path = index < argc ? argv[index] : NULL;
         char message[256];
@@ -213,7 +234,7 @@ int tecmo_cli_run_gameplay_core_commands(const TecmoCliContext *context)
         const char *pack_path = index < argc ? argv[index++] : NULL;
         const char *event = index < argc ? argv[index++] : NULL;
         const char *output_path = index < argc ? argv[index] : NULL;
-        char message[8192];
+        char message[12288];
         if (!tecmo_gameplay_live_foundation_proof(
                 root, pack_path, event, output_path,
                 message, sizeof(message))) {
