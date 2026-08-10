@@ -126,17 +126,26 @@ function Write-MutatedPayloadAndReject {
 }
 
 function Invoke-Render {
-    param([ValidateSet("shot-clock", "out-of-bounds")]
+    param([ValidateSet("shot-clock", "out-of-bounds", "foul")]
           [string]$Kind, [int]$Frame)
     $Mode = if ($Kind -eq "shot-clock") {
         "gameplay-shot-clock-violation-frame$Frame"
+    } elseif ($Kind -eq "foul") {
+        "gameplay-foul-frame$Frame"
     } else {
         "gameplay-out-of-bounds-frame$Frame"
     }
     $ExpectedViolation = if ($Kind -eq "shot-clock") {
         "SHOT CLOCK VIOLATION"
-    } else {
+    } elseif ($Kind -eq "out-of-bounds") {
         "OUT OF BOUNDS"
+    } else {
+        $null
+    }
+    $ExpectedPhase = if ($Kind -eq "foul") {
+        "phase=foul-presentation"
+    } else {
+        "phase=violation-presentation"
     }
     $Hashes = @()
     for ($Pass = 0; $Pass -lt 2; ++$Pass) {
@@ -146,9 +155,12 @@ function Invoke-Render {
         $Text = $Output -join [Environment]::NewLine
         if ($LASTEXITCODE -ne 0 -or
             !(Test-Path -LiteralPath $Png -PathType Leaf) -or
-            $Text -notmatch "phase=violation-presentation" -or
-            $Text -notmatch
-                "phase-frame=$Frame violation=$ExpectedViolation") {
+            $Text -notmatch $ExpectedPhase -or
+            ($Kind -eq "foul" -and
+             $Text -notmatch "phase-frame=$Frame") -or
+            ($Kind -ne "foul" -and
+             $Text -notmatch
+                "phase-frame=$Frame violation=$ExpectedViolation")) {
             throw "TGVR-1 $Kind render frame $Frame failed.`n$(Get-ShortTail $Output)"
         }
         $Hashes += (Get-FileHash -LiteralPath $Png -Algorithm SHA256).Hash
@@ -241,6 +253,14 @@ try {
         $Maps[0].native_contract.backcourt_message -ne "BACKCOURT" -or
         $Maps[0].native_contract.live_backcourt_trigger -notmatch
             'TGBC-1.*TPNL-1 selector 2' -or
+        $Maps[0].native_contract.foul_fixed_script -ne
+            'fixed $E95E-$EA11 selector $2C then selector $22' -or
+        $Maps[0].native_contract.foul_overlay -ne 'Bank02 $B0F8-$B398' -or
+        $Maps[0].native_contract.foul_dispatcher_selector -ne 34 -or
+        $Maps[0].native_contract.foul_controller_selector -ne 0 -or
+        $Maps[0].native_contract.foul_sequence_id -ne 0 -or
+        (@($Maps[0].native_contract.foul_groups) -join ',') -ne
+            '1,2,2,2' -or
         $Maps[0].capture_bounded_alignment.black_frames -ne 9 -or
         $Maps[0].capture_bounded_alignment.sequence_visible_start_frame -ne
             23) {
@@ -336,9 +356,21 @@ try {
         $OutOfBoundsHashes[23] -eq $ShotClockHashes[23]) {
         throw "TGVR-1 out-of-bounds text/groups 3->4->5 did not remain distinct."
     }
+    $FoulHashes = @{}
+    foreach ($Frame in @(0, 9, 23, 27, 163)) {
+        $FoulHashes[$Frame] = Invoke-Render "foul" $Frame
+    }
+    if ($FoulHashes[0] -eq $FoulHashes[9] -or
+        $FoulHashes[9] -eq $FoulHashes[23] -or
+        $FoulHashes[23] -eq $FoulHashes[27] -or
+        $FoulHashes[27] -ne $FoulHashes[163] -or
+        $FoulHashes[23] -eq $OutOfBoundsHashes[23]) {
+        throw "TGVR-1 fixed-$E95E foul selector-0 groups 1->2/terminal hold failed."
+    }
 
     Write-Host (
         "TGVR-1 focused tests passed: exact screen 05, ROM text, " +
+        "fixed-`$E95E foul selector-0 groups 1->2, " +
         "shot-clock groups 9->10, live TGMO/TPNL out-of-bounds and " +
         "TGBC/TPNL backcourt groups 3->4->5, 168-frame settlement, " +
         "deterministic render checkpoints, " +

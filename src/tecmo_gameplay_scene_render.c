@@ -141,6 +141,8 @@ const char *tecmo_gameplay_scene_render_diagnostic(
         return "dunk presentation composition";
     if (scene->state.phase == TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION)
         return "violation presentation composition";
+    if (scene->state.phase == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION)
+        return "foul referee presentation composition";
     if (!scene_framebuffer_subview((TecmoFramebuffer *)framebuffer,
                                    origin_x, origin_y, scale, &view)) {
         return "live subview";
@@ -1471,6 +1473,17 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
             scene->assets.chr_storage_size,
             framebuffer, origin_x, origin_y, scale,
             scene->state.violation, scene->state.phase_frame);
+    }
+    if (scene->state.phase == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION) {
+        /* Fixed $E95E selects $22 -> Bank04 $BA1F selector 0. Do not fall
+           through into the live court compositor: the original cuts normal
+           actors and ball away while the referee script owns OAM. */
+        return tecmo_gameplay_violation_referee_draw_foul(
+            &scene->violation_referee_assets,
+            scene->assets.chr_storage,
+            scene->assets.chr_storage_size,
+            framebuffer, origin_x, origin_y, scale,
+            scene->state.phase_frame);
     }
     if (!scene_framebuffer_subview(framebuffer, origin_x, origin_y,
                                    scale, &view) ||

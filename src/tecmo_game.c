@@ -1565,7 +1565,8 @@ bool tecmo_render_gameplay_scene(const TecmoRuntime *runtime,
     }
     if (tecmo_gameplay_scene_in_dunk_presentation(scene) ||
         tecmo_gameplay_scene_in_pretip(scene) ||
-        state->phase == TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION) {
+        state->phase == TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+        state->phase == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION) {
         return true;
     }
     if (!scene->active || !state->initialized) return true;

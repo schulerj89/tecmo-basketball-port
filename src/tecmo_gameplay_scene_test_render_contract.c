@@ -2752,6 +2752,149 @@ static bool scene_test_framebuffer_fail_closed(
     return true;
 }
 
+static bool scene_test_foul_referee_presentation(
+    const TecmoGameplayScene *scene,
+    char *message,
+    size_t message_size)
+{
+    const size_t pixel_count =
+        (size_t)TECMO_GAMEPLAY_SCENE_NES_WIDTH *
+        TECMO_GAMEPLAY_SCENE_NES_HEIGHT;
+    TecmoGameplayScene foul_scene;
+    TecmoGameplayScene actor_probe;
+    TecmoGameplayFoulRequest request;
+    TecmoFramebuffer framebuffer_a;
+    TecmoFramebuffer framebuffer_b;
+    uint32_t *pixels_a = NULL;
+    uint32_t *pixels_b = NULL;
+    uint32_t hashes[5U];
+    bool ok = false;
+
+    if (scene == NULL || scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "foul referee render fixture did not begin from live state");
+        return false;
+    }
+    pixels_a = (uint32_t *)calloc(pixel_count, sizeof(*pixels_a));
+    pixels_b = (uint32_t *)calloc(pixel_count, sizeof(*pixels_b));
+    if (pixels_a == NULL || pixels_b == NULL) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "foul referee render fixture allocation failed");
+        goto done;
+    }
+    framebuffer_a.pixels = pixels_a;
+    framebuffer_a.width = TECMO_GAMEPLAY_SCENE_NES_WIDTH;
+    framebuffer_a.height = TECMO_GAMEPLAY_SCENE_NES_HEIGHT;
+    framebuffer_a.pitch_pixels = TECMO_GAMEPLAY_SCENE_NES_WIDTH;
+    framebuffer_b = framebuffer_a;
+    framebuffer_b.pixels = pixels_b;
+
+    /* Presentation-only checkpoint: preserve the public foul-state boundary
+       without attempting to test the separate live-contact classifier. */
+    foul_scene = *scene;
+    memset(&request, 0, sizeof(request));
+    request.fouling_team = TECMO_GAMEPLAY_TEAM_HOME;
+    request.free_throw_team = TECMO_GAMEPLAY_TEAM_AWAY;
+    request.counter_effect = TECMO_GAMEPLAY_FOUL_COUNTER_BOTH;
+    request.player_index = 0U;
+    request.free_throw_attempts = 2U;
+    if (!tecmo_gameplay_request_foul(&foul_scene.state, &request) ||
+        foul_scene.state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
+        foul_scene.state.phase_frame != 0U ||
+        strcmp(tecmo_gameplay_scene_render_diagnostic(
+                   &foul_scene, &framebuffer_a, 0, 0, 1, true),
+               "foul referee presentation composition") != 0 ||
+        !tecmo_gameplay_scene_draw(
+            &foul_scene, &framebuffer_a, 0, 0, 1, true)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "foul referee frame-0 cutaway was rejected");
+        goto done;
+    }
+    hashes[0U] = tecmo_gameplay_scene_test_pixels_fnv1a32(
+        pixels_a, pixel_count);
+
+    foul_scene.state.phase_frame = 9U;
+    if (!tecmo_gameplay_scene_draw(
+            &foul_scene, &framebuffer_a, 0, 0, 1, true)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "foul referee frame-9 fade was rejected");
+        goto done;
+    }
+    hashes[1U] = tecmo_gameplay_scene_test_pixels_fnv1a32(
+        pixels_a, pixel_count);
+
+    /* Fixed $E95E -> $22 -> Bank04 $BA1F selector 0 reaches group 1 at
+       frame 23, then group 2 at frame 27. Rendering must cut the ordinary
+       court actors and ball out regardless of their current live state. */
+    foul_scene.state.phase_frame = 23U;
+    if (!tecmo_gameplay_scene_draw(
+            &foul_scene, &framebuffer_a, 0, 0, 1, true) ||
+        !tecmo_gameplay_scene_draw(
+            &foul_scene, &framebuffer_b, 0, 0, 1, false) ||
+        memcmp(pixels_a, pixels_b, pixel_count * sizeof(*pixels_a)) != 0) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "foul referee frame-23 retained ordinary court composition");
+        goto done;
+    }
+    hashes[2U] = tecmo_gameplay_scene_test_pixels_fnv1a32(
+        pixels_a, pixel_count);
+    actor_probe = foul_scene;
+    actor_probe.actors[0U].position.x = 0;
+    actor_probe.actors[0U].position.y = 0;
+    actor_probe.actors[0U].anchor = actor_probe.actors[0U].position;
+    actor_probe.actors[0U].pose_index = 0xFFU;
+    actor_probe.ball_position.x_q8 = 0;
+    actor_probe.ball_position.y_q8 = 0;
+    if (!tecmo_gameplay_scene_draw(
+            &actor_probe, &framebuffer_b, 0, 0, 1, true) ||
+        memcmp(pixels_a, pixels_b, pixel_count * sizeof(*pixels_a)) != 0) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "foul referee frame-23 consumed a live actor/ball pose");
+        goto done;
+    }
+
+    foul_scene.state.phase_frame = 27U;
+    if (!tecmo_gameplay_scene_draw(
+            &foul_scene, &framebuffer_b, 0, 0, 1, true)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "foul referee frame-27 selector-0 group was rejected");
+        goto done;
+    }
+    hashes[3U] = tecmo_gameplay_scene_test_pixels_fnv1a32(
+        pixels_b, pixel_count);
+    foul_scene.state.phase_frame =
+        TECMO_GAMEPLAY_FOUL_PRESENTATION_FRAMES - 1U;
+    if (!tecmo_gameplay_scene_draw(
+            &foul_scene, &framebuffer_a, 0, 0, 1, true)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "foul referee terminal selector-0 group was rejected");
+        goto done;
+    }
+    hashes[4U] = tecmo_gameplay_scene_test_pixels_fnv1a32(
+        pixels_a, pixel_count);
+    if (hashes[0U] == hashes[1U] || hashes[1U] == hashes[2U] ||
+        hashes[2U] == hashes[3U] || hashes[3U] != hashes[4U]) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "foul referee ASM sequence/final hold pixels diverged");
+        goto done;
+    }
+    ok = true;
+
+done:
+    free(pixels_b);
+    free(pixels_a);
+    return ok;
+}
+
 
 bool tecmo_gameplay_scene_test_render_contract(
     TecmoGameplaySceneTestContext *test)
@@ -2798,6 +2941,8 @@ bool tecmo_gameplay_scene_test_render_contract(
     if (!scene_test_render_hashes(
             scene, &left_probe, &right_probe, &buffers,
             message, message_size) ||
+        !scene_test_foul_referee_presentation(
+            scene, message, message_size) ||
         !scene_test_framebuffer_fail_closed(
             scene, &fine_scroll_probe, &buffers,
             message, message_size)) {
