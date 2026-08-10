@@ -28,6 +28,16 @@
       "cpu_end": "0xB398",
       "bytes": 673,
       "fnv1a32": "A06E397C"
+    },
+    {
+      "role": "fixed foul presentation caller and selector order",
+      "assembly": "fixed-bank dispatcher",
+      "bank": 7,
+      "fixed_bank": true,
+      "cpu_start": "0xE95E",
+      "cpu_end": "0xEA11",
+      "bytes": 180,
+      "fnv1a32": "9AFB64FE"
     }
   ],
   "native_mapping": {
@@ -41,14 +51,33 @@
       "current_route_0478": "0x19",
       "contact_selector_05a8": "0x00"
     },
-    "request_consequences": "classifier output supplies counter effect and free-throw attempts to tecmo_gameplay_request_foul"
+    "request_consequences": "classifier output supplies counter effect and free-throw attempts to tecmo_gameplay_request_foul",
+    "presentation": {
+      "transaction": "a typed scene snapshot is populated only after the state request succeeds and its post-state counters/attempts match the strict result",
+      "caller_order": "$E95E active gate -> $ED15 -> selector $2C -> selector $22 -> LDY #$A0 / $EA14",
+      "bank02_writer": "B0F8 writes defensive/pushing class, roster name/number, personal/team counters, and conditional fouled-out text before the shared $22 controller",
+      "ppu_cells": {
+        "class": "0x2283",
+        "kind": "0x2292",
+        "number": "0x22A3",
+        "name": "0x22A6",
+        "personal": "0x22E3",
+        "team": "0x2303",
+        "fouled_out": "0x234B"
+      },
+      "renderer": "existing TGVR screen/fade and Bank04 selector-0 groups 1,2,2,2; live court actors and ball remain suppressed",
+      "bonus": "B373-B398 changes the side mask at regulation five/overtime four; no visible BONUS text is inferred",
+      "timing_limit": "Bank02 dynamic PPU completion timing is not established; overlay shares the existing capture-bounded TGVR blackout/fade and is proof-captured at visible group 1"
+    }
   },
   "proven_covered": [
     "B05 raw signed X/depth envelope including no-contact boundary",
     "defensive pushing counter increments",
     "regulation bonus threshold and two-attempt consequence",
     "strict classifier blocking and charging/turnover branches",
-    "ordinary scene foul presentation and normal foul-to-free-throw handoff"
+    "ordinary scene foul presentation and normal foul-to-free-throw handoff",
+    "transactional ordinary defensive-pushing presentation identity and source-backed Bank02 overlay cells",
+    "Bank04 selector-0 referee gesture with court actor/ball suppression"
   ],
   "fail_closed_or_excluded": [
     "B05 $9968 is not claimed as the complete original foul caller",
@@ -68,7 +97,15 @@
       "live_foul.classifier",
       "live_foul.adapter_profile",
       "live_foul.team_fouls_home",
-      "live_foul.attempts_remaining"
+      "live_foul.attempts_remaining",
+      "live_foul.presentation.retained",
+      "live_foul.presentation.foul_class",
+      "live_foul.presentation.individual_after",
+      "live_foul.presentation.team_after",
+      "live_foul.presentation.team_in_bonus",
+      "live_foul.presentation.overlay_visible",
+      "live_foul.presentation.referee_group",
+      "live_foul.presentation.court_actors_suppressed"
     ]
   }
 }

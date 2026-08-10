@@ -187,6 +187,26 @@ typedef struct TecmoGameplaySceneCourtFrame {
     TecmoGameplaySceneCourtProjection projection;
 } TecmoGameplaySceneCourtFrame;
 
+/* A scene-owned snapshot of the one currently supported live-foul route.
+   It is deliberately separate from TecmoGameplayFoulRequest/state: TPNL
+   adjudicates, state transitions/counters, and this record only retains the
+   already accepted presentation identity used by Bank02's overlay writer.
+   No raw $07E3/$0478/$05A8 route values are carried past the bounded bridge. */
+typedef struct TecmoGameplaySceneFoulPresentation {
+    bool valid;
+    TecmoGameplayTeam fouling_team;
+    uint8_t actor_index;
+    uint8_t roster_index;
+    TecmoGameplayFoulClass foul_class;
+    uint8_t individual_foul_delta;
+    uint8_t team_foul_delta;
+    uint8_t individual_fouls_after;
+    uint8_t team_fouls_after;
+    uint8_t free_throw_attempts;
+    bool team_in_bonus;
+    bool fouled_out;
+} TecmoGameplaySceneFoulPresentation;
+
 typedef struct TecmoGameplayScene {
     uint32_t lifecycle_tag;
     bool available;
@@ -330,6 +350,7 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayShotRimRattle jump_rim_rattle;
     TecmoGameplayJumpShotMadeSettlement jump_made_settlement;
     TecmoGameplaySceneShotKind shot_kind;
+    TecmoGameplaySceneFoulPresentation foul_presentation;
     TecmoGameplayPhase previous_phase;
     bool pretip_abort_pending;
     uint32_t frame;

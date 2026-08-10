@@ -1214,7 +1214,8 @@ try {
         "defensive-switch",
         "cpu-target-deferred",
         "cpu-source-shot",
-        "shot-path"
+        "shot-path",
+        "defensive-foul-presentation"
     )
     New-Item -ItemType Directory -Force -Path $ProofRoot | Out-Null
     $ProofRecords = @()
@@ -1309,6 +1310,37 @@ try {
                     [string]$AsmEvidence.cpu_shot_gate -ne
                         "Bank06 C-0011 `$8431-`$8475") {
                     throw "LIVE proof CPU source-shot target/refresh/gate evidence regressed."
+                }
+            }
+            if ($Event -eq "defensive-foul-presentation") {
+                $Foul = $State.live_foul
+                $Presentation = $Foul.presentation
+                if (![bool]$Foul.active -or
+                    [bool]$Foul.direct_phase_injection -or
+                    $Foul.entrypoint -ne
+                        "tecmo_gameplay_scene_update/human-defensive-B" -or
+                    $Foul.contact_gate -ne "Bank05:`$9968-`$999D" -or
+                    $Foul.commit -ne "Bank05:`$9571-`$9649:C83877F7" -or
+                    $Foul.classifier -ne "Bank02:`$B0F8-`$B398:A06E397C" -or
+                    ![bool]$Presentation.retained -or
+                    [int]$Presentation.foul_class -ne 3 -or
+                    [int]$Presentation.individual_delta -ne 1 -or
+                    [int]$Presentation.team_delta -ne 1 -or
+                    [int]$Presentation.individual_after -ne 1 -or
+                    [int]$Presentation.team_after -ne 5 -or
+                    [int]$Presentation.attempts -ne 2 -or
+                    ![bool]$Presentation.team_in_bonus -or
+                    [bool]$Presentation.fouled_out -or
+                    [int]$Presentation.visible_phase_frame -ne 23 -or
+                    ![bool]$Presentation.overlay_visible -or
+                    [int]$Presentation.referee_group -ne 1 -or
+                    ![bool]$Presentation.court_actors_suppressed -or
+                    $Presentation.overlay_writer -ne "Bank02:`$B0F8-`$B398" -or
+                    $Presentation.referee_script -ne
+                        "fixed:`$E95E-`$EA11:`$2C-then-`$22" -or
+                    $Presentation.timing -notmatch
+                        "completion frame unavailable") {
+                    throw "LIVE proof defensive-foul overlay/gesture state regressed."
                 }
             }
             $ProofRecords += [pscustomobject]@{
@@ -1437,6 +1469,7 @@ try {
             "cpu-target-deferred: deterministic source-offset fixture"
             "cpu-source-shot: Bank04 target+wait fixture through formation refresh and CPU shot gate"
             "shot-path: deterministic supported close-shot fixture"
+            "defensive-foul-presentation: real PRETIP/live handoff, optional human A switch, human defensive-B, then neutral capture at TGVR visible group 1"
         )
         repeat_count = 2
         stored_frame_count = $ProofRecords.Count

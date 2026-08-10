@@ -30,6 +30,28 @@ static bool scene_build_matchup_live_palette(
 static bool scene_apply_matchup_live_palette(
     const TecmoGameplayScene *scene, TecmoGameplayResolvedPose *pose);
 
+/* Bank02 $B0F8 writes this ordinary defensive path into the screen-$22
+   nametable. The separate fixed $E95E caller then dispatches selector $22 to
+   Bank04's referee controller. These addresses/texts are deliberately kept
+   next to the source-contract checks below rather than generalized into a
+   new foul taxonomy. */
+#define SCENE_FOUL_OVERLAY_CLASS_PPU 0x2283U
+#define SCENE_FOUL_OVERLAY_KIND_PPU 0x2292U
+#define SCENE_FOUL_OVERLAY_NUMBER_PPU 0x22A3U
+#define SCENE_FOUL_OVERLAY_NAME_PPU 0x22A6U
+#define SCENE_FOUL_OVERLAY_PERSONAL_PPU 0x22E3U
+#define SCENE_FOUL_OVERLAY_TEAM_PPU 0x2303U
+#define SCENE_FOUL_OVERLAY_OUT_PPU 0x234BU
+
+static const char scene_foul_overlay_defensive_text[] = "DEFENSIVE FOUL ";
+static const char scene_foul_overlay_pushing_text[] = "PUSHING";
+static const char scene_foul_overlay_personal_text[] = " PERSONAL FOUL";
+static const char scene_foul_overlay_team_text[] = " TEAM FOULS";
+static const char scene_foul_overlay_out_text[] = "FOULED OUT";
+static const char *const scene_foul_overlay_ordinals[6] = {
+    "1ST", "2ND", "3RD", "4TH", "5TH", "6TH"
+};
+
 static bool scene_framebuffer_valid(const TecmoFramebuffer *framebuffer,
                                     int origin_x, int origin_y, int scale)
 {
@@ -357,9 +379,251 @@ static bool scene_hud_put_bcd(
            scene_hud_put_font_character(
                scene, prepared, row, column,
                (unsigned char)('0' + high)) &&
-           scene_hud_put_font_character(
+               scene_hud_put_font_character(
                scene, prepared, row, column + 1U,
                (unsigned char)('0' + low));
+}
+
+static bool scene_foul_overlay_source_contract(
+    const TecmoGameplayScene *scene)
+{
+    const TecmoGameplaySourceSpan *overlay_source;
+    const TecmoGameplayPenaltySourceSpan *rules_source;
+    const TecmoGameplayHudSourceSpan *font_source;
+    if (scene == NULL || !scene->assets.available ||
+        !scene->penalty_assets.available || !scene->hud_assets.available) {
+        return false;
+    }
+    overlay_source = tecmo_gameplay_assets_find_source(
+        &scene->assets, TECMO_GAMEPLAY_SOURCE_FOUL_OVERLAY);
+    rules_source = tecmo_gameplay_penalties_find_source(
+        &scene->penalty_assets,
+        TECMO_GAMEPLAY_PENALTY_SOURCE_FOUL_RULES_PRESENTATION);
+    font_source = tecmo_gameplay_hud_find_source(
+        &scene->hud_assets, TECMO_GAMEPLAY_HUD_SOURCE_TEXT_FORMAT);
+    return overlay_source != NULL && overlay_source->bank == 2U &&
+           !overlay_source->fixed_bank &&
+           overlay_source->cpu_start == 0xB0F8U &&
+           overlay_source->cpu_end == 0xB2B0U &&
+           overlay_source->byte_count == 441U &&
+           overlay_source->fingerprint == 0xFA6E116AU &&
+           rules_source != NULL && rules_source->bank == 2U &&
+           !rules_source->fixed_bank &&
+           rules_source->cpu_start == 0xB0F8U &&
+           rules_source->cpu_end == 0xB398U &&
+           rules_source->byte_count == 673U &&
+           rules_source->fingerprint == 0xA06E397CU &&
+           font_source != NULL && font_source->bank == 2U &&
+           !font_source->fixed_bank &&
+           font_source->cpu_start == 0xAF64U;
+}
+
+static bool scene_foul_overlay_put_character(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayViolationRefereeFoulOverlay *overlay,
+    uint16_t ppu_address,
+    unsigned char character)
+{
+    const TecmoStartGameMenuCell *font;
+    size_t font_index;
+    uint8_t tile;
+    if (scene == NULL || overlay == NULL ||
+        overlay->cell_count >=
+            TECMO_GAMEPLAY_VIOLATION_REFEREE_MAX_FOUL_OVERLAY_CELLS ||
+        ppu_address < 0x2000U ||
+        (size_t)(ppu_address - 0x2000U) >= 960U ||
+        character < TECMO_GAMEPLAY_HUD_FONT_FIRST ||
+        character >= TECMO_GAMEPLAY_HUD_FONT_FIRST +
+                         TECMO_GAMEPLAY_HUD_FONT_COUNT ||
+        scene->pretip_team_data == NULL ||
+        !scene->pretip_team_data->available ||
+        !tecmo_gameplay_hud_tile_for_ascii(
+            &scene->hud_assets, character, &tile)) {
+        return false;
+    }
+    font_index = character - TECMO_GAMEPLAY_HUD_FONT_FIRST;
+    font = &scene->pretip_team_data->font[font_index];
+    if (font->tile_id != tile ||
+        font->chr_offset > scene->assets.chr_storage_size ||
+        scene->assets.chr_storage_size - font->chr_offset < 16U) {
+        return false;
+    }
+    overlay->cells[overlay->cell_count].ppu_address = ppu_address;
+    overlay->cells[overlay->cell_count].chr_offset = font->chr_offset;
+    ++overlay->cell_count;
+    return true;
+}
+
+static bool scene_foul_overlay_put_text(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayViolationRefereeFoulOverlay *overlay,
+    uint16_t ppu_address,
+    const char *text)
+{
+    size_t index;
+    if (scene == NULL || overlay == NULL || text == NULL) return false;
+    for (index = 0U; text[index] != '\0'; ++index) {
+        uint32_t destination = (uint32_t)ppu_address + (uint32_t)index;
+        if (destination > UINT16_MAX ||
+            !scene_foul_overlay_put_character(
+                scene, overlay, (uint16_t)destination,
+                (unsigned char)text[index])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool scene_foul_overlay_put_name(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayViolationRefereeFoulOverlay *overlay,
+    const char name[21])
+{
+    size_t length = 0U;
+    size_t separator = SIZE_MAX;
+    size_t index;
+    if (scene == NULL || overlay == NULL || name == NULL) return false;
+    while (length < 21U && name[length] != '\0') ++length;
+    if (length == 0U || length == 21U) return false;
+    for (index = 0U; index < length; ++index) {
+        if (name[index] == ' ') {
+            separator = index;
+            break;
+        }
+    }
+    if (separator == SIZE_MAX || separator == 0U ||
+        separator + 1U >= length) {
+        return false;
+    }
+    /* $B2F6 writes the given name until the separator. $B2F9 performs the
+       one PPU data read that advances across the blank cell, then $B2FC
+       writes the remaining name. Retain that exact blank rather than drawing
+       a scene-owned replacement tile into it. */
+    for (index = 0U; index < separator; ++index) {
+        if (!scene_foul_overlay_put_character(
+                scene, overlay,
+                (uint16_t)(SCENE_FOUL_OVERLAY_NAME_PPU + index),
+                (unsigned char)name[index])) {
+            return false;
+        }
+    }
+    for (index = separator + 1U; index < length; ++index) {
+        if (!scene_foul_overlay_put_character(
+                scene, overlay,
+                (uint16_t)(SCENE_FOUL_OVERLAY_NAME_PPU + index),
+                (unsigned char)name[index])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool scene_foul_overlay_presentation_valid(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplaySceneFoulPresentation *presentation,
+    const TecmoTeamDataPlayer **player_out)
+{
+    const TecmoGameplaySceneActor *actor;
+    uint8_t team_id;
+    if (scene == NULL || presentation == NULL || player_out == NULL ||
+        !presentation->valid ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
+        presentation->fouling_team >= TECMO_GAMEPLAY_TEAM_COUNT ||
+        presentation->actor_index >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        presentation->roster_index >= TECMO_TEAM_DATA_PLAYERS_PER_TEAM ||
+        presentation->foul_class != TECMO_GAMEPLAY_FOUL_CLASS_PUSHING ||
+        presentation->individual_foul_delta > 1U ||
+        presentation->team_foul_delta > 1U ||
+        presentation->individual_fouls_after == 0U ||
+        presentation->individual_fouls_after > 6U ||
+        presentation->team_fouls_after > 5U ||
+        presentation->free_throw_attempts > 2U ||
+        presentation->fouled_out !=
+            (presentation->individual_fouls_after >= 6U) ||
+        scene->state.individual_fouls[presentation->fouling_team]
+            [presentation->roster_index] !=
+                presentation->individual_fouls_after ||
+        scene->state.team_fouls[presentation->fouling_team] !=
+            presentation->team_fouls_after ||
+        scene->state.free_throws.attempts_remaining !=
+            presentation->free_throw_attempts ||
+        tecmo_gameplay_team_in_bonus(
+            &scene->state, presentation->fouling_team) !=
+                presentation->team_in_bonus ||
+        scene->pretip_team_data == NULL ||
+        !scene->pretip_team_data->available) {
+        return false;
+    }
+    actor = &scene->actors[presentation->actor_index];
+    if (!actor->active || actor->team != (uint8_t)presentation->fouling_team ||
+        actor->roster_index != presentation->roster_index) {
+        return false;
+    }
+    team_id = presentation->fouling_team == TECMO_GAMEPLAY_TEAM_AWAY
+        ? scene->launch.away_team : scene->launch.home_team;
+    if (team_id >= TECMO_TEAM_DATA_TEAM_COUNT) return false;
+    *player_out = &scene->pretip_team_data->players[team_id]
+                                                 [presentation->roster_index];
+    return true;
+}
+
+static bool scene_foul_overlay_build(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayViolationRefereeFoulOverlay *overlay_out)
+{
+    const TecmoGameplaySceneFoulPresentation *presentation;
+    const TecmoTeamDataPlayer *player;
+    uint8_t high;
+    uint8_t low;
+    TecmoGameplayViolationRefereeFoulOverlay overlay;
+    if (scene == NULL || overlay_out == NULL ||
+        !scene_foul_overlay_source_contract(scene)) {
+        return false;
+    }
+    presentation = &scene->foul_presentation;
+    if (!scene_foul_overlay_presentation_valid(
+            scene, presentation, &player)) {
+        return false;
+    }
+    high = player->attributes[1U] >> 4U;
+    low = player->attributes[1U] & 0x0FU;
+    if (high > 9U || low > 9U) return false;
+    memset(&overlay, 0, sizeof(overlay));
+    if (!scene_foul_overlay_put_text(
+            scene, &overlay, SCENE_FOUL_OVERLAY_CLASS_PPU,
+            scene_foul_overlay_defensive_text) ||
+        !scene_foul_overlay_put_text(
+            scene, &overlay, SCENE_FOUL_OVERLAY_KIND_PPU,
+            scene_foul_overlay_pushing_text) ||
+        !scene_foul_overlay_put_character(
+            scene, &overlay, SCENE_FOUL_OVERLAY_NUMBER_PPU,
+            (unsigned char)('0' + high)) ||
+        !scene_foul_overlay_put_character(
+            scene, &overlay, SCENE_FOUL_OVERLAY_NUMBER_PPU + 1U,
+            (unsigned char)('0' + low)) ||
+        !scene_foul_overlay_put_name(scene, &overlay, player->name) ||
+        !scene_foul_overlay_put_text(
+            scene, &overlay, SCENE_FOUL_OVERLAY_PERSONAL_PPU,
+            scene_foul_overlay_ordinals[
+                presentation->individual_fouls_after - 1U]) ||
+        !scene_foul_overlay_put_text(
+            scene, &overlay,
+            (uint16_t)(SCENE_FOUL_OVERLAY_PERSONAL_PPU + 3U),
+            scene_foul_overlay_personal_text) ||
+        !scene_foul_overlay_put_character(
+            scene, &overlay, SCENE_FOUL_OVERLAY_TEAM_PPU,
+            (unsigned char)('0' + presentation->team_fouls_after)) ||
+        !scene_foul_overlay_put_text(
+            scene, &overlay,
+            (uint16_t)(SCENE_FOUL_OVERLAY_TEAM_PPU + 1U),
+            scene_foul_overlay_team_text) ||
+        (presentation->fouled_out && !scene_foul_overlay_put_text(
+            scene, &overlay, SCENE_FOUL_OVERLAY_OUT_PPU,
+            scene_foul_overlay_out_text))) {
+        return false;
+    }
+    *overlay_out = overlay;
+    return true;
 }
 
 static bool scene_hud_actor_valid_for_team(
@@ -1475,14 +1739,28 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
             scene->state.violation, scene->state.phase_frame);
     }
     if (scene->state.phase == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION) {
+        TecmoGameplayViolationRefereeFoulOverlay foul_overlay;
         /* Fixed $E95E selects $22 -> Bank04 $BA1F selector 0. Do not fall
            through into the live court compositor: the original cuts normal
-           actors and ball away while the referee script owns OAM. */
-        return tecmo_gameplay_violation_referee_draw_foul(
+           actors and ball away while the referee script owns OAM. The
+           ordinary live defensive-B bridge may additionally retain its
+           accepted Bank02 identity; direct legacy/render callers retain the
+           bare fixed referee route. */
+        if (!scene->foul_presentation.valid) {
+            return tecmo_gameplay_violation_referee_draw_foul(
+                &scene->violation_referee_assets,
+                scene->assets.chr_storage,
+                scene->assets.chr_storage_size,
+                framebuffer, origin_x, origin_y, scale,
+                scene->state.phase_frame);
+        }
+        if (!scene_foul_overlay_build(scene, &foul_overlay)) return false;
+        return tecmo_gameplay_violation_referee_draw_foul_overlay(
             &scene->violation_referee_assets,
             scene->assets.chr_storage,
             scene->assets.chr_storage_size,
             framebuffer, origin_x, origin_y, scale,
+            &foul_overlay,
             scene->state.phase_frame);
     }
     if (!scene_framebuffer_subview(framebuffer, origin_x, origin_y,

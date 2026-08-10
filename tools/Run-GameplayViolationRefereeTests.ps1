@@ -256,6 +256,34 @@ try {
         $Maps[0].native_contract.foul_fixed_script -ne
             'fixed $E95E-$EA11 selector $2C then selector $22' -or
         $Maps[0].native_contract.foul_overlay -ne 'Bank02 $B0F8-$B398' -or
+        $Maps[0].native_contract.foul_overlay_presentation.scope -ne
+            'ordinary retained defensive pushing identity only' -or
+        $Maps[0].native_contract.foul_overlay_presentation.writer -ne
+            'Bank02 $B0F8-$B398' -or
+        $Maps[0].native_contract.foul_overlay_presentation.class.ppu -ne
+            '$2283' -or
+        $Maps[0].native_contract.foul_overlay_presentation.class.text -ne
+            'DEFENSIVE FOUL ' -or
+        $Maps[0].native_contract.foul_overlay_presentation.kind.ppu -ne
+            '$2292' -or
+        $Maps[0].native_contract.foul_overlay_presentation.kind.text -ne
+            'PUSHING' -or
+        $Maps[0].native_contract.foul_overlay_presentation.number.ppu -ne
+            '$22A3' -or
+        $Maps[0].native_contract.foul_overlay_presentation.name.ppu -ne
+            '$22A6' -or
+        $Maps[0].native_contract.foul_overlay_presentation.personal.ppu -ne
+            '$22E3' -or
+        (@($Maps[0].native_contract.foul_overlay_presentation.personal.ordinals) -join ',') -ne
+            '1ST,2ND,3RD,4TH,5TH,6TH' -or
+        $Maps[0].native_contract.foul_overlay_presentation.team.ppu -ne
+            '$2303' -or
+        $Maps[0].native_contract.foul_overlay_presentation.fouled_out.ppu -ne
+            '$234B' -or
+        $Maps[0].native_contract.foul_overlay_presentation.bonus -notmatch
+            'no visible BONUS label' -or
+        $Maps[0].native_contract.foul_overlay_presentation.timing_limit -notmatch
+            'completion frame is unavailable' -or
         $Maps[0].native_contract.foul_dispatcher_selector -ne 34 -or
         $Maps[0].native_contract.foul_controller_selector -ne 0 -or
         $Maps[0].native_contract.foul_sequence_id -ne 0 -or

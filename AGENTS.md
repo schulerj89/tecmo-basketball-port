@@ -991,7 +991,12 @@ ordinary-fallthrough adapter profile `$07E3=0`, `$0478=$19`, `$05A8=0`.
 The scene does not retain those raw bytes, so this is not a general original
 collision/route reconstruction. Special routes and spontaneous CPU fouls fail
 closed; see `docs/live-foul-asm-parity.json` before describing live fouls as
-ROM-derived.
+ROM-derived. For that one accepted ordinary defensive-pushing result, the
+scene transactionally retains only typed actor/team/class/counter/attempt
+identity after the state request succeeds. It maps Bank02 `$B0F8-$B398`'s
+source-backed class/type/name/number/counter/fouled-out cells through existing
+THUD/TTDT font and CHR data; `$B373-$B398` bonus remains a side-mask fact with
+no invented visible BONUS string.
 
 TGVR-1 `gameplay/violation-referee` is the strict 4752-byte visual companion
 (FNV1a32 `2EB08CF0`) and requires exact same-pack `chr/all` plus TPNL-1. It
@@ -1001,8 +1006,11 @@ metasprites, and selector-specific sequences. Shot clock is groups
 four-frame group cadence are exact. The nine-frame blackout/fade alignment
 remains capture-bounded. The scene consumes strict TPNL-1 presentation metadata
 to request shared SFX 6 at presentation frame 16 exactly once. This bounded cue
-seam is native-faithful; full presentation and original caller-order parity
-remain incomplete. Missing, malformed, wrong-sized, stale, or
+seam is native-faithful. The fixed ordinary defensive-pushing cutaway also
+retains `$E95E`'s proven `$2C` then `$22` order, the TGVR fade/selector-0
+groups `1,2,2,2`, and court actor/ball suppression; Bank02 dynamic PPU
+completion timing remains unestablished. Other full presentation and original
+caller-order parity remain incomplete. Missing, malformed, wrong-sized, stale, or
 cross-pack data must fail closed.
 
 `gameplay-out-of-bounds-frameN` is the visible integration checkpoint. It must

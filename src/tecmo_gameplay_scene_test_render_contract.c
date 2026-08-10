@@ -2762,12 +2762,15 @@ static bool scene_test_foul_referee_presentation(
         TECMO_GAMEPLAY_SCENE_NES_HEIGHT;
     TecmoGameplayScene foul_scene;
     TecmoGameplayScene actor_probe;
+    TecmoGameplayScene bare_probe;
     TecmoGameplayFoulRequest request;
     TecmoFramebuffer framebuffer_a;
     TecmoFramebuffer framebuffer_b;
     uint32_t *pixels_a = NULL;
     uint32_t *pixels_b = NULL;
     uint32_t hashes[5U];
+    uint8_t home_actor;
+    uint8_t home_roster;
     bool ok = false;
 
     if (scene == NULL || scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE) {
@@ -2792,13 +2795,30 @@ static bool scene_test_foul_referee_presentation(
     framebuffer_b.pixels = pixels_b;
 
     /* Presentation-only checkpoint: preserve the public foul-state boundary
-       without attempting to test the separate live-contact classifier. */
+       without attempting to test the separate live-contact classifier. The
+       typed payload below is the already-adjudicated Bank02 writer input;
+       organic defensive-B retention is covered by the state-flow/LIVE proof. */
     foul_scene = *scene;
+    home_actor = foul_scene.controlled_actor[1U];
+    if (home_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        !foul_scene.actors[home_actor].active ||
+        foul_scene.actors[home_actor].team != TECMO_GAMEPLAY_TEAM_HOME ||
+        foul_scene.actors[home_actor].roster_index >=
+            TECMO_TEAM_DATA_PLAYERS_PER_TEAM) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "foul overlay render fixture lacked a home roster actor");
+        goto done;
+    }
+    home_roster = foul_scene.actors[home_actor].roster_index;
+    foul_scene.state.individual_fouls[TECMO_GAMEPLAY_TEAM_HOME]
+        [home_roster] = 5U;
+    foul_scene.state.team_fouls[TECMO_GAMEPLAY_TEAM_HOME] = 4U;
     memset(&request, 0, sizeof(request));
     request.fouling_team = TECMO_GAMEPLAY_TEAM_HOME;
     request.free_throw_team = TECMO_GAMEPLAY_TEAM_AWAY;
     request.counter_effect = TECMO_GAMEPLAY_FOUL_COUNTER_BOTH;
-    request.player_index = 0U;
+    request.player_index = home_roster;
     request.free_throw_attempts = 2U;
     if (!tecmo_gameplay_request_foul(&foul_scene.state, &request) ||
         foul_scene.state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
@@ -2813,6 +2833,18 @@ static bool scene_test_foul_referee_presentation(
             "foul referee frame-0 cutaway was rejected");
         goto done;
     }
+    foul_scene.foul_presentation.valid = true;
+    foul_scene.foul_presentation.fouling_team = TECMO_GAMEPLAY_TEAM_HOME;
+    foul_scene.foul_presentation.actor_index = home_actor;
+    foul_scene.foul_presentation.roster_index = home_roster;
+    foul_scene.foul_presentation.foul_class = TECMO_GAMEPLAY_FOUL_CLASS_PUSHING;
+    foul_scene.foul_presentation.individual_foul_delta = 1U;
+    foul_scene.foul_presentation.team_foul_delta = 1U;
+    foul_scene.foul_presentation.individual_fouls_after = 6U;
+    foul_scene.foul_presentation.team_fouls_after = 5U;
+    foul_scene.foul_presentation.free_throw_attempts = 2U;
+    foul_scene.foul_presentation.team_in_bonus = true;
+    foul_scene.foul_presentation.fouled_out = true;
     hashes[0U] = tecmo_gameplay_scene_test_pixels_fnv1a32(
         pixels_a, pixel_count);
 
@@ -2829,8 +2861,22 @@ static bool scene_test_foul_referee_presentation(
 
     /* Fixed $E95E -> $22 -> Bank04 $BA1F selector 0 reaches group 1 at
        frame 23, then group 2 at frame 27. Rendering must cut the ordinary
-       court actors and ball out regardless of their current live state. */
+       court actors and ball out regardless of their current live state. The
+       source-complete typed payload here covers name/number, pushing, both
+       counter lines, bonus identity, and the 6TH/FOULED OUT writer branch. */
     foul_scene.state.phase_frame = 23U;
+    bare_probe = foul_scene;
+    bare_probe.foul_presentation.valid = false;
+    if (!tecmo_gameplay_scene_draw(
+            &bare_probe, &framebuffer_b, 0, 0, 1, true) ||
+        !tecmo_gameplay_scene_draw(
+            &foul_scene, &framebuffer_a, 0, 0, 1, true) ||
+        memcmp(pixels_a, pixels_b, pixel_count * sizeof(*pixels_a)) == 0) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "foul overlay cells did not differ from bare referee frame");
+        goto done;
+    }
     if (!tecmo_gameplay_scene_draw(
             &foul_scene, &framebuffer_a, 0, 0, 1, true) ||
         !tecmo_gameplay_scene_draw(

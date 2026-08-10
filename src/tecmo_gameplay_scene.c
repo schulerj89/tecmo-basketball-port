@@ -936,6 +936,8 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
     scene->action_serial = 0U;
     scene->camera_follow_count = 0U;
     scene->free_throw_frame = 0U;
+    memset(&scene->foul_presentation, 0,
+           sizeof(scene->foul_presentation));
     scene_clear_free_throw_lineup_binding(scene);
     scene->previous_phase = scene->state.phase;
     scene->pretip_abort_pending = false;
@@ -2203,6 +2205,12 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
         scene_set_status(scene, "gameplay ownership invariant rejected");
         return false;
     }
+    if (scene->state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION) {
+        /* The retained Bank02 identity is scoped strictly to its accepted
+           display phase. Foul settlement/free throws own no overlay data. */
+        memset(&scene->foul_presentation, 0,
+               sizeof(scene->foul_presentation));
+    }
     scene->previous_phase = scene->state.phase;
     ++scene->frame;
     return true;
@@ -2259,6 +2267,8 @@ void tecmo_gameplay_scene_end(TecmoGameplayScene *scene)
     scene->shot_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     scene->close_shot_step = 0U;
     scene->free_throw_frame = 0U;
+    memset(&scene->foul_presentation, 0,
+           sizeof(scene->foul_presentation));
     scene_clear_free_throw_lineup_binding(scene);
     scene_shot_clear_jump_playback(scene);
     tecmo_gameplay_audio_stop_all(&scene->audio_player);

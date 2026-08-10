@@ -258,6 +258,10 @@ try {
             $Map.presentations.foul.live_restart_sfx_id -eq 5 -and
             $Map.presentations.foul.live_restart_music_id -eq 5 -and
             [bool]$Map.presentations.foul.live_restart_requires_game_music -and
+            $Map.presentations.foul.bank02_overlay -match
+                '\$B0F8-\$B398 class/type/name/number/counters' -and
+            $Map.presentations.foul.bank02_overlay -match
+                'bonus is a side mask' -and
             $Map.presentations.violation.five_seconds_selector -eq 3 -and
             $Map.presentations.violation.lead_in_frames -eq 4 -and
             $Map.presentations.violation.maximum_wait_frames -eq 120 -and

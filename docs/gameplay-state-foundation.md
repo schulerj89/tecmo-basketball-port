@@ -600,7 +600,13 @@ decompilation at these CPU-address ranges:
   penalty asset/API. The bounded live defensive-B bridge consumes the first
   two together with the separately tested Bank05 `$9968` envelope; its
   ordinary route profile is documented in `live-foul-asm-parity.json` and is
-  not a claim of complete live caller or collision parity.
+  not a claim of complete live caller or collision parity. Once its separate
+  foul-state request accepts, the scene retains the typed defensive-pushing
+  actor/team/class/counter/attempt snapshot and uses Bank02's exact `$2283`,
+  `$2292`, `$22A3`, `$22A6`, `$22E3`, `$2303`, and conditional `$234B` writer
+  cells through the existing TTDT/THUD font/CHR binding. `$B373-$B398` gives
+  the regulation-five/overtime-four bonus side mask only; no visible BONUS
+  text is inferred.
 - Fixed `$EC06-$EC25` (FNV1a32 `F1BCC8E2`): clears active music, SFX, and DMC;
   bounded call sites are `$E58D`, `$E9A0`, `$E9DE`, and `$ECAF`.
 - Bank 05 `$856B-$85A7` and `$85F3-$8640`: variant-0 presentation trigger and

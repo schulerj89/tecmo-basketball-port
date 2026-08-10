@@ -2620,6 +2620,61 @@ static bool scene_foul_counter_effect_from_result(
     return true;
 }
 
+/* Bank02 $B0F8-$B398 consumes the classified class/counters and the active
+ * defending player. Keep that display identity in the scene only after the
+ * separate gameplay-state foul transaction accepts the matching request.
+ * The bounded bridge intentionally does not retain its adapter route bytes. */
+static bool scene_foul_presentation_from_result(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayTeam defending_team,
+    uint8_t defender,
+    const TecmoGameplayPenaltyResult *result,
+    TecmoGameplaySceneFoulPresentation *presentation_out)
+{
+    const TecmoGameplaySceneActor *actor;
+    TecmoGameplaySceneFoulPresentation presentation;
+    uint16_t expected_individual;
+    uint16_t expected_team;
+    if (scene == NULL || result == NULL || presentation_out == NULL ||
+        defending_team >= TECMO_GAMEPLAY_TEAM_COUNT ||
+        defender >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        result->foul_class != TECMO_GAMEPLAY_FOUL_CLASS_PUSHING ||
+        result->offensive_foul || result->turnover ||
+        result->individual_foul_delta > 1U || result->team_foul_delta > 1U ||
+        result->individual_fouls_after > 6U || result->team_fouls_after > 5U) {
+        return false;
+    }
+    actor = &scene->actors[defender];
+    if (!actor->active || actor->team != (uint8_t)defending_team ||
+        actor->roster_index >= TECMO_TEAM_DATA_PLAYERS_PER_TEAM) {
+        return false;
+    }
+    expected_individual = (uint16_t)scene->state.individual_fouls[
+        defending_team][actor->roster_index] + result->individual_foul_delta;
+    expected_team = (uint16_t)scene->state.team_fouls[defending_team] +
+        result->team_foul_delta;
+    if (expected_individual != result->individual_fouls_after ||
+        expected_team != result->team_fouls_after ||
+        result->fouled_out != (result->individual_fouls_after >= 6U)) {
+        return false;
+    }
+    memset(&presentation, 0, sizeof(presentation));
+    presentation.valid = true;
+    presentation.fouling_team = defending_team;
+    presentation.actor_index = defender;
+    presentation.roster_index = actor->roster_index;
+    presentation.foul_class = result->foul_class;
+    presentation.individual_foul_delta = result->individual_foul_delta;
+    presentation.team_foul_delta = result->team_foul_delta;
+    presentation.individual_fouls_after = result->individual_fouls_after;
+    presentation.team_fouls_after = result->team_fouls_after;
+    presentation.free_throw_attempts = result->free_throw_attempts;
+    presentation.team_in_bonus = result->team_in_bonus;
+    presentation.fouled_out = result->fouled_out;
+    *presentation_out = presentation;
+    return true;
+}
+
 /* Returns a successful no-op when the native scene lacks a source-shaped
  * human-contact tuple.  A false return is reserved for malformed strict
  * inputs or a failed state transition, so callers can fail closed. */
@@ -2633,8 +2688,10 @@ static bool scene_try_live_defensive_foul_bridge(
     const TecmoGameplaySceneActor *defender_actor;
     TecmoGameplayPenaltyContext context;
     TecmoGameplayPenaltyResult result;
+    TecmoGameplaySceneFoulPresentation presentation;
     TecmoGameplayFoulCounterEffect counter_effect;
     TecmoGameplayFoulRequest request;
+    TecmoGameplayState state_before;
     bool close_contact;
 
     if (scene == NULL || committed_out == NULL) return false;
@@ -2684,7 +2741,9 @@ static bool scene_try_live_defensive_foul_bridge(
             &scene->penalty_assets, &context, &result) ||
         result.offensive_foul || result.turnover ||
         result.foul_class != TECMO_GAMEPLAY_FOUL_CLASS_PUSHING ||
-        !scene_foul_counter_effect_from_result(&result, &counter_effect)) {
+        !scene_foul_counter_effect_from_result(&result, &counter_effect) ||
+        !scene_foul_presentation_from_result(
+            scene, defending_team, defender, &result, &presentation)) {
         return false;
     }
 
@@ -2694,7 +2753,18 @@ static bool scene_try_live_defensive_foul_bridge(
     request.counter_effect = counter_effect;
     request.player_index = defender_actor->roster_index;
     request.free_throw_attempts = result.free_throw_attempts;
+    state_before = scene->state;
     if (!tecmo_gameplay_request_foul(&scene->state, &request)) return false;
+    if (scene->state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION ||
+        scene->state.individual_fouls[defending_team]
+            [defender_actor->roster_index] != result.individual_fouls_after ||
+        scene->state.team_fouls[defending_team] != result.team_fouls_after ||
+        scene->state.free_throws.attempts_remaining !=
+            result.free_throw_attempts) {
+        scene->state = state_before;
+        return false;
+    }
+    scene->foul_presentation = presentation;
     scene->free_throw_frame = 0U;
     *committed_out = true;
     return true;

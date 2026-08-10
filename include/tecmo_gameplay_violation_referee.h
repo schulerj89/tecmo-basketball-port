@@ -15,6 +15,11 @@
 #define TECMO_GAMEPLAY_VIOLATION_REFEREE_MAX_MESSAGE_TILES 20U
 #define TECMO_GAMEPLAY_VIOLATION_REFEREE_MAX_SEQUENCE_GROUPS 8U
 #define TECMO_GAMEPLAY_VIOLATION_REFEREE_MAX_PIECES 34U
+/* Bank02's foul writer can cover at most the class/type, roster name/number,
+   two counter lines, and the bounded fouled-out line.  This is a resolved
+   CHR-cell transport only: TGVR owns its screen/fade/referee sequence while
+   the caller owns the source-qualified foul identity. */
+#define TECMO_GAMEPLAY_VIOLATION_REFEREE_MAX_FOUL_OVERLAY_CELLS 96U
 
 /* The group cadence and sequence start are ROM-derived from Bank04 $BA1F.
    The nine-frame loader blackout and the visible fade alignment are bounded
@@ -72,6 +77,17 @@ typedef struct TecmoGameplayViolationRefereeGroup {
     const uint8_t *pieces;
 } TecmoGameplayViolationRefereeGroup;
 
+typedef struct TecmoGameplayViolationRefereeOverlayCell {
+    uint16_t ppu_address;
+    uint32_t chr_offset;
+} TecmoGameplayViolationRefereeOverlayCell;
+
+typedef struct TecmoGameplayViolationRefereeFoulOverlay {
+    uint8_t cell_count;
+    TecmoGameplayViolationRefereeOverlayCell
+        cells[TECMO_GAMEPLAY_VIOLATION_REFEREE_MAX_FOUL_OVERLAY_CELLS];
+} TecmoGameplayViolationRefereeFoulOverlay;
+
 typedef struct TecmoGameplayViolationRefereeAssets {
     uint32_t lifecycle_tag;
     bool available;
@@ -124,9 +140,7 @@ bool tecmo_gameplay_violation_referee_group_for_frame(
     uint8_t *group_id);
 
 /* Fixed $E95E selects $22, whose Bank04 $BA1F controller maps selector 0
-   to the first referee sequence ($B317): groups 1, 2, 2, 2.  Foul state
-   currently owns no Bank02 $B0F8 text payload, so this API deliberately
-   exposes only the source-derived visual controller, not synthetic text. */
+   to the first referee sequence ($B317): groups 1, 2, 2, 2. */
 bool tecmo_gameplay_violation_referee_foul_group_for_frame(
     const TecmoGameplayViolationRefereeAssets *assets,
     uint16_t phase_frame,
@@ -153,6 +167,22 @@ bool tecmo_gameplay_violation_referee_draw_foul(
     int origin_x,
     int origin_y,
     int scale,
+    uint16_t phase_frame);
+
+/* Draw the fixed foul cutaway plus caller-resolved Bank02 overlay cells.
+   NULL preserves the bare selector-0 referee route for direct legacy/render
+   callers. The cells are validated against TGVR's 32x30 screen, drawn with
+   its source screen attribute palettes, and share its capture-bounded
+   blackout/fade timing. */
+bool tecmo_gameplay_violation_referee_draw_foul_overlay(
+    const TecmoGameplayViolationRefereeAssets *assets,
+    const uint8_t *chr,
+    size_t chr_size,
+    TecmoFramebuffer *framebuffer,
+    int origin_x,
+    int origin_y,
+    int scale,
+    const TecmoGameplayViolationRefereeFoulOverlay *overlay,
     uint16_t phase_frame);
 
 bool tecmo_gameplay_violation_referee_self_test(
