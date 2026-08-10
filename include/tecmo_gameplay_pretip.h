@@ -97,6 +97,16 @@ typedef enum TecmoGameplayPreTipPhase {
     TECMO_GAMEPLAY_PRETIP_LIVE
 } TecmoGameplayPreTipPhase;
 
+typedef enum TecmoGameplayPreTipCaptureSchedulerPhase {
+    TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_DORMANT = 0,
+    TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_ROUTE_SETUP,
+    TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_PREPARE,
+    TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_POLL_FIRST,
+    TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_POLL_SECOND,
+    TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_SPECIAL_WAIT,
+    TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_COMPLETE
+} TecmoGameplayPreTipCaptureSchedulerPhase;
+
 typedef struct TecmoGameplayPreTipSourceSpan {
     TecmoGameplayPreTipSourceKind kind;
     uint8_t bank;
@@ -192,7 +202,13 @@ typedef struct TecmoGameplayPreTipState {
     uint8_t home_tip_capture_clock;
     uint8_t tip_capture_clock;
     uint8_t tip_capture_source_6a;
+    uint8_t tip_capture_source_6a_initial;
+    uint8_t tip_capture_source_6a_current;
     uint16_t tip_capture_clock_ticks;
+    uint16_t tip_capture_source_mix_count;
+    uint16_t tip_capture_scheduler_yields;
+    uint8_t tip_capture_scheduler_phase;
+    uint8_t tip_capture_special_yields;
     bool tip_capture_clock_started;
     /* $8788 increments $8A until it wraps, then $8795 consumes the captured
        bytes and exits the polling loop.  Never keep sampling a synthetic

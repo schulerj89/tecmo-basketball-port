@@ -169,10 +169,13 @@ static bool scene_test_concurrent_tip_simulation(
     p1.held.cancel = true;
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
         !scene->pretip_state.away_tip_sampled ||
-        scene->pretip_state.away_tip_countdown != 5U ||
-        scene->pretip_state.away_tip_error != 5U ||
-        scene->pretip_state.away_tip_capture_clock != 0xF4U ||
-        scene->pretip_state.tip_capture_clock != 0xF5U ||
+        scene->pretip_state.away_tip_countdown != 11U ||
+        scene->pretip_state.away_tip_error != 11U ||
+        scene->pretip_state.away_tip_capture_clock != 0xE1U ||
+        scene->pretip_state.tip_capture_source_6a != 0x85U ||
+        scene->pretip_state.tip_capture_clock != 0xE2U ||
+        scene->pretip_state.tip_capture_clock_ticks != 91U ||
+        scene->pretip_state.tip_capture_scheduler_yields != 209U ||
         scene->pretip_state.away_jump_committed) goto failed;
     failure = "concurrent pre-tip center setup retention failed";
     p1.held.cancel = false;
@@ -547,13 +550,16 @@ static bool scene_test_continuous_tip_render(
         !scene_test_render_continuously(scene, pixels, failure,
                                         sizeof(failure)) ||
         !scene->pretip_state.away_tip_sampled ||
-        scene->pretip_state.away_tip_capture_clock != 0xF4U ||
-        scene->pretip_state.away_tip_error != 5U ||
-        scene->pretip_state.away_tip_countdown != 5U ||
-        scene->pretip_state.tip_capture_clock != 0xF5U ||
+        scene->pretip_state.away_tip_capture_clock != 0xE1U ||
+        scene->pretip_state.away_tip_error != 11U ||
+        scene->pretip_state.away_tip_countdown != 11U ||
+        scene->pretip_state.tip_capture_source_6a != 0x85U ||
+        scene->pretip_state.tip_capture_clock != 0xE2U ||
+        scene->pretip_state.tip_capture_clock_ticks != 91U ||
+        scene->pretip_state.tip_capture_scheduler_yields != 209U ||
         scene->pretip_state.tip_capture_clock_complete) {
         (void)snprintf(failure, sizeof(failure),
-                       "Bank04 capture clock did not record $6A/$8A $F4/$F5");
+                       "Bank04 scheduler did not derive $6A=$85/$8A=$E1");
         goto failed;
     }
     p1.held.cancel = false;
@@ -581,10 +587,10 @@ static bool scene_test_continuous_tip_render(
     }
     if (scene->pretip_state.phase != TECMO_GAMEPLAY_PRETIP_TOSS_CLOSEUP ||
         !scene->pretip_state.cinematic_visible ||
-        scene->pretip_state.first_cinematic_frame != 508U ||
+        scene->pretip_state.first_cinematic_frame != 516U ||
         scene->pretip_state.first_cinematic_frame !=
             scene->pretip_state.total_frame ||
-        last_court_frame != 507U ||
+        last_court_frame != 515U ||
         last_court.away_altitude_q8 == 0U ||
         !scene->pretip_state.away_jump_committed ||
         scene->pretip_state.home_jump_committed) {
@@ -791,7 +797,7 @@ bool tecmo_gameplay_scene_test_pretip_human_checkpoint(
     }
     tecmo_gameplay_scene_test_message(
         message, message_size,
-        "TPTI-2 human checkpoint PASS capture-frame=452 simulation-frame=481 cinematic-frame=508 live-frame=598");
+        "TPTI-2 human checkpoint PASS capture-frame=452 simulation-frame=481 cinematic-frame=516 live-frame=606");
     tecmo_gameplay_scene_destroy(&scene);
     return true;
 }

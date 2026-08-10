@@ -266,7 +266,7 @@ $Human = Invoke-Native -Arguments @(
     "--gameplay-pretip-human-checkpoint", $Pack
 ) -LogName "human-checkpoint.log"
 if ($Human.code -ne 0 -or
-    $Human.text -notmatch "TPTI-2 human checkpoint PASS capture-frame=452 simulation-frame=481 cinematic-frame=508 live-frame=598") {
+    $Human.text -notmatch "TPTI-2 human checkpoint PASS capture-frame=452 simulation-frame=481 cinematic-frame=516 live-frame=606") {
     throw "TPTI-2 human-input timing checkpoint failed.`n$($Human.tail)"
 }
 

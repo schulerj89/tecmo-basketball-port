@@ -784,8 +784,10 @@ are ASM-exact. The later phase durations are capture-bounded. The asset-backed
 cards and close-up reach center setup after `61/121/61/208 = 451` updates. A
 successful Bank04-clocked tip claims state `$17` during court/ball descent,
 immediately enters the 60-update toss cut-in, returns to the 30-update court
-contest, and then hands off live; the primary `$F4` capture reaches those
-boundaries at frames `508/568/598`. The phases are mode card, matchup,
+contest, and then hands off live; the deterministic primary human capture
+reaches those boundaries at frames `516/576/606`. The independent CPU-only
+threshold route still reaches `508/568/598`; that is not a human capture-clock
+calibration. The phases are mode card, matchup,
 first-period card, screen-`$1A` close-up, center black, court/ball descent,
 toss transition/cut-in, contest, then live. Matchup logos are anchored
 at `(16,32)` and `(16,128)`. The court overlay draws only one away-team ROM
@@ -806,12 +808,30 @@ machinery, but not controller/team ownership or winner settlement. Bank04
 the byte at `$8788`, and at wrap derives the captured error with the wrapped
 `abs($F9-captured)` / `$0B` cap at `$8795-$87D0`. The native bridge retains the
 sampled `$6A`, evolving `$8A`, source-loop ticks, and each captured byte; it
-does not reinterpret presentation frame zero as `$F9`. The center-court bridge
-begins the already-running terminal source-loop portion at `$F4`, so the first
-away held-B pulse captures `$F4` / error 5 and reaches the state-$17 cutaway at
-total frame 508 after the ordinary ball-height/countdown gate. `$F6` and `$F9`
-remain later source-clock markers, and byte wrap ends B capture rather than
-manufacturing post-wrap input samples. Lower error wins; equal captured errors
+does not reinterpret presentation frame zero as `$F9` and no longer injects a
+terminal `$F4` entry. Fixed `$CD96-$CDAB` supplies the exact 8-bit `$6A` mixer.
+The deterministic presentation bridge evolves it once per pre-seed update from
+the asset-owned `$6A=$00/$53=$5A` state. After 243 card updates plus Bank04's
+seven route-setup yields it samples `$6A=$85` and therefore seeds `$8A=$87`.
+The traced scheduler then consumes 20 prepare yields, two yields per ordinary
+poll byte, and one extra yield at each `$F6/$F9` marker. The primary away pulse
+captures `$E1`, derives capped error/countdown 11, and reaches the state-$17
+cutaway at total frame 516 through the ordinary ball-height/countdown gate.
+Byte wrap ends B capture rather than manufacturing post-wrap input samples.
+Fixed vector `$C000` jumps to `$E3FA` and is the task/visible-frame yield used
+by the two `$871D` polls and `$877D` marker wait. `$8818` only stages the next
+object tuple, while `$C054` jumps to `$D2D2` for OAM cleanup/finalization and
+does not add a yield. Screen `$1A` is pointer-table route 2 at `$86D0`, after
+routes 0/1 at `$88E8/$8483`; this is why neither `$8818` nor `$C054` may be
+counted as an extra scheduler tick.
+The ignored narrow Rev1 trace establishes the scheduler cadence and observed
+one launch history sampling `$6A=$A1` / seeding `$8A=$A3`; it does not prove
+that every menu and controller history enters screen `$1A` with the same
+source byte. The port's `$85/$87` visible mapping is therefore an explicit,
+deterministic bridge from its asset-owned initial state and presentation
+update schedule, while the byte mixer, seed arithmetic, yields, marker waits,
+wrap, and error derivation are exact source behavior.
+Lower error wins; equal captured errors
 defer the native claim because the original single-winner tie settlement remains
 unproven. B cannot sample a tip in the close-up or toss phases and cannot cancel
 those phases. Winner queries fail closed before `JUMP_CONTEST` without changing

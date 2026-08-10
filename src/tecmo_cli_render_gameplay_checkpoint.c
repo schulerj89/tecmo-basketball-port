@@ -28,7 +28,7 @@
 
 #define TECMO_CLI_PRETIP_CAPTURE_FRAME 452U
 #define TECMO_CLI_PRETIP_SIMULATION_START_FRAME 481U
-#define TECMO_CLI_PRETIP_LIVE_START_FRAME 598U
+#define TECMO_CLI_PRETIP_LIVE_START_FRAME 606U
 #define TECMO_CLI_TIPOFF_PROOF_LAST_FRAME \
     (TECMO_CLI_PRETIP_LIVE_START_FRAME + 20U)
 #define TECMO_CLI_FREE_THROW_CHECKPOINT_FRAME \
@@ -670,7 +670,10 @@ static bool gameplay_checkpoint_report_tipoff_proof(
         "tipoff-timing frame=%u total-frame=%u simulation-tick=%u "
         "presentation-phase=%s cinematic-visible=%u ball-screen-y=%ld ball-raw-height=%u "
         "rng-threshold=%u capture-source-6a=%u capture-clock=%u "
-        "capture-clock-ticks=%u away-latch=%u away-capture-clock=%u away-countdown=%u "
+        "capture-clock-ticks=%u capture-source-initial=%u "
+        "capture-source-current=%u capture-source-mixes=%u "
+        "capture-scheduler-phase=%u capture-scheduler-yields=%u "
+        "capture-special-yields=%u away-latch=%u away-capture-clock=%u away-countdown=%u "
         "away-commit-frame=%u away-committed=%u away-altitude-q8=%u "
         "away-state=%u away-phase=%u away-pose=%u away-fraction=%u "
         "away-velocity-q8=%d away-apex-frame=%u away-commit-count=%u "
@@ -693,6 +696,12 @@ static bool gameplay_checkpoint_report_tipoff_proof(
         (unsigned)scene->pretip_state.tip_capture_source_6a,
         (unsigned)scene->pretip_state.tip_capture_clock,
         (unsigned)scene->pretip_state.tip_capture_clock_ticks,
+        (unsigned)scene->pretip_state.tip_capture_source_6a_initial,
+        (unsigned)scene->pretip_state.tip_capture_source_6a_current,
+        (unsigned)scene->pretip_state.tip_capture_source_mix_count,
+        (unsigned)scene->pretip_state.tip_capture_scheduler_phase,
+        (unsigned)scene->pretip_state.tip_capture_scheduler_yields,
+        (unsigned)scene->pretip_state.tip_capture_special_yields,
         scene->pretip_state.away_tip_sampled ? 1U : 0U,
         (unsigned)scene->pretip_state.away_tip_capture_clock,
         (unsigned)scene->pretip_state.away_tip_countdown,
@@ -1150,14 +1159,14 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
                   (tipoff_away_win
                     ? (!scene->pretip_state.home_tip_sampled ||
                        scene->pretip_state.home_tip_sample_frame != 0U ||
-                       scene->pretip_state.home_tip_capture_clock != 0xF4U ||
+                       scene->pretip_state.home_tip_capture_clock != 0xE1U ||
                        scene->pretip_state.home_tip_error !=
-                            5U)
+                            11U)
                     : (!scene->pretip_state.away_tip_sampled ||
                        scene->pretip_state.away_tip_sample_frame != 0U ||
-                       scene->pretip_state.away_tip_capture_clock != 0xF4U ||
+                       scene->pretip_state.away_tip_capture_clock != 0xE1U ||
                        scene->pretip_state.away_tip_error !=
-                             5U)))) ||
+                             11U)))) ||
                 (checkpoint < first_contest_update &&
                  (input_evidence.bridge_used ||
                   input_evidence.raw_x_down ||
@@ -1960,10 +1969,16 @@ static bool tipoff_trace_write_row(FILE *csv,
                    tecmo_gameplay_pretip_phase_name(state->phase),
                    state->phase_frame, state->cinematic_visible ? 1U : 0U,
                    state->live_handoff ? 1U : 0U, render_ok ? 1U : 0U) >= 0 &&
-        fprintf(csv, "%u,%u,%u,%u,%u,%u,%u,%u,",
+        fprintf(csv, "%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,",
                 state->tip_capture_source_6a, state->tip_capture_clock,
                 state->tip_capture_clock_ticks,
                 state->tip_capture_clock_complete ? 1U : 0U,
+                state->tip_capture_source_6a_initial,
+                state->tip_capture_source_6a_current,
+                state->tip_capture_source_mix_count,
+                state->tip_capture_scheduler_phase,
+                state->tip_capture_scheduler_yields,
+                state->tip_capture_special_yields,
                 state->away_tip_sampled ? 1U : 0U,
                 state->away_tip_capture_clock, state->away_tip_error,
                 state->away_tip_countdown) >= 0 &&
@@ -2066,6 +2081,8 @@ static bool tipoff_trace_run_scenario(
     (void)fprintf(csv,
         "scenario,scene_frame,total_frame,phase,phase_frame,cinematic,live_handoff,render_ok,"
         "capture_source_6a,capture_clock,capture_ticks,capture_complete,"
+        "capture_source_initial,capture_source_current,capture_source_mix_count,"
+        "capture_scheduler_phase,capture_scheduler_yields,capture_special_yields,"
         "away_sampled,away_capture_clock,away_error,away_countdown,"
         "home_sampled,home_capture_clock,home_error,home_countdown,"
         "away_committed,home_committed,away_state,away_phase,away_velocity_q8,away_altitude_q8,"
@@ -2158,8 +2175,13 @@ static bool tipoff_trace_run_scenario(
         if (scenario->capture_side != TECMO_CLI_TIPOFF_TRACE_CAPTURE_NONE &&
             scene->pretip_state.total_frame ==
                 TECMO_CLI_PRETIP_CAPTURE_FRAME + scenario->capture_delay) {
-            uint8_t expected_clock = (uint8_t)(0xF4U + scenario->capture_delay);
-            uint8_t expected_error = (uint8_t)(5U - scenario->capture_delay);
+            uint8_t expected_clock = (uint8_t)(
+                0xE1U + (scenario->capture_delay + 1U) / 2U);
+            uint8_t expected_delta = (uint8_t)(0xF9U - expected_clock);
+            uint8_t expected_absolute = (expected_delta & 0x80U) != 0U
+                ? (uint8_t)(0U - expected_delta) : expected_delta;
+            uint8_t expected_error = expected_absolute < 0x0CU
+                ? expected_absolute : 0x0BU;
             bool away = scenario->capture_side ==
                 TECMO_CLI_TIPOFF_TRACE_CAPTURE_AWAY;
             uint8_t sampled = away ? scene->pretip_state.away_tip_sampled
@@ -2210,7 +2232,7 @@ static bool tipoff_trace_run_scenario(
             scene->pretip_state.phase == TECMO_GAMEPLAY_PRETIP_BALL_DESCENT) {
             /* Keep the actual final court framebuffer, then emit it when the
              * next update enters state $17's cutaway.  The primary capture
-             * reaches this at frame 507; a later valid capture has a different
+             * reaches this at frame 515; a later valid capture has a different
              * last court frame and must not inherit that fixture convention. */
             memcpy(last_court_pixels, pixels, sizeof(last_court_pixels));
             last_court_frame = scene->frame;
@@ -2242,9 +2264,9 @@ static bool tipoff_trace_run_scenario(
                     return false;
                 }
                 if (scenario->expect_exact_slow_cinematic &&
-                    scene->pretip_state.first_cinematic_frame != 508U) {
+                    scene->pretip_state.first_cinematic_frame != 516U) {
                     (void)snprintf(failure, failure_size,
-                                   "%s cinematic frame %u is not ROM-paced 508",
+                                   "%s cinematic frame %u is not scheduler-derived 516",
                                    scenario->name,
                                    (unsigned)scene->pretip_state.first_cinematic_frame);
                     fclose(csv);

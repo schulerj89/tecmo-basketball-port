@@ -776,14 +776,10 @@ bool tecmo_gameplay_pretip_tip_lineup(
    operation in uint8_t form: the ROM's underflow route is a wrapped two's
    complement absolute value, not a presentation-frame approximation. */
 #define TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_SEED 0x82U
-#define TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_TERMINAL_ENTRY 0xF4U
 #define TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_PREPARE 0xF6U
 #define TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_TARGET 0xF9U
-#define TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_TERMINAL_TICKS \
-    (TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_TERMINAL_ENTRY - \
-     TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_SEED)
-#define TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_WRAP_TICKS \
-    (0x100U - TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_SEED)
+#define TECMO_GAMEPLAY_PRETIP_CAPTURE_ROUTE_YIELDS 7U
+#define TECMO_GAMEPLAY_PRETIP_CAPTURE_PREPARE_YIELDS 20U
 
 static uint8_t tip_error_for_capture_byte(uint8_t captured)
 {
@@ -800,20 +796,36 @@ static uint8_t tip_capture_clock_seed(uint8_t source_6a)
                      TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_SEED);
 }
 
+static uint16_t tip_capture_clock_wrap_ticks(uint8_t source_6a)
+{
+    return (uint16_t)(0x100U - tip_capture_clock_seed(source_6a));
+}
+
+static uint8_t tip_source_mix_byte(uint8_t source_6a, uint8_t source_53)
+{
+    uint8_t value = (uint8_t)(source_6a ^ source_53);
+    uint8_t shifted = (uint8_t)(value << 1U);
+    if ((value & 0x80U) != 0U) shifted ^= 0x1DU;
+    if (shifted == 0U) shifted ^= source_53;
+    return shifted;
+}
+
+static void tip_capture_source_mix(TecmoGameplayPreTipState *state)
+{
+    if (state == NULL || state->tip_capture_clock_started) return;
+    state->tip_capture_source_6a_current = tip_source_mix_byte(
+        state->tip_capture_source_6a_current, state->tip_rng_53);
+    if (state->tip_capture_source_mix_count != UINT16_MAX)
+        ++state->tip_capture_source_mix_count;
+}
+
 static void tip_capture_clock_begin(TecmoGameplayPreTipState *state)
 {
     if (state == NULL || state->tip_capture_clock_started) return;
-    state->tip_capture_source_6a = state->tip_rng_6a;
-    /* The current center-court presentation enters the terminal portion of
-       Bank04's already-running $871D loop.  Its first poll is $F4, followed
-       by the native $F6 setup marker two polls later and $F9 marker five
-       polls later.  Store the real elapsed source-loop count (not a fake
-       "$F9 at phase zero" value) so $8788 can still wrap it at $00. */
-    state->tip_capture_clock_ticks =
-        TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_TERMINAL_TICKS;
-    state->tip_capture_clock = (uint8_t)(
-        tip_capture_clock_seed(state->tip_capture_source_6a) +
-        state->tip_capture_clock_ticks);
+    state->tip_capture_source_6a = state->tip_capture_source_6a_current;
+    state->tip_capture_clock_ticks = 0U;
+    state->tip_capture_clock =
+        tip_capture_clock_seed(state->tip_capture_source_6a);
     state->tip_capture_clock_started = true;
     state->tip_capture_clock_complete = false;
 }
@@ -829,6 +841,80 @@ static void tip_capture_clock_advance(TecmoGameplayPreTipState *state)
         ++state->tip_capture_clock_ticks;
     if (state->tip_capture_clock == 0U)
         state->tip_capture_clock_complete = true;
+}
+
+static bool tip_capture_scheduler_poll_active(
+    const TecmoGameplayPreTipState *state)
+{
+    return state != NULL && state->tip_capture_clock_started &&
+        !state->tip_capture_clock_complete &&
+        (state->tip_capture_scheduler_phase ==
+             TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_POLL_FIRST ||
+         state->tip_capture_scheduler_phase ==
+             TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_POLL_SECOND);
+}
+
+static void tip_capture_scheduler_step(TecmoGameplayPreTipState *state)
+{
+    if (state == NULL || state->tip_capture_clock_complete) return;
+    switch ((TecmoGameplayPreTipCaptureSchedulerPhase)
+                state->tip_capture_scheduler_phase) {
+    case TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_DORMANT:
+        tip_capture_source_mix(state);
+        break;
+    case TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_ROUTE_SETUP:
+        tip_capture_source_mix(state);
+        ++state->tip_capture_scheduler_yields;
+        if (state->tip_capture_scheduler_yields ==
+                TECMO_GAMEPLAY_PRETIP_CAPTURE_ROUTE_YIELDS) {
+            tip_capture_clock_begin(state);
+            state->tip_capture_scheduler_phase =
+                TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_PREPARE;
+        }
+        break;
+    case TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_PREPARE:
+        ++state->tip_capture_scheduler_yields;
+        if (state->tip_capture_scheduler_yields ==
+                TECMO_GAMEPLAY_PRETIP_CAPTURE_ROUTE_YIELDS +
+                TECMO_GAMEPLAY_PRETIP_CAPTURE_PREPARE_YIELDS) {
+            state->tip_capture_scheduler_phase =
+                TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_POLL_FIRST;
+        }
+        break;
+    case TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_POLL_FIRST:
+        ++state->tip_capture_scheduler_yields;
+        state->tip_capture_scheduler_phase =
+            TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_POLL_SECOND;
+        break;
+    case TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_POLL_SECOND:
+        ++state->tip_capture_scheduler_yields;
+        if (state->tip_capture_clock ==
+                TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_PREPARE ||
+            state->tip_capture_clock ==
+                TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_TARGET) {
+            state->tip_capture_scheduler_phase =
+                TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_SPECIAL_WAIT;
+        } else {
+            tip_capture_clock_advance(state);
+            state->tip_capture_scheduler_phase =
+                state->tip_capture_clock_complete
+                    ? TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_COMPLETE
+                    : TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_POLL_FIRST;
+        }
+        break;
+    case TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_SPECIAL_WAIT:
+        ++state->tip_capture_scheduler_yields;
+        if (state->tip_capture_special_yields != UINT8_MAX)
+            ++state->tip_capture_special_yields;
+        tip_capture_clock_advance(state);
+        state->tip_capture_scheduler_phase =
+            state->tip_capture_clock_complete
+                ? TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_COMPLETE
+                : TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_POLL_FIRST;
+        break;
+    case TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_COMPLETE:
+        break;
+    }
 }
 
 static uint16_t presentation_duration(
@@ -1339,16 +1425,119 @@ static uint16_t tip_expected_altitude(const TecmoGameplayPreTipState *state,
 }
 
 static uint8_t tip_rng_after_count(uint8_t rng_6a, uint8_t rng_53,
-                                   uint8_t count)
+                                   uint16_t count)
 {
-    uint8_t index;
+    uint16_t index;
     for (index = 0U; index < count; ++index) {
-        uint8_t value = (uint8_t)(rng_6a ^ rng_53);
-        rng_6a = (uint8_t)(value << 1U);
-        if ((value & 0x80U) != 0U) rng_6a ^= 0x1DU;
-        if (rng_6a == 0U) rng_6a ^= rng_53;
+        rng_6a = tip_source_mix_byte(rng_6a, rng_53);
     }
     return rng_6a;
+}
+
+static bool tip_capture_scheduler_valid(
+    const TecmoGameplayPreTipAssets *assets,
+    const TecmoGameplayPreTipState *state)
+{
+    uint32_t seed_mix_count = 0U;
+    uint16_t wrap_ticks;
+    uint32_t expected_yields;
+    size_t index;
+    if (assets == NULL || state == NULL ||
+        state->tip_capture_scheduler_phase >
+            TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_COMPLETE ||
+        state->tip_capture_source_6a_initial != assets->tip_rng_seed_6a ||
+        state->tip_capture_source_6a_current != tip_rng_after_count(
+            state->tip_capture_source_6a_initial, state->tip_rng_53,
+            state->tip_capture_source_mix_count)) {
+        return false;
+    }
+    for (index = 0U; index < TECMO_GAMEPLAY_PRETIP_CLOSEUP; ++index)
+        seed_mix_count += assets->phase_frames[index];
+    seed_mix_count += TECMO_GAMEPLAY_PRETIP_CAPTURE_ROUTE_YIELDS;
+    if (!state->tip_capture_clock_started) {
+        if (state->tip_capture_clock_complete ||
+            state->tip_capture_clock != 0U ||
+            state->tip_capture_source_6a != 0U ||
+            state->tip_capture_clock_ticks != 0U ||
+            state->tip_capture_special_yields != 0U ||
+            state->tip_capture_source_mix_count != state->total_frame) {
+            return false;
+        }
+        if (state->tip_capture_scheduler_phase ==
+                TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_DORMANT) {
+            return state->phase < TECMO_GAMEPLAY_PRETIP_CLOSEUP &&
+                state->tip_capture_scheduler_yields == 0U;
+        }
+        return state->tip_capture_scheduler_phase ==
+                   TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_ROUTE_SETUP &&
+            state->phase == TECMO_GAMEPLAY_PRETIP_CLOSEUP &&
+            state->tip_capture_scheduler_yields == state->phase_frame &&
+            state->tip_capture_scheduler_yields <
+                TECMO_GAMEPLAY_PRETIP_CAPTURE_ROUTE_YIELDS;
+    }
+    if (state->tip_capture_source_mix_count != seed_mix_count ||
+        state->tip_capture_source_6a !=
+            state->tip_capture_source_6a_current) {
+        return false;
+    }
+    wrap_ticks = tip_capture_clock_wrap_ticks(
+        state->tip_capture_source_6a);
+    if (state->tip_capture_clock_ticks > wrap_ticks ||
+        state->tip_capture_special_yields > 2U ||
+        state->tip_capture_clock != (uint8_t)(
+            tip_capture_clock_seed(state->tip_capture_source_6a) +
+            state->tip_capture_clock_ticks)) {
+        return false;
+    }
+    switch ((TecmoGameplayPreTipCaptureSchedulerPhase)
+                state->tip_capture_scheduler_phase) {
+    case TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_PREPARE:
+        return !state->tip_capture_clock_complete &&
+            state->tip_capture_clock_ticks == 0U &&
+            state->tip_capture_special_yields == 0U &&
+            state->tip_capture_scheduler_yields >=
+                TECMO_GAMEPLAY_PRETIP_CAPTURE_ROUTE_YIELDS &&
+            state->tip_capture_scheduler_yields <
+                TECMO_GAMEPLAY_PRETIP_CAPTURE_ROUTE_YIELDS +
+                TECMO_GAMEPLAY_PRETIP_CAPTURE_PREPARE_YIELDS;
+    case TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_POLL_FIRST:
+        expected_yields = TECMO_GAMEPLAY_PRETIP_CAPTURE_ROUTE_YIELDS +
+            TECMO_GAMEPLAY_PRETIP_CAPTURE_PREPARE_YIELDS +
+            (uint32_t)state->tip_capture_clock_ticks * 2U +
+            state->tip_capture_special_yields;
+        return !state->tip_capture_clock_complete &&
+            state->tip_capture_scheduler_yields == expected_yields;
+    case TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_POLL_SECOND:
+        expected_yields = TECMO_GAMEPLAY_PRETIP_CAPTURE_ROUTE_YIELDS +
+            TECMO_GAMEPLAY_PRETIP_CAPTURE_PREPARE_YIELDS + 1U +
+            (uint32_t)state->tip_capture_clock_ticks * 2U +
+            state->tip_capture_special_yields;
+        return !state->tip_capture_clock_complete &&
+            state->tip_capture_scheduler_yields == expected_yields;
+    case TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_SPECIAL_WAIT:
+        expected_yields = TECMO_GAMEPLAY_PRETIP_CAPTURE_ROUTE_YIELDS +
+            TECMO_GAMEPLAY_PRETIP_CAPTURE_PREPARE_YIELDS + 2U +
+            (uint32_t)state->tip_capture_clock_ticks * 2U +
+            state->tip_capture_special_yields;
+        return !state->tip_capture_clock_complete &&
+            (state->tip_capture_clock ==
+                 TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_PREPARE ||
+             state->tip_capture_clock ==
+                 TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_TARGET) &&
+            state->tip_capture_scheduler_yields == expected_yields;
+    case TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_COMPLETE:
+        expected_yields = TECMO_GAMEPLAY_PRETIP_CAPTURE_ROUTE_YIELDS +
+            TECMO_GAMEPLAY_PRETIP_CAPTURE_PREPARE_YIELDS +
+            (uint32_t)wrap_ticks * 2U +
+            state->tip_capture_special_yields;
+        return state->tip_capture_clock_complete &&
+            state->tip_capture_clock == 0U &&
+            state->tip_capture_clock_ticks == wrap_ticks &&
+            state->tip_capture_special_yields == 2U &&
+            state->tip_capture_scheduler_yields == expected_yields;
+    default:
+        return false;
+    }
 }
 
 static bool state_valid(const TecmoGameplayPreTipAssets *assets,
@@ -1441,30 +1630,7 @@ static bool state_valid(const TecmoGameplayPreTipAssets *assets,
           state->home_automatic_requested))) {
         return false;
     }
-    if (state->phase < TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP) {
-        if (state->tip_capture_clock_started ||
-            state->tip_capture_clock_complete ||
-            state->tip_capture_clock != 0U ||
-            state->tip_capture_source_6a != 0U ||
-            state->tip_capture_clock_ticks != 0U) {
-            return false;
-        }
-    } else if (!state->tip_capture_clock_started ||
-               state->tip_capture_source_6a != assets->tip_rng_seed_6a ||
-               state->tip_capture_clock_ticks <
-                   TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_TERMINAL_TICKS ||
-               state->tip_capture_clock_ticks >
-                   TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_WRAP_TICKS ||
-               (state->tip_capture_clock_complete &&
-                (state->tip_capture_clock != 0U ||
-                 state->tip_capture_clock_ticks !=
-                     TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_WRAP_TICKS)) ||
-               (!state->tip_capture_clock_complete &&
-                state->tip_capture_clock_ticks ==
-                    TECMO_GAMEPLAY_PRETIP_CAPTURE_CLOCK_WRAP_TICKS) ||
-               state->tip_capture_clock != (uint8_t)(
-                   tip_capture_clock_seed(state->tip_capture_source_6a) +
-                   state->tip_capture_clock_ticks)) {
+    if (!tip_capture_scheduler_valid(assets, state)) {
         return false;
     }
     if ((state->away_jump_committed && !state->away_tip_sampled) ||
@@ -1645,6 +1811,10 @@ bool tecmo_gameplay_pretip_state_initialize(
     initial.home_tip_sample_frame = TECMO_GAMEPLAY_PRETIP_NO_SAMPLE_FRAME;
     initial.tip_rng_53 = assets->tip_rng_seed_53;
     initial.tip_rng_6a = assets->tip_rng_seed_6a;
+    initial.tip_capture_source_6a_initial = assets->tip_rng_seed_6a;
+    initial.tip_capture_source_6a_current = assets->tip_rng_seed_6a;
+    initial.tip_capture_scheduler_phase =
+        TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_DORMANT;
     initial.claimant_jumper = TECMO_GAMEPLAY_PRETIP_CLAIMANT_NONE;
     initial.receiver_actor = 0xFFU;
     initial.claim_frame = UINT16_MAX;
@@ -1715,20 +1885,28 @@ bool tecmo_gameplay_pretip_update_controlled(
         *state = candidate;
         return true;
     }
-    if (candidate.phase == TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP) {
-        /* $86E1 samples the current $6A once at entry to the Bank04
-           capture loop.  The initial byte is not tied to phase frame zero. */
-        tip_capture_clock_begin(&candidate);
+    if (candidate.phase >= TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP &&
+        candidate.phase <= TECMO_GAMEPLAY_PRETIP_BALL_DESCENT &&
+        tip_capture_scheduler_poll_active(&candidate)) {
+        uint16_t capture_frame = candidate.phase ==
+                TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP
+            ? candidate.phase_frame
+            : (candidate.contest_frame <
+                    TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES
+                ? candidate.contest_frame
+                : TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES - 1U);
+        /* Bank04 $871D polls only after a real scheduler yield.  Controller
+           ownership remains the bounded native center/ball bridge. */
         latch_tip_controlled(
             player_one_or_away_held_b,
-            !candidate.tip_capture_clock_complete, candidate.phase_frame,
+            true, capture_frame,
             candidate.tip_capture_clock,
             &candidate.away_tip_error, &candidate.away_tip_sample_frame,
             &candidate.away_tip_capture_clock,
             &candidate.away_tip_sampled, &candidate.away_tip_countdown);
         latch_tip_controlled(
             player_two_or_home_held_b,
-            !candidate.tip_capture_clock_complete, candidate.phase_frame,
+            true, capture_frame,
             candidate.tip_capture_clock,
             &candidate.home_tip_error, &candidate.home_tip_sample_frame,
             &candidate.home_tip_capture_clock,
@@ -1752,30 +1930,6 @@ bool tecmo_gameplay_pretip_update_controlled(
                terminal marker and retry the live claim on this update. */
             candidate.contest_stalled = false;
             candidate.claim_deferred = false;
-            if (!candidate.away_tip_sampled &&
-                player_one_or_away_held_b) {
-                latch_tip_controlled(
-                    true, !candidate.tip_capture_clock_complete,
-                    TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES - 1U,
-                    candidate.tip_capture_clock,
-                    &candidate.away_tip_error,
-                    &candidate.away_tip_sample_frame,
-                    &candidate.away_tip_capture_clock,
-                    &candidate.away_tip_sampled,
-                    &candidate.away_tip_countdown);
-            }
-            if (!candidate.home_tip_sampled &&
-                player_two_or_home_held_b) {
-                latch_tip_controlled(
-                    true, !candidate.tip_capture_clock_complete,
-                    TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES - 1U,
-                    candidate.tip_capture_clock,
-                    &candidate.home_tip_error,
-                    &candidate.home_tip_sample_frame,
-                    &candidate.home_tip_capture_clock,
-                    &candidate.home_tip_sampled,
-                    &candidate.home_tip_countdown);
-            }
             if (!candidate.away_automatic_requested)
                 tip_update_human_jumper(
                     &candidate, 0U,
@@ -1802,14 +1956,6 @@ bool tecmo_gameplay_pretip_update_controlled(
              assets->tip_auto_threshold_shift));
         if (!candidate.cinematic_visible && !candidate.away_jump_committed) {
             if (!candidate.away_automatic_requested) {
-                latch_tip_controlled(
-                    player_one_or_away_held_b,
-                    !candidate.tip_capture_clock_complete, input_frame,
-                    candidate.tip_capture_clock,
-                    &candidate.away_tip_error, &candidate.away_tip_sample_frame,
-                    &candidate.away_tip_capture_clock,
-                    &candidate.away_tip_sampled,
-                    &candidate.away_tip_countdown);
                 tip_update_human_jumper(
                     &candidate, 0U, candidate.simulation_tick);
             } else if (
@@ -1827,14 +1973,6 @@ bool tecmo_gameplay_pretip_update_controlled(
         }
         if (!candidate.cinematic_visible && !candidate.home_jump_committed) {
             if (!candidate.home_automatic_requested) {
-                latch_tip_controlled(
-                    player_two_or_home_held_b,
-                    !candidate.tip_capture_clock_complete, input_frame,
-                    candidate.tip_capture_clock,
-                    &candidate.home_tip_error, &candidate.home_tip_sample_frame,
-                    &candidate.home_tip_capture_clock,
-                    &candidate.home_tip_sampled,
-                    &candidate.home_tip_countdown);
                 tip_update_human_jumper(
                     &candidate, 1U, candidate.simulation_tick);
             } else if (
@@ -1865,12 +2003,7 @@ bool tecmo_gameplay_pretip_update_controlled(
                 TECMO_GAMEPLAY_PRETIP_CONTEST_INPUT_FRAMES)
             ++candidate.contest_frame;
     }
-    /* The Bank04 capture loop advances $8A after its pair of B polls.  The
-       bridge supplies one presentation update per pair and stops at $8788's
-       wrap-to-$00 exit; ball descent must not keep manufacturing captures. */
-    if (candidate.phase == TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP) {
-        tip_capture_clock_advance(&candidate);
-    }
+    tip_capture_scheduler_step(&candidate);
     duration = presentation_duration(assets, candidate.phase);
     if (candidate.phase_frame == UINT16_MAX ||
         candidate.total_frame == UINT32_MAX) {
@@ -1900,10 +2033,9 @@ bool tecmo_gameplay_pretip_update_controlled(
             candidate.phase_frame = 0U;
             candidate.phase =
                 (TecmoGameplayPreTipPhase)(candidate.phase + 1);
-            if (candidate.phase ==
-                TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP) {
-                tip_capture_clock_begin(&candidate);
-            }
+            if (candidate.phase == TECMO_GAMEPLAY_PRETIP_CLOSEUP)
+                candidate.tip_capture_scheduler_phase =
+                    TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_ROUTE_SETUP;
             if (candidate.phase == TECMO_GAMEPLAY_PRETIP_JUMP_CONTEST)
                 candidate.cinematic_visible = false;
             if (candidate.phase == TECMO_GAMEPLAY_PRETIP_LIVE)
@@ -2166,12 +2298,18 @@ static bool tip_concurrent_simulation_regression(
         CONCURRENT_FAIL("live object seed states");
     if (!tecmo_gameplay_pretip_update_controlled(
             assets, &state, true, false, false, false) ||
-        !state.away_tip_sampled || state.away_tip_countdown != 5U ||
-        state.away_tip_error != 5U ||
-        state.away_tip_capture_clock != 0xF4U ||
-        state.tip_capture_source_6a != 0U ||
-        state.tip_capture_clock != 0xF5U ||
-        state.tip_capture_clock_ticks != 0x73U ||
+        !state.away_tip_sampled || state.away_tip_countdown != 11U ||
+        state.away_tip_error != 11U ||
+        state.away_tip_capture_clock != 0xE1U ||
+        state.tip_capture_source_6a_initial != 0U ||
+        state.tip_capture_source_6a != 0x85U ||
+        state.tip_capture_source_6a_current != 0x85U ||
+        state.tip_capture_source_mix_count != 250U ||
+        state.tip_capture_clock != 0xE2U ||
+        state.tip_capture_clock_ticks != 91U ||
+        state.tip_capture_scheduler_yields != 209U ||
+        state.tip_capture_scheduler_phase !=
+            TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_POLL_FIRST ||
         state.away_jump_committed)
         CONCURRENT_FAIL("Bank04 $6A/$8A B latch before simulation");
     if (!tecmo_gameplay_pretip_update(
@@ -2225,7 +2363,7 @@ static bool tip_concurrent_simulation_regression(
         state.first_cinematic_frame != state.total_frame ||
         state.claim_frame <= state.home_jump_commit_frame)
         CONCURRENT_FAIL("state-$17-driven cinematic ordering");
-    if (state.first_cinematic_frame != 508U ||
+    if (state.first_cinematic_frame != 516U ||
         state.away_jump_commit_count != 1U ||
         state.home_jump_commit_count != 0U ||
         state.away_jump_altitude_q8 == 0U) {
@@ -2465,6 +2603,27 @@ bool tecmo_gameplay_pretip_self_test(const char *asset_pack_path,
     if (ok) {
         malformed = state;
         malformed.total_frame = 1U;
+        ok = update_rejects_unchanged(&assets, &malformed);
+    }
+    if (ok) {
+        malformed = state;
+        malformed.tip_capture_source_6a_current ^= 1U;
+        ok = update_rejects_unchanged(&assets, &malformed);
+    }
+    if (ok) {
+        malformed = state;
+        malformed.tip_capture_source_mix_count = 1U;
+        ok = update_rejects_unchanged(&assets, &malformed);
+    }
+    if (ok) {
+        malformed = state;
+        malformed.tip_capture_scheduler_yields = 1U;
+        ok = update_rejects_unchanged(&assets, &malformed);
+    }
+    if (ok) {
+        malformed = state;
+        malformed.tip_capture_scheduler_phase =
+            TECMO_GAMEPLAY_PRETIP_CAPTURE_SCHEDULER_POLL_FIRST;
         ok = update_rejects_unchanged(&assets, &malformed);
     }
     if (ok) {
