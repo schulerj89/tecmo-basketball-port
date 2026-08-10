@@ -1553,6 +1553,7 @@ static int tecmo_asset_pack_build_from_ines_internal(
                                        &close_shot_provenance,
                                        &dunk_provenance,
                                        &jump_shot_provenance,
+                                       &actor_command_assignment_provenance,
                                        &shot_resolution_provenance,
                                        &penalty_provenance,
                                        &violation_referee_provenance,

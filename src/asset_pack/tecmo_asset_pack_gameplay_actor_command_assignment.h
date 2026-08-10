@@ -12,18 +12,24 @@
 #define TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_HEADER_SIZE 128U
 #define TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_STRIDE 32U
 #define TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCES_OFFSET 128U
-#define TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_RAW_OFFSET 384U
-#define TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_RAW_SIZE 969U
-#define TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_PADDING_OFFSET 1353U
-#define TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_PADDING_SIZE 7U
-#define TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SIZE 1360U
+#define TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_RAW_OFFSET 416U
+#define TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_RAW_SIZE 1064U
+#define TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_PADDING_OFFSET 1480U
+#define TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_PADDING_SIZE 8U
+#define TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SIZE 1488U
 
 #define TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_RAW_FNV1A32 \
-    0xCE60861FU
+    0x741A149EU
 /* Filled by the exact importer payload contract; both importer and parser
    reject a change independently of individual source-span fingerprints. */
 #define TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_FNV1A32 \
-    0xB38C93F5U
+    0x4C7C2B34U
+
+#define TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SPAN_VERIFY_BAD_INPUT 0x01U
+#define TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SPAN_VERIFY_DESCRIPTOR 0x02U
+#define TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SPAN_VERIFY_FNV1A32 0x04U
+#define TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SPAN_VERIFY_FNV1A64 0x08U
+#define TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SPAN_VERIFY_SEMANTICS 0x10U
 
 typedef struct TecmoGameplayActorCommandAssignmentExpectedSource {
     TecmoGameplayActorCommandAssignmentSourceKind kind;
@@ -44,6 +50,19 @@ typedef struct TecmoGameplayActorCommandAssignmentProvenance {
 extern const TecmoGameplayActorCommandAssignmentExpectedSource
     tecmo_gameplay_actor_command_assignment_expected_sources[
         TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_COUNT];
+extern const uint8_t
+    tecmo_gameplay_actor_command_assignment_rev1_sha256[32];
+
+/* Bounded verifier used by both importer/parser and focused tests.  It checks
+ * one canonical 32-byte descriptor and one source span without requiring a
+ * whole ROM, so FNV32/FNV64 and descriptor rejection remain independently
+ * reachable behind the outer Rev1 fingerprint. */
+uint32_t tecmo_asset_pack_gameplay_actor_command_assignment_verify_span(
+    size_t index,
+    const uint8_t *record,
+    size_t record_size,
+    const uint8_t *span_bytes,
+    size_t span_size);
 
 int tecmo_asset_pack_build_gameplay_actor_command_assignment(
     const uint8_t *rom,

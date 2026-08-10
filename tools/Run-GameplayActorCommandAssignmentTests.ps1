@@ -199,28 +199,31 @@ try {
     $PackBytes = [IO.File]::ReadAllBytes($PackPath)
     $Entry = Get-AssetPackEntry $PackBytes "gameplay/actor-command-assignment"
     $Payload = Get-EntryBytes $PackBytes $Entry
-    if ($Entry.byte_count -ne 1360 -or (Get-Fnv1a32 $Payload) -ne "B38C93F5" -or
+    if ($Entry.byte_count -ne 1488 -or (Get-Fnv1a32 $Payload) -ne "4C7C2B34" -or
         [Text.Encoding]::ASCII.GetString($Payload, 0, 4) -ne "TGCA" -or
         [BitConverter]::ToUInt16($Payload, 4) -ne 1 -or
-        [BitConverter]::ToUInt32($Payload, 8) -ne 1360 -or
-        [BitConverter]::ToUInt16($Payload, 12) -ne 8 -or
+        [BitConverter]::ToUInt32($Payload, 8) -ne 1488 -or
+        [BitConverter]::ToUInt16($Payload, 12) -ne 9 -or
         [BitConverter]::ToUInt16($Payload, 14) -ne 32 -or
         [BitConverter]::ToUInt32($Payload, 16) -ne 128 -or
-        [BitConverter]::ToUInt32($Payload, 20) -ne 384 -or
-        [BitConverter]::ToUInt32($Payload, 24) -ne 969 -or
+        [BitConverter]::ToUInt32($Payload, 20) -ne 416 -or
+        [BitConverter]::ToUInt32($Payload, 24) -ne 1064 -or
         ("{0:X8}" -f [BitConverter]::ToUInt32($Payload, 28)) -ne
-            "CE60861F") {
+            "741A149E" -or
+        (([BitConverter]::ToString([byte[]]$Payload[40..71])) -replace '-', '') -ne
+            $ExpectedRomSha256) {
         throw "TGCA-1 canonical payload contract changed."
     }
     $ExpectedSpans = @(
-        @{ name="distance-helper"; bank=5; fixed_bank=$false; cpu_start=0x9DF6; bytes=110; f32="BE56D3D7" },
-        @{ name="caller-and-assignment"; bank=5; fixed_bank=$false; cpu_start=0x9F2F; bytes=430; f32="13F3A41B" },
-        @{ name="object-state10"; bank=5; fixed_bank=$false; cpu_start=0xB6E5; bytes=144; f32="6AD67C6A" },
-        @{ name="object-state17"; bank=5; fixed_bank=$false; cpu_start=0xB775; bytes=56; f32="2E13AB9D" },
-        @{ name="action-dispatch"; bank=7; fixed_bank=$true; cpu_start=0xC711; bytes=43; f32="AF434105" },
-        @{ name="action-selector"; bank=7; fixed_bank=$true; cpu_start=0xCAF5; bytes=62; f32="798F7231" },
-        @{ name="action-table-low"; bank=7; fixed_bank=$true; cpu_start=0xCB33; bytes=62; f32="CB4B3C42" },
-        @{ name="action-table-high"; bank=7; fixed_bank=$true; cpu_start=0xCB71; bytes=62; f32="CD228EDD" }
+        @{ name="distance-helper"; bank=5; fixed_bank=$false; cpu_start=0x9DF6; bytes=110; payload_offset=416; f32="BE56D3D7"; f64="BF24D84A61C2F497" },
+        @{ name="caller-and-assignment"; bank=5; fixed_bank=$false; cpu_start=0x9F2F; bytes=430; payload_offset=526; f32="13F3A41B"; f64="0C3DED79B8BCFADB" },
+        @{ name="object-dispatch"; bank=5; fixed_bank=$false; cpu_start=0xA214; bytes=75; payload_offset=956; f32="4FC82BF8"; f64="84059724738A3C78" },
+        @{ name="object-state10"; bank=5; fixed_bank=$false; cpu_start=0xB6E5; bytes=144; payload_offset=1031; f32="6AD67C6A"; f64="C4DDB2D7A58EF6AA" },
+        @{ name="object-state17-18"; bank=5; fixed_bank=$false; cpu_start=0xB775; bytes=76; payload_offset=1175; f32="D90B723B"; f64="9EBF758818C65AFB" },
+        @{ name="action-dispatch"; bank=7; fixed_bank=$true; cpu_start=0xC711; bytes=43; payload_offset=1251; f32="AF434105"; f64="453F5F11B98924E5" },
+        @{ name="action-selector"; bank=7; fixed_bank=$true; cpu_start=0xCAF5; bytes=62; payload_offset=1294; f32="798F7231"; f64="B65EBECE5F5ECFB1" },
+        @{ name="action-table-low"; bank=7; fixed_bank=$true; cpu_start=0xCB33; bytes=62; payload_offset=1356; f32="CB4B3C42"; f64="25A0A0DFEDDD4702" },
+        @{ name="action-table-high"; bank=7; fixed_bank=$true; cpu_start=0xCB71; bytes=62; payload_offset=1418; f32="CD228EDD"; f64="F8DCBA38D20596DD" }
     )
     for ($Index = 0; $Index -lt $ExpectedSpans.Count; ++$Index) {
         $Span = $ExpectedSpans[$Index]
@@ -231,17 +234,60 @@ try {
             ($Payload[$Record + 3] -ne 0) -ne $Span.fixed_bank -or
             [BitConverter]::ToUInt16($Payload, $Record + 4) -ne $Span.cpu_start -or
             [BitConverter]::ToUInt32($Payload, $Record + 8) -ne $Span.bytes -or
+            $PayloadOffset -ne $Span.payload_offset -or
             ("{0:X8}" -f [BitConverter]::ToUInt32($Payload, $Record + 16)) -ne
                 $Span.f32 -or
-            $PayloadOffset -lt 384 -or
-            $PayloadOffset + $Span.bytes -gt 1353) {
+            ("{0:X16}" -f [BitConverter]::ToUInt64($Payload, $Record + 20)) -ne
+                $Span.f64 -or
+            $PayloadOffset -lt 416 -or
+            $PayloadOffset + $Span.bytes -gt 1480) {
             throw "TGCA-1 descriptor $Index is malformed."
+        }
+    }
+    $SourceMapEntry = Get-AssetPackEntry $PackBytes "system/source-map"
+    $SourceMap = ([Text.Encoding]::UTF8.GetString(
+        (Get-EntryBytes $PackBytes $SourceMapEntry))) | ConvertFrom-Json
+    $SourceMaps = @($SourceMap.logical_entries | Where-Object {
+        $_.id -eq "gameplay/actor-command-assignment"
+    })
+    if ($SourceMaps.Count -ne 1 -or
+        [string]$SourceMaps[0].schema -ne
+            "tecmo.gameplay-actor-command-assignment/TGCA-1" -or
+        [int]$SourceMaps[0].size -ne 1488 -or
+        [string]$SourceMaps[0].fingerprint_fnv1a32 -ne "4C7C2B34" -or
+        [bool]$SourceMaps[0].production_attachment -or
+        @($SourceMaps[0].source_spans).Count -ne $ExpectedSpans.Count) {
+        throw "TGCA-1 logical source-map entry is missing or malformed."
+    }
+    for ($Index = 0; $Index -lt $ExpectedSpans.Count; ++$Index) {
+        $Span = $ExpectedSpans[$Index]
+        $MapSpan = @($SourceMaps[0].source_spans)[$Index]
+        $CpuBase = if ($Span.fixed_bank) { 0xC000 } else { 0x8000 }
+        $ExpectedSourceOffset = [uint64]$SourceMap.source.prg_offset +
+            [uint64]$Span.bank * [uint64]$SourceMap.source.prg_bank_bytes +
+            [uint64]($Span.cpu_start - $CpuBase)
+        $ExpectedSourceEntry = if ($Span.fixed_bank) {
+            "prg/fixed"
+        } else {
+            "prg/bank05"
+        }
+        if ([uint64]$MapSpan.source_offset -ne $ExpectedSourceOffset -or
+            [string]$MapSpan.source_entry -ne $ExpectedSourceEntry -or
+            [int]$MapSpan.bank -ne $Span.bank -or
+            [bool]$MapSpan.fixed_bank -ne $Span.fixed_bank -or
+            [int]$MapSpan.cpu_start -ne $Span.cpu_start -or
+            [int]$MapSpan.cpu_end -ne ($Span.cpu_start + $Span.bytes - 1) -or
+            [int]$MapSpan.size -ne $Span.bytes -or
+            [int]$MapSpan.payload_offset -ne $Span.payload_offset -or
+            [string]$MapSpan.fingerprint_fnv1a32 -ne $Span.f32 -or
+            [string]$MapSpan.fingerprint_fnv1a64 -ne $Span.f64) {
+            throw "TGCA-1 source-map span $Index lost an exact range/hash."
         }
     }
     $ProvenancePath = Join-Path $ProjectRoot "docs\a023-actor-command-assignment-provenance.json"
     $Provenance = Get-Content -LiteralPath $ProvenancePath -Raw | ConvertFrom-Json
     if ($Provenance.schema -ne "tecmo.actor-command-assignment-provenance/TGCA-1" -or
-        @($Provenance.authoritative_spans).Count -ne 8 -or
+        @($Provenance.authoritative_spans).Count -ne 9 -or
         $Provenance.production_proof_contract.expected.emitted -or
         $Provenance.production_proof_contract.expected.production_mutated -or
         $Provenance.fixture_boundary.resolver_inputs -notmatch "Synthetic") {
@@ -251,11 +297,12 @@ try {
 
     foreach ($Mutation in @(
         @{ name="payload-magic"; offset=0 },
+        @{ name="payload-rom-sha"; offset=40 },
         @{ name="payload-header-reserved"; offset=72 },
         @{ name="payload-descriptor"; offset=144 },
-        @{ name="payload-raw-first"; offset=384 },
-        @{ name="payload-raw-middle"; offset=800 },
-        @{ name="payload-padding"; offset=1353 }
+        @{ name="payload-raw-first"; offset=416 },
+        @{ name="payload-raw-middle"; offset=900 },
+        @{ name="payload-padding"; offset=1480 }
     )) {
         Write-PayloadMutationAndReject $PackBytes $Entry $Mutation.name `
             $Mutation.offset
@@ -269,7 +316,7 @@ try {
     $MissingPath = Join-Path $Scratch "missing.assetpack"
     [IO.File]::WriteAllBytes($MissingPath, $Missing)
     Invoke-Tgca $MissingPath $false
-    foreach ($Size in @(1359, 1361)) {
+    foreach ($Size in @(1487, 1489)) {
         $Sized = [byte[]]$PackBytes.Clone()
         [BitConverter]::GetBytes([uint64]$Size).CopyTo(
             $Sized, [int]$Entry.directory_offset + 92)
@@ -279,11 +326,12 @@ try {
     }
 
     Write-Host (
-        "TGCA-1 tests passed: exact 8-span Rev1 fingerprints, independent " +
-        "raw-ROM rejection for every authoritative span, parser copied-byte/" +
-        "payload rejection, fixture-only A023 resolver gates, descending tie, " +
-        "selected exclusions, synthetic no-candidate, both-side control modes, " +
-        "and transactional rollback.")
+        "TGCA-1 tests passed: exact 9-span Rev1 fingerprints and source map; " +
+        "whole-ROM importer rejection for nine targeted raw mutations; bounded " +
+        "per-span FNV32/FNV64/descriptor branches; parser copied-byte/SHA/" +
+        "payload rejection; unsigned depth distance; fixture-only A023 gates, " +
+        "descending tie, selected exclusions, human/automatic modes, and " +
+        "transactional rollback.")
     $global:LASTEXITCODE = 0
 } finally {
     $env:TECMO_SKIP_SHORTCUT = $PreviousSkipShortcut

@@ -171,17 +171,26 @@ Lua, log, screenshot, or state file at runtime.
 
 ### A023 actor-command-assignment boundary
 
-`gameplay/actor-command-assignment` TGCA-1 is a strict eight-span Rev1
+`gameplay/actor-command-assignment` TGCA-1 is a strict nine-span Rev1
 evidence asset for Bank05 `$A023-$A0DC`, its `$9DF6/$9E0A` distance helper,
-the source-complete object callers `$B73A`, `$B783`, and `$B7B6`, plus the
-fixed `$C711` action-`$1D` selector/table path.  The pure typed resolver
+the `$A214-$A25E` object-slot-10 dispatcher/table, source-complete callers
+`$B73A`, `$B783`, and `$B7B6` through `$B7C0`, plus the fixed `$C711`
+action-`$1D` selector/table path.  The pure typed resolver
 preserves only the proven `$A0A6/$A046` stream/state writes: side-indexed
 automatic selected actors receive `$000A/$0019` and state `$04`; the two
 `$04B0` bit-`$10` scans descend from 9 to 0, exclude `$0308/$0309`, use
-`abs16(X)+abs8(depth)` with initial `$0505`, and let an equal score replace the
-earlier candidate.  Thus an equal-distance tie selects the lower actor index.
+`abs16(X)+unsigned_abs8(depth)` with initial `$0505`, and let an equal score
+replace the earlier candidate.  The depth subtraction uses the ROM's carry/
+borrow-derived 16-bit absolute result (`0` and `200` are 200 apart, not 56).
+Thus an equal-distance tie selects the lower actor index. Every successful
+scan also reaches the source `$048F/$0484` clears, recorded as unowned
+observations even for human control mode.
 The full machine-readable span/caller/fixture boundary is
 `docs/a023-actor-command-assignment-provenance.json`.
+The generated `system/source-map` repeats all nine exact ROM offsets, CPU
+ranges, payload offsets, and FNV32/FNV64 values. The parser compares its stored
+Rev1 SHA identity, and a bounded one-span verifier gives focused tests direct
+descriptor/FNV32/FNV64 coverage behind the full-ROM/aggregate guards.
 
 This is **not** integrated into normal tip-off, jump, pass, claimant, rebound,
 or generic possession handling.  The native scene's numeric `jump_ball_state`

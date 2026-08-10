@@ -26,6 +26,14 @@
       "fnv1a64": "0C3DED79B8BCFADB"
     },
     {
+      "kind": "object-slot10-dispatch-and-pointer-tables",
+      "bank": 5,
+      "cpu": "$A214-$A25E",
+      "bytes": 75,
+      "fnv1a32": "4FC82BF8",
+      "fnv1a64": "84059724738A3C78"
+    },
+    {
       "kind": "object-state10-caller",
       "bank": 5,
       "cpu": "$B6E5-$B774",
@@ -34,12 +42,12 @@
       "fnv1a64": "C4DDB2D7A58EF6AA"
     },
     {
-      "kind": "object-state17-caller",
+      "kind": "object-state17-and-state18-callers",
       "bank": 5,
-      "cpu": "$B775-$B7AC",
-      "bytes": 56,
-      "fnv1a32": "2E13AB9D",
-      "fnv1a64": "8230DBA0ABC2A3BD"
+      "cpu": "$B775-$B7C0",
+      "bytes": 76,
+      "fnv1a32": "D90B723B",
+      "fnv1a64": "9EBF758818C65AFB"
     },
     {
       "kind": "fixed-action-dispatch",
@@ -103,10 +111,10 @@
         "$0309 defender"
       ],
       "selector": "$04B0,X & $10 == $0094",
-      "score": "$9E0A: abs16(actor-x - object-slot-10-x) + abs8(actor-depth - object-slot-10-depth)",
+      "score": "$9E0A: abs16(actor-x - object-slot-10-x) + unsigned_abs8(actor-depth - object-slot-10-depth), with the depth borrow materialized as a 16-bit high byte before negation",
       "initial_best": "$0505",
       "tie_rule": "equality replaces the winner; descending scan leaves the lower actor index",
-      "winner_writes": "$C711 #$1D (unowned), then $0019 when selector $10 else $000A, and $057C=$04"
+      "winner_writes": "$C711 #$1D (unowned), then $0019 when selector $10 else $000A, $057C=$04, and $048F/$0484 clears (observed but unowned)"
     },
     "caller_gates": {
       "B73A": "$A214 state $10 -> $B6E5; BA&3==0, $05A1==0, ($0499<$46 || $04AF negative), $0588&$80, $0499==0, and ($67|$68)!=0",
@@ -114,6 +122,18 @@
       "B7B6": "$A214 state $18 -> $B7B6 -> $B783; $0499==0",
       "9FE2": "$9F2F predecessor geometry/property/trajectory gates then $A0DD target construction, $A023, and fixed $C009 #$05"
     }
+  },
+  "asset_and_verifier_contract": {
+    "payload": {
+      "bytes": 1488,
+      "fnv1a32": "4C7C2B34",
+      "raw_bytes": 1064,
+      "raw_fnv1a32": "741A149E",
+      "stored_rom_sha256_compared_by_parser": true
+    },
+    "bounded_span_verifier": "Importer, parser, and focused unit vectors share a one-descriptor/one-span verifier. Direct vectors independently reach descriptor, FNV1a32, and FNV1a64 failure flags behind the outer exact-ROM and aggregate-payload guards.",
+    "raw_rom_mutation_claim": "Nine targeted raw-ROM mutations prove the outer exact-Rev1 importer rejects each changed authority region; those cases alone are not claimed as per-span-branch coverage.",
+    "generated_source_map": "system/source-map contains one gameplay/actor-command-assignment logical entry and all nine exact source offsets, ranges, payload offsets, FNV1a32, and FNV1a64 values."
   },
   "fixture_boundary": {
     "resolver_inputs": "Synthetic typed fixtures may invoke only B73A, B783, or B7B6 after supplying every represented gate and an object-slot-10 target.",

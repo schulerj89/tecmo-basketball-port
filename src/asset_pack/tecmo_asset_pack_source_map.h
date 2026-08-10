@@ -16,6 +16,7 @@
 #include "tecmo_asset_pack_gameplay_close_shots.h"
 #include "tecmo_asset_pack_gameplay_dunk_cutaway.h"
 #include "tecmo_asset_pack_gameplay_jump_shots.h"
+#include "tecmo_asset_pack_gameplay_actor_command_assignment.h"
 #include "tecmo_asset_pack_gameplay_shot_resolution.h"
 #include "tecmo_asset_pack_gameplay_penalties.h"
 #include "tecmo_asset_pack_gameplay_violation_referee.h"
@@ -62,6 +63,8 @@ char *tecmo_asset_pack_build_ines_source_map(
     const TecmoGameplayCloseShotProvenance *close_shot_provenance,
     const TecmoGameplayDunkProvenance *dunk_provenance,
     const TecmoGameplayJumpShotProvenance *jump_shot_provenance,
+    const TecmoGameplayActorCommandAssignmentProvenance
+        *actor_command_assignment_provenance,
     const TecmoGameplayShotResolutionProvenance *shot_resolution_provenance,
     const TecmoGameplayPenaltyProvenance *penalty_provenance,
     const TecmoGameplayViolationRefereeProvenance *violation_referee_provenance,

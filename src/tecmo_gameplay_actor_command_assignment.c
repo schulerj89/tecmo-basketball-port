@@ -24,16 +24,6 @@ static uint32_t read_u32(const uint8_t *bytes)
            ((uint32_t)bytes[3U] << 24U);
 }
 
-static uint64_t read_u64(const uint8_t *bytes)
-{
-    uint64_t value = 0U;
-    unsigned index;
-    for (index = 0U; index < 8U; ++index) {
-        value |= (uint64_t)bytes[index] << (index * 8U);
-    }
-    return value;
-}
-
 static uint32_t fnv1a32(const uint8_t *bytes, size_t count)
 {
     uint32_t hash = 2166136261U;
@@ -41,17 +31,6 @@ static uint32_t fnv1a32(const uint8_t *bytes, size_t count)
     for (index = 0U; index < count; ++index) {
         hash ^= bytes[index];
         hash *= 16777619U;
-    }
-    return hash;
-}
-
-static uint64_t fnv1a64(const uint8_t *bytes, size_t count)
-{
-    uint64_t hash = 14695981039346656037ULL;
-    size_t index;
-    for (index = 0U; index < count; ++index) {
-        hash ^= bytes[index];
-        hash *= 1099511628211ULL;
     }
     return hash;
 }
@@ -97,6 +76,10 @@ static bool validate_header(const uint8_t *payload, size_t payload_size)
                TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_RAW_FNV1A32 &&
            read_u32(payload + 32U) == 393232U &&
            read_u32(payload + 36U) == 0x0650F5B0U &&
+           memcmp(payload + 40U,
+                  tecmo_gameplay_actor_command_assignment_rev1_sha256,
+                  sizeof(tecmo_gameplay_actor_command_assignment_rev1_sha256)) ==
+               0 &&
            bytes_are_zero(payload + 72U,
                TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_HEADER_SIZE - 72U);
 }
@@ -115,26 +98,14 @@ static bool validate_source_records(const uint8_t *payload,
         const uint8_t *record = payload +
             TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCES_OFFSET +
             index * TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_STRIDE;
-        uint32_t cpu_end = (uint32_t)expected->cpu_start +
-            expected->byte_count - 1U;
-        if (read_u16(record) != (uint16_t)expected->kind ||
-            record[2U] != expected->bank ||
-            record[3U] != expected->fixed_bank ||
-            read_u16(record + 4U) != expected->cpu_start ||
-            read_u16(record + 6U) != (uint16_t)cpu_end ||
-            read_u32(record + 8U) != expected->byte_count ||
-            read_u32(record + 12U) != expected->payload_offset ||
-            read_u32(record + 16U) != expected->fingerprint_fnv1a32 ||
-            read_u64(record + 20U) != expected->fingerprint_fnv1a64 ||
-            read_u16(record + 28U) != (uint16_t)index ||
-            !bytes_are_zero(record + 30U, 2U) ||
-            expected->payload_offset != expected_payload_offset ||
+        if (expected->payload_offset != expected_payload_offset ||
             !range_ok(expected->payload_offset, expected->byte_count,
                       payload_size) ||
-            fnv1a32(payload + expected->payload_offset,
-                    expected->byte_count) != expected->fingerprint_fnv1a32 ||
-            fnv1a64(payload + expected->payload_offset,
-                    expected->byte_count) != expected->fingerprint_fnv1a64) {
+            tecmo_asset_pack_gameplay_actor_command_assignment_verify_span(
+                index, record,
+                TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_STRIDE,
+                payload + expected->payload_offset,
+                expected->byte_count) != 0U) {
             return false;
         }
         expected_payload_offset += expected->byte_count;
@@ -290,10 +261,16 @@ static uint16_t source_abs16(int16_t left, int16_t right)
     return (delta & 0x8000U) != 0U ? (uint16_t)(0U - delta) : delta;
 }
 
-static uint8_t source_abs8(int16_t left, int16_t right)
+static uint16_t source_abs_depth(int16_t left, int16_t right)
 {
-    uint8_t delta = (uint8_t)((uint8_t)left - (uint8_t)right);
-    return (delta & 0x80U) != 0U ? (uint8_t)(0U - delta) : delta;
+    uint8_t left_byte = (uint8_t)left;
+    uint8_t right_byte = (uint8_t)right;
+    /* $9E37-$9E63 performs an unsigned byte subtraction, materializes the
+       borrow into a zero/$FF high byte, and two's-complement negates the
+       16-bit result.  Values such as 0 and 200 are therefore 200 apart. */
+    return left_byte >= right_byte
+        ? (uint16_t)(left_byte - right_byte)
+        : (uint16_t)(right_byte - left_byte);
 }
 
 static void scan_side(const TecmoGameplayLiveFoundation *foundation,
@@ -323,7 +300,7 @@ static void scan_side(const TecmoGameplayLiveFoundation *foundation,
         }
         score = (uint16_t)(
             source_abs16(foundation->actor_position[actor].x, target->x) +
-            source_abs8(foundation->actor_position[actor].y, target->y));
+            source_abs_depth(foundation->actor_position[actor].y, target->y));
         /* $A046 subtracts candidate from best and accepts carry, so equality
            replaces the prior winner. Descending X therefore leaves the
            lowest-index tied actor selected. */
@@ -440,6 +417,11 @@ bool tecmo_gameplay_actor_command_assignment_apply(
     result.unsupported_c711_action1d_observed =
         result.side10_scan.winner_actor != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
         result.side00_scan.winner_actor != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    if (result.unsupported_c711_action1d_observed) {
+        /* Every successful $A046 scan falls through $A0B8/$A0C5 to $A0CF,
+           which clears the winner's $048F/$0484 even in human control mode. */
+        result.unsupported_clear_0484_048f_observed = true;
+    }
     result.unsupported_terminal_9df6_scratch_observed = true;
     result.primary_stream_after = candidate.play_state.stream_offset[primary];
     result.primary_state_after = candidate.play_state.actor_state[primary];
@@ -507,6 +489,7 @@ bool tecmo_gameplay_actor_command_assignment_self_test(
     uint8_t copied_first_source_byte;
     uint16_t human_primary_stream;
     uint16_t human_defender_stream;
+    size_t span_index;
     bool ok = false;
     tecmo_gameplay_actor_command_assignment_assets_init(&assignment_assets);
     tecmo_gameplay_cpu_steering_assets_init(&steering_assets);
@@ -595,7 +578,8 @@ bool tecmo_gameplay_actor_command_assignment_self_test(
         result.side00_scan.winner_actor == before.primary_actor ||
         result.side10_scan.winner_actor == before.defender_actor ||
         result.side00_scan.winner_actor == TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
-        result.side10_scan.winner_actor == TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR) {
+        result.side10_scan.winner_actor == TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
+        !result.unsupported_clear_0484_048f_observed) {
         goto cleanup;
     }
 
@@ -612,6 +596,29 @@ bool tecmo_gameplay_actor_command_assignment_self_test(
             &assignment_assets, &steering_assets, &input, &foundation,
             &result) || result.side10_scan.winner_actor != 6U ||
         result.side10_scan.winner_score != 0U) {
+        goto cleanup;
+    }
+
+    /* $9E37's depth distance is unsigned, not signed-bit absolute.  The
+       direct vectors close both subtraction directions; the winner fixture
+       would select slot 1 with the former broken 56-distance conversion. */
+    if (source_abs_depth(0, 200) != 200U ||
+        source_abs_depth(200, 0) != 200U) {
+        goto cleanup;
+    }
+    foundation = baseline;
+    foundation.control_mode[foundation.offense_side] = 0U;
+    foundation.control_mode[foundation.defense_side] = 0U;
+    input.object10_target.x = 200;
+    input.object10_target.y = 200;
+    foundation.actor_position[1U].x = 200;
+    foundation.actor_position[1U].y = 0;
+    foundation.actor_position[2U].x = 200;
+    foundation.actor_position[2U].y = 120;
+    if (!tecmo_gameplay_actor_command_assignment_apply(
+            &assignment_assets, &steering_assets, &input, &foundation,
+            &result) || result.side00_scan.winner_actor != 2U ||
+        result.side00_scan.winner_score != 80U) {
         goto cleanup;
     }
 
@@ -711,6 +718,80 @@ bool tecmo_gameplay_actor_command_assignment_self_test(
         assignment_assets.sources[0U].bytes == NULL) {
         goto cleanup;
     }
+    /* The bounded verifier bypasses the whole-ROM and aggregate-payload
+       guards so every authoritative descriptor and both individual span
+       fingerprint branches are exercised directly. */
+    for (span_index = 0U;
+         span_index < TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_COUNT;
+         ++span_index) {
+        const TecmoGameplayActorCommandAssignmentExpectedSource *expected =
+            &tecmo_gameplay_actor_command_assignment_expected_sources[
+                span_index];
+        const uint8_t *record = payload +
+            TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCES_OFFSET +
+            span_index *
+                TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_STRIDE;
+        uint32_t failures;
+        if (tecmo_asset_pack_gameplay_actor_command_assignment_verify_span(
+                span_index, record,
+                TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_STRIDE,
+                payload + expected->payload_offset,
+                expected->byte_count) != 0U) {
+            goto cleanup;
+        }
+        memcpy(mutated_payload, payload, (size_t)payload_size);
+        mutated_payload[expected->payload_offset +
+                        expected->byte_count - 1U] ^= 0x01U;
+        failures =
+            tecmo_asset_pack_gameplay_actor_command_assignment_verify_span(
+                span_index, record,
+                TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_STRIDE,
+                mutated_payload + expected->payload_offset,
+                expected->byte_count);
+        if ((failures &
+                TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SPAN_VERIFY_FNV1A32) ==
+                0U ||
+            (failures &
+                TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SPAN_VERIFY_FNV1A64) ==
+                0U ||
+            (failures &
+                TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SPAN_VERIFY_DESCRIPTOR) !=
+                0U) {
+            goto cleanup;
+        }
+        memcpy(mutated_payload, payload, (size_t)payload_size);
+        mutated_payload[
+            TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCES_OFFSET +
+            span_index *
+                TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_STRIDE] ^=
+            0x01U;
+        failures =
+            tecmo_asset_pack_gameplay_actor_command_assignment_verify_span(
+                span_index,
+                mutated_payload +
+                    TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCES_OFFSET +
+                    span_index *
+                        TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_STRIDE,
+                TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_STRIDE,
+                payload + expected->payload_offset,
+                expected->byte_count);
+        if ((failures &
+                TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SPAN_VERIFY_DESCRIPTOR) ==
+                0U ||
+            (failures &
+                (TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SPAN_VERIFY_FNV1A32 |
+                 TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SPAN_VERIFY_FNV1A64)) !=
+                0U) {
+            goto cleanup;
+        }
+    }
+    if (tecmo_asset_pack_gameplay_actor_command_assignment_verify_span(
+            TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_COUNT,
+            payload, 32U, payload, 1U) !=
+            TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SPAN_VERIFY_BAD_INPUT) {
+        goto cleanup;
+    }
+
     copied_first_source_byte = assignment_assets.sources[0U].bytes[0U];
     payload[TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_RAW_OFFSET] ^=
         0x01U;
@@ -721,6 +802,13 @@ bool tecmo_gameplay_actor_command_assignment_self_test(
     }
     payload[TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_RAW_OFFSET] ^=
         0x01U;
+    memcpy(mutated_payload, payload, (size_t)payload_size);
+    mutated_payload[40U] ^= 0x01U;
+    if (validate_header(mutated_payload, (size_t)payload_size) ||
+        tecmo_gameplay_actor_command_assignment_assets_parse(
+            &assignment_assets, mutated_payload, (size_t)payload_size)) {
+        goto cleanup;
+    }
     memcpy(mutated_payload, payload, (size_t)payload_size);
     mutated_payload[
         TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCES_OFFSET +
