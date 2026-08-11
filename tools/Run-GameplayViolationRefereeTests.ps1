@@ -306,6 +306,9 @@ try {
         (@($Maps[0].native_contract.out_of_bounds_groups) -join ',') -ne
             '3,4,5,5,5' -or
         $Maps[0].native_contract.out_of_bounds_message -ne "OUT OF BOUNDS" -or
+        $Maps[0].native_contract.metasprite_piece_pixels -ne 8 -or
+        $Maps[0].native_contract.metasprite_tile_bias -ne 60 -or
+        $Maps[0].native_contract.metasprite_tile_mask -ne 63 -or
         $Maps[0].native_contract.live_out_of_bounds_trigger -notmatch
             'TGMO-1.*TPNL-1 selector 1' -or
         $Maps[0].native_contract.backcourt_selector -ne 2 -or
@@ -440,6 +443,21 @@ try {
     )) {
         $LabSourceHashes[$Item] = Invoke-ViolationLabRender $Item "source" 23
     }
+    $ArmPoseHashes = @{
+        23 = $LabSourceHashes["out-of-bounds"]
+        27 = Invoke-ViolationLabRender "out-of-bounds" "source" 27
+        31 = Invoke-ViolationLabRender "out-of-bounds" "source" 31
+    }
+    $ExpectedArmPoseHashes = @{
+        23 = "1B1BBB452C499AB850C86596A37B820146EC7C649C10EF27477804ACEDA49B49"
+        27 = "F3C4E48746D25E6BB5621F4C579A01DE14EE0DA233F8200F07F6478150443C2D"
+        31 = "2BB1B78EBF359E7A194B85FE5271E758B4D4DB5A89AFF6950B01BA8CCC8335C5"
+    }
+    foreach ($Frame in @(23, 27, 31)) {
+        if ($ArmPoseHashes[$Frame] -ne $ExpectedArmPoseHashes[$Frame]) {
+            throw "TGVR lab referee 8x8 arm pose changed at frame $Frame."
+        }
+    }
     $LabStateHashes = @{}
     foreach ($Item in @("out-of-bounds", "backcourt", "shot-clock", "foul")) {
         $LabStateHashes[$Item] = Invoke-ViolationLabRender $Item "state" 27
@@ -488,7 +506,7 @@ try {
         "shot-clock groups 9->10, live TGMO/TPNL out-of-bounds and " +
         "TGBC/TPNL backcourt groups 3->4->5, 168-frame settlement, " +
         "all-seven-plus-foul developer previews, normal LIVE F3-only CPU pane, " +
-        "deterministic render checkpoints, " +
+        "exact 8x8 referee arm-pose checkpoints, deterministic renders, " +
         "strict provenance and fail-closed dependencies")
     $global:LASTEXITCODE = 0
 } finally {

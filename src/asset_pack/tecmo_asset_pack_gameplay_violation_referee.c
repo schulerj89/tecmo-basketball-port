@@ -275,9 +275,9 @@ static int build_groups(uint8_t *payload, uint64_t chr_size,
             uint8_t tile = (uint8_t)(piece_record[1U] + 0x3CU);
             uint8_t selector = sprite_selectors[(tile >> 6U) & 3U];
             uint64_t chr_offset = (uint64_t)selector * 1024ULL +
-                                  (uint64_t)(tile & 0x3EU) * 16ULL;
+                                  (uint64_t)(tile & 0x3FU) * 16ULL;
             if ((piece_record[2U] & 0x3CU) != 0U ||
-                chr_offset + 32U > chr_size) {
+                chr_offset + 16U > chr_size) {
                 tecmo_asset_pack_set_message(
                     message, message_size,
                     "TGVR-1 referee metasprite CHR/attribute rejected.");

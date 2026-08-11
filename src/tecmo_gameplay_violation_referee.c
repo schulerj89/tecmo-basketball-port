@@ -421,9 +421,9 @@ static bool validate_groups(const uint8_t *payload, size_t payload_size,
             uint8_t tile = (uint8_t)(piece_record[1U] + 0x3CU);
             uint8_t selector = selectors[(tile >> 6U) & 3U];
             size_t chr_offset = (size_t)selector * 1024U +
-                                (size_t)(tile & 0x3EU) * 16U;
+                                (size_t)(tile & 0x3FU) * 16U;
             if ((piece_record[2U] & 0x3CU) != 0U ||
-                chr_offset + 32U > chr_size) {
+                chr_offset + 16U > chr_size) {
                 return false;
             }
         }
@@ -919,9 +919,8 @@ static bool draw_referee_presentation(
         const uint8_t *piece = group->pieces + cell * 4U;
         uint8_t tile = (uint8_t)(piece[1U] + 0x3CU);
         uint8_t selector = assets->sprite_chr_selectors[(tile >> 6U) & 3U];
-        size_t top_offset = (size_t)selector * 1024U +
-                            (size_t)(tile & 0x3EU) * 16U;
-        size_t bottom_offset = top_offset + 16U;
+        size_t chr_offset = (size_t)selector * 1024U +
+                            (size_t)(tile & 0x3FU) * 16U;
         uint8_t attributes = piece[2U];
         bool flip_horizontal = (attributes & 0x40U) != 0U;
         bool flip_vertical = (attributes & 0x80U) != 0U;
@@ -931,7 +930,7 @@ static bool draw_referee_presentation(
         int y = origin_y +
             (int)(uint8_t)(group->base_y + piece[0U] + 1U) * scale;
         size_t color;
-        if (top_offset + 32U > chr_size ||
+        if (chr_offset + 16U > chr_size ||
             (attributes & 0x3CU) != 0U) {
             return false;
         }
@@ -941,18 +940,13 @@ static bool draw_referee_presentation(
                     (size_t)(attributes & 3U) * 4U + color],
                 brightness));
         }
-        if (flip_vertical) {
-            size_t swap = top_offset;
-            top_offset = bottom_offset;
-            bottom_offset = swap;
-        }
+        /* Bank04 $B33F records advance both axes and tile numbers in 8-pixel
+           cells. Their tile selector uses all six low bits; pairing and
+           clearing bit zero here incorrectly treated two adjacent 8x8 cells
+           as one 8x16 sprite and stacked an extra arm/body tile. */
         tecmo_draw_chr_tile_at_offset_ex(
-            framebuffer, chr, chr_size, top_offset, x, y, scale,
+            framebuffer, chr, chr_size, chr_offset, x, y, scale,
             palette, flip_horizontal, flip_vertical);
-        tecmo_draw_chr_tile_at_offset_ex(
-            framebuffer, chr, chr_size, bottom_offset,
-            x, y + 8 * scale, scale, palette,
-            flip_horizontal, flip_vertical);
     }
     return true;
 }

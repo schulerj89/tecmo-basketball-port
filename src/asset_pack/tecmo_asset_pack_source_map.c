@@ -3438,7 +3438,7 @@ static int append_gameplay_violation_referee_source_map_entry(
             "\"revision_sha256\":\"076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4\","
             "\"revision_sha256_verified\":true,"
             "\"dependencies\":["
-            "{\"entry\":\"chr/all\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\",\"fingerprint_fnv1a64\":\"%016llX\",\"reason\":\"screen and 8x16 referee tiles\"},"
+            "{\"entry\":\"chr/all\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\",\"fingerprint_fnv1a64\":\"%016llX\",\"reason\":\"screen and 8x8 referee cells\"},"
             "{\"entry\":\"%s\",\"size\":%u,\"fingerprint_fnv1a32\":\"%08X\",\"reason\":\"selector-to-violation presentation contract\"}],"
             "\"source_spans\":[",
             prefix,
@@ -3492,6 +3492,8 @@ static int append_gameplay_violation_referee_source_map_entry(
         "\"screen_id\":5,\"screen_loader\":\"fixed $D92E/$D9F6\","
         "\"background_chr_selectors\":[202,250],"
         "\"sprite_chr_selectors\":[202,113,114,115],"
+        "\"metasprite_piece_pixels\":8,\"metasprite_tile_bias\":60,"
+        "\"metasprite_tile_mask\":63,"
         "\"dispatcher_selector\":34,"
         "\"initial_group\":0,\"initial_hold_frames\":16,"
         "\"group_cadence_frames\":4,"

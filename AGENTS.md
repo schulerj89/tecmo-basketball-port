@@ -1017,7 +1017,9 @@ no invented visible BONUS string.
 TGVR-1 `gameplay/violation-referee` is the strict 4752-byte visual companion
 (FNV1a32 `2EB08CF0`) and requires exact same-pack `chr/all` plus TPNL-1. It
 retains screen `$05`, all seven mapped violation messages, palettes, Bank04
-metasprites, and selector-specific sequences. Shot clock is groups
+metasprites, and selector-specific sequences. Each `$B33F` piece is one 8x8
+CHR cell; preserve tile bit zero and do not synthesize an 8x16 partner tile.
+Shot clock is groups
 `9,10,10,10`; out of bounds is `3,4,5,5,5`. The 44-frame controller and
 four-frame group cadence are exact. The nine-frame blackout/fade alignment
 remains capture-bounded. The scene consumes strict TPNL-1 presentation metadata

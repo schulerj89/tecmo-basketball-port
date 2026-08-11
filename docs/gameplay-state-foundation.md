@@ -481,7 +481,10 @@ machine-readable map is `docs/live-foul-asm-parity.json`.
 counterpart. It loads only exact same-pack `chr/all` and TPNL-1, decodes ROM
 screen `$05`, maps all seven Bank03 violation strings through the original
 character table, and retains Bank04's 15 referee metasprites and five gesture
-sequences. Shot-clock selector 5 uses the exact sequence `9,10,10,10`; it does
+sequences. Each `$B33F` metasprite piece is one 8x8 CHR cell: the source
+records advance coordinates and consecutive tile values in eight-pixel steps,
+so the renderer preserves tile bit zero and does not synthesize a second
+stacked tile. Shot-clock selector 5 uses the exact sequence `9,10,10,10`; it does
 not reuse selector 1's out-of-bounds pointing sequence `3,4,5,5,5`. Focused
 render coverage requires the visible out-of-bounds groups 3, 4, and 5 to be
 distinct, then requires terminal group 5 to hold through the wait. The Bank04
