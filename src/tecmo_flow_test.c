@@ -1111,6 +1111,105 @@ static bool flow_expect_lab_keys_inert_at_start_menu(TecmoRuntime *runtime,
     return true;
 }
 
+/* The source renderer is a developer inspection tool, not a gameplay
+ * detector. It must therefore open from the blue start menu as well as the
+ * court, freeze that menu, and keep production-state preview unavailable. */
+static bool flow_expect_violation_lab_source_at_start_menu(
+    TecmoRuntime *runtime,
+    char *message,
+    size_t message_size)
+{
+    TecmoInput input = {0};
+    TecmoStartGameMenuState menu_before;
+    uint32_t mode_frame_before;
+
+    if (runtime == NULL || !runtime->gameplay_scene.available ||
+        !runtime->gameplay_scene.violation_referee_assets.available) {
+        set_flow_test_message(message, message_size,
+                              "menu source lab assets unavailable");
+        return false;
+    }
+    tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+    runtime->start_game_menu_state.frame =
+        runtime->start_game_menu_asset.stable_frame;
+    runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
+    runtime->start_game_menu_state.root_selection = 0U;
+    runtime->start_game_menu_state.direction_cooldown = 0U;
+    runtime->start_game_menu_state.cursor_delay = 0U;
+    runtime->start_menu_input_neutral_gate = false;
+    runtime->debug_overlay = false;
+
+    input.debug_toggle = true;
+    tecmo_runtime_update(runtime, &input);
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (!runtime->debug_overlay || runtime->violation_lab.active) {
+        set_flow_test_message(message, message_size,
+                              "menu F3 source lab gate failed");
+        return false;
+    }
+    menu_before = runtime->start_game_menu_state;
+    mode_frame_before = runtime->mode_frame_counter;
+
+    input.violation_lab_toggle = true;
+    tecmo_runtime_update(runtime, &input);
+    if (!runtime->violation_lab.active ||
+        runtime->violation_lab.snapshot_valid !=
+            (runtime->gameplay_scene.active &&
+             runtime->gameplay_scene.state.initialized) ||
+        runtime->violation_lab.state_path_available ||
+        runtime->violation_lab.path !=
+            TECMO_GAMEPLAY_VIOLATION_LAB_SOURCE_PREVIEW ||
+        runtime->mode != TECMO_MODE_START_GAME_MENU ||
+        runtime->mode_frame_counter != mode_frame_before + 1U ||
+        memcmp(&runtime->start_game_menu_state, &menu_before,
+               sizeof(menu_before)) != 0) {
+        set_flow_test_message(message, message_size,
+                              "F4 menu source lab did not open/freeze");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+
+    input.violation_lab_next = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->violation_lab.selection !=
+            TECMO_GAMEPLAY_VIOLATION_LAB_BACKCOURT ||
+        memcmp(&runtime->start_game_menu_state, &menu_before,
+               sizeof(menu_before)) != 0) {
+        set_flow_test_message(message, message_size,
+                              "menu source lab selection changed menu");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+
+    input.violation_lab_path = true;
+    tecmo_runtime_update(runtime, &input);
+    if (!runtime->violation_lab.state_path_rejected ||
+        runtime->violation_lab.path !=
+            TECMO_GAMEPLAY_VIOLATION_LAB_SOURCE_PREVIEW ||
+        memcmp(&runtime->start_game_menu_state, &menu_before,
+               sizeof(menu_before)) != 0) {
+        set_flow_test_message(message, message_size,
+                              "menu lab accepted production-state path");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+
+    input.violation_lab_toggle = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->violation_lab.active ||
+        memcmp(&runtime->start_game_menu_state, &menu_before,
+               sizeof(menu_before)) != 0) {
+        set_flow_test_message(message, message_size,
+                              "F4 menu source lab did not close/restore");
+        return false;
+    }
+    return true;
+}
+
 static bool flow_expect_preseason_native_path(TecmoRuntime *runtime,
                                               char *message,
                                               size_t message_size)
@@ -4145,6 +4244,10 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
     }
     if (!flow_expect_lab_keys_inert_at_start_menu(runtime, message,
                                                   message_size)) {
+        return false;
+    }
+    if (!flow_expect_violation_lab_source_at_start_menu(runtime, message,
+                                                        message_size)) {
         return false;
     }
 

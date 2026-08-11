@@ -409,7 +409,7 @@ void tecmo_runtime_shutdown(TecmoRuntime *runtime)
 
 void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
 {
-    if (mode != TECMO_MODE_COURT && runtime->violation_lab.active) {
+    if (mode != runtime->mode && runtime->violation_lab.active) {
         tecmo_gameplay_violation_lab_close(&runtime->violation_lab,
                                            &runtime->gameplay_scene);
     }
@@ -1192,64 +1192,65 @@ void tecmo_runtime_update_players(TecmoRuntime *runtime,
         runtime->debug_overlay = !runtime->debug_overlay;
     }
 
-    /* The violation presentation lab is developer-only and transactionally
-       freezes the active court.  F4-F10 are otherwise inert input fields;
-       no normal gameplay path receives a lab action. */
-    if (runtime->mode == TECMO_MODE_COURT) {
-        if (!runtime->debug_overlay && runtime->violation_lab.active) {
-            tecmo_gameplay_violation_lab_close(&runtime->violation_lab,
-                                               &runtime->gameplay_scene);
-            violation_lab_consumed = true;
-        } else if (runtime->debug_overlay) {
-            if (player_one_controls.pressed.violation_lab_toggle) {
-                if (runtime->violation_lab.active) {
-                    tecmo_gameplay_violation_lab_close(
-                        &runtime->violation_lab, &runtime->gameplay_scene);
-                } else if (!tecmo_gameplay_violation_lab_open(
-                               &runtime->violation_lab,
-                               &runtime->gameplay_scene)) {
-                    /* F4 remains inert when there is no active strict scene. */
+    /* Source preview is available from any runtime screen once strict TGVR
+       assets are loaded. An active court additionally permits the bounded
+       production-state preview. F4-F10 never reach normal menu/gameplay. */
+    if (!runtime->debug_overlay && runtime->violation_lab.active) {
+        tecmo_gameplay_violation_lab_close(&runtime->violation_lab,
+                                           &runtime->gameplay_scene);
+        violation_lab_consumed = true;
+    } else if (runtime->debug_overlay) {
+        if (player_one_controls.pressed.violation_lab_toggle) {
+            if (runtime->violation_lab.active) {
+                tecmo_gameplay_violation_lab_close(
+                    &runtime->violation_lab, &runtime->gameplay_scene);
+                violation_lab_consumed = true;
+            } else if (tecmo_gameplay_violation_lab_open(
+                           &runtime->violation_lab,
+                           &runtime->gameplay_scene)) {
+                if (runtime->mode != TECMO_MODE_COURT) {
+                    runtime->violation_lab.state_path_available = false;
                 }
                 violation_lab_consumed = true;
             }
-            if (runtime->violation_lab.active) {
-                (void)tecmo_gameplay_violation_lab_update(
-                    &runtime->violation_lab, &runtime->gameplay_scene,
-                    &player_one_controls);
-                violation_lab_consumed = true;
-            }
+        }
+        if (runtime->violation_lab.active) {
+            (void)tecmo_gameplay_violation_lab_update(
+                &runtime->violation_lab, &runtime->gameplay_scene,
+                &player_one_controls);
+            violation_lab_consumed = true;
         }
     }
 
-    if (runtime->mode == TECMO_MODE_MAIN_MENU) {
-        update_main_menu(runtime, &normal_player_one_controls);
-    } else if (runtime->mode == TECMO_MODE_TITLE_SCREEN) {
-        update_title_screen(runtime, &normal_player_one_controls);
-    } else if (runtime->mode == TECMO_MODE_INTRO_PROBE ||
-               runtime->mode == TECMO_MODE_CHR_PLAYGROUND) {
-        update_probe_screen(runtime, &normal_player_one_controls);
-    } else if (runtime->mode == TECMO_MODE_FIRST_SPRITE) {
-        update_first_sprite_probe(runtime, &normal_player_one_controls);
-    } else if (runtime->mode == TECMO_MODE_PLAY_SETUP) {
-        update_roster_selection(runtime, &normal_player_one_controls);
-    } else if (runtime->mode == TECMO_MODE_ROSTERS) {
-        update_roster_selection(runtime, &normal_player_one_controls);
-    } else if (runtime->mode == TECMO_MODE_COURT) {
-        if (!violation_lab_consumed) {
+    if (!violation_lab_consumed) {
+        if (runtime->mode == TECMO_MODE_MAIN_MENU) {
+            update_main_menu(runtime, &normal_player_one_controls);
+        } else if (runtime->mode == TECMO_MODE_TITLE_SCREEN) {
+            update_title_screen(runtime, &normal_player_one_controls);
+        } else if (runtime->mode == TECMO_MODE_INTRO_PROBE ||
+                   runtime->mode == TECMO_MODE_CHR_PLAYGROUND) {
+            update_probe_screen(runtime, &normal_player_one_controls);
+        } else if (runtime->mode == TECMO_MODE_FIRST_SPRITE) {
+            update_first_sprite_probe(runtime, &normal_player_one_controls);
+        } else if (runtime->mode == TECMO_MODE_PLAY_SETUP) {
+            update_roster_selection(runtime, &normal_player_one_controls);
+        } else if (runtime->mode == TECMO_MODE_ROSTERS) {
+            update_roster_selection(runtime, &normal_player_one_controls);
+        } else if (runtime->mode == TECMO_MODE_COURT) {
             update_court(runtime, &normal_player_one_controls,
                          &normal_player_two_controls);
+        } else if (runtime->mode == TECMO_MODE_START_GAME_MENU) {
+            update_start_game_menu(runtime, &normal_player_one_controls);
+        } else if (runtime->mode == TECMO_MODE_PRESEASON_MENU) {
+            update_preseason_menu(runtime, &normal_player_one_controls,
+                                  &normal_player_two_controls);
+        } else if (runtime->mode == TECMO_MODE_ALL_STAR_MENU) {
+            update_all_star_menu(runtime, &normal_player_one_controls);
+        } else if (runtime->mode == TECMO_MODE_TEAM_DATA) {
+            update_team_data_menu(runtime, &normal_player_one_controls);
+        } else if (runtime->mode == TECMO_MODE_SEASON_MENU) {
+            update_season_menu(runtime, &normal_player_one_controls);
         }
-    } else if (runtime->mode == TECMO_MODE_START_GAME_MENU) {
-        update_start_game_menu(runtime, &normal_player_one_controls);
-    } else if (runtime->mode == TECMO_MODE_PRESEASON_MENU) {
-        update_preseason_menu(runtime, &normal_player_one_controls,
-                              &normal_player_two_controls);
-    } else if (runtime->mode == TECMO_MODE_ALL_STAR_MENU) {
-        update_all_star_menu(runtime, &normal_player_one_controls);
-    } else if (runtime->mode == TECMO_MODE_TEAM_DATA) {
-        update_team_data_menu(runtime, &normal_player_one_controls);
-    } else if (runtime->mode == TECMO_MODE_SEASON_MENU) {
-        update_season_menu(runtime, &normal_player_one_controls);
     }
 
     write_runtime_watch_memory(runtime);
@@ -1691,7 +1692,7 @@ static void render_debug_cpu_diagnostics(const TecmoRuntime *runtime,
     if (!live->state_valid) {
         draw_debug_text(fb, x, y + 20, "LIVE CPU SNAPSHOT NOT RETAINED");
         draw_debug_text(fb, x, y + 40,
-                        "F4 VIOLATION LAB REQUIRES ACTIVE COURT");
+                        "F4 VIOLATION SOURCE LAB READY");
         return;
     }
 
@@ -1893,7 +1894,8 @@ static void render_debug_overlay(const TecmoRuntime *runtime, TecmoFramebuffer *
                    (unsigned)tecmo_cpu_ram_read(memory, 0x000F));
     draw_debug_text(fb, x, y + 100, line);
 
-    draw_debug_text(fb, x, y + 124, "F3 TOGGLE DEBUG OVERLAY");
+    draw_debug_text(fb, x, y + 124,
+                    "F3 DEBUG  F4 VIOLATION LAB");
     render_debug_cpu_diagnostics(runtime, fb);
 }
 
@@ -4094,7 +4096,9 @@ void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
 
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer)
 {
-    if (runtime->mode == TECMO_MODE_MAIN_MENU) {
+    if (runtime->debug_overlay && runtime->violation_lab.active) {
+        render_violation_lab(runtime, framebuffer);
+    } else if (runtime->mode == TECMO_MODE_MAIN_MENU) {
         render_main_menu(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_TITLE_SCREEN) {
         render_title_screen_mode(runtime, framebuffer);
@@ -4109,11 +4113,7 @@ void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebu
     } else if (runtime->mode == TECMO_MODE_ROSTERS) {
         render_roster_browser(runtime, framebuffer, false);
     } else if (runtime->mode == TECMO_MODE_COURT) {
-        if (runtime->debug_overlay && runtime->violation_lab.active) {
-            render_violation_lab(runtime, framebuffer);
-        } else {
-            (void)tecmo_render_gameplay_scene(runtime, framebuffer);
-        }
+        (void)tecmo_render_gameplay_scene(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_START_GAME_MENU) {
         render_start_game_menu_mode(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_PRESEASON_MENU) {

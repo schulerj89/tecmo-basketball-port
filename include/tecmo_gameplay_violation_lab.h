@@ -50,8 +50,9 @@ typedef struct TecmoGameplayViolationLab {
 
 void tecmo_gameplay_violation_lab_init(TecmoGameplayViolationLab *lab);
 
-/* Opens a paused source-preview transaction.  `close` restores the captured
- * state byte-for-byte before normal scene updates resume. */
+/* Opens a paused source preview whenever strict TGVR assets are loaded. If an
+ * active gameplay scene exists, `close` restores its captured state byte-for-
+ * byte; menu/title use is source-only and does not manufacture scene state. */
 bool tecmo_gameplay_violation_lab_open(TecmoGameplayViolationLab *lab,
                                        TecmoGameplayScene *scene);
 void tecmo_gameplay_violation_lab_close(TecmoGameplayViolationLab *lab,

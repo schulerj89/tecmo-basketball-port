@@ -164,20 +164,25 @@ void tecmo_gameplay_violation_lab_init(TecmoGameplayViolationLab *lab)
 bool tecmo_gameplay_violation_lab_open(TecmoGameplayViolationLab *lab,
                                        TecmoGameplayScene *scene)
 {
+    bool snapshot_valid;
+
     if (lab == NULL || scene == NULL || lab->active || !scene->available ||
-        !scene->active || !scene->state.initialized ||
         !scene->violation_referee_assets.available) {
         return false;
     }
+    snapshot_valid = scene->active && scene->state.initialized;
     tecmo_gameplay_violation_lab_init(lab);
     lab->active = true;
     lab->paused = true;
-    lab->snapshot_valid = true;
-    lab->state_path_available = violation_lab_scene_state_path_available(scene);
+    lab->snapshot_valid = snapshot_valid;
+    lab->state_path_available = snapshot_valid &&
+                                violation_lab_scene_state_path_available(scene);
     lab->selection = TECMO_GAMEPLAY_VIOLATION_LAB_OUT_OF_BOUNDS;
     lab->path = TECMO_GAMEPLAY_VIOLATION_LAB_SOURCE_PREVIEW;
-    lab->saved_state = scene->state;
-    lab->saved_foul_presentation = scene->foul_presentation;
+    if (snapshot_valid) {
+        lab->saved_state = scene->state;
+        lab->saved_foul_presentation = scene->foul_presentation;
+    }
     return true;
 }
 
@@ -596,9 +601,40 @@ bool tecmo_gameplay_violation_lab_self_test(char *message,
     }
     tecmo_gameplay_scene_init(&scene);
     scene.available = true;
+    scene.violation_referee_assets.available = true;
+    tecmo_gameplay_violation_lab_init(&lab);
+    if (!tecmo_gameplay_violation_lab_open(&lab, &scene) || !lab.active ||
+        !lab.paused || lab.snapshot_valid || lab.state_path_available ||
+        lab.path != TECMO_GAMEPLAY_VIOLATION_LAB_SOURCE_PREVIEW) {
+        violation_lab_test_message(message, message_size,
+                                   "MENU SOURCE LAB OPEN FAILED");
+        return false;
+    }
+    violation_lab_test_press(&controls, TECMO_CONTROL_VIOLATION_LAB_NEXT);
+    if (!tecmo_gameplay_violation_lab_update(&lab, &scene, &controls) ||
+        violation_lab_selected_item(&lab) !=
+            TECMO_GAMEPLAY_VIOLATION_LAB_BACKCOURT) {
+        violation_lab_test_message(message, message_size,
+                                   "MENU SOURCE LAB SELECTION FAILED");
+        return false;
+    }
+    violation_lab_test_press(&controls, TECMO_CONTROL_VIOLATION_LAB_PATH);
+    if (!tecmo_gameplay_violation_lab_update(&lab, &scene, &controls) ||
+        !lab.state_path_rejected || lab.path !=
+            TECMO_GAMEPLAY_VIOLATION_LAB_SOURCE_PREVIEW) {
+        violation_lab_test_message(message, message_size,
+                                   "MENU STATE PATH WAS ACCEPTED");
+        return false;
+    }
+    tecmo_gameplay_violation_lab_close(&lab, &scene);
+    if (lab.active || scene.active || scene.state.initialized) {
+        violation_lab_test_message(message, message_size,
+                                   "MENU SOURCE LAB CLOSE FAILED");
+        return false;
+    }
+
     scene.active = true;
     scene.state = initial_state;
-    scene.violation_referee_assets.available = true;
     scene.pretip_state.phase = TECMO_GAMEPLAY_PRETIP_LIVE;
     initial_foul = scene.foul_presentation;
     tecmo_gameplay_violation_lab_init(&lab);
