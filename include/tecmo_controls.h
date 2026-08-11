@@ -81,6 +81,14 @@ void tecmo_control_frame_build(TecmoControlFrame *frame,
                                const TecmoInput *held,
                                const TecmoInput *previous);
 
+/* F3 and F4-F10 are consumed exclusively by developer presentation tools.
+ * Keep their raw edges available to those tools, but strip them before a
+ * normal gameplay or menu decision receives a control frame. */
+bool tecmo_control_button_is_developer_only(TecmoControlButton button);
+void tecmo_control_frame_strip_developer_only(TecmoControlFrame *frame);
+bool tecmo_control_frame_normal_input_is_neutral(
+    const TecmoControlFrame *frame);
+
 void tecmo_controls_init(TecmoControls *controls);
 void tecmo_controls_set_button(TecmoControls *controls, TecmoControlButton button, bool down);
 void tecmo_controls_begin_frame(TecmoControls *controls);

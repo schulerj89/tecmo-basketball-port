@@ -545,21 +545,6 @@ static bool return_to_start_game_menu(TecmoRuntime *runtime)
     return true;
 }
 
-static bool start_menu_controls_are_neutral(const TecmoControlFrame *controls)
-{
-    int button;
-
-    for (button = 0; button < (int)TECMO_CONTROL_COUNT; ++button) {
-        TecmoControlButton control = (TecmoControlButton)button;
-        if (tecmo_input_button(&controls->held, control) ||
-            tecmo_input_button(&controls->pressed, control) ||
-            tecmo_input_button(&controls->released, control)) {
-            return false;
-        }
-    }
-    return true;
-}
-
 static void update_main_menu(TecmoRuntime *runtime, const TecmoControlFrame *controls)
 {
     if (controls->pressed.up && runtime->selected_menu_item > 0) {
@@ -624,7 +609,7 @@ static void update_start_game_menu(TecmoRuntime *runtime,
         /* update_players retains the held B frame after the mode change. Wait
            through its release and one event-free frame before this
            release-driven menu is allowed to consume input again. */
-        if (start_menu_controls_are_neutral(controls)) {
+        if (tecmo_control_frame_normal_input_is_neutral(controls)) {
             runtime->start_menu_input_neutral_gate = false;
         }
         return;
@@ -1183,6 +1168,8 @@ void tecmo_runtime_update_players(TecmoRuntime *runtime,
 {
     TecmoControlFrame player_one_controls;
     TecmoControlFrame player_two_controls;
+    TecmoControlFrame normal_player_one_controls;
+    TecmoControlFrame normal_player_two_controls;
     bool violation_lab_consumed = false;
 
     tecmo_control_frame_build(&player_one_controls,
@@ -1191,6 +1178,13 @@ void tecmo_runtime_update_players(TecmoRuntime *runtime,
     tecmo_control_frame_build(&player_two_controls,
                               player_two,
                               &runtime->previous_player_two_input);
+    /* Preserve raw developer edges so a key already held before F3 cannot
+       become a delayed lab press.  Every ordinary menu/court dispatch gets
+       a stripped copy, including neutral gates which inspect all edges. */
+    normal_player_one_controls = player_one_controls;
+    normal_player_two_controls = player_two_controls;
+    tecmo_control_frame_strip_developer_only(&normal_player_one_controls);
+    tecmo_control_frame_strip_developer_only(&normal_player_two_controls);
     ++runtime->frame_counter;
     ++runtime->mode_frame_counter;
 
@@ -1228,33 +1222,34 @@ void tecmo_runtime_update_players(TecmoRuntime *runtime,
     }
 
     if (runtime->mode == TECMO_MODE_MAIN_MENU) {
-        update_main_menu(runtime, &player_one_controls);
+        update_main_menu(runtime, &normal_player_one_controls);
     } else if (runtime->mode == TECMO_MODE_TITLE_SCREEN) {
-        update_title_screen(runtime, &player_one_controls);
+        update_title_screen(runtime, &normal_player_one_controls);
     } else if (runtime->mode == TECMO_MODE_INTRO_PROBE ||
                runtime->mode == TECMO_MODE_CHR_PLAYGROUND) {
-        update_probe_screen(runtime, &player_one_controls);
+        update_probe_screen(runtime, &normal_player_one_controls);
     } else if (runtime->mode == TECMO_MODE_FIRST_SPRITE) {
-        update_first_sprite_probe(runtime, &player_one_controls);
+        update_first_sprite_probe(runtime, &normal_player_one_controls);
     } else if (runtime->mode == TECMO_MODE_PLAY_SETUP) {
-        update_roster_selection(runtime, &player_one_controls);
+        update_roster_selection(runtime, &normal_player_one_controls);
     } else if (runtime->mode == TECMO_MODE_ROSTERS) {
-        update_roster_selection(runtime, &player_one_controls);
+        update_roster_selection(runtime, &normal_player_one_controls);
     } else if (runtime->mode == TECMO_MODE_COURT) {
         if (!violation_lab_consumed) {
-            update_court(runtime, &player_one_controls, &player_two_controls);
+            update_court(runtime, &normal_player_one_controls,
+                         &normal_player_two_controls);
         }
     } else if (runtime->mode == TECMO_MODE_START_GAME_MENU) {
-        update_start_game_menu(runtime, &player_one_controls);
+        update_start_game_menu(runtime, &normal_player_one_controls);
     } else if (runtime->mode == TECMO_MODE_PRESEASON_MENU) {
-        update_preseason_menu(runtime, &player_one_controls,
-                              &player_two_controls);
+        update_preseason_menu(runtime, &normal_player_one_controls,
+                              &normal_player_two_controls);
     } else if (runtime->mode == TECMO_MODE_ALL_STAR_MENU) {
-        update_all_star_menu(runtime, &player_one_controls);
+        update_all_star_menu(runtime, &normal_player_one_controls);
     } else if (runtime->mode == TECMO_MODE_TEAM_DATA) {
-        update_team_data_menu(runtime, &player_one_controls);
+        update_team_data_menu(runtime, &normal_player_one_controls);
     } else if (runtime->mode == TECMO_MODE_SEASON_MENU) {
-        update_season_menu(runtime, &player_one_controls);
+        update_season_menu(runtime, &normal_player_one_controls);
     }
 
     write_runtime_watch_memory(runtime);
@@ -1821,6 +1816,8 @@ static void render_violation_lab(const TecmoRuntime *runtime,
     draw_text(fb, 296, 182, "B04 BA1F B317 B33F", muted, 1);
     if (tecmo_gameplay_violation_lab_item_is_foul(item)) {
         draw_text(fb, 296, 198, "FOUL E95E SELECTOR 22", muted, 1);
+    } else if (!lab->state_path_available) {
+        draw_text(fb, 296, 198, "STATE NEEDS IDLE LIVE", muted, 1);
     } else if (lab->state_path_rejected) {
         draw_text(fb, 296, 198, "STATE PATH UNSUPPORTED", rgb(232, 92, 76),
                   1);

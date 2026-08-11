@@ -110,6 +110,45 @@ void tecmo_control_frame_build(TecmoControlFrame *frame,
     }
 }
 
+bool tecmo_control_button_is_developer_only(TecmoControlButton button)
+{
+    return button == TECMO_CONTROL_DEBUG_TOGGLE ||
+           (button >= TECMO_CONTROL_VIOLATION_LAB_TOGGLE &&
+            button < TECMO_CONTROL_COUNT);
+}
+
+void tecmo_control_frame_strip_developer_only(TecmoControlFrame *frame)
+{
+    int button;
+
+    if (frame == NULL) return;
+    for (button = 0; button < (int)TECMO_CONTROL_COUNT; ++button) {
+        TecmoControlButton control = (TecmoControlButton)button;
+        if (!tecmo_control_button_is_developer_only(control)) continue;
+        tecmo_input_set_button(&frame->held, control, false);
+        tecmo_input_set_button(&frame->pressed, control, false);
+        tecmo_input_set_button(&frame->released, control, false);
+    }
+}
+
+bool tecmo_control_frame_normal_input_is_neutral(
+    const TecmoControlFrame *frame)
+{
+    int button;
+
+    if (frame == NULL) return true;
+    for (button = 0; button < (int)TECMO_CONTROL_COUNT; ++button) {
+        TecmoControlButton control = (TecmoControlButton)button;
+        if (tecmo_control_button_is_developer_only(control)) continue;
+        if (tecmo_input_button(&frame->held, control) ||
+            tecmo_input_button(&frame->pressed, control) ||
+            tecmo_input_button(&frame->released, control)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 void tecmo_controls_init(TecmoControls *controls)
 {
     if (controls != 0) {
@@ -242,6 +281,82 @@ bool tecmo_controls_self_test(char *message, size_t message_size)
         frame.released.shoot) {
         set_self_test_message(message, message_size, "FRAME BUILD CONTRACT FAILED");
         return false;
+    }
+
+    {
+        static const TecmoControlButton developer_buttons[] = {
+            TECMO_CONTROL_DEBUG_TOGGLE,
+            TECMO_CONTROL_VIOLATION_LAB_TOGGLE,
+            TECMO_CONTROL_VIOLATION_LAB_PREVIOUS,
+            TECMO_CONTROL_VIOLATION_LAB_NEXT,
+            TECMO_CONTROL_VIOLATION_LAB_PATH,
+            TECMO_CONTROL_VIOLATION_LAB_PLAY_PAUSE,
+            TECMO_CONTROL_VIOLATION_LAB_RESTART,
+            TECMO_CONTROL_VIOLATION_LAB_STEP
+        };
+        size_t index;
+
+        for (index = 0U;
+             index < sizeof(developer_buttons) / sizeof(developer_buttons[0]);
+             ++index) {
+            TecmoControlButton button = developer_buttons[index];
+            TecmoControlFrame stripped;
+
+            tecmo_input_clear(&held);
+            tecmo_input_clear(&previous);
+            tecmo_input_set_button(&held, button, true);
+            tecmo_control_frame_build(&frame, &held, &previous);
+            if (!tecmo_control_button_is_developer_only(button) ||
+                !tecmo_input_button(&frame.held, button) ||
+                !tecmo_input_button(&frame.pressed, button) ||
+                !tecmo_control_frame_normal_input_is_neutral(&frame)) {
+                set_self_test_message(message, message_size,
+                                      "DEVELOPER PRESS NEUTRAL CONTRACT FAILED");
+                return false;
+            }
+            stripped = frame;
+            tecmo_control_frame_strip_developer_only(&stripped);
+            if (tecmo_input_button(&stripped.held, button) ||
+                tecmo_input_button(&stripped.pressed, button) ||
+                tecmo_input_button(&stripped.released, button)) {
+                set_self_test_message(message, message_size,
+                                      "DEVELOPER PRESS STRIP FAILED");
+                return false;
+            }
+
+            previous = held;
+            tecmo_control_frame_build(&frame, &held, &previous);
+            if (!tecmo_input_button(&frame.held, button) ||
+                tecmo_input_button(&frame.pressed, button) ||
+                tecmo_input_button(&frame.released, button) ||
+                !tecmo_control_frame_normal_input_is_neutral(&frame)) {
+                set_self_test_message(message, message_size,
+                                      "DEVELOPER HOLD NEUTRAL CONTRACT FAILED");
+                return false;
+            }
+
+            tecmo_input_clear(&held);
+            tecmo_control_frame_build(&frame, &held, &previous);
+            if (tecmo_input_button(&frame.held, button) ||
+                tecmo_input_button(&frame.pressed, button) ||
+                !tecmo_input_button(&frame.released, button) ||
+                !tecmo_control_frame_normal_input_is_neutral(&frame)) {
+                set_self_test_message(message, message_size,
+                                      "DEVELOPER RELEASE NEUTRAL CONTRACT FAILED");
+                return false;
+            }
+        }
+
+        tecmo_input_clear(&held);
+        tecmo_input_clear(&previous);
+        held.confirm = true;
+        tecmo_control_frame_build(&frame, &held, &previous);
+        if (tecmo_control_button_is_developer_only(TECMO_CONTROL_CONFIRM) ||
+            tecmo_control_frame_normal_input_is_neutral(&frame)) {
+            set_self_test_message(message, message_size,
+                                  "NORMAL BUTTON NEUTRAL CONTRACT FAILED");
+            return false;
+        }
     }
 
     if (strcmp(tecmo_control_button_name(TECMO_CONTROL_SHOOT), "shoot") != 0 ||

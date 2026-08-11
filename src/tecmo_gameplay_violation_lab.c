@@ -51,9 +51,19 @@ static TecmoGameplayViolationLabItem violation_lab_selected_item(
 static bool violation_lab_scene_state_path_available(
     const TecmoGameplayScene *scene)
 {
+    /* Production-state preview delegates to tecmo_gameplay_scene_draw().
+       That compositor gives pre-tip cards/cutaways and a dunk cutaway
+       priority over TGVR.  Never install a temporary TGVR state unless the
+       frozen source scene is an ordinary idle LIVE frame: source preview is
+       still safe for every otherwise-active presentation. */
     return scene != NULL && scene->state.initialized &&
            scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
-           !tecmo_gameplay_pretip_is_presentation(&scene->pretip_state);
+           scene->state.banner == TECMO_GAMEPLAY_BANNER_NONE &&
+           scene->state.free_throws.attempts_remaining == 0U &&
+           !tecmo_gameplay_pretip_is_presentation(&scene->pretip_state) &&
+           scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+           !scene->free_throw_lineup_active &&
+           !tecmo_gameplay_scene_in_dunk_presentation(scene);
 }
 
 static void violation_lab_restore(TecmoGameplayViolationLab *lab,
@@ -443,6 +453,83 @@ static void violation_lab_test_press(TecmoControlFrame *controls,
     tecmo_input_set_button(&controls->pressed, button, true);
 }
 
+static bool violation_lab_test_rejects_superseding_scene_presentation(
+    TecmoGameplayScene *scene,
+    const TecmoGameplayState *initial_state,
+    const TecmoGameplaySceneFoulPresentation *initial_foul,
+    char *message,
+    size_t message_size)
+{
+    static const struct {
+        const char *label;
+        TecmoGameplaySceneShotKind shot_kind;
+        uint16_t shot_frame;
+        bool free_throw_lineup_active;
+    } cases[] = {
+        {"DUNK CUTAWAY", TECMO_GAMEPLAY_SCENE_SHOT_DUNK,
+         TECMO_GAMEPLAY_DUNK_BLACK_START_FRAME, false},
+        {"JUMP SHOT", TECMO_GAMEPLAY_SCENE_SHOT_JUMP, 1U, false},
+        {"FREE THROW LINEUP", TECMO_GAMEPLAY_SCENE_SHOT_NONE, 0U, true}
+    };
+    size_t index;
+
+    if (scene == NULL || initial_state == NULL || initial_foul == NULL) {
+        violation_lab_test_message(message, message_size,
+                                   "LAB SUPERSEDING SETUP FAILED");
+        return false;
+    }
+    for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); ++index) {
+        TecmoGameplayViolationLab lab;
+        TecmoControlFrame controls;
+        char failure[128];
+
+        scene->state = *initial_state;
+        scene->foul_presentation = *initial_foul;
+        scene->pretip_state.phase = TECMO_GAMEPLAY_PRETIP_LIVE;
+        scene->shot_kind = cases[index].shot_kind;
+        scene->shot_frame = cases[index].shot_frame;
+        scene->free_throw_lineup_active =
+            cases[index].free_throw_lineup_active;
+        tecmo_gameplay_violation_lab_init(&lab);
+        if (!tecmo_gameplay_violation_lab_open(&lab, scene) ||
+            lab.state_path_available ||
+            lab.path != TECMO_GAMEPLAY_VIOLATION_LAB_SOURCE_PREVIEW) {
+            (void)snprintf(failure, sizeof(failure),
+                           "LAB %s OPEN DID NOT FORCE SOURCE", cases[index].label);
+            violation_lab_test_message(message, message_size, failure);
+            return false;
+        }
+        violation_lab_test_press(&controls, TECMO_CONTROL_VIOLATION_LAB_PATH);
+        if (!tecmo_gameplay_violation_lab_update(&lab, scene, &controls) ||
+            !lab.state_path_rejected ||
+            lab.path != TECMO_GAMEPLAY_VIOLATION_LAB_SOURCE_PREVIEW ||
+            memcmp(&scene->state, initial_state, sizeof(*initial_state)) != 0 ||
+            memcmp(&scene->foul_presentation, initial_foul,
+                   sizeof(*initial_foul)) != 0) {
+            (void)snprintf(failure, sizeof(failure),
+                           "LAB %s F7 STATE PREVIEW NOT REJECTED",
+                           cases[index].label);
+            violation_lab_test_message(message, message_size, failure);
+            return false;
+        }
+        tecmo_gameplay_violation_lab_close(&lab, scene);
+        if (lab.active ||
+            memcmp(&scene->state, initial_state, sizeof(*initial_state)) != 0 ||
+            memcmp(&scene->foul_presentation, initial_foul,
+                   sizeof(*initial_foul)) != 0 ||
+            scene->shot_kind != cases[index].shot_kind ||
+            scene->shot_frame != cases[index].shot_frame ||
+            scene->free_throw_lineup_active !=
+                cases[index].free_throw_lineup_active) {
+            (void)snprintf(failure, sizeof(failure),
+                           "LAB %s CLOSE RESTORE FAILED", cases[index].label);
+            violation_lab_test_message(message, message_size, failure);
+            return false;
+        }
+    }
+    return true;
+}
+
 bool tecmo_gameplay_violation_lab_self_test(char *message,
                                             size_t message_size)
 {
@@ -507,7 +594,7 @@ bool tecmo_gameplay_violation_lab_self_test(char *message,
                                    "LAB STATE SETUP FAILED");
         return false;
     }
-    memset(&scene, 0, sizeof(scene));
+    tecmo_gameplay_scene_init(&scene);
     scene.available = true;
     scene.active = true;
     scene.state = initial_state;
@@ -588,6 +675,10 @@ bool tecmo_gameplay_violation_lab_self_test(char *message,
                sizeof(initial_foul)) != 0) {
         violation_lab_test_message(message, message_size,
                                    "LAB TRANSACTION RESTORE FAILED");
+        return false;
+    }
+    if (!violation_lab_test_rejects_superseding_scene_presentation(
+            &scene, &initial_state, &initial_foul, message, message_size)) {
         return false;
     }
     violation_lab_test_message(message, message_size,
