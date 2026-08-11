@@ -1787,10 +1787,12 @@ static void render_debug_cpu_diagnostics(const TecmoRuntime *runtime,
                    live->last_shot_playback_supported ? 1U : 0U,
                    live->last_shot_deferred ? 1U : 0U);
     draw_debug_text(fb, x, y + 80, line);
-    /* There is no retained first-source-gate classification at this scene
-       boundary.  Do not substitute a B-release or raw-RAM explanation. */
-    draw_debug_text(fb, x, y + 100,
-                    "SOURCE GATE DETAIL NOT RETAINED");
+    (void)snprintf(line, sizeof(line), "DEFER REASON %s",
+                   holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT
+                       ? tecmo_gameplay_cpu_steering_deferred_reason_name(
+                             live->deferred_reason[holder])
+                       : "not-retained");
+    draw_debug_text(fb, x, y + 100, line);
     draw_debug_text(fb, x, y + 124,
                     "F4 LAB MENU  F3 OFF LEAVES PLAY UNCHANGED");
 }

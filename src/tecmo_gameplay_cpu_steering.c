@@ -913,6 +913,37 @@ const char *tecmo_gameplay_cpu_steering_opcode15_branch_name(
     }
 }
 
+const char *tecmo_gameplay_cpu_steering_deferred_reason_name(
+    TecmoGameplayCpuSteeringDeferredReason reason)
+{
+    switch (reason) {
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE:
+        return "none";
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_INVALID_TARGET_OBJECT:
+        return "invalid-target-object";
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS:
+        return "unimplemented-handler";
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_SPECIAL_ACTOR_07DF:
+        return "missing-special-actor-07df";
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_RELATIVE_WORKSPACE:
+        return "missing-linked-relative-workspace";
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_POINTER_WORKSPACE:
+        return "missing-pointer-workspace";
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_ACTOR_046E_PROBE:
+        return "missing-actor-046e-probe";
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA:
+        return "missing-ba-lifecycle";
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE21_GATE_INPUTS:
+        return "missing-opcode21-gates";
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE15_RAW_LIFECYCLE:
+        return "missing-opcode15-raw-lifecycle";
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_NATIVE_TARGET_OUTSIDE_COURT:
+        return "native-target-outside-court";
+    default:
+        return "invalid-defer-reason";
+    }
+}
+
 static bool play_stream_offset_valid(uint16_t offset)
 {
     return offset < CPU_STEERING_COMMAND_STREAM_SIZE &&
@@ -961,6 +992,61 @@ static bool play_valid_positions(
         }
     }
     return true;
+}
+
+static TecmoGameplayCpuSteeringDeferredReason
+play_missing_live_input_reason(
+    const TecmoGameplayCpuSteeringCommand *command,
+    const TecmoGameplayCpuSteeringPlayInput *input)
+{
+    /* Bank06 $8B90-$9237 dispatches handlers whose caller-owned RAM is not
+       part of every native scene snapshot.  Check availability before the
+       handler mutates its play state: a valid zero remains distinct from an
+       unavailable byte/workspace. */
+    switch (command->opcode) {
+    case 0U:
+    case 2U:
+        /* $92CA consumes $BA after these handlers. */
+        return input->common_tail_ba_available
+            ? TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE
+            : TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA;
+    case 13U:
+        /* $9125 first reads the unretained $038D-$0390 global target before
+           it could reach $92CA. Do not report a later BA byte as its owner. */
+        return TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS;
+    case 7U:
+        /* $8F11 probes $046E,C8 before selecting either stream branch. */
+        return input->actor_046e_probe_available
+            ? TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE
+            : TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_ACTOR_046E_PROBE;
+    case 10U:
+        /* $8CD0 compares X with the exceptional $07DF actor before it can
+           enter the linked-relative helper at $8D59. */
+        if (!input->special_actor_07df_available) {
+            return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_SPECIAL_ACTOR_07DF;
+        }
+        return input->linked_relative_valid
+            ? TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE
+            : TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_RELATIVE_WORKSPACE;
+    case 15U:
+        /* $9172-$9216 owns a wider raw lifecycle than this LIVE contract. */
+        return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE15_RAW_LIFECYCLE;
+    case 16U:
+        /* $9081 resolves $0309 through $036E/$0370; $92CA then needs $BA. */
+        if (!input->pointer_workspace_valid) {
+            return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_POINTER_WORKSPACE;
+        }
+        return input->common_tail_ba_available
+            ? TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE
+            : TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA;
+    case 21U:
+        /* $8BF6-$8C17 branches on $058A/$0357/$0358/$007E as one gate. */
+        return input->opcode21_gate_inputs_available
+            ? TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE
+            : TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE21_GATE_INPUTS;
+    default:
+        return TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+    }
 }
 
 static int16_t play_wrap_add_i16(int16_t left, int16_t right)
@@ -1411,7 +1497,10 @@ bool tecmo_gameplay_cpu_steering_play_step(
         !play_valid_actor(input->actor) || input->step_budget == 0U ||
         input->step_budget > TECMO_GAMEPLAY_CPU_STEERING_PLAY_STEP_BUDGET ||
         input->orientation_035a > 1U ||
-        (input->special_actor_07df != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR &&
+        (!input->special_actor_07df_available &&
+         input->special_actor_07df != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR) ||
+        (input->special_actor_07df_available &&
+         input->special_actor_07df != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR &&
          !play_valid_actor(input->special_actor_07df)) ||
         !play_valid_positions(input->actor_position) ||
         !tecmo_gameplay_court_coordinate_valid(&input->ball_position) ||
@@ -1445,6 +1534,7 @@ bool tecmo_gameplay_cpu_steering_play_step(
 
     while (result.steps_executed < input->step_budget) {
         TecmoGameplayCpuSteeringCommand command;
+        TecmoGameplayCpuSteeringDeferredReason missing_live_input;
         uint16_t current_offset = next_state.stream_offset[actor];
         uint16_t following_offset = current_offset;
         bool command_advanced = false;
@@ -1469,6 +1559,17 @@ bool tecmo_gameplay_cpu_steering_play_step(
         result.previous_offset = current_offset;
         result.fetched = true;
         ++result.steps_executed;
+        missing_live_input = play_missing_live_input_reason(&command, input);
+        if (missing_live_input != TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE) {
+            /* Do not let an absent RAM plane impersonate a zero-valued source
+               input.  Bank06 dispatch has fetched the record, but LIVE leaves
+               both stream/lifecycle state intact until an owner exists. */
+            result.deferred = true;
+            result.deferred_reason = missing_live_input;
+            result.next_offset = current_offset;
+            goto_chain_active = false;
+            break;
+        }
         ++next_state.step_serial;
 
         switch (command.opcode) {
@@ -1548,6 +1649,8 @@ bool tecmo_gameplay_cpu_steering_play_step(
                    contract preserves the source record transport but does
                    not create an unchecked RAM lookup. */
                 result.deferred = true;
+                result.deferred_reason =
+                    TECMO_GAMEPLAY_CPU_STEERING_DEFER_INVALID_TARGET_OBJECT;
             }
             break;
         case 5U:
@@ -1563,6 +1666,8 @@ bool tecmo_gameplay_cpu_steering_play_step(
                selected by the opcode-specific policy below; it is not implied
                that every deferred handler leaves this record in place. */
             result.deferred = true;
+            result.deferred_reason =
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS;
             break;
         case 10U: {
             uint8_t linked = actor == input->special_actor_07df
@@ -1572,6 +1677,8 @@ bool tecmo_gameplay_cpu_steering_play_step(
             int16_t target_depth;
             if (!input->linked_relative_valid || !play_valid_actor(linked)) {
                 result.deferred = true;
+                result.deferred_reason =
+                    TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_RELATIVE_WORKSPACE;
                 break;
             }
             target_x = play_wrap_add_i16(
@@ -1600,6 +1707,8 @@ bool tecmo_gameplay_cpu_steering_play_step(
             if (!input->pointer_workspace_valid || pointer != 0x0309U ||
                 !play_valid_actor(next_state.defender_actor)) {
                 result.deferred = true;
+                result.deferred_reason =
+                    TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_POINTER_WORKSPACE;
                 break;
             }
             linked = next_state.defender_actor;
@@ -1660,6 +1769,8 @@ bool tecmo_gameplay_cpu_steering_play_step(
                paths outside this bounded contract. Keep primary/defender
                state caller-owned and defer the handler effect. */
             result.deferred = true;
+            result.deferred_reason =
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE15_RAW_LIFECYCLE;
             break;
         case 17U:
         case 18U:
@@ -1710,10 +1821,15 @@ bool tecmo_gameplay_cpu_steering_play_step(
             command.opcode != 10U && command.opcode != 12U &&
             command.opcode != 20U && command.opcode != 23U &&
             command.opcode != 5U &&
-            (command.opcode != 13U && command.opcode != 16U &&
+             (command.opcode != 13U && command.opcode != 16U &&
              command.opcode != 0U && command.opcode != 2U ||
              (input->flags_ba & 0x03U) == 0U)) {
             result.deferred = true;
+            if (result.deferred_reason ==
+                    TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE) {
+                result.deferred_reason =
+                    TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS;
+            }
         } else {
             command_advanced = following_offset != current_offset;
             next_state.stream_offset[actor] = following_offset;
@@ -2872,6 +2988,23 @@ bool tecmo_gameplay_cpu_steering_self_test(
             return false;
         }
     }
+    if (strcmp(tecmo_gameplay_cpu_steering_deferred_reason_name(
+                   TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_ACTOR_046E_PROBE),
+               "missing-actor-046e-probe") != 0 ||
+        strcmp(tecmo_gameplay_cpu_steering_deferred_reason_name(
+                   TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_SPECIAL_ACTOR_07DF),
+               "missing-special-actor-07df") != 0 ||
+        strcmp(tecmo_gameplay_cpu_steering_deferred_reason_name(
+                   TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA),
+               "missing-ba-lifecycle") != 0 ||
+        strcmp(tecmo_gameplay_cpu_steering_deferred_reason_name(
+                   TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS),
+               "unimplemented-handler") != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-2 deferred-reason names changed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
     for (uint8_t opcode = 0U;
          opcode < TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT; ++opcode) {
         if (assets.command_count_by_opcode[opcode] != 0U &&
@@ -2905,6 +3038,12 @@ bool tecmo_gameplay_cpu_steering_self_test(
     play_input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG;
     play_input.actor = 0U;
     play_input.step_budget = 4U;
+    /* Pure TGAI tests supply explicit source captures.  Production LIVE does
+       not set these availability bits without a typed owner. */
+    play_input.common_tail_ba_available = true;
+    play_input.actor_046e_probe_available = true;
+    play_input.opcode21_gate_inputs_available = true;
+    play_input.special_actor_07df_available = true;
     play_input.special_actor_07df = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     memcpy(play_input.actor_position, harness_positions,
            sizeof(harness_positions));
@@ -2975,6 +3114,31 @@ bool tecmo_gameplay_cpu_steering_self_test(
     }
     memcpy(play_input.actor_position, harness_positions,
            sizeof(harness_positions));
+
+    /* Bank06 $8F11 cannot treat a zeroed native array as $046E,C8. An
+       unavailable probe reports its owner and leaves the fetched lifecycle
+       byte-for-byte unchanged. */
+    if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+            &assets, 0U, &play_state)) {
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_state.stream_offset[0U] = 0x013BU;
+    play_before = play_state;
+    play_input.actor_046e_probe_available = false;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.command.opcode != 7U || !play_result.deferred ||
+        play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_ACTOR_046E_PROBE ||
+        play_result.advanced || play_result.next_offset != 0x013BU ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-2 opcode-7 unavailable probe transaction failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.actor_046e_probe_available = true;
 
     /* Opcode 7 uses the original eleven-entry $046E probe. Equal C9 takes
        current+5; mismatch stores CA/CB and then takes alternate+5. */
@@ -3074,9 +3238,8 @@ bool tecmo_gameplay_cpu_steering_self_test(
         return false;
     }
 
-    /* Opcode 10's global/link workspace is intentionally absent from this
-       contract: defer only its target/proximity effect and keep the record
-       available for the caller's source-observed retry/advance decision. */
+    /* Bank06 $8CD0 first compares the exceptional $07DF actor. Without that
+       typed selector, even a supplied relative vector has no faithful route. */
     if (!tecmo_gameplay_cpu_steering_play_state_initialize(
             &assets, 0U, &play_state)) {
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
@@ -3085,14 +3248,35 @@ bool tecmo_gameplay_cpu_steering_self_test(
     play_state.stream_offset[0U] = opcode_offsets[10U];
     play_input.step_budget = 4U;
     play_input.flags_ba = 0U;
+    play_before = play_state;
+    play_input.special_actor_07df_available = false;
+    play_input.linked_relative_valid = true;
     if (!tecmo_gameplay_cpu_steering_play_step(
             &assets, &play_state, &play_input, &play_out, &play_result) ||
         play_result.command.opcode != 10U || !play_result.deferred ||
+        play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_SPECIAL_ACTOR_07DF ||
         play_result.advanced ||
         play_result.next_offset != opcode_offsets[10U] ||
-        play_out.stream_offset[0U] != opcode_offsets[10U]) {
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-10 deferred retry golden failed.");
+                       "TGAI-2 opcode-10 unavailable $07DF transaction failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.special_actor_07df_available = true;
+    play_input.linked_relative_valid = false;
+    play_before = play_state;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.command.opcode != 10U || !play_result.deferred ||
+        play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_RELATIVE_WORKSPACE ||
+        play_result.advanced ||
+        play_result.next_offset != opcode_offsets[10U] ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-2 opcode-10 unavailable helper transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3129,6 +3313,48 @@ bool tecmo_gameplay_cpu_steering_self_test(
         }
     }
     play_input.linked_relative_valid = false;
+
+    /* $9081 cannot resolve the $0309 target route without the paired
+       $036E/$0370 workspace, and its $92CA tail separately needs $BA. */
+    if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+            &assets, 0U, &play_state)) {
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_state.stream_offset[0U] = opcode_offsets[16U];
+    play_before = play_state;
+    play_input.pointer_workspace_valid = false;
+    play_input.common_tail_ba_available = true;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.command.opcode != 16U || !play_result.deferred ||
+        play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_POINTER_WORKSPACE ||
+        play_result.advanced ||
+        play_result.next_offset != opcode_offsets[16U] ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-2 opcode-16 unavailable pointer transaction failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.pointer_workspace_valid = true;
+    play_input.common_tail_ba_available = false;
+    play_before = play_state;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.command.opcode != 16U || !play_result.deferred ||
+        play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA ||
+        play_result.advanced ||
+        play_result.next_offset != opcode_offsets[16U] ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-2 opcode-16 unavailable BA transaction failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.common_tail_ba_available = true;
 
     /* Both opcode-16 corpus records point at $0309. Exercise the exact
        depth +/-10 and orientation-selected horizontal +/-16 branches. */
@@ -3230,6 +3456,31 @@ bool tecmo_gameplay_cpu_steering_self_test(
         return false;
     }
 
+    /* The $8BF6 gate is four caller-owned bytes, not a shot-clock-derived
+       substitute. Its unavailable state must leave this record untouched. */
+    if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+            &assets, 0U, &play_state)) {
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_state.stream_offset[0U] = opcode_offsets[21U];
+    play_before = play_state;
+    play_input.opcode21_gate_inputs_available = false;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.command.opcode != 21U || !play_result.deferred ||
+        play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE21_GATE_INPUTS ||
+        play_result.advanced ||
+        play_result.next_offset != opcode_offsets[21U] ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-2 opcode-21 unavailable gate transaction failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.opcode21_gate_inputs_available = true;
+
     /* Opcode 21's exact gate selects one or two record advances. */
     if (!tecmo_gameplay_cpu_steering_play_state_initialize(
             &assets, 0U, &play_state)) {
@@ -3285,6 +3536,55 @@ bool tecmo_gameplay_cpu_steering_self_test(
             (uint8_t)(0x80U | play_result.command.arguments[2U])) {
         (void)snprintf(message, message_size,
                        "TGAI-2 opcode-22 mask retention golden failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+
+    /* $92CA cannot consume a literal zero in place of the caller's $BA
+       lifecycle. The bounded opcode-0 write therefore defers transactionally
+       until a harness supplies an explicit valid value. */
+    if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+            &assets, 0U, &play_state)) {
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_state.stream_offset[0U] = opcode_offsets[0U];
+    play_before = play_state;
+    play_input.common_tail_ba_available = false;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.command.opcode != 0U || !play_result.deferred ||
+        play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA ||
+        play_result.advanced ||
+        play_result.next_offset != opcode_offsets[0U] ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-2 opcode-0 unavailable BA transaction failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.common_tail_ba_available = true;
+
+    /* Opcode 13 starts at $9125 with the unretained $038D-$0390 target
+       workspace. Its later common-tail branch cannot make that handler live. */
+    if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+            &assets, 0U, &play_state)) {
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_state.stream_offset[0U] = opcode_offsets[13U];
+    play_before = play_state;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.command.opcode != 13U || !play_result.deferred ||
+        play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS ||
+        play_result.advanced ||
+        play_result.next_offset != opcode_offsets[13U] ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-2 opcode-13 missing target transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3345,6 +3645,8 @@ bool tecmo_gameplay_cpu_steering_self_test(
         if (!tecmo_gameplay_cpu_steering_play_step(
                 &assets, &play_state, &play_input, &play_out, &play_result) ||
             !play_result.deferred ||
+            play_result.deferred_reason !=
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS ||
             play_result.next_offset !=
                 (uint16_t)(opcode_offsets[deferred_opcode] + 5U)) {
             (void)snprintf(message, message_size,
@@ -3376,6 +3678,8 @@ bool tecmo_gameplay_cpu_steering_self_test(
     if (!tecmo_gameplay_cpu_steering_play_step(
             &assets, &play_state, &play_input, &play_out, &play_result) ||
         play_result.command.opcode != 15U || !play_result.deferred ||
+        play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE15_RAW_LIFECYCLE ||
         play_result.advanced ||
         play_result.next_offset !=
             TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_A_OFFSET ||
@@ -3383,7 +3687,8 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.primary_actor != play_before.primary_actor ||
         play_out.defender_actor != play_before.defender_actor ||
         play_out.actor_state[0U] != play_before.actor_state[0U] ||
-        play_out.timer[0U] != play_before.timer[0U]) {
+        play_out.timer[0U] != play_before.timer[0U] ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
         (void)snprintf(message, message_size,
                        "TGAI-2 opcode-15 LIVE deferred boundary failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
@@ -3439,6 +3744,24 @@ bool tecmo_gameplay_cpu_steering_self_test(
         return false;
     }
     play_input.orientation_035a = 0U;
+    /* Availability and value are separate: an unavailable $07DF must use
+       NO_ACTOR rather than silently carrying a plausible actor slot. */
+    play_input.special_actor_07df_available = false;
+    play_input.special_actor_07df = 0U;
+    play_out = play_before;
+    play_result = play_result_before;
+    if (tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_before, &play_input, &play_out, &play_result) ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0 ||
+        memcmp(&play_result, &play_result_before,
+               sizeof(play_result)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-2 unavailable $07DF sentinel validation failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.special_actor_07df_available = true;
+    play_input.special_actor_07df = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     play_input.ball_position.x =
         (int16_t)(TECMO_GAMEPLAY_COURT_WORLD_MAX_X + 1);
     play_out = play_before;

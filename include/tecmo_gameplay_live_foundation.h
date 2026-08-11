@@ -130,6 +130,11 @@ typedef struct TecmoGameplayLiveFoundation {
     uint16_t last_step_offset[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t last_effect[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t source_direction[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    /* Source handlers can defer for different missing caller-owned inputs.
+       Keep the typed reason beside the existing per-actor defer bit so the
+       developer diagnostics never relabel an unavailable RAM plane. */
+    TecmoGameplayCpuSteeringDeferredReason deferred_reason[
+        TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     bool source_target_valid[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     bool source_direction_valid[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     bool deferred[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
