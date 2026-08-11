@@ -22,9 +22,8 @@ typedef enum TecmoControlButton {
     TECMO_CONTROL_PRESET_COMPOSITE,
     TECMO_CONTROL_REMOVE,
     TECMO_CONTROL_DEBUG_TOGGLE,
-    /* F4-F10 are developer-only violation-lab controls. The runtime ignores
-       them unless F3's debug overlay is enabled; source preview works from
-       menus, while production-state preview still requires an idle court. */
+    /* F4-F10 are developer-only lab controls. F4 opens the shared chooser;
+       the selected source viewer owns F5-F10 while F3 debug is enabled. */
     TECMO_CONTROL_VIOLATION_LAB_TOGGLE,
     TECMO_CONTROL_VIOLATION_LAB_PREVIOUS,
     TECMO_CONTROL_VIOLATION_LAB_NEXT,

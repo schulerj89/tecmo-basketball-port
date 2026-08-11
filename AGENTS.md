@@ -142,6 +142,16 @@ These are development tools, not main-menu entries.
 `gameplay-close-shot-frameN` remains a compatibility alias for the canonical
 `gameplay-dunk-frameN` numeric-variant-0 checkpoint.
 
+The native desktop developer overlay owns a shared F4 lab chooser while F3 is
+enabled. F5/F6 select either the violation-presentation lab or the shooting
+pose-table lab, and F4 opens the selection or returns from a lab to the
+chooser. The shooting lab reads only strict same-pack TGJS-2/TGPL-1 data: it
+walks all 32 numeric family/profile/direction bases and phase-nibble poses 0..7,
+uses a clearly labeled `$30` preview uniform, and offers a separately labeled
+F7 mirror inspection. Its ten-frame slow playback cadence is a viewing aid,
+not ROM gameplay timing or live shot-policy evidence. F3 off closes the tool
+and resumes the untouched normal runtime.
+
 ## Lua Watchers
 
 For original intro comparison in FCEUX, use the Lua scripts only against a private local rebuilt NES image:

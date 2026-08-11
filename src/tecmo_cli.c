@@ -67,6 +67,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-penalties-test PACK  Validate strict TPNL-1 penalty rules\n");
     printf("  --gameplay-violation-referee-test PACK [ROM]  Validate strict TGVR-1 referee cutaway and optional Rev1 source\n");
     printf("  --gameplay-violation-lab-test  Validate developer-only TGVR lab input/state restoration\n");
+    printf("  --gameplay-shooting-lab-test   Validate developer-only TGJS table viewer controls\n");
     printf("  --gameplay-free-throw-lineup-test PACK  Validate strict TGFL-1 raw lineup assets\n");
     printf("  --gameplay-free-throw-projection-test PACK  Validate pure TGFL-1 to TGCP-2 composition\n");
     printf("  --assetpack-list PACK  Print an asset-pack directory listing\n");

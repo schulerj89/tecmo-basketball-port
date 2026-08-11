@@ -26,6 +26,9 @@
 #define MAIN_MENU_PLAY_GAME 0U
 #define MAIN_MENU_QUIT 1U
 #define MAIN_MENU_COUNT 2U
+#define DEVELOPER_LAB_VIOLATIONS 0U
+#define DEVELOPER_LAB_SHOOTING 1U
+#define DEVELOPER_LAB_COUNT 2U
 #define INTRO_PRESENTS_SCREEN_ID 0x00U
 #define INTRO_PRESENTS_RECORD_CPU 0xDC85U
 #define INTRO_PRESENTS_STREAM_BANK 0x00U
@@ -217,6 +220,7 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     memset(runtime, 0, sizeof(*runtime));
     runtime->memory = memory;
     tecmo_gameplay_violation_lab_init(&runtime->violation_lab);
+    tecmo_gameplay_shooting_lab_init(&runtime->shooting_lab);
     runtime->selected_chr_bank = 31U;
     tecmo_intro_layout_init(runtime);
     tecmo_intro_trace_load(runtime, project_root);
@@ -395,6 +399,7 @@ void tecmo_runtime_shutdown(TecmoRuntime *runtime)
 {
     tecmo_gameplay_violation_lab_close(&runtime->violation_lab,
                                        &runtime->gameplay_scene);
+    tecmo_gameplay_shooting_lab_close(&runtime->shooting_lab);
     if (runtime->season_session.dirty) {
         (void)tecmo_season_session_save(&runtime->season_session);
     }
@@ -409,9 +414,13 @@ void tecmo_runtime_shutdown(TecmoRuntime *runtime)
 
 void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
 {
-    if (mode != runtime->mode && runtime->violation_lab.active) {
-        tecmo_gameplay_violation_lab_close(&runtime->violation_lab,
-                                           &runtime->gameplay_scene);
+    if (mode != runtime->mode) {
+        if (runtime->violation_lab.active) {
+            tecmo_gameplay_violation_lab_close(&runtime->violation_lab,
+                                               &runtime->gameplay_scene);
+        }
+        tecmo_gameplay_shooting_lab_close(&runtime->shooting_lab);
+        runtime->developer_lab_menu_active = false;
     }
     runtime->mode = mode;
     runtime->mode_frame_counter = 0;
@@ -1170,7 +1179,7 @@ void tecmo_runtime_update_players(TecmoRuntime *runtime,
     TecmoControlFrame player_two_controls;
     TecmoControlFrame normal_player_one_controls;
     TecmoControlFrame normal_player_two_controls;
-    bool violation_lab_consumed = false;
+    bool developer_lab_consumed = false;
 
     tecmo_control_frame_build(&player_one_controls,
                               player_one,
@@ -1192,37 +1201,70 @@ void tecmo_runtime_update_players(TecmoRuntime *runtime,
         runtime->debug_overlay = !runtime->debug_overlay;
     }
 
-    /* Source preview is available from any runtime screen once strict TGVR
-       assets are loaded. An active court additionally permits the bounded
-       production-state preview. F4-F10 never reach normal menu/gameplay. */
-    if (!runtime->debug_overlay && runtime->violation_lab.active) {
-        tecmo_gameplay_violation_lab_close(&runtime->violation_lab,
-                                           &runtime->gameplay_scene);
-        violation_lab_consumed = true;
+    /* F4 opens the shared developer-lab chooser. Labs freeze the ordinary
+       runtime and F4 returns to the chooser; F3 off closes everything. */
+    if (!runtime->debug_overlay) {
+        if (runtime->violation_lab.active) {
+            tecmo_gameplay_violation_lab_close(&runtime->violation_lab,
+                                               &runtime->gameplay_scene);
+            developer_lab_consumed = true;
+        }
+        if (runtime->shooting_lab.active ||
+            runtime->developer_lab_menu_active) {
+            tecmo_gameplay_shooting_lab_close(&runtime->shooting_lab);
+            runtime->developer_lab_menu_active = false;
+            developer_lab_consumed = true;
+        }
     } else if (runtime->debug_overlay) {
         if (player_one_controls.pressed.violation_lab_toggle) {
             if (runtime->violation_lab.active) {
                 tecmo_gameplay_violation_lab_close(
                     &runtime->violation_lab, &runtime->gameplay_scene);
-                violation_lab_consumed = true;
-            } else if (tecmo_gameplay_violation_lab_open(
-                           &runtime->violation_lab,
-                           &runtime->gameplay_scene)) {
-                if (runtime->mode != TECMO_MODE_COURT) {
-                    runtime->violation_lab.state_path_available = false;
+                runtime->developer_lab_menu_active = true;
+            } else if (runtime->shooting_lab.active) {
+                tecmo_gameplay_shooting_lab_close(&runtime->shooting_lab);
+                runtime->developer_lab_menu_active = true;
+            } else if (runtime->developer_lab_menu_active) {
+                bool opened = false;
+                if (runtime->developer_lab_menu_selection ==
+                    DEVELOPER_LAB_VIOLATIONS) {
+                    opened = tecmo_gameplay_violation_lab_open(
+                        &runtime->violation_lab, &runtime->gameplay_scene);
+                    if (opened && runtime->mode != TECMO_MODE_COURT) {
+                        runtime->violation_lab.state_path_available = false;
+                    }
+                } else if (runtime->developer_lab_menu_selection ==
+                           DEVELOPER_LAB_SHOOTING) {
+                    opened = tecmo_gameplay_shooting_lab_open(
+                        &runtime->shooting_lab, &runtime->gameplay_scene);
                 }
-                violation_lab_consumed = true;
+                if (opened) runtime->developer_lab_menu_active = false;
+            } else {
+                runtime->developer_lab_menu_active = true;
             }
+            developer_lab_consumed = true;
         }
-        if (runtime->violation_lab.active) {
+        if (runtime->developer_lab_menu_active) {
+            if (player_one_controls.pressed.violation_lab_previous ||
+                player_one_controls.pressed.violation_lab_next) {
+                runtime->developer_lab_menu_selection = (uint8_t)(
+                    (runtime->developer_lab_menu_selection + 1U) %
+                    DEVELOPER_LAB_COUNT);
+            }
+            developer_lab_consumed = true;
+        } else if (runtime->violation_lab.active) {
             (void)tecmo_gameplay_violation_lab_update(
                 &runtime->violation_lab, &runtime->gameplay_scene,
                 &player_one_controls);
-            violation_lab_consumed = true;
+            developer_lab_consumed = true;
+        } else if (runtime->shooting_lab.active) {
+            (void)tecmo_gameplay_shooting_lab_update(
+                &runtime->shooting_lab, &player_one_controls);
+            developer_lab_consumed = true;
         }
     }
 
-    if (!violation_lab_consumed) {
+    if (!developer_lab_consumed) {
         if (runtime->mode == TECMO_MODE_MAIN_MENU) {
             update_main_menu(runtime, &normal_player_one_controls);
         } else if (runtime->mode == TECMO_MODE_TITLE_SCREEN) {
@@ -1692,7 +1734,7 @@ static void render_debug_cpu_diagnostics(const TecmoRuntime *runtime,
     if (!live->state_valid) {
         draw_debug_text(fb, x, y + 20, "LIVE CPU SNAPSHOT NOT RETAINED");
         draw_debug_text(fb, x, y + 40,
-                        "F4 VIOLATION SOURCE LAB READY");
+                        "F4 DEVELOPER LAB MENU READY");
         return;
     }
 
@@ -1750,7 +1792,90 @@ static void render_debug_cpu_diagnostics(const TecmoRuntime *runtime,
     draw_debug_text(fb, x, y + 100,
                     "SOURCE GATE DETAIL NOT RETAINED");
     draw_debug_text(fb, x, y + 124,
-                    "F4 VIOLATION LAB  F3 OFF LEAVES PLAY UNCHANGED");
+                    "F4 LAB MENU  F3 OFF LEAVES PLAY UNCHANGED");
+}
+
+static void render_developer_lab_menu(const TecmoRuntime *runtime,
+                                      TecmoFramebuffer *fb)
+{
+    const uint32_t text = rgb(230, 232, 214);
+    const uint32_t muted = rgb(142, 174, 190);
+    const uint32_t accent = rgb(252, 236, 118);
+    unsigned selection = runtime->developer_lab_menu_selection;
+
+    clear(fb, rgb(6, 7, 10));
+    rect(fb, 128, 92, 512, 278, rgb(18, 22, 30));
+    outline_rect(fb, 128, 92, 512, 278, rgb(78, 98, 112));
+    draw_centered_text(fb, 118, "DEVELOPER LABS", accent, 2);
+    draw_centered_text(fb, 148, "F3 DEBUG-ONLY TOOLS", muted, 1);
+    draw_text(fb, 266, 202, "VIOLATION PRESENTATION",
+              selection == DEVELOPER_LAB_VIOLATIONS ? accent : text, 2);
+    draw_text(fb, 266, 250, "SHOOTING POSE TABLE",
+              selection == DEVELOPER_LAB_SHOOTING ? accent : text, 2);
+    draw_centered_text(fb, 316, "F5/F6 CHOOSE   F4 OPEN", accent, 1);
+    draw_centered_text(fb, 340, "F3 OFF CLOSES AND RESUMES", muted, 1);
+}
+
+static void render_shooting_lab(const TecmoRuntime *runtime,
+                                TecmoFramebuffer *fb)
+{
+    const TecmoGameplayShootingLab *lab = &runtime->shooting_lab;
+    TecmoGameplayJumpShotFamily family;
+    TecmoGameplayJumpShotProfile profile;
+    TecmoGameplayJumpShotDirection direction;
+    uint16_t base = 0U;
+    uint16_t pose = 0U;
+    char line[160];
+    bool mapped;
+    bool rendered;
+    const uint32_t text = rgb(230, 232, 214);
+    const uint32_t muted = rgb(142, 174, 190);
+    const uint32_t accent = rgb(252, 236, 118);
+
+    clear(fb, rgb(6, 7, 10));
+    rect(fb, 8, 104, 272, 256, rgb(18, 22, 30));
+    outline_rect(fb, 8, 104, 272, 256, rgb(78, 98, 112));
+    mapped = tecmo_gameplay_shooting_lab_selection(
+        lab, &family, &profile, &direction) &&
+        tecmo_gameplay_shooting_lab_pose_pointer(
+            lab, &runtime->gameplay_scene, &base, &pose);
+    rendered = mapped && tecmo_gameplay_shooting_lab_draw(
+        lab, &runtime->gameplay_scene, fb, 16, 120, 2);
+    if (!rendered) {
+        draw_text(fb, 34, 226, "PREVIEW RENDER REJECTED", rgb(232, 92, 76),
+                  1);
+    }
+
+    draw_text(fb, 296, 18, "SHOOTING POSE LAB", accent, 2);
+    draw_text(fb, 296, 42, "TGJS SOURCE TABLE PREVIEW", muted, 1);
+    draw_text(fb, 296, 58, "NOT LIVE SHOT POLICY", accent, 1);
+    if (mapped) {
+        (void)snprintf(line, sizeof(line), "FAMILY %u  PROFILE %u  DIR %u",
+                       (unsigned)family, (unsigned)profile,
+                       (unsigned)direction);
+        draw_text(fb, 296, 94, line, text, 1);
+        (void)snprintf(line, sizeof(line), "TABLE %u OF %u",
+                       (unsigned)lab->selection + 1U,
+                       (unsigned)TECMO_GAMEPLAY_JUMP_SHOT_POSE_COUNT);
+        draw_text(fb, 296, 112, line, muted, 1);
+        (void)snprintf(line, sizeof(line), "BASE %u  PHASE %u  POSE %u",
+                       (unsigned)base, (unsigned)lab->phase, (unsigned)pose);
+        draw_text(fb, 296, 130, line, text, 1);
+    }
+    (void)snprintf(line, sizeof(line), "%s  %s",
+                   lab->paused ? "PAUSED" : "SLOW PLAY",
+                   lab->mirror_inspection ? "MIRROR INSPECTION" : "AUTHORED");
+    draw_text(fb, 296, 152, line, text, 1);
+    draw_text(fb, 296, 178, "B05 842C / 8469-847A", muted, 1);
+    draw_text(fb, 296, 194, "B07 PHASE-NIBBLE ADD", muted, 1);
+    draw_text(fb, 296, 210, "PREVIEW UNIFORM $30", muted, 1);
+    draw_text(fb, 296, 226, "LOOKUP EXACT; PLAY SPEED SLOWED", accent, 1);
+    draw_text(fb, 296, 250, "F4 BACK TO LAB MENU", accent, 1);
+    draw_text(fb, 296, 266, "F5 PREV  F6 NEXT TABLE", accent, 1);
+    draw_text(fb, 296, 282, "F7 AUTHORED / MIRROR", accent, 1);
+    draw_text(fb, 296, 298, "F8 PLAY PAUSE", accent, 1);
+    draw_text(fb, 296, 314, "F9 RESTART  F10 STEP", accent, 1);
+    draw_text(fb, 296, 338, "F3 OFF CLOSES AND RESTORES", muted, 1);
 }
 
 static void render_violation_lab(const TecmoRuntime *runtime,
@@ -1828,7 +1953,7 @@ static void render_violation_lab(const TecmoRuntime *runtime,
     } else {
         draw_text(fb, 296, 198, "SOURCE PATH ONLY", muted, 1);
     }
-    draw_text(fb, 296, 250, "F4 EXIT", accent, 1);
+    draw_text(fb, 296, 250, "F4 BACK TO LAB MENU", accent, 1);
     draw_text(fb, 296, 266, "F5 PREV  F6 NEXT", accent, 1);
     draw_text(fb, 296, 282, "F7 SOURCE STATE PATH", accent, 1);
     draw_text(fb, 296, 298, "F8 PLAY PAUSE", accent, 1);
@@ -1895,7 +2020,7 @@ static void render_debug_overlay(const TecmoRuntime *runtime, TecmoFramebuffer *
     draw_debug_text(fb, x, y + 100, line);
 
     draw_debug_text(fb, x, y + 124,
-                    "F3 DEBUG  F4 VIOLATION LAB");
+                    "F3 DEBUG  F4 LAB MENU");
     render_debug_cpu_diagnostics(runtime, fb);
 }
 
@@ -4096,8 +4221,12 @@ void tecmo_render_original_title_chr_probe(TecmoFramebuffer *framebuffer,
 
 void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebuffer)
 {
-    if (runtime->debug_overlay && runtime->violation_lab.active) {
+    if (runtime->debug_overlay && runtime->developer_lab_menu_active) {
+        render_developer_lab_menu(runtime, framebuffer);
+    } else if (runtime->debug_overlay && runtime->violation_lab.active) {
         render_violation_lab(runtime, framebuffer);
+    } else if (runtime->debug_overlay && runtime->shooting_lab.active) {
+        render_shooting_lab(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_MAIN_MENU) {
         render_main_menu(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_TITLE_SCREEN) {
@@ -4126,7 +4255,8 @@ void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebu
         render_season_menu_mode(runtime, framebuffer);
     }
 
-    if (runtime->debug_overlay && !runtime->violation_lab.active) {
+    if (runtime->debug_overlay && !runtime->developer_lab_menu_active &&
+        !runtime->violation_lab.active && !runtime->shooting_lab.active) {
         render_debug_overlay(runtime, framebuffer);
     }
 }

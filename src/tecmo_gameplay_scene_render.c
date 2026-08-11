@@ -1184,6 +1184,28 @@ static void scene_draw_pose(const TecmoGameplayScene *scene,
     }
 }
 
+bool tecmo_gameplay_scene_render_draw_source_pose(
+    const TecmoGameplayScene *scene,
+    uint16_t pointer_index,
+    TecmoFramebuffer *framebuffer,
+    int base_x,
+    int base_y,
+    int origin_x,
+    int origin_y,
+    int scale,
+    bool mirror_horizontal)
+{
+    TecmoGameplayResolvedPose pose;
+    if (scene == NULL || framebuffer == NULL || scale <= 0 ||
+        !tecmo_gameplay_scene_render_resolve_pose(
+            scene, pointer_index, 0x41U, 0U, 0U, true, 0x30U, &pose)) {
+        return false;
+    }
+    scene_draw_pose(scene, framebuffer, &pose, base_x, base_y,
+                    origin_x, origin_y, scale, mirror_horizontal);
+    return true;
+}
+
 static bool scene_pose_authored_facing_right(
     const TecmoGameplayResolvedPose *pose,
     bool *facing_right_out)

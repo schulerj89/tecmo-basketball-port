@@ -307,5 +307,15 @@ bool tecmo_gameplay_scene_render_resolve_actor_pose(
     const TecmoGameplayScene *scene,
     size_t actor_index,
     TecmoGameplayResolvedPose *resolved);
+bool tecmo_gameplay_scene_render_draw_source_pose(
+    const TecmoGameplayScene *scene,
+    uint16_t pointer_index,
+    TecmoFramebuffer *framebuffer,
+    int base_x,
+    int base_y,
+    int origin_x,
+    int origin_y,
+    int scale,
+    bool mirror_horizontal);
 
 #endif
