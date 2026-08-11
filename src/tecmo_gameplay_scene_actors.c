@@ -1128,9 +1128,11 @@ static bool scene_cpu_build_play_input(
     const TecmoGameplayScene *scene,
     const TecmoGameplayCourtCoordinate
         actor_position[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT],
+    const TecmoGameplayLiveFoundation *foundation,
     TecmoGameplayCpuSteeringPlayInput *input)
 {
-    if (scene == NULL || actor_position == NULL || input == NULL) {
+    if (scene == NULL || actor_position == NULL || foundation == NULL ||
+        input == NULL) {
         return false;
     }
     memset(input, 0, sizeof(*input));
@@ -1140,15 +1142,19 @@ static bool scene_cpu_build_play_input(
        scene tick budget. */
     input->step_budget = 1U;
     input->orientation_035a = scene->orientation_state.current_direction;
-    /* $BA, $04B0, $046E, $058A/$0357/$0358/$7E are caller workspaces not
-       exposed by the native scene. Zero/clock-derived values are deterministic
-       native approximations; they are not original command arguments. */
-    input->flags_ba = 0U;
-    input->state_058a = scene->state.shot_clock >= 4U
-        ? 4U : scene->state.shot_clock;
-    input->state_0357 = 0U;
-    input->state_0358 = 4U;
-    input->flags_007e = 0U;
+    /* Bank06 $9146 reads only $04B0 bit-$10. LIVE owns that selector flag
+       through formation synchronization, so zero is a valid unselected
+       value here rather than a substitute for missing RAM. */
+    memcpy(input->actor_04b0, foundation->actor_selector_flags,
+           sizeof(input->actor_04b0));
+    /* The remaining Bank06 inputs have no faithful typed LIVE owner. Keep
+       their availability false: never turn a zeroed struct, shot clock, or
+       frame counter into $BA, $046E, $07DF, or the opcode-21 gate plane. */
+    input->common_tail_ba_available = false;
+    input->actor_046e_probe_available = false;
+    input->opcode21_gate_inputs_available = false;
+    input->special_actor_07df_available = false;
+    input->special_actor_07df = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     memcpy(input->actor_position, actor_position,
            sizeof(input->actor_position));
     if (!tecmo_gameplay_court_coordinate_q8_floor(
@@ -1485,9 +1491,6 @@ bool scene_update_ai(
             scene->actors[actor].position;
         actor_team[actor] = scene->actors[actor].team;
     }
-    if (!scene_cpu_build_play_input(scene, steering_snapshot, &play_input)) {
-        return false;
-    }
     memcpy(candidate_actors, scene->actors, sizeof(candidate_actors));
     memcpy(candidate_cpu, scene->cpu_actors, sizeof(candidate_cpu));
     candidate_ball = scene->ball_position;
@@ -1498,6 +1501,10 @@ bool scene_update_ai(
             (uint8_t)scene->state.possession, scene->ball_holder,
             actor_team, scene->launch.controller_team,
             scene->controlled_actor, &candidate_foundation)) {
+        return false;
+    }
+    if (!scene_cpu_build_play_input(
+            scene, steering_snapshot, &candidate_foundation, &play_input)) {
         return false;
     }
 
@@ -1607,6 +1614,8 @@ bool scene_update_ai(
                    direction and classify only its owned TGMO composition as
                    inert/deferred; the LIVE scene transaction remains valid. */
                 candidate_foundation.deferred[actor] = true;
+                candidate_foundation.deferred_reason[actor] =
+                    TECMO_GAMEPLAY_CPU_STEERING_DEFER_NATIVE_TARGET_OUTSIDE_COURT;
             }
         }
         /* A deferred source effect preserves its last validated target. If

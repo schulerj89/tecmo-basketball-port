@@ -116,6 +116,24 @@ typedef enum TecmoGameplayCpuSteeringAdvancePolicy {
     TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_CONDITIONAL_BA_NONE_OR_FIVE_OR_RETRY_CANCEL
 } TecmoGameplayCpuSteeringAdvancePolicy;
 
+/* A deferred command is not a generic failure: Bank06 handlers consume
+ * different caller-owned RAM/workspace planes.  Keep the reason typed so LIVE
+ * can show exactly which missing owner prevented a source effect. */
+typedef enum TecmoGameplayCpuSteeringDeferredReason {
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE = 0,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_INVALID_TARGET_OBJECT,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_SPECIAL_ACTOR_07DF,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_RELATIVE_WORKSPACE,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_POINTER_WORKSPACE,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_ACTOR_046E_PROBE,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE21_GATE_INPUTS,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE15_RAW_LIFECYCLE,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_NATIVE_TARGET_OUTSIDE_COURT,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_REASON_COUNT
+} TecmoGameplayCpuSteeringDeferredReason;
+
 typedef struct TecmoGameplayCpuSteeringEffectMetadata {
     TecmoGameplayCpuSteeringEffectKind kind;
     uint16_t handler_cpu;
@@ -261,14 +279,20 @@ typedef struct TecmoGameplayCpuSteeringPlayInput {
     uint8_t step_budget;
     /* Exact $035A orientation selector; only 0 and 1 are valid. */
     uint8_t orientation_035a;
-    /* Exact $BA low-bit common-tail gate; bits 0..1 are consumed here. */
+    /* Bank06 $92CA consumes $BA low bits for the common target tail.  A
+       value is meaningful only when the caller has a faithful owner; LIVE
+       deliberately leaves this unavailable rather than treating zero as RAM. */
+    bool common_tail_ba_available;
     uint8_t flags_ba;
     /* Exact $04B0 values for opcode 14; bit $10 is the qualification gate. */
     uint8_t actor_04b0[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     /* Opcode 7 indexes the original $046E table with C8. The corpus uses
-       C8=$0A, so this bounded probe intentionally has eleven entries. */
+       C8=$0A, so this bounded probe intentionally has eleven entries.  The
+       table is never read unless the caller can retain its lifecycle. */
+    bool actor_046e_probe_available;
     uint8_t actor_046e_probe[TECMO_GAMEPLAY_CPU_STEERING_046E_PROBE_COUNT];
     /* Exact opcode-21 gate inputs ($058A/$0357/$0358/$7E). */
+    bool opcode21_gate_inputs_available;
     uint8_t state_058a;
     uint8_t state_0357;
     uint8_t state_0358;
@@ -279,6 +303,10 @@ typedef struct TecmoGameplayCpuSteeringPlayInput {
     bool linked_relative_valid;
     int16_t linked_relative_x;
     int16_t linked_relative_depth;
+    /* $07DF selects the exceptional primary-actor route in $8CD0-$8D64.
+       NO_ACTOR is the explicit unavailable sentinel, not a replacement
+       value for slot zero. */
+    bool special_actor_07df_available;
     uint8_t special_actor_07df;
     /* Opcode 16 compares the two exact 16-bit workspaces at $036E/$0370.
        The command's $0309 pointer is resolved through typed play state. */
@@ -317,6 +345,7 @@ typedef struct TecmoGameplayCpuSteeringPlayResult {
     bool waiting;
     bool budget_exhausted;
     bool deferred;
+    TecmoGameplayCpuSteeringDeferredReason deferred_reason;
     bool proximity_met;
     /* The handler ORs both 16-bit deltas and skips $88DA on zero, preserving
        its prior direction.  This flag is meaningful for opcode 4 only. */
@@ -621,6 +650,8 @@ bool tecmo_gameplay_cpu_steering_play_step(
     const TecmoGameplayCpuSteeringPlayInput *input,
     TecmoGameplayCpuSteeringPlayState *state_out,
     TecmoGameplayCpuSteeringPlayResult *result_out);
+const char *tecmo_gameplay_cpu_steering_deferred_reason_name(
+    TecmoGameplayCpuSteeringDeferredReason reason);
 
 /* Harness-only Bank06 $9172-$9216 source contract. This resolver never reads
    or writes LIVE scene state. It copies input to output transactionally,

@@ -9,6 +9,20 @@
 #include <stdlib.h>
 #include <string.h>
 
+static void scene_test_enable_captured_play_inputs(
+    TecmoGameplayCpuSteeringPlayInput *input)
+{
+    if (input == NULL) return;
+    /* Direct executor fixtures below are explicit synthetic captures. They
+       intentionally exercise bounded source handlers; production scene input
+       leaves these false unless it has a typed owner. */
+    input->common_tail_ba_available = true;
+    input->actor_046e_probe_available = true;
+    input->opcode21_gate_inputs_available = true;
+    input->special_actor_07df_available = true;
+    input->special_actor_07df = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+}
+
 static bool scene_test_free_throw_lineup_unbound(
     const TecmoGameplayScene *scene)
 {
@@ -2167,6 +2181,7 @@ static bool scene_test_live_foundation_regressions(
     }
     memset(&play_input, 0, sizeof(play_input));
     play_input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG;
+    scene_test_enable_captured_play_inputs(&play_input);
     play_input.actor = 0U;
     play_input.step_budget = 2U;
     play_input.orientation_035a = 0U;
@@ -2185,6 +2200,7 @@ static bool scene_test_live_foundation_regressions(
         candidate_foundation = foundation_before;
         memset(&play_input, 0, sizeof(play_input));
         play_input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG;
+        scene_test_enable_captured_play_inputs(&play_input);
         play_input.actor = (uint8_t)actor;
         play_input.step_budget = 1U;
         memcpy(play_input.actor_position, positions, sizeof(positions));
@@ -2206,12 +2222,13 @@ static bool scene_test_live_foundation_regressions(
     }
 
     /* Bank06 $9441-$946E reloads only ordinary state-4 actors: $944D skips
-       $0308 and $9452 skips bit-$10 slots.  A selected CPU ball-handler must
-       therefore retain the source target written by its prior Bank04 command
-       when it crosses a 64-pixel formation bucket. */
+       $0308 and $9452 skips bit-$10 slots. A selected CPU ball-handler must
+       therefore retain the production-supported opcode-4 source target when
+       it crosses a 64-pixel formation bucket. */
     candidate_foundation = foundation_before;
     memset(&play_input, 0, sizeof(play_input));
     play_input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG;
+    scene_test_enable_captured_play_inputs(&play_input);
     play_input.actor = candidate_foundation.primary_actor;
     play_input.step_budget = 1U;
     play_input.orientation_035a = candidate_foundation.orientation;
@@ -2223,7 +2240,7 @@ static bool scene_test_live_foundation_regressions(
          offset = (uint16_t)(offset + 5U)) {
         if (!tecmo_gameplay_cpu_steering_decode_command(
                 &scene->cpu_steering_assets, offset, &command) ||
-            command.opcode != 2U) {
+            command.opcode != 4U) {
             continue;
         }
         candidate_foundation.play_state.stream_offset[
@@ -2242,7 +2259,7 @@ static bool scene_test_live_foundation_regressions(
         candidate_foundation = foundation_before;
     }
     if (!found_absolute_target) {
-        LIVE_FAIL("LIVE Bank04 absolute-target fixture missing");
+        LIVE_FAIL("LIVE Bank04 object-target fixture missing");
     }
     preserved_target_x = candidate_foundation.play_state.target_x[
         candidate_foundation.primary_actor];
@@ -2301,6 +2318,7 @@ static bool scene_test_live_foundation_regressions(
     }
     memset(&play_input, 0, sizeof(play_input));
     play_input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG;
+    scene_test_enable_captured_play_inputs(&play_input);
     play_input.step_budget = 1U;
     memcpy(play_input.actor_position, positions, sizeof(positions));
     play_input.ball_position = positions[0U];
@@ -2325,6 +2343,8 @@ static bool scene_test_live_foundation_regressions(
                 &scene->cpu_steering_assets, &play_input,
                 &candidate_foundation, &play_result) ||
             play_result.command.opcode != 15U || !play_result.deferred ||
+            play_result.deferred_reason !=
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE15_RAW_LIFECYCLE ||
             play_result.advanced || play_result.next_offset != 0x0037U ||
             candidate_foundation.primary_actor !=
                 opcode15_before.primary_actor ||
@@ -2336,6 +2356,8 @@ static bool scene_test_live_foundation_regressions(
                 opcode15_before.play_state.actor_state[opcode15_actor] ||
             candidate_foundation.play_state.timer[opcode15_actor] !=
                 opcode15_before.play_state.timer[opcode15_actor] ||
+            candidate_foundation.deferred_reason[opcode15_actor] !=
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE15_RAW_LIFECYCLE ||
             !candidate_foundation.opcode15_trace.observed ||
             candidate_foundation.opcode15_trace.branch !=
                 TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MISSING_RAW ||
@@ -2396,7 +2418,11 @@ static bool scene_test_live_foundation_regressions(
     if (!tecmo_gameplay_live_foundation_play_step(
             &scene->cpu_steering_assets, &play_input, &candidate_foundation,
             &play_result) || !play_result.deferred ||
+        play_result.deferred_reason ==
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE ||
         candidate_foundation.source_target_valid[deferred_actor] ||
+        candidate_foundation.deferred_reason[deferred_actor] !=
+            play_result.deferred_reason ||
         !tecmo_gameplay_live_foundation_valid(
             &scene->cpu_steering_assets, &candidate_foundation)) {
         LIVE_FAIL("LIVE deferred target became an unproven movement target");
@@ -2619,6 +2645,8 @@ static bool scene_test_live_foundation_regressions(
             candidate_foundation.source_direction[actor] =
                 TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
             candidate_foundation.deferred[actor] = false;
+            candidate_foundation.deferred_reason[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
             if (actor != target_actor) {
                 candidate_foundation.play_state.wait_counter[actor] = 1U;
                 candidate_foundation.play_state.actor_state[actor] = 0x06U;
@@ -2872,6 +2900,7 @@ static bool scene_test_live_foundation_regressions(
             memset(&play_input, 0, sizeof(play_input));
             play_input.contract_tag =
                 TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG;
+            scene_test_enable_captured_play_inputs(&play_input);
             play_input.actor = edge_actor;
             play_input.step_budget = 1U;
             play_input.orientation_035a =
@@ -2932,6 +2961,8 @@ static bool scene_test_live_foundation_regressions(
                 candidate_foundation.source_direction[actor] =
                     TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
                 candidate_foundation.deferred[actor] = false;
+                candidate_foundation.deferred_reason[actor] =
+                    TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
             }
             candidate_foundation.play_state.direction[edge_actor] =
                 edge_direction;

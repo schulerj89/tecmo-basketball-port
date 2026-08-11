@@ -401,6 +401,14 @@ static bool live_play_state_valid(
                   TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT ||
               foundation->play_state.direction[actor] !=
                   foundation->source_direction[actor])) ||
+            (foundation->deferred[actor] &&
+             (foundation->deferred_reason[actor] ==
+                  TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE ||
+              foundation->deferred_reason[actor] >=
+                  TECMO_GAMEPLAY_CPU_STEERING_DEFER_REASON_COUNT)) ||
+            (!foundation->deferred[actor] &&
+             foundation->deferred_reason[actor] !=
+                 TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE) ||
             foundation->last_effect[actor] >=
                 TECMO_GAMEPLAY_CPU_STEERING_EFFECT_COUNT ||
             !live_stream_offset_valid(assets,
@@ -443,6 +451,8 @@ void tecmo_gameplay_live_foundation_init(
         foundation->last_effect[actor] = 0U;
         foundation->source_direction[actor] =
             TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+        foundation->deferred_reason[actor] =
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
         foundation->actor_team[actor] = actor <
                 TECMO_GAMEPLAY_CPU_STEERING_TEAM_ACTOR_COUNT
             ? 0U : 1U;
@@ -520,6 +530,8 @@ static void live_invalidate_source_metadata_actor(
     foundation->source_direction[actor] =
         TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
     foundation->deferred[actor] = false;
+    foundation->deferred_reason[actor] =
+        TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
 }
 
 static void live_invalidate_source_metadata(
@@ -1018,6 +1030,7 @@ bool tecmo_gameplay_live_foundation_play_step(
     candidate.last_step_offset[actor] = result.next_offset;
     candidate.last_effect[actor] = (uint8_t)result.effect;
     candidate.deferred[actor] = result.deferred;
+    candidate.deferred_reason[actor] = result.deferred_reason;
     if (result.fetched && result.command.opcode == 15U) {
         TecmoGameplayLiveOpcode15Trace *trace =
             &candidate.opcode15_trace;
