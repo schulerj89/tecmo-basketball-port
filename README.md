@@ -48,7 +48,9 @@ separate fixed foul script, `F7` switches the explicitly labelled source or
 supported production-state preview, `F8` plays/pauses, `F9` restarts, and
 `F10` advances one frame. The lab freezes the court and restores it when it
 closes; its production-state preview is not a claim that a gameplay detector
-fired. `F3` off makes all lab keys inert.
+fired. State preview is available only from an idle LIVE scene (not pre-tip,
+an active shot/cutaway, or a free-throw lineup); source preview remains
+available there. `F3` off makes all lab keys inert.
 
 The F3 court overlay also exposes passive typed CPU diagnostics for idle
 dribbling: holder/primary/defender, a retained source command offset/opcode,

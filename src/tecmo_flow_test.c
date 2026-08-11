@@ -1011,6 +1011,106 @@ static bool flow_expect_violation_lab_debug_gate(TecmoRuntime *runtime,
     return true;
 }
 
+/* F4-F10 remain raw keys so F3 can consume their edges in the court lab, but
+ * with F3 off they must neither hold the blue-menu return gate nor perturb
+ * its ordinary neutral-frame timing. */
+static bool flow_expect_lab_keys_inert_at_start_menu(TecmoRuntime *runtime,
+                                                      char *message,
+                                                      size_t message_size)
+{
+    static const TecmoControlButton lab_buttons[] = {
+        TECMO_CONTROL_VIOLATION_LAB_TOGGLE,
+        TECMO_CONTROL_VIOLATION_LAB_PREVIOUS,
+        TECMO_CONTROL_VIOLATION_LAB_NEXT,
+        TECMO_CONTROL_VIOLATION_LAB_PATH,
+        TECMO_CONTROL_VIOLATION_LAB_PLAY_PAUSE,
+        TECMO_CONTROL_VIOLATION_LAB_RESTART,
+        TECMO_CONTROL_VIOLATION_LAB_STEP
+    };
+    const TecmoStartGameMenuAsset *asset;
+    size_t index;
+
+    if (runtime == NULL) {
+        set_flow_test_message(message, message_size,
+                              "lab-key menu inert test runtime missing");
+        return false;
+    }
+    asset = &runtime->start_game_menu_asset;
+    if (!asset->available) {
+        set_flow_test_message(message, message_size,
+                              "lab-key menu inert test asset missing");
+        return false;
+    }
+    for (index = 0U; index < sizeof(lab_buttons) / sizeof(lab_buttons[0]);
+         ++index) {
+        TecmoInput input = {0};
+        TecmoControlFrame neutral = {0};
+        TecmoStartGameMenuState initial;
+        TecmoStartGameMenuState expected;
+        uint32_t frame_before;
+        char failure[160];
+
+        tecmo_runtime_set_mode(runtime, TECMO_MODE_START_GAME_MENU);
+        runtime->start_game_menu_state.frame = asset->stable_frame;
+        runtime->start_game_menu_state.phase = TECMO_START_GAME_MENU_ROOT;
+        runtime->start_game_menu_state.root_selection = 0U;
+        runtime->start_game_menu_state.direction_cooldown = 0U;
+        runtime->start_game_menu_state.cursor_delay = 0U;
+        runtime->start_menu_input_neutral_gate = true;
+        runtime->debug_overlay = false;
+        initial = runtime->start_game_menu_state;
+        frame_before = runtime->frame_counter;
+        tecmo_input_set_button(&input, lab_buttons[index], true);
+        tecmo_runtime_update(runtime, &input);
+        if (runtime->mode != TECMO_MODE_START_GAME_MENU ||
+            runtime->debug_overlay || runtime->violation_lab.active ||
+            runtime->start_menu_input_neutral_gate ||
+            runtime->mode_frame_counter != 1U ||
+            runtime->frame_counter != frame_before + 1U ||
+            memcmp(&runtime->start_game_menu_state, &initial,
+                   sizeof(initial)) != 0) {
+            (void)snprintf(failure, sizeof(failure),
+                           "F4-F10 press changed menu gate: %s",
+                           tecmo_control_button_name(lab_buttons[index]));
+            set_flow_test_message(message, message_size, failure);
+            return false;
+        }
+
+        expected = initial;
+        (void)tecmo_start_game_menu_update(&expected, asset, &neutral);
+        tecmo_runtime_update(runtime, &input);
+        if (runtime->debug_overlay || runtime->violation_lab.active ||
+            runtime->start_menu_input_neutral_gate ||
+            runtime->mode_frame_counter != 2U ||
+            runtime->frame_counter != frame_before + 2U ||
+            memcmp(&runtime->start_game_menu_state, &expected,
+                   sizeof(expected)) != 0) {
+            (void)snprintf(failure, sizeof(failure),
+                           "F4-F10 hold changed menu timing: %s",
+                           tecmo_control_button_name(lab_buttons[index]));
+            set_flow_test_message(message, message_size, failure);
+            return false;
+        }
+
+        (void)tecmo_start_game_menu_update(&expected, asset, &neutral);
+        memset(&input, 0, sizeof(input));
+        tecmo_runtime_update(runtime, &input);
+        if (runtime->debug_overlay || runtime->violation_lab.active ||
+            runtime->start_menu_input_neutral_gate ||
+            runtime->mode_frame_counter != 3U ||
+            runtime->frame_counter != frame_before + 3U ||
+            memcmp(&runtime->start_game_menu_state, &expected,
+                   sizeof(expected)) != 0) {
+            (void)snprintf(failure, sizeof(failure),
+                           "F4-F10 release changed menu timing: %s",
+                           tecmo_control_button_name(lab_buttons[index]));
+            set_flow_test_message(message, message_size, failure);
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool flow_expect_preseason_native_path(TecmoRuntime *runtime,
                                               char *message,
                                               size_t message_size)
@@ -4041,6 +4141,10 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
     flow_step(runtime, input);
     if (!runtime->quit_requested) {
         set_flow_test_message(message, message_size, "quit menu item did not request quit");
+        return false;
+    }
+    if (!flow_expect_lab_keys_inert_at_start_menu(runtime, message,
+                                                  message_size)) {
         return false;
     }
 
