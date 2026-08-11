@@ -46,7 +46,8 @@ static bool cpu_playbook_lab_actor_controlled(
 }
 
 static TecmoGameplayCpuPlaybookLabDeferReason
-cpu_playbook_lab_defer_reason(const TecmoGameplayScene *scene, uint8_t actor)
+cpu_playbook_lab_slice_skip_reason(const TecmoGameplayScene *scene,
+                                   uint8_t actor)
 {
     const TecmoGameplayLiveFoundation *foundation;
     if (scene == NULL || actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT) {
@@ -61,11 +62,6 @@ cpu_playbook_lab_defer_reason(const TecmoGameplayScene *scene, uint8_t actor)
     if (foundation->selected_defender_handoff_active &&
         foundation->defender_actor == actor) {
         return TECMO_GAMEPLAY_CPU_PLAYBOOK_LAB_DEFER_SELECTED_DEFENDER_STREAM_EXCLUDED;
-    }
-    if (foundation->deferred[actor]) {
-        /* LIVE retains only a defer bit after play_step. The prior executed
-           command record and its caller workspace inputs are not retained. */
-        return TECMO_GAMEPLAY_CPU_PLAYBOOK_LAB_DEFER_LAST_SOURCE_STEP_DEFERRED;
     }
     return TECMO_GAMEPLAY_CPU_PLAYBOOK_LAB_DEFER_NONE;
 }
@@ -360,12 +356,21 @@ bool tecmo_gameplay_cpu_playbook_lab_snapshot(
         view->scene_target_valid = cpu->target_valid;
         view->scene_writes_direction = cpu->writes_direction;
         view->source_deferred = foundation->deferred[actor];
-        view->defer_reason = cpu_playbook_lab_defer_reason(scene,
-                                                            (uint8_t)actor);
-        /* Bank06 $8B90-$9237 retains no reason/workspace after a deferred
-           record. Until LIVE carries a typed reason, observable lab labels
-           remain fallbacks rather than claimed source workspace values. */
-        view->source_defer_detail_available = false;
+        view->slice_skip_reason = cpu_playbook_lab_slice_skip_reason(
+            scene, (uint8_t)actor);
+        /* play_step retains the reason selected at Bank06 $8B90-$9237's
+           bounded C conversion. It still does not retain or recreate the
+           missing caller-owned workspace itself. */
+        view->source_defer_detail_available =
+            view->source_deferred &&
+            foundation->deferred_reason[actor] >
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE &&
+            foundation->deferred_reason[actor] <
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_REASON_COUNT;
+        view->retained_source_defer_reason =
+            view->source_defer_detail_available
+                ? foundation->deferred_reason[actor]
+                : TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
         view->movement_evidence_available =
             !lab->showing_baseline &&
             lab->last_step_status ==
@@ -398,8 +403,6 @@ const char *tecmo_gameplay_cpu_playbook_lab_defer_reason_name(
         return "controlled-actor-cpu-slice-skipped";
     case TECMO_GAMEPLAY_CPU_PLAYBOOK_LAB_DEFER_SELECTED_DEFENDER_STREAM_EXCLUDED:
         return "selected-defender-ordinary-stream-excluded";
-    case TECMO_GAMEPLAY_CPU_PLAYBOOK_LAB_DEFER_LAST_SOURCE_STEP_DEFERRED:
-        return "last-source-step-deferred-record-unretained";
     case TECMO_GAMEPLAY_CPU_PLAYBOOK_LAB_DEFER_REASON_COUNT:
     default:
         return "unavailable";
@@ -493,7 +496,7 @@ bool tecmo_gameplay_cpu_playbook_lab_write_json(
         const TecmoGameplayCpuSteeringCommand *command = &view->command;
         if (!cpu_playbook_lab_json_append(
                 &cursor, &remaining,
-                "%s{\"slot\":%u,\"team\":%u,\"active\":%s,\"controlled\":%s,\"stream_offset\":\"%04X\",\"command\":{\"available\":%s,\"opcode\":%u,\"args\":[%u,%u,%u,%u],\"handler\":\"%04X\",\"effect\":\"%s\"},\"wait\":%u,\"state\":%u,\"timer\":%u,\"source_target\":{\"valid\":%s,\"object\":%u,\"x\":%d,\"depth\":%d},\"source_direction\":{\"valid\":%s,\"value\":%u},\"scene_target\":{\"valid\":%s,\"kind\":\"%s\",\"kind_value\":%u,\"x\":%d,\"depth\":%d,\"direction\":%u,\"writes_direction\":%s},\"defer\":{\"retained\":%s,\"reason\":\"%s\",\"typed_detail_available\":%s,\"executed_record_retained\":false},\"movement\":{\"available\":%s,\"delta_x\":%d,\"delta_depth\":%d,\"moved\":%s,\"boundary_latch_before\":%s,\"boundary_latch_after\":%s,\"clamp_event_retained\":false}}",
+                "%s{\"slot\":%u,\"team\":%u,\"active\":%s,\"controlled\":%s,\"stream_offset\":\"%04X\",\"command\":{\"available\":%s,\"opcode\":%u,\"args\":[%u,%u,%u,%u],\"handler\":\"%04X\",\"effect\":\"%s\"},\"wait\":%u,\"state\":%u,\"timer\":%u,\"source_target\":{\"valid\":%s,\"object\":%u,\"x\":%d,\"depth\":%d},\"source_direction\":{\"valid\":%s,\"value\":%u},\"scene_target\":{\"valid\":%s,\"kind\":\"%s\",\"kind_value\":%u,\"x\":%d,\"depth\":%d,\"direction\":%u,\"writes_direction\":%s},\"defer\":{\"retained\":%s,\"slice_skip_reason\":\"%s\",\"typed_reason\":\"%s\",\"typed_detail_available\":%s,\"executed_record_retained\":false},\"movement\":{\"available\":%s,\"delta_x\":%d,\"delta_depth\":%d,\"moved\":%s,\"boundary_latch_before\":%s,\"boundary_latch_after\":%s,\"clamp_event_retained\":false}}",
                 actor == 0U ? "" : ",", (unsigned)view->actor,
                 (unsigned)view->team, view->active ? "true" : "false",
                 view->controlled ? "true" : "false",
@@ -527,7 +530,9 @@ bool tecmo_gameplay_cpu_playbook_lab_write_json(
                 view->scene_writes_direction ? "true" : "false",
                 view->source_deferred ? "true" : "false",
                 tecmo_gameplay_cpu_playbook_lab_defer_reason_name(
-                    view->defer_reason),
+                    view->slice_skip_reason),
+                tecmo_gameplay_cpu_steering_deferred_reason_name(
+                    view->retained_source_defer_reason),
                 view->source_defer_detail_available ? "true" : "false",
                 view->movement_evidence_available ? "true" : "false",
                 (int)view->last_step_delta_x, (int)view->last_step_delta_y,
@@ -624,13 +629,23 @@ bool tecmo_gameplay_cpu_playbook_lab_self_test(char *message,
     /* Make preview-only cursor/evidence differ from the frozen baseline.
        F7 must expose baseline values, not the hidden preview's values. */
     lab.preview_scene->live_foundation.play_state.stream_offset[0U] = 5U;
+    lab.preview_scene->live_foundation.deferred[0U] = true;
+    lab.preview_scene->live_foundation.deferred_reason[0U] =
+        TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA;
     lab.last_step_status = TECMO_GAMEPLAY_CPU_PLAYBOOK_LAB_STEP_ACCEPTED;
     lab.last_step_delta_x[0U] = 7;
     lab.moved_last_step[0U] = true;
     if (!tecmo_gameplay_cpu_playbook_lab_snapshot(&lab, &snapshot) ||
         snapshot.actor[0U].stream_offset != 5U ||
         !snapshot.actor[0U].movement_evidence_available ||
-        snapshot.actor[0U].last_step_delta_x != 7) {
+        snapshot.actor[0U].last_step_delta_x != 7 ||
+        !snapshot.actor[0U].source_defer_detail_available ||
+        snapshot.actor[0U].retained_source_defer_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA ||
+        !tecmo_gameplay_cpu_playbook_lab_write_json(&lab, json,
+                                                     sizeof(json)) ||
+        strstr(json, "\"typed_reason\":\"missing-ba-lifecycle\"") ==
+            NULL) {
         (void)snprintf(message, message_size,
                        "CPU PLAYBOOK LAB PREVIEW EVIDENCE FAILED");
         tecmo_gameplay_cpu_playbook_lab_close(&lab);
@@ -643,6 +658,9 @@ bool tecmo_gameplay_cpu_playbook_lab_self_test(char *message,
             lab.baseline_scene ||
         !tecmo_gameplay_cpu_playbook_lab_snapshot(&lab, &snapshot) ||
         snapshot.actor[0U].stream_offset != 0U ||
+        snapshot.actor[0U].source_defer_detail_available ||
+        snapshot.actor[0U].retained_source_defer_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE ||
         snapshot.actor[0U].movement_evidence_available ||
         snapshot.actor[0U].last_step_delta_x != 0) {
         (void)snprintf(message, message_size,

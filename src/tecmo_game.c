@@ -2068,13 +2068,15 @@ static void render_cpu_playbook_lab(const TecmoRuntime *runtime,
                        "C TARGET UNAVAILABLE; NO FALLBACK TARGET CLAIMED");
     }
     draw_text(fb, 282, 318, line, text, 1);
-    (void)snprintf(line, sizeof(line), "DEFER %s; SOURCE DETAIL %s",
+    (void)snprintf(line, sizeof(line), "SLICE %s; LAST LIVE %s",
                    tecmo_gameplay_cpu_playbook_lab_defer_reason_name(
-                       selected->defer_reason),
-                   selected->source_defer_detail_available ? "TYPED" :
-                                                               "UNAVAILABLE");
+                       selected->slice_skip_reason),
+                   selected->source_defer_detail_available
+                       ? tecmo_gameplay_cpu_steering_deferred_reason_name(
+                             selected->retained_source_defer_reason)
+                       : "NONE");
     draw_text(fb, 282, 334, line,
-              selected->defer_reason ==
+              selected->slice_skip_reason ==
                   TECMO_GAMEPLAY_CPU_PLAYBOOK_LAB_DEFER_NONE ? muted : warning,
               1);
     if (selected->movement_evidence_available) {

@@ -124,6 +124,7 @@ typedef enum TecmoGameplayCpuSteeringDeferredReason {
     TECMO_GAMEPLAY_CPU_STEERING_DEFER_INVALID_TARGET_OBJECT,
     TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS,
     TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_SPECIAL_ACTOR_07DF,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_ACTOR_BRANCH_CONTEXT,
     TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_RELATIVE_WORKSPACE,
     TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_POINTER_WORKSPACE,
     TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_ACTOR_046E_PROBE,
@@ -308,6 +309,9 @@ typedef struct TecmoGameplayCpuSteeringPlayInput {
        value for slot zero. */
     bool special_actor_07df_available;
     uint8_t special_actor_07df;
+    /* Bank06 $8CD0 also consumes $0478/$06CB/$0308 before $8D59. This bit
+       requires that exact branch context; a fixed matchup actor is not it. */
+    bool linked_actor_branch_context_available;
     /* Opcode 16 compares the two exact 16-bit workspaces at $036E/$0370.
        The command's $0309 pointer is resolved through typed play state. */
     bool pointer_workspace_valid;

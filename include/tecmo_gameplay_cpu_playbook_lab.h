@@ -17,7 +17,6 @@ typedef enum TecmoGameplayCpuPlaybookLabDeferReason {
     TECMO_GAMEPLAY_CPU_PLAYBOOK_LAB_DEFER_NONE = 0,
     TECMO_GAMEPLAY_CPU_PLAYBOOK_LAB_DEFER_CONTROLLED_ACTOR,
     TECMO_GAMEPLAY_CPU_PLAYBOOK_LAB_DEFER_SELECTED_DEFENDER_STREAM_EXCLUDED,
-    TECMO_GAMEPLAY_CPU_PLAYBOOK_LAB_DEFER_LAST_SOURCE_STEP_DEFERRED,
     TECMO_GAMEPLAY_CPU_PLAYBOOK_LAB_DEFER_REASON_COUNT
 } TecmoGameplayCpuPlaybookLabDeferReason;
 
@@ -54,11 +53,11 @@ typedef struct TecmoGameplayCpuPlaybookLabActorSnapshot {
     bool scene_target_valid;
     bool scene_writes_direction;
     bool source_deferred;
-    TecmoGameplayCpuPlaybookLabDeferReason defer_reason;
-    /* Base LIVE state retains only the source defer bit. A later typed
-       foundation reason may make this true; the fallback label is not a
-       recreated ROM workspace value. */
+    TecmoGameplayCpuPlaybookLabDeferReason slice_skip_reason;
+    /* LIVE retains the typed reason produced by the bounded Bank06 handler.
+       This is diagnostic ownership, not a reconstructed RAM workspace. */
     bool source_defer_detail_available;
+    TecmoGameplayCpuSteeringDeferredReason retained_source_defer_reason;
     bool movement_evidence_available;
     int16_t last_step_delta_x;
     int16_t last_step_delta_y;

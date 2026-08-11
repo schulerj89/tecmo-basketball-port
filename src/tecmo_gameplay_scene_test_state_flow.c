@@ -21,6 +21,7 @@ static void scene_test_enable_captured_play_inputs(
     input->opcode21_gate_inputs_available = true;
     input->special_actor_07df_available = true;
     input->special_actor_07df = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    input->linked_actor_branch_context_available = true;
 }
 
 static bool scene_test_free_throw_lineup_unbound(
@@ -2604,7 +2605,9 @@ static bool scene_test_live_foundation_regressions(
     {
         const uint8_t target_actor = 1U;
         uint16_t opcode4_offset = 0U;
+        uint16_t opcode0_offset = 0U;
         bool found_opcode4 = false;
+        bool found_opcode0 = false;
         TecmoGameplayCourtCoordinate expected_ball;
         for (offset = 0U;
              offset < scene->cpu_steering_assets.command_record_count * 5U;
@@ -2618,11 +2621,16 @@ static bool scene_test_live_foundation_regressions(
                     TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT) {
                 opcode4_offset = offset;
                 found_opcode4 = true;
+            } else if (command.opcode == 0U && !found_opcode0) {
+                opcode0_offset = offset;
+                found_opcode0 = true;
+            }
+            if (found_opcode4 && found_opcode0) {
                 break;
             }
         }
         tecmo_gameplay_scene_test_set_skip_pretip(true);
-        if (!found_opcode4 ||
+        if (!found_opcode4 || !found_opcode0 ||
             !tecmo_gameplay_scene_launch(scene, &cpu_only) ||
             !scene_handoff_possession(
                 scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
@@ -2688,6 +2696,39 @@ static bool scene_test_live_foundation_regressions(
             !tecmo_gameplay_live_foundation_valid(
                 &scene->cpu_steering_assets, &scene->live_foundation)) {
             LIVE_FAIL("LIVE canonical opcode-4 C8 ball target was not applied");
+        }
+
+        /* The same production builder has no faithful $BA owner. Install an
+           imported opcode-0 record and prove scene_update_ai reports the
+           Bank06 $92CA dependency without advancing its stream. */
+        candidate_foundation = scene->live_foundation;
+        for (actor = 0U; actor < 10U; ++actor) {
+            candidate_foundation.play_state.wait_counter[actor] =
+                actor == target_actor ? 0U : 1U;
+            candidate_foundation.deferred[actor] = false;
+            candidate_foundation.deferred_reason[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+        }
+        candidate_foundation.play_state.stream_offset[target_actor] =
+            opcode0_offset;
+        candidate_foundation.last_step_offset[target_actor] = opcode0_offset;
+        if (!tecmo_gameplay_live_foundation_valid(
+                &scene->cpu_steering_assets, &candidate_foundation)) {
+            LIVE_FAIL("LIVE opcode-0 missing-BA foundation rejected");
+        }
+        scene->live_foundation = candidate_foundation;
+        memset(&shot_request, 0, sizeof(shot_request));
+        if (!scene_update_ai(scene, &shot_request) ||
+            !scene->live_foundation.deferred[target_actor] ||
+            scene->live_foundation.deferred_reason[target_actor] !=
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA ||
+            scene->live_foundation.play_state.stream_offset[target_actor] !=
+                opcode0_offset ||
+            scene->live_foundation.last_step_offset[target_actor] !=
+                opcode0_offset ||
+            !tecmo_gameplay_live_foundation_valid(
+                &scene->cpu_steering_assets, &scene->live_foundation)) {
+            LIVE_FAIL("LIVE production builder did not preserve missing $BA");
         }
     }
 

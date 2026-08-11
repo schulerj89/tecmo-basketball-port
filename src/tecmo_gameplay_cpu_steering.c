@@ -925,6 +925,8 @@ const char *tecmo_gameplay_cpu_steering_deferred_reason_name(
         return "unimplemented-handler";
     case TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_SPECIAL_ACTOR_07DF:
         return "missing-special-actor-07df";
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_ACTOR_BRANCH_CONTEXT:
+        return "missing-linked-actor-branch-context";
     case TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_RELATIVE_WORKSPACE:
         return "missing-linked-relative-workspace";
     case TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_POINTER_WORKSPACE:
@@ -1025,14 +1027,21 @@ play_missing_live_input_reason(
         if (!input->special_actor_07df_available) {
             return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_SPECIAL_ACTOR_07DF;
         }
-        return input->linked_relative_valid
+        if (!input->linked_actor_branch_context_available) {
+            return
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_ACTOR_BRANCH_CONTEXT;
+        }
+        if (!input->linked_relative_valid) {
+            return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_RELATIVE_WORKSPACE;
+        }
+        return input->common_tail_ba_available
             ? TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE
-            : TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_RELATIVE_WORKSPACE;
+            : TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA;
     case 15U:
         /* $9172-$9216 owns a wider raw lifecycle than this LIVE contract. */
         return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE15_RAW_LIFECYCLE;
     case 16U:
-        /* $9081 resolves $0309 through $036E/$0370; $92CA then needs $BA. */
+        /* $9085 resolves $0309 through $036E/$0370; $92CA then needs $BA. */
         if (!input->pointer_workspace_valid) {
             return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_POINTER_WORKSPACE;
         }
@@ -3044,6 +3053,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     play_input.actor_046e_probe_available = true;
     play_input.opcode21_gate_inputs_available = true;
     play_input.special_actor_07df_available = true;
+    play_input.linked_actor_branch_context_available = true;
     play_input.special_actor_07df = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     memcpy(play_input.actor_position, harness_positions,
            sizeof(harness_positions));
@@ -3265,6 +3275,22 @@ bool tecmo_gameplay_cpu_steering_self_test(
         return false;
     }
     play_input.special_actor_07df_available = true;
+    play_input.linked_actor_branch_context_available = false;
+    play_before = play_state;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.command.opcode != 10U || !play_result.deferred ||
+        play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_ACTOR_BRANCH_CONTEXT ||
+        play_result.advanced ||
+        play_result.next_offset != opcode_offsets[10U] ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-2 opcode-10 unavailable link branch failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.linked_actor_branch_context_available = true;
     play_input.linked_relative_valid = false;
     play_before = play_state;
     if (!tecmo_gameplay_cpu_steering_play_step(
@@ -3280,6 +3306,46 @@ bool tecmo_gameplay_cpu_steering_self_test(
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
+
+    play_input.linked_relative_valid = true;
+    play_input.common_tail_ba_available = false;
+    play_before = play_state;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.command.opcode != 10U || !play_result.deferred ||
+        play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA ||
+        play_result.advanced ||
+        play_result.next_offset != opcode_offsets[10U] ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-2 opcode-10 unavailable BA transaction failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+            &assets, 0U, &play_state)) {
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    /* Opcode 2 reaches the same $92CA common tail and must preserve its
+       source record when the external $BA lifecycle is unavailable. */
+    play_state.stream_offset[0U] = opcode_offsets[2U];
+    play_before = play_state;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.command.opcode != 2U || !play_result.deferred ||
+        play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA ||
+        play_result.advanced ||
+        play_result.next_offset != opcode_offsets[2U] ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-2 opcode-2 unavailable BA transaction failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.common_tail_ba_available = true;
 
     /* With the bounded helper workspace present, opcode 10 synthesizes the
        linked target with 16-bit wrap and admits exactly [-8,+7] on each axis. */
@@ -3314,7 +3380,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     }
     play_input.linked_relative_valid = false;
 
-    /* $9081 cannot resolve the $0309 target route without the paired
+    /* $9085 cannot resolve the $0309 target route without the paired
        $036E/$0370 workspace, and its $92CA tail separately needs $BA. */
     if (!tecmo_gameplay_cpu_steering_play_state_initialize(
             &assets, 0U, &play_state)) {

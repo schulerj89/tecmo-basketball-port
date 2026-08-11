@@ -265,8 +265,9 @@ approximations; only the resulting TGAI octant and TGMO movement step are
 ROM-exact. Shot proximity and cadence remain separate native policy.
 
 The bounded executor accepts explicit captured inputs for opcode 10's
-`$8D59-$8E21` relative workspace and opcode 16's `$0309` / `$036E/$0370`
-workspace. It then reproduces the signed opcode-10 arrival interval
+`$8CD0` branch context, `$8D59-$8E21` relative workspace, and `$92CA` `$BA`
+gate, plus opcode 16's `$0309` / `$036E/$0370` workspace. It then reproduces
+the signed opcode-10 arrival interval
 `[-8,+7]` and opcode-16's `$90AC-$90D5` depth `+10/-10` and
 orientation-selected horizontal `+16/-16` adjustments. Those are pure
 source-contract paths, not evidence that the ordinary LIVE scene owns their
@@ -286,8 +287,8 @@ in deterministic LIVE proof JSON.
 | --- | --- | --- |
 | `$9146` opcode 14, `$04B0` bit `$10` | `LiveFoundation.actor_selector_flags`, synchronized before the input is built | Executed; an unselected `0` is valid. |
 | `$8F11` opcode 7, `$046E,C8` | None; the state-table lifecycle is not retained | `missing-actor-046e-probe`. |
-| `$8CD0/$8D59` opcode 10, `$07DF` plus linked-relative workspace | None | `missing-special-actor-07df` or `missing-linked-relative-workspace`. |
-| `$9081/$90AC` opcode 16, `$036E/$0370` | None | `missing-pointer-workspace`. |
+| `$8CD0/$8D59/$92CA` opcode 10, `$07DF`, `$0478/$06CB/$0308` branch context, linked-relative workspace, and `$BA` | None | The first unavailable owner is reported: `missing-special-actor-07df`, `missing-linked-actor-branch-context`, `missing-linked-relative-workspace`, or `missing-ba-lifecycle`. |
+| `$9085/$90AC` opcode 16, `$036E/$0370` | None | `missing-pointer-workspace`. |
 | `$8BF6-$8C17` opcode 21, `$058A/$0357/$0358/$007E` | None | `missing-opcode21-gates`. |
 | `$92CA` common target tail, `$BA` | None | `missing-ba-lifecycle`. |
 | `$9125` opcode 13, `$038D-$0390` global target | None | `unimplemented-handler`; its later `$92CA` tail does not make it live. |
