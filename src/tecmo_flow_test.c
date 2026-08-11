@@ -889,6 +889,128 @@ static bool flow_finish_gameplay_pretip(TecmoRuntime *runtime,
     return true;
 }
 
+/* Exercise the runtime gate rather than the lab's isolated state test: F4
+ * remains an inert gameplay input with F3 off, and a live F3/F4 transaction
+ * freezes then restores the exact scene presentation state. */
+static bool flow_expect_violation_lab_debug_gate(TecmoRuntime *runtime,
+                                                 char *message,
+                                                 size_t message_size)
+{
+    TecmoInput input = {0};
+    TecmoGameplayState state_before_lab;
+    TecmoGameplaySceneFoulPresentation foul_before_lab;
+    uint32_t scene_frame;
+
+    if (runtime == NULL || runtime->mode != TECMO_MODE_COURT ||
+        !runtime->gameplay_scene.active ||
+        tecmo_gameplay_scene_in_pretip(&runtime->gameplay_scene) ||
+        runtime->debug_overlay || runtime->violation_lab.active) {
+        set_flow_test_message(message, message_size,
+                              "violation lab gate setup mismatch");
+        return false;
+    }
+
+    scene_frame = runtime->gameplay_scene.frame;
+    input.violation_lab_toggle = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->violation_lab.active || runtime->debug_overlay ||
+        runtime->gameplay_scene.frame != scene_frame + 1U) {
+        set_flow_test_message(message, message_size,
+                              "F4 changed normal F3-off gameplay");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+
+    input.debug_toggle = true;
+    tecmo_runtime_update(runtime, &input);
+    if (!runtime->debug_overlay || runtime->violation_lab.active) {
+        set_flow_test_message(message, message_size,
+                              "F3 did not preserve debug-only lab gate");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    state_before_lab = runtime->gameplay_scene.state;
+    foul_before_lab = runtime->gameplay_scene.foul_presentation;
+    scene_frame = runtime->gameplay_scene.frame;
+
+    input.violation_lab_toggle = true;
+    tecmo_runtime_update(runtime, &input);
+    if (!runtime->violation_lab.active ||
+        runtime->gameplay_scene.frame != scene_frame ||
+        memcmp(&runtime->gameplay_scene.state, &state_before_lab,
+               sizeof(state_before_lab)) != 0) {
+        set_flow_test_message(message, message_size,
+                              "F4 lab open did not freeze transactionally");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+
+    input.violation_lab_next = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->violation_lab.selection !=
+            TECMO_GAMEPLAY_VIOLATION_LAB_BACKCOURT ||
+        runtime->gameplay_scene.frame != scene_frame ||
+        memcmp(&runtime->gameplay_scene.state, &state_before_lab,
+               sizeof(state_before_lab)) != 0) {
+        set_flow_test_message(message, message_size,
+                              "F6 source preview changed live state");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+
+    input.violation_lab_path = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->violation_lab.path !=
+            TECMO_GAMEPLAY_VIOLATION_LAB_PRODUCTION_STATE_PREVIEW ||
+        runtime->gameplay_scene.state.phase !=
+            TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+        runtime->gameplay_scene.state.violation !=
+            TECMO_GAMEPLAY_VIOLATION_BACKCOURT ||
+        runtime->gameplay_scene.frame != scene_frame) {
+        set_flow_test_message(message, message_size,
+                              "F7 state preview did not remain detector-free");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+
+    input.violation_lab_step = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->gameplay_scene.state.phase_frame != 1U ||
+        runtime->gameplay_scene.frame != scene_frame) {
+        set_flow_test_message(message, message_size,
+                              "F10 lab step advanced gameplay scene");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+
+    input.debug_toggle = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->debug_overlay || runtime->violation_lab.active ||
+        runtime->gameplay_scene.frame != scene_frame ||
+        memcmp(&runtime->gameplay_scene.state, &state_before_lab,
+               sizeof(state_before_lab)) != 0 ||
+        memcmp(&runtime->gameplay_scene.foul_presentation, &foul_before_lab,
+               sizeof(foul_before_lab)) != 0) {
+        set_flow_test_message(message, message_size,
+                              "F3-off did not restore violation lab state");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->gameplay_scene.frame != scene_frame + 1U) {
+        set_flow_test_message(message, message_size,
+                              "post-lab live scene did not resume");
+        return false;
+    }
+    return true;
+}
+
 static bool flow_expect_preseason_native_path(TecmoRuntime *runtime,
                                               char *message,
                                               size_t message_size)
@@ -1365,6 +1487,10 @@ static bool flow_expect_preseason_native_path(TecmoRuntime *runtime,
 
         if (!flow_finish_gameplay_pretip(
             runtime, "preseason", message, message_size)) {
+            return false;
+        }
+        if (!flow_expect_violation_lab_debug_gate(runtime, message,
+                                                  message_size)) {
             return false;
         }
         scene_frame = runtime->gameplay_scene.frame;

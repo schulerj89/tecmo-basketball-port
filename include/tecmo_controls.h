@@ -22,6 +22,15 @@ typedef enum TecmoControlButton {
     TECMO_CONTROL_PRESET_COMPOSITE,
     TECMO_CONTROL_REMOVE,
     TECMO_CONTROL_DEBUG_TOGGLE,
+    /* F4-F10 are developer-only violation-lab controls.  The runtime ignores
+       them unless F3's debug overlay is enabled in an active court scene. */
+    TECMO_CONTROL_VIOLATION_LAB_TOGGLE,
+    TECMO_CONTROL_VIOLATION_LAB_PREVIOUS,
+    TECMO_CONTROL_VIOLATION_LAB_NEXT,
+    TECMO_CONTROL_VIOLATION_LAB_PATH,
+    TECMO_CONTROL_VIOLATION_LAB_PLAY_PAUSE,
+    TECMO_CONTROL_VIOLATION_LAB_RESTART,
+    TECMO_CONTROL_VIOLATION_LAB_STEP,
     TECMO_CONTROL_COUNT
 } TecmoControlButton;
 
@@ -43,6 +52,13 @@ typedef struct TecmoInput {
     bool preset_composite;
     bool remove;
     bool debug_toggle;
+    bool violation_lab_toggle;
+    bool violation_lab_previous;
+    bool violation_lab_next;
+    bool violation_lab_path;
+    bool violation_lab_play_pause;
+    bool violation_lab_restart;
+    bool violation_lab_step;
 } TecmoInput;
 
 typedef struct TecmoControlFrame {

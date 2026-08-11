@@ -16,6 +16,7 @@
 #include "tecmo_gameplay_live_proof.h"
 #include "tecmo_gameplay_penalties.h"
 #include "tecmo_gameplay_state.h"
+#include "tecmo_gameplay_violation_lab.h"
 #include "tecmo_gameplay_violation_referee.h"
 
 #include <stdio.h>
@@ -83,6 +84,17 @@ int tecmo_cli_run_gameplay_core_commands(const TecmoCliContext *context)
         if (!tecmo_gameplay_violation_referee_self_test(
                 pack_path, message, sizeof(message))) {
             printf("Violation referee asset test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-violation-lab-test") == 0) {
+        char message[256];
+        if (!tecmo_gameplay_violation_lab_self_test(message,
+                                                    sizeof(message))) {
+            printf("Violation lab test failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);

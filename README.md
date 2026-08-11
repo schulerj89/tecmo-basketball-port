@@ -41,7 +41,20 @@ per-player statistics; All-Star game launch; and populated League Leaders.
 | SELECT | Shift or Space | Numpad 7 |
 
 Hold NES B during the visible opening jump contest to contest the tip. `F3`
-toggles the development overlay.
+toggles the development overlay. While a strict court scene is active, the
+developer-only violation presentation lab is available only with the overlay
+on: `F4` opens or closes it, `F5`/`F6` select the seven TGVR messages plus the
+separate fixed foul script, `F7` switches the explicitly labelled source or
+supported production-state preview, `F8` plays/pauses, `F9` restarts, and
+`F10` advances one frame. The lab freezes the court and restores it when it
+closes; its production-state preview is not a claim that a gameplay detector
+fired. `F3` off makes all lab keys inert.
+
+The F3 court overlay also exposes passive typed CPU diagnostics for idle
+dribbling: holder/primary/defender, a retained source command offset/opcode,
+target kind/validity, and the current shot-request supported/deferred flags.
+It does not invoke the CPU steering console harness, invent raw RAM mirrors,
+or report an unavailable first source-gate reason.
 
 ## Build and run
 
