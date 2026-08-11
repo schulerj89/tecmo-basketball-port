@@ -16,6 +16,7 @@
 #include "tecmo_gameplay_live_proof.h"
 #include "tecmo_gameplay_penalties.h"
 #include "tecmo_gameplay_state.h"
+#include "tecmo_gameplay_cpu_playbook_lab.h"
 #include "tecmo_gameplay_shooting_lab.h"
 #include "tecmo_gameplay_violation_lab.h"
 #include "tecmo_gameplay_violation_referee.h"
@@ -107,6 +108,17 @@ int tecmo_cli_run_gameplay_core_commands(const TecmoCliContext *context)
         if (!tecmo_gameplay_shooting_lab_self_test(message,
                                                    sizeof(message))) {
             printf("Shooting lab test failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-cpu-playbook-lab-test") == 0) {
+        char message[256];
+        if (!tecmo_gameplay_cpu_playbook_lab_self_test(message,
+                                                       sizeof(message))) {
+            printf("CPU playbook lab test failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);

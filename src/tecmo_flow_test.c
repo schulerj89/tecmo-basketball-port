@@ -889,9 +889,9 @@ static bool flow_finish_gameplay_pretip(TecmoRuntime *runtime,
     return true;
 }
 
-/* Exercise the runtime gate rather than the lab's isolated state test: F4
- * remains an inert gameplay input with F3 off, and a live F3/F4 transaction
- * freezes then restores the exact scene presentation state. */
+/* Exercise the shared F4 chooser rather than a lab's isolated state test:
+ * F4 remains inert with F3 off, then both chooser entry and selected-lab
+ * entry freeze the exact live presentation state. */
 static bool flow_expect_violation_lab_debug_gate(TecmoRuntime *runtime,
                                                  char *message,
                                                  size_t message_size)
@@ -904,7 +904,9 @@ static bool flow_expect_violation_lab_debug_gate(TecmoRuntime *runtime,
     if (runtime == NULL || runtime->mode != TECMO_MODE_COURT ||
         !runtime->gameplay_scene.active ||
         tecmo_gameplay_scene_in_pretip(&runtime->gameplay_scene) ||
-        runtime->debug_overlay || runtime->violation_lab.active) {
+        runtime->debug_overlay || runtime->violation_lab.active ||
+        runtime->shooting_lab.active || runtime->cpu_playbook_lab.active ||
+        runtime->developer_lab_menu_active) {
         set_flow_test_message(message, message_size,
                               "violation lab gate setup mismatch");
         return false;
@@ -937,12 +939,26 @@ static bool flow_expect_violation_lab_debug_gate(TecmoRuntime *runtime,
 
     input.violation_lab_toggle = true;
     tecmo_runtime_update(runtime, &input);
-    if (!runtime->violation_lab.active ||
+    if (!runtime->developer_lab_menu_active || runtime->violation_lab.active ||
+        runtime->shooting_lab.active || runtime->cpu_playbook_lab.active ||
         runtime->gameplay_scene.frame != scene_frame ||
         memcmp(&runtime->gameplay_scene.state, &state_before_lab,
                sizeof(state_before_lab)) != 0) {
         set_flow_test_message(message, message_size,
-                              "F4 lab open did not freeze transactionally");
+                              "F4 lab chooser did not freeze transactionally");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+
+    input.violation_lab_toggle = true;
+    tecmo_runtime_update(runtime, &input);
+    if (!runtime->violation_lab.active || runtime->developer_lab_menu_active ||
+        runtime->gameplay_scene.frame != scene_frame ||
+        memcmp(&runtime->gameplay_scene.state, &state_before_lab,
+               sizeof(state_before_lab)) != 0) {
+        set_flow_test_message(message, message_size,
+                              "F4 selected lab did not freeze transactionally");
         return false;
     }
     memset(&input, 0, sizeof(input));
@@ -1112,8 +1128,8 @@ static bool flow_expect_lab_keys_inert_at_start_menu(TecmoRuntime *runtime,
 }
 
 /* The source renderer is a developer inspection tool, not a gameplay
- * detector. It must therefore open from the blue start menu as well as the
- * court, freeze that menu, and keep production-state preview unavailable. */
+ * detector. Its shared F4 chooser must open from the blue start menu,
+ * freeze that menu, and keep production-state preview unavailable. */
 static bool flow_expect_violation_lab_source_at_start_menu(
     TecmoRuntime *runtime,
     char *message,
@@ -1138,6 +1154,8 @@ static bool flow_expect_violation_lab_source_at_start_menu(
     runtime->start_game_menu_state.cursor_delay = 0U;
     runtime->start_menu_input_neutral_gate = false;
     runtime->debug_overlay = false;
+    /* Shared chooser index zero is its authored Violation Lab entry. */
+    runtime->developer_lab_menu_selection = 0U;
 
     input.debug_toggle = true;
     tecmo_runtime_update(runtime, &input);
@@ -1153,7 +1171,23 @@ static bool flow_expect_violation_lab_source_at_start_menu(
 
     input.violation_lab_toggle = true;
     tecmo_runtime_update(runtime, &input);
-    if (!runtime->violation_lab.active ||
+    if (!runtime->developer_lab_menu_active || runtime->violation_lab.active ||
+        runtime->shooting_lab.active || runtime->cpu_playbook_lab.active ||
+        runtime->mode != TECMO_MODE_START_GAME_MENU ||
+        runtime->mode_frame_counter != mode_frame_before + 1U ||
+        memcmp(&runtime->start_game_menu_state, &menu_before,
+               sizeof(menu_before)) != 0) {
+        set_flow_test_message(message, message_size,
+                              "F4 menu lab chooser did not open/freeze");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    mode_frame_before = runtime->mode_frame_counter;
+
+    input.violation_lab_toggle = true;
+    tecmo_runtime_update(runtime, &input);
+    if (!runtime->violation_lab.active || runtime->developer_lab_menu_active ||
         runtime->violation_lab.snapshot_valid !=
             (runtime->gameplay_scene.active &&
              runtime->gameplay_scene.state.initialized) ||
@@ -1200,11 +1234,23 @@ static bool flow_expect_violation_lab_source_at_start_menu(
 
     input.violation_lab_toggle = true;
     tecmo_runtime_update(runtime, &input);
-    if (runtime->violation_lab.active ||
+    if (runtime->violation_lab.active || !runtime->developer_lab_menu_active ||
         memcmp(&runtime->start_game_menu_state, &menu_before,
                sizeof(menu_before)) != 0) {
         set_flow_test_message(message, message_size,
-                              "F4 menu source lab did not close/restore");
+                              "F4 menu source lab did not return to chooser");
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    tecmo_runtime_update(runtime, &input);
+    input.debug_toggle = true;
+    tecmo_runtime_update(runtime, &input);
+    if (runtime->debug_overlay || runtime->developer_lab_menu_active ||
+        runtime->violation_lab.active ||
+        memcmp(&runtime->start_game_menu_state, &menu_before,
+               sizeof(menu_before)) != 0) {
+        set_flow_test_message(message, message_size,
+                              "F3 menu source lab did not close/restore");
         return false;
     }
     return true;

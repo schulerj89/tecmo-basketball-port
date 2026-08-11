@@ -28,7 +28,8 @@
 #define MAIN_MENU_COUNT 2U
 #define DEVELOPER_LAB_VIOLATIONS 0U
 #define DEVELOPER_LAB_SHOOTING 1U
-#define DEVELOPER_LAB_COUNT 2U
+#define DEVELOPER_LAB_CPU_PLAYBOOK 2U
+#define DEVELOPER_LAB_COUNT 3U
 #define INTRO_PRESENTS_SCREEN_ID 0x00U
 #define INTRO_PRESENTS_RECORD_CPU 0xDC85U
 #define INTRO_PRESENTS_STREAM_BANK 0x00U
@@ -221,6 +222,7 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     runtime->memory = memory;
     tecmo_gameplay_violation_lab_init(&runtime->violation_lab);
     tecmo_gameplay_shooting_lab_init(&runtime->shooting_lab);
+    tecmo_gameplay_cpu_playbook_lab_init(&runtime->cpu_playbook_lab);
     runtime->selected_chr_bank = 31U;
     tecmo_intro_layout_init(runtime);
     tecmo_intro_trace_load(runtime, project_root);
@@ -400,6 +402,7 @@ void tecmo_runtime_shutdown(TecmoRuntime *runtime)
     tecmo_gameplay_violation_lab_close(&runtime->violation_lab,
                                        &runtime->gameplay_scene);
     tecmo_gameplay_shooting_lab_close(&runtime->shooting_lab);
+    tecmo_gameplay_cpu_playbook_lab_close(&runtime->cpu_playbook_lab);
     if (runtime->season_session.dirty) {
         (void)tecmo_season_session_save(&runtime->season_session);
     }
@@ -420,6 +423,7 @@ void tecmo_runtime_set_mode(TecmoRuntime *runtime, TecmoPlayMode mode)
                                                &runtime->gameplay_scene);
         }
         tecmo_gameplay_shooting_lab_close(&runtime->shooting_lab);
+        tecmo_gameplay_cpu_playbook_lab_close(&runtime->cpu_playbook_lab);
         runtime->developer_lab_menu_active = false;
     }
     runtime->mode = mode;
@@ -1209,9 +1213,11 @@ void tecmo_runtime_update_players(TecmoRuntime *runtime,
                                                &runtime->gameplay_scene);
             developer_lab_consumed = true;
         }
-        if (runtime->shooting_lab.active ||
+        if (runtime->shooting_lab.active || runtime->cpu_playbook_lab.active ||
             runtime->developer_lab_menu_active) {
             tecmo_gameplay_shooting_lab_close(&runtime->shooting_lab);
+            tecmo_gameplay_cpu_playbook_lab_close(
+                &runtime->cpu_playbook_lab);
             runtime->developer_lab_menu_active = false;
             developer_lab_consumed = true;
         }
@@ -1223,6 +1229,10 @@ void tecmo_runtime_update_players(TecmoRuntime *runtime,
                 runtime->developer_lab_menu_active = true;
             } else if (runtime->shooting_lab.active) {
                 tecmo_gameplay_shooting_lab_close(&runtime->shooting_lab);
+                runtime->developer_lab_menu_active = true;
+            } else if (runtime->cpu_playbook_lab.active) {
+                tecmo_gameplay_cpu_playbook_lab_close(
+                    &runtime->cpu_playbook_lab);
                 runtime->developer_lab_menu_active = true;
             } else if (runtime->developer_lab_menu_active) {
                 bool opened = false;
@@ -1237,6 +1247,10 @@ void tecmo_runtime_update_players(TecmoRuntime *runtime,
                            DEVELOPER_LAB_SHOOTING) {
                     opened = tecmo_gameplay_shooting_lab_open(
                         &runtime->shooting_lab, &runtime->gameplay_scene);
+                } else if (runtime->developer_lab_menu_selection ==
+                           DEVELOPER_LAB_CPU_PLAYBOOK) {
+                    opened = tecmo_gameplay_cpu_playbook_lab_open(
+                        &runtime->cpu_playbook_lab, &runtime->gameplay_scene);
                 }
                 if (opened) runtime->developer_lab_menu_active = false;
             } else {
@@ -1260,6 +1274,10 @@ void tecmo_runtime_update_players(TecmoRuntime *runtime,
         } else if (runtime->shooting_lab.active) {
             (void)tecmo_gameplay_shooting_lab_update(
                 &runtime->shooting_lab, &player_one_controls);
+            developer_lab_consumed = true;
+        } else if (runtime->cpu_playbook_lab.active) {
+            (void)tecmo_gameplay_cpu_playbook_lab_update(
+                &runtime->cpu_playbook_lab, &player_one_controls);
             developer_lab_consumed = true;
         }
     }
@@ -1806,16 +1824,18 @@ static void render_developer_lab_menu(const TecmoRuntime *runtime,
     unsigned selection = runtime->developer_lab_menu_selection;
 
     clear(fb, rgb(6, 7, 10));
-    rect(fb, 128, 92, 512, 278, rgb(18, 22, 30));
-    outline_rect(fb, 128, 92, 512, 278, rgb(78, 98, 112));
+    rect(fb, 128, 78, 512, 320, rgb(18, 22, 30));
+    outline_rect(fb, 128, 78, 512, 320, rgb(78, 98, 112));
     draw_centered_text(fb, 118, "DEVELOPER LABS", accent, 2);
     draw_centered_text(fb, 148, "F3 DEBUG-ONLY TOOLS", muted, 1);
     draw_text(fb, 266, 202, "VIOLATION PRESENTATION",
               selection == DEVELOPER_LAB_VIOLATIONS ? accent : text, 2);
     draw_text(fb, 266, 250, "SHOOTING POSE TABLE",
               selection == DEVELOPER_LAB_SHOOTING ? accent : text, 2);
-    draw_centered_text(fb, 316, "F5/F6 CHOOSE   F4 OPEN", accent, 1);
-    draw_centered_text(fb, 340, "F3 OFF CLOSES AND RESUMES", muted, 1);
+    draw_text(fb, 266, 298, "CPU PLAYBOOK STREAMS",
+              selection == DEVELOPER_LAB_CPU_PLAYBOOK ? accent : text, 2);
+    draw_centered_text(fb, 350, "F5/F6 CHOOSE   F4 OPEN", accent, 1);
+    draw_centered_text(fb, 374, "F3 OFF CLOSES AND RESUMES", muted, 1);
 }
 
 static void render_shooting_lab(const TecmoRuntime *runtime,
@@ -1878,6 +1898,210 @@ static void render_shooting_lab(const TecmoRuntime *runtime,
     draw_text(fb, 296, 298, "F8 PLAY PAUSE", accent, 1);
     draw_text(fb, 296, 314, "F9 RESTART  F10 STEP", accent, 1);
     draw_text(fb, 296, 338, "F3 OFF CLOSES AND RESTORES", muted, 1);
+}
+
+static void render_cpu_playbook_lab(const TecmoRuntime *runtime,
+                                    TecmoFramebuffer *fb)
+{
+    const TecmoGameplayCpuPlaybookLab *lab = &runtime->cpu_playbook_lab;
+    TecmoGameplayCpuPlaybookLabSnapshot snapshot;
+    const TecmoGameplayScene *preview_scene;
+    const char *preview_diagnostic;
+    const TecmoGameplayCpuPlaybookLabActorSnapshot *selected;
+    char line[192];
+    size_t actor;
+    bool rendered;
+    const uint32_t text = rgb(230, 232, 214);
+    const uint32_t muted = rgb(142, 174, 190);
+    const uint32_t accent = rgb(252, 236, 118);
+    const uint32_t warning = rgb(232, 92, 76);
+
+    clear(fb, rgb(6, 7, 10));
+    if (!tecmo_gameplay_cpu_playbook_lab_snapshot(lab, &snapshot)) {
+        draw_centered_text(fb, 226, "CPU PLAYBOOK SNAPSHOT UNAVAILABLE",
+                           warning, 1);
+        return;
+    }
+    preview_scene = tecmo_gameplay_cpu_playbook_lab_render_scene(lab);
+    rect(fb, 4, 112, 268, 254, rgb(18, 22, 30));
+    outline_rect(fb, 4, 112, 268, 254, rgb(78, 98, 112));
+    /* The mini-court is a private typed-scene copy. It lets a reviewer see
+       the exact C preview state without unfreezing the live match. */
+    /* The gameplay compositor can reject an incomplete direct fixture after
+       writing its partial target. Probe first so the lab table stays intact;
+       normal frozen LIVE scenes still draw through the real compositor. */
+    preview_diagnostic = preview_scene == NULL ? "scene unavailable" :
+        tecmo_gameplay_scene_render_diagnostic(preview_scene, fb, 8, 128,
+                                                1, true);
+    rendered = preview_scene != NULL && preview_diagnostic != NULL &&
+        strcmp(preview_diagnostic, "draw composition") == 0 &&
+        tecmo_gameplay_scene_draw(preview_scene, fb, 8, 128, 1, true);
+    if (!rendered) {
+        (void)snprintf(line, sizeof(line), "PREVIEW RENDER: %s",
+                       preview_diagnostic != NULL ? preview_diagnostic :
+                                                    "unavailable");
+        draw_text(fb, 14, 228, line, warning, 1);
+    }
+
+    draw_text(fb, 282, 12, "CPU PLAYBOOK LAB", accent, 2);
+    if (snapshot.direct_fixture_input) {
+        draw_text(fb, 282, 34,
+                  "DIRECT FIXTURE INPUT; NOT ORGANIC PRETIP->LIVE",
+                  warning, 1);
+    } else if (snapshot.organic_live_entry) {
+        draw_text(fb, 282, 34, "ORGANIC LIVE ENTRY; LIVE MATCH FROZEN",
+                  muted, 1);
+    } else {
+        draw_text(fb, 282, 34,
+                  "ENTRY UNCLASSIFIED; LIVE MATCH FROZEN", muted, 1);
+    }
+    (void)snprintf(line, sizeof(line), "TICK %u  %s  %s",
+                   (unsigned)snapshot.preview_tick,
+                   snapshot.paused ? "PAUSED" : "PLAY",
+                   tecmo_gameplay_cpu_playbook_lab_step_status_name(
+                       snapshot.last_step_status));
+    draw_text(fb, 282, 50, line, text, 1);
+    if (snapshot.formation_available) {
+        (void)snprintf(line, sizeof(line),
+                       "B06 938B FORM %u  XBUCKET %u  DBUCKET %u",
+                       (unsigned)snapshot.formation_index,
+                       (unsigned)snapshot.formation_x_bucket,
+                       (unsigned)snapshot.formation_depth_bucket);
+    } else {
+        (void)snprintf(line, sizeof(line),
+                       "B06 938B FORM UNAVAILABLE  XBUCKET %u DBUCKET %u",
+                       (unsigned)snapshot.formation_x_bucket,
+                       (unsigned)snapshot.formation_depth_bucket);
+    }
+    draw_text(fb, 282, 66, line, text, 1);
+    (void)snprintf(line, sizeof(line),
+                   "HOLDER %u  PRIMARY %u  DEFENDER %u  CANDIDATE %s%u",
+                   (unsigned)snapshot.ball_holder,
+                   (unsigned)snapshot.primary_actor,
+                   (unsigned)snapshot.defender_actor,
+                   snapshot.candidate_receiver_available ? "" : "N/A ",
+                   (unsigned)snapshot.candidate_receiver);
+    draw_text(fb, 282, 82, line, text, 1);
+    (void)snprintf(line, sizeof(line),
+                   "BALL OBJ %u X %d D %d; OBJECT STATE UNRETAINED",
+                   (unsigned)snapshot.ball_object_slot,
+                   snapshot.ball_position_available ?
+                       (int)snapshot.ball_position.x : 0,
+                   snapshot.ball_position_available ?
+                       (int)snapshot.ball_position.y : 0);
+    draw_text(fb, 282, 98, line, muted, 1);
+    draw_text(fb, 14, 116,
+              snapshot.showing_baseline ? "F7 BASELINE SNAPSHOT" :
+                                           "F7 CPU PREVIEW",
+              accent, 1);
+
+    draw_text(fb, 282, 116,
+              "SLOT CURSOR OPCODE RAW ARGS HANDLER WAIT STATE TIMER", muted,
+              1);
+    for (actor = 0U; actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT;
+         ++actor) {
+        const TecmoGameplayCpuPlaybookLabActorSnapshot *view =
+            &snapshot.actor[actor];
+        const uint32_t color = actor == lab->selected_actor ? accent : text;
+        if (view->command_available) {
+            (void)snprintf(line, sizeof(line),
+                           "%c%02u %c CUR %04X OP%02X %02X %02X %02X %02X H%04X W%02X S%02X T%02X",
+                           actor == lab->selected_actor ? '>' : ' ',
+                           (unsigned)view->actor,
+                           view->controlled ? 'C' : 'A',
+                           (unsigned)view->stream_offset,
+                           (unsigned)view->command.opcode,
+                           (unsigned)view->command.arguments[0],
+                           (unsigned)view->command.arguments[1],
+                           (unsigned)view->command.arguments[2],
+                           (unsigned)view->command.arguments[3],
+                           (unsigned)view->command.handler_cpu,
+                           (unsigned)view->wait_counter,
+                           (unsigned)view->actor_state,
+                           (unsigned)view->timer);
+        } else {
+            (void)snprintf(line, sizeof(line),
+                           "%c%02u %c CUR %04X COMMAND UNAVAILABLE W%02X S%02X T%02X",
+                           actor == lab->selected_actor ? '>' : ' ',
+                           (unsigned)view->actor,
+                           view->controlled ? 'C' : 'A',
+                           (unsigned)view->stream_offset,
+                           (unsigned)view->wait_counter,
+                           (unsigned)view->actor_state,
+                           (unsigned)view->timer);
+        }
+        draw_text(fb, 282, 132 + (int)actor * 15, line, color, 1);
+    }
+
+    selected = &snapshot.actor[lab->selected_actor];
+    (void)snprintf(line, sizeof(line),
+                   "SELECTED SLOT %u  EFFECT %s",
+                   (unsigned)selected->actor,
+                   selected->command_available
+                       ? tecmo_gameplay_cpu_steering_effect_name(
+                             selected->command.effect)
+                       : "UNAVAILABLE");
+    draw_text(fb, 282, 286, line, accent, 1);
+    (void)snprintf(line, sizeof(line),
+                   "SOURCE TARGET %s OBJ %u X %d D %d  DIR %s%u",
+                   selected->source_target_valid ? "VALID" : "NONE",
+                   (unsigned)selected->source_target_object,
+                   (int)selected->source_target.x,
+                   (int)selected->source_target.y,
+                   selected->source_direction_valid ? "" : "N/A ",
+                   (unsigned)selected->source_direction);
+    draw_text(fb, 282, 302, line, text, 1);
+    if (selected->scene_target_valid &&
+        selected->scene_target_kind <
+            TECMO_GAMEPLAY_CPU_STEERING_HARNESS_TARGET_KIND_COUNT) {
+        (void)snprintf(line, sizeof(line),
+                       "C TARGET VALID %s X %d D %d DIR %u WRITE %u",
+                       tecmo_gameplay_cpu_steering_harness_target_kind_name(
+                           (TecmoGameplayCpuSteeringHarnessTargetKind)
+                               selected->scene_target_kind),
+                       (int)selected->scene_target.x,
+                       (int)selected->scene_target.y,
+                       (unsigned)selected->scene_direction,
+                       selected->scene_writes_direction ? 1U : 0U);
+    } else {
+        (void)snprintf(line, sizeof(line),
+                       "C TARGET UNAVAILABLE; NO FALLBACK TARGET CLAIMED");
+    }
+    draw_text(fb, 282, 318, line, text, 1);
+    (void)snprintf(line, sizeof(line), "DEFER %s; SOURCE DETAIL %s",
+                   tecmo_gameplay_cpu_playbook_lab_defer_reason_name(
+                       selected->defer_reason),
+                   selected->source_defer_detail_available ? "TYPED" :
+                                                               "UNAVAILABLE");
+    draw_text(fb, 282, 334, line,
+              selected->defer_reason ==
+                  TECMO_GAMEPLAY_CPU_PLAYBOOK_LAB_DEFER_NONE ? muted : warning,
+              1);
+    if (selected->movement_evidence_available) {
+        (void)snprintf(line, sizeof(line),
+                       "MOVE LAST DX %d DD %d MOVED %u BOUNDARY %u>%u",
+                       (int)selected->last_step_delta_x,
+                       (int)selected->last_step_delta_y,
+                       selected->moved_last_step ? 1U : 0U,
+                       selected->boundary_latched_before ? 1U : 0U,
+                       selected->boundary_latched_after ? 1U : 0U);
+    } else {
+        (void)snprintf(line, sizeof(line),
+                       "MOVE EVIDENCE UNAVAILABLE FOR F7 BASELINE");
+    }
+    draw_text(fb, 282, 350, line, text, 1);
+    draw_text(fb, 282, 366, "CLAMP EVENT NOT RETAINED", muted, 1);
+    draw_text(fb, 282, 382,
+              "B06 8B90 9237; FIXED C006 CBE0; B04 9F2E AC75", muted, 1);
+    draw_text(fb, 282, 398,
+              "CURSOR IS NEXT RECORD; EXECUTED RECORD NOT RETAINED", muted, 1);
+    draw_text(fb, 282, 410, "F4 BACK TO LAB MENU", accent, 1);
+    draw_text(fb, 282, 426, "F5 PREV F6 NEXT ACTOR  F7 BASELINE PREVIEW",
+              accent, 1);
+    draw_text(fb, 282, 442, "F8 PLAY PAUSE  F9 RESTART  F10 STEP", accent,
+              1);
+    draw_text(fb, 282, 458, "F3 OFF DISCARDS PREVIEW; LIVE UNCHANGED", muted,
+              1);
 }
 
 static void render_violation_lab(const TecmoRuntime *runtime,
@@ -4229,6 +4453,8 @@ void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebu
         render_violation_lab(runtime, framebuffer);
     } else if (runtime->debug_overlay && runtime->shooting_lab.active) {
         render_shooting_lab(runtime, framebuffer);
+    } else if (runtime->debug_overlay && runtime->cpu_playbook_lab.active) {
+        render_cpu_playbook_lab(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_MAIN_MENU) {
         render_main_menu(runtime, framebuffer);
     } else if (runtime->mode == TECMO_MODE_TITLE_SCREEN) {
@@ -4258,7 +4484,8 @@ void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebu
     }
 
     if (runtime->debug_overlay && !runtime->developer_lab_menu_active &&
-        !runtime->violation_lab.active && !runtime->shooting_lab.active) {
+        !runtime->violation_lab.active && !runtime->shooting_lab.active &&
+        !runtime->cpu_playbook_lab.active) {
         render_debug_overlay(runtime, framebuffer);
     }
 }

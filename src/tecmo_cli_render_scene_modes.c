@@ -98,6 +98,23 @@ static bool configure_gameplay_mode(TecmoRuntime *runtime, const char *mode_name
                                    runtime->violation_lab.path),
                                (unsigned)runtime->violation_lab.phase_frame,
                                runtime->violation_lab.paused ? 1U : 0U);
+                    } else if (runtime->cpu_playbook_lab.active) {
+                        /* The CPU lab renders its frozen private scene and
+                           source-labelled table; it is not the ordinary F3
+                           overlay despite using the same debug gate. */
+                        tecmo_runtime_render(runtime, &framebuffer);
+                        arena_render_succeeded = true;
+                        printf("cpu-playbook-lab tick=%u visible=%s last-step=%s debug-overlay=%u direct-fixture=%u organic-live=%u\n",
+                               (unsigned)runtime->cpu_playbook_lab.preview_tick,
+                               runtime->cpu_playbook_lab.showing_baseline
+                                   ? "baseline" : "preview",
+                               tecmo_gameplay_cpu_playbook_lab_step_status_name(
+                                   runtime->cpu_playbook_lab.last_step_status),
+                               runtime->debug_overlay ? 1U : 0U,
+                               runtime->cpu_playbook_lab.direct_fixture_input
+                                   ? 1U : 0U,
+                               runtime->cpu_playbook_lab.organic_live_entry
+                                   ? 1U : 0U);
                     } else if (runtime->debug_overlay) {
                         /* This checkpoint is the ordinary F3 surface: it
                            keeps the active LIVE scene and never opens the
