@@ -46,6 +46,56 @@ cheats, or loads an emulator state. Both controller tables are complete on
 every frame, all aborts neutralize both pads, and the runner closes its FCEUX
 process. Do not run it while another FCEUX process is open.
 
+## Focused CPU pass-state-3 source trace
+
+`tecmo_cpu_pass_state3.lua`, `tecmo_cpu_pass_state3_rev1_map.lua`, and
+`Run-GameplayCpuPassState3Trace.ps1` are a smaller, separate original-ROM
+research surface for the first natural CPU-controlled write that changes
+object slot 10 (`$0478`) to state `03`. It is locked to the same canonical
+Rev1 ROM and FCEUX 2.6.6 SHA-256 values above, selects one human and one
+automatic side through its sole fixed MAN VS COM controller table, and sends
+both ports neutral for all live observation frames.
+
+The tracer hooks every `$0478` write and mapper-gated exact entries at
+`$F024/$F059`, `$A214`, `$B074`, `$B1E7`, `$B500`, `$B228`, and `$B24F`.
+At a CPU-control-stable state-3 transition it preserves the callback PC/raw
+bank, `$0308-$030D`, `$037F`, `$000E`, all actor/ball coordinates, and raw
+launch fields. A pass result requires the ordered direct
+`state3 -> A214 -> B074 -> B1E7 -> B500 -> B228 -> B24F` chain and a later
+holder change to the B24F receiver. Alternate route anchors and nonzero
+foul/violation fields reject the result; `$B8F6` is logged separately as a
+contact scan and is not assigned a basketball label.
+
+Its frame limits are deliberately fixed at 6200 total, 1800 live frames, and
+240 post-state-3 settlement frames. The hidden runner rejects another FCEUX
+process, checks both fingerprints, requires a startup/progress watchdog,
+limits the whole ignored session to 64 MiB, and always closes its own process.
+It never exposes a wider run, RAM write, cheat, movie, RNG, or savestate
+option. An `ABORT` result is a valid no-evidence outcome: inspect its compact
+ignored telemetry, do not extend the bound or inject a state.
+
+Run its static safety/schema test:
+
+```powershell
+.\tools\gameplay-lab\Test-GameplayCpuPassState3Trace.ps1
+```
+
+Run one private, bounded observation with explicit local paths:
+
+```powershell
+.\tools\gameplay-lab\Run-GameplayCpuPassState3Trace.ps1 `
+  -RomPath <LOCAL_REV1_ROM.nes> `
+  -FceuxPath <LOCAL_FCEUX_2.6.6.exe>
+```
+
+Current evidence status: this tracer is committed as a bounded diagnostic, not
+as source proof. Its final local canonical run verified the MAN VS COM
+ownership setup and the stopped tip state, but did not observe the game clock
+enter the live predicate before the fixed tip deadline. Consequently it has
+no state-3 writer PC, no `$A214/$B074/$B1E7/$B500/$B228/$B24F` chain, and no
+validated pass caller. Do not attach a native C pass implementation to this
+tool's output until a separate bounded original-ROM run supplies that evidence.
+
 Run the static safety/schema suite:
 
 ```powershell
