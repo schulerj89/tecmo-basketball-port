@@ -111,6 +111,27 @@ bool tecmo_win32_translate_key(uint32_t virtual_key,
     case TECMO_WIN32_VK_F3:
         binding.button = TECMO_CONTROL_DEBUG_TOGGLE;
         break;
+    case TECMO_WIN32_VK_F4:
+        binding.button = TECMO_CONTROL_VIOLATION_LAB_TOGGLE;
+        break;
+    case TECMO_WIN32_VK_F5:
+        binding.button = TECMO_CONTROL_VIOLATION_LAB_PREVIOUS;
+        break;
+    case TECMO_WIN32_VK_F6:
+        binding.button = TECMO_CONTROL_VIOLATION_LAB_NEXT;
+        break;
+    case TECMO_WIN32_VK_F7:
+        binding.button = TECMO_CONTROL_VIOLATION_LAB_PATH;
+        break;
+    case TECMO_WIN32_VK_F8:
+        binding.button = TECMO_CONTROL_VIOLATION_LAB_PLAY_PAUSE;
+        break;
+    case TECMO_WIN32_VK_F9:
+        binding.button = TECMO_CONTROL_VIOLATION_LAB_RESTART;
+        break;
+    case TECMO_WIN32_VK_F10:
+        binding.button = TECMO_CONTROL_VIOLATION_LAB_STEP;
+        break;
     default:
         return false;
     }
@@ -323,6 +344,24 @@ bool tecmo_win32_keys_self_test(char *message, size_t message_size)
                         TECMO_CONTROL_DEBUG_TOGGLE)) {
         set_test_message(message, message_size,
                          "DEBUG KEY CONTRACT FAILED");
+        return false;
+    }
+    if (!expect_binding(TECMO_WIN32_VK_F4, 0U,
+                        TECMO_CONTROL_VIOLATION_LAB_TOGGLE) ||
+        !expect_binding(TECMO_WIN32_VK_F5, 0U,
+                        TECMO_CONTROL_VIOLATION_LAB_PREVIOUS) ||
+        !expect_binding(TECMO_WIN32_VK_F6, 0U,
+                        TECMO_CONTROL_VIOLATION_LAB_NEXT) ||
+        !expect_binding(TECMO_WIN32_VK_F7, 0U,
+                        TECMO_CONTROL_VIOLATION_LAB_PATH) ||
+        !expect_binding(TECMO_WIN32_VK_F8, 0U,
+                        TECMO_CONTROL_VIOLATION_LAB_PLAY_PAUSE) ||
+        !expect_binding(TECMO_WIN32_VK_F9, 0U,
+                        TECMO_CONTROL_VIOLATION_LAB_RESTART) ||
+        !expect_binding(TECMO_WIN32_VK_F10, 0U,
+                        TECMO_CONTROL_VIOLATION_LAB_STEP)) {
+        set_test_message(message, message_size,
+                         "VIOLATION LAB FKEY CONTRACT FAILED");
         return false;
     }
 

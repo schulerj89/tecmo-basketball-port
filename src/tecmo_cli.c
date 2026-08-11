@@ -38,7 +38,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-pretip-test PACK  Validate strict TPTI-2 pre-tip assets/state\n");
     printf("  --arena-scene-test      Run native arena intro scene anchor checks\n");
     printf("  --render-test PATH      Render first playable frame to a PNG\n");
-    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, or strict gameplay-start/pretip-frameN/pretip-bulls-pacers/tipoff-proof-frameN/live-start/facing-away-left/cpu-steering-frameN/shot-clock-violation-frameN/out-of-bounds-frameN/backcourt-frameN/uniform-pacers/possession-left|center|right/free-throw-left|right/jump-frameN/dunk-frameN checkpoints to PNG\n");
+    printf("  --render-test-mode MODE PATH  Render menus, intro scenes, strict gameplay checkpoints, gameplay-live-f3-overlay, or gameplay-violation-lab-source-ITEM-frameN and gameplay-violation-lab-state-ITEM-frameN developer previews to PNG\n");
     printf("  --generate-rosters DIR  Generate static C roster source/header from Bank 02\n");
     printf("  --build-assetpack ROM PATH  Build a private .assetpack from an iNES ROM only; no decomp/capture imports\n");
     printf("  --assetpack-test       Run asset-pack builder/list/read self-tests\n");
@@ -66,6 +66,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-rebound-audit-test PACK [ROM]  Validate strict TGRB-1 fail-closed rebound eligibility diagnostics\n");
     printf("  --gameplay-penalties-test PACK  Validate strict TPNL-1 penalty rules\n");
     printf("  --gameplay-violation-referee-test PACK [ROM]  Validate strict TGVR-1 referee cutaway and optional Rev1 source\n");
+    printf("  --gameplay-violation-lab-test  Validate developer-only TGVR lab input/state restoration\n");
     printf("  --gameplay-free-throw-lineup-test PACK  Validate strict TGFL-1 raw lineup assets\n");
     printf("  --gameplay-free-throw-projection-test PACK  Validate pure TGFL-1 to TGCP-2 composition\n");
     printf("  --assetpack-list PACK  Print an asset-pack directory listing\n");

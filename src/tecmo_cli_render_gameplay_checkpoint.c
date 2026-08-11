@@ -15,6 +15,7 @@
 #include "tecmo_gameplay_scene.h"
 #include "tecmo_gameplay_scene_internal.h"
 #include "tecmo_gameplay_state.h"
+#include "tecmo_gameplay_violation_lab.h"
 #include "tecmo_gameplay_violation_referee.h"
 #include "tecmo_memory.h"
 #include "tecmo_win32_keys.h"
@@ -57,6 +58,10 @@ typedef struct TecmoCliGameplayCheckpointConfig {
     bool out_of_bounds_violation;
     bool backcourt_violation;
     bool foul_presentation;
+    bool debug_overlay_only;
+    bool violation_lab;
+    TecmoGameplayViolationLabItem violation_lab_item;
+    TecmoGameplayViolationLabPath violation_lab_path;
     int possession_slice;
     int free_throw_orientation;
 } TecmoCliGameplayCheckpointConfig;
@@ -295,6 +300,45 @@ static bool gameplay_checkpoint_goal_facing_right(
     return true;
 }
 
+static bool parse_violation_lab_render_mode(
+    const char *mode_name,
+    TecmoGameplayViolationLabItem *item_out,
+    TecmoGameplayViolationLabPath *path_out,
+    unsigned *frame_out)
+{
+    static const char *path_tokens[] = {"source", "state"};
+    size_t path_index;
+    size_t item;
+
+    if (mode_name == NULL || item_out == NULL || path_out == NULL ||
+        frame_out == NULL) {
+        return false;
+    }
+    for (path_index = 0U; path_index < sizeof(path_tokens) / sizeof(path_tokens[0]);
+         ++path_index) {
+        for (item = 0U; item < TECMO_GAMEPLAY_VIOLATION_LAB_ITEM_COUNT;
+             ++item) {
+            char prefix[128];
+            int written = snprintf(
+                prefix, sizeof(prefix),
+                "gameplay-violation-lab-%s-%s-frame", path_tokens[path_index],
+                tecmo_gameplay_violation_lab_item_token(
+                    (TecmoGameplayViolationLabItem)item));
+            if (written < 0 || (size_t)written >= sizeof(prefix) ||
+                !tecmo_cli_parse_render_frame_suffix(mode_name, prefix,
+                                                     frame_out)) {
+                continue;
+            }
+            *item_out = (TecmoGameplayViolationLabItem)item;
+            *path_out = path_index == 0U
+                            ? TECMO_GAMEPLAY_VIOLATION_LAB_SOURCE_PREVIEW
+                            : TECMO_GAMEPLAY_VIOLATION_LAB_PRODUCTION_STATE_PREVIEW;
+            return true;
+        }
+    }
+    return false;
+}
+
 static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCliGameplayCheckpointConfig *config)
 {
     unsigned checkpoint = 0U;
@@ -319,11 +363,20 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     bool out_of_bounds_violation = false;
     bool backcourt_violation = false;
     bool foul_presentation = false;
+    bool debug_overlay_only = false;
+    bool violation_lab = false;
+    TecmoGameplayViolationLabItem violation_lab_item =
+        TECMO_GAMEPLAY_VIOLATION_LAB_OUT_OF_BOUNDS;
+    TecmoGameplayViolationLabPath violation_lab_path =
+        TECMO_GAMEPLAY_VIOLATION_LAB_SOURCE_PREVIEW;
     int possession_slice = -1;
     int free_throw_orientation = -1;
 
     if (mode_name == NULL || config == NULL) return false;
-    if (strcmp(mode_name, "gameplay-start") == 0) {
+    if (parse_violation_lab_render_mode(mode_name, &violation_lab_item,
+                                        &violation_lab_path, &checkpoint)) {
+        violation_lab = true;
+    } else if (strcmp(mode_name, "gameplay-start") == 0) {
         checkpoint = 0U;
         pretip_checkpoint = true;
     } else if (strcmp(mode_name, "gameplay-pretip-bulls-pacers") == 0) {
@@ -334,6 +387,10 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     } else if (tecmo_cli_parse_render_frame_suffix(
                    mode_name, "gameplay-pretip-frame", &checkpoint)) {
         pretip_checkpoint = true;
+    } else if (strcmp(mode_name, "gameplay-live-f3-overlay") == 0) {
+        checkpoint = TECMO_CLI_PRETIP_LIVE_START_FRAME;
+        live_start = true;
+        debug_overlay_only = true;
     } else if (strcmp(mode_name, "gameplay-live-start") == 0) {
         checkpoint = TECMO_CLI_PRETIP_LIVE_START_FRAME;
         live_start = true;
@@ -467,6 +524,18 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
         checkpoint >= TECMO_GAMEPLAY_FOUL_PRESENTATION_FRAMES) {
         return false;
     }
+    if (violation_lab &&
+        checkpoint >= tecmo_gameplay_violation_lab_frame_count(
+                          violation_lab_item)) {
+        return false;
+    }
+    if (violation_lab &&
+        violation_lab_path ==
+            TECMO_GAMEPLAY_VIOLATION_LAB_PRODUCTION_STATE_PREVIEW &&
+        !tecmo_gameplay_violation_lab_item_state_supported(
+            violation_lab_item)) {
+        return false;
+    }
     if ((jump && (checkpoint == 0U ||
                   checkpoint >
                       (jump_make ? 111U : (jump_rattle ? 103U : 87U)))) ||
@@ -498,6 +567,10 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     config->out_of_bounds_violation = out_of_bounds_violation;
     config->backcourt_violation = backcourt_violation;
     config->foul_presentation = foul_presentation;
+    config->debug_overlay_only = debug_overlay_only;
+    config->violation_lab = violation_lab;
+    config->violation_lab_item = violation_lab_item;
+    config->violation_lab_path = violation_lab_path;
     config->possession_slice = possession_slice;
     config->free_throw_orientation = free_throw_orientation;
     return true;
@@ -1837,6 +1910,34 @@ bool tecmo_cli_setup_gameplay_render_checkpoint(TecmoRuntime *runtime, const cha
     }
     if (!run_gameplay_checkpoint_preflight(runtime, &config, &done)) {
         return false;
+    }
+    if (config.violation_lab) {
+        runtime->debug_overlay = true;
+        if (!tecmo_gameplay_violation_lab_open(&runtime->violation_lab,
+                                               &runtime->gameplay_scene) ||
+            !tecmo_gameplay_violation_lab_set_item(
+                &runtime->violation_lab, &runtime->gameplay_scene,
+                config.violation_lab_item) ||
+            !tecmo_gameplay_violation_lab_set_path(
+                &runtime->violation_lab, &runtime->gameplay_scene,
+                config.violation_lab_path) ||
+            !tecmo_gameplay_violation_lab_set_frame(
+                &runtime->violation_lab, &runtime->gameplay_scene,
+                (uint16_t)config.checkpoint)) {
+            tecmo_gameplay_violation_lab_close(&runtime->violation_lab,
+                                               &runtime->gameplay_scene);
+            return false;
+        }
+        return runtime->mode == TECMO_MODE_COURT &&
+               runtime->violation_lab.active;
+    }
+    if (config.debug_overlay_only) {
+        runtime->debug_overlay = true;
+        return runtime->mode == TECMO_MODE_COURT &&
+               runtime->gameplay_scene.active &&
+               runtime->gameplay_scene.state.phase ==
+                   TECMO_GAMEPLAY_PHASE_LIVE &&
+               !runtime->violation_lab.active;
     }
     if (done) {
         return !config.facing_checkpoint ||

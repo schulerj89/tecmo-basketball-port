@@ -27,6 +27,20 @@ static bool *input_button_slot(TecmoInput *input, TecmoControlButton button)
     case TECMO_CONTROL_PRESET_COMPOSITE: return &input->preset_composite;
     case TECMO_CONTROL_REMOVE: return &input->remove;
     case TECMO_CONTROL_DEBUG_TOGGLE: return &input->debug_toggle;
+    case TECMO_CONTROL_VIOLATION_LAB_TOGGLE:
+        return &input->violation_lab_toggle;
+    case TECMO_CONTROL_VIOLATION_LAB_PREVIOUS:
+        return &input->violation_lab_previous;
+    case TECMO_CONTROL_VIOLATION_LAB_NEXT:
+        return &input->violation_lab_next;
+    case TECMO_CONTROL_VIOLATION_LAB_PATH:
+        return &input->violation_lab_path;
+    case TECMO_CONTROL_VIOLATION_LAB_PLAY_PAUSE:
+        return &input->violation_lab_play_pause;
+    case TECMO_CONTROL_VIOLATION_LAB_RESTART:
+        return &input->violation_lab_restart;
+    case TECMO_CONTROL_VIOLATION_LAB_STEP:
+        return &input->violation_lab_step;
     case TECMO_CONTROL_COUNT:
     default:
         return 0;
@@ -165,6 +179,14 @@ const char *tecmo_control_button_name(TecmoControlButton button)
     case TECMO_CONTROL_PRESET_COMPOSITE: return "preset-composite";
     case TECMO_CONTROL_REMOVE: return "remove";
     case TECMO_CONTROL_DEBUG_TOGGLE: return "debug-toggle";
+    case TECMO_CONTROL_VIOLATION_LAB_TOGGLE: return "violation-lab-toggle";
+    case TECMO_CONTROL_VIOLATION_LAB_PREVIOUS: return "violation-lab-previous";
+    case TECMO_CONTROL_VIOLATION_LAB_NEXT: return "violation-lab-next";
+    case TECMO_CONTROL_VIOLATION_LAB_PATH: return "violation-lab-path";
+    case TECMO_CONTROL_VIOLATION_LAB_PLAY_PAUSE:
+        return "violation-lab-play-pause";
+    case TECMO_CONTROL_VIOLATION_LAB_RESTART: return "violation-lab-restart";
+    case TECMO_CONTROL_VIOLATION_LAB_STEP: return "violation-lab-step";
     case TECMO_CONTROL_COUNT:
     default:
         return "unknown";
@@ -222,7 +244,10 @@ bool tecmo_controls_self_test(char *message, size_t message_size)
         return false;
     }
 
-    if (strcmp(tecmo_control_button_name(TECMO_CONTROL_SHOOT), "shoot") != 0) {
+    if (strcmp(tecmo_control_button_name(TECMO_CONTROL_SHOOT), "shoot") != 0 ||
+        strcmp(tecmo_control_button_name(
+                   TECMO_CONTROL_VIOLATION_LAB_STEP),
+               "violation-lab-step") != 0) {
         set_self_test_message(message, message_size, "BUTTON NAME CONTRACT FAILED");
         return false;
     }

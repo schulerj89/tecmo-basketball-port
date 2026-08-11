@@ -171,6 +171,68 @@ function Invoke-Render {
     return $Hashes[0]
 }
 
+function Invoke-ViolationLabRender {
+    param(
+        [ValidateSet("out-of-bounds", "backcourt", "five-seconds",
+                     "ten-seconds", "shot-clock", "traveling",
+                     "goaltending", "foul")]
+        [string]$Item,
+        [ValidateSet("source", "state")]
+        [string]$PreviewPath,
+        [int]$Frame
+    )
+    $ExpectedPath = if ($PreviewPath -eq "source") {
+        "SOURCE PREVIEW"
+    } else {
+        "PRODUCTION STATE PREVIEW"
+    }
+    $Mode = "gameplay-violation-lab-$PreviewPath-$Item-frame$Frame"
+    $Hashes = @()
+    for ($Pass = 0; $Pass -lt 2; ++$Pass) {
+        $Png = Join-Path $Scratch (
+            "lab-$PreviewPath-$Item-$Frame-$Pass.png")
+        $Output = @(& $Executable --root $ProjectRoot `
+            --render-test-mode $Mode $Png 2>&1)
+        $Text = $Output -join [Environment]::NewLine
+        if ($LASTEXITCODE -ne 0 -or
+            !(Test-Path -LiteralPath $Png -PathType Leaf) -or
+            $Text -notmatch
+                ("violation-lab item=" + [regex]::Escape($Item) +
+                 " path=" + [regex]::Escape($ExpectedPath) +
+                 " frame=" + $Frame + " paused=1 detector=0")) {
+            throw ("TGVR lab $PreviewPath $Item render frame $Frame failed.`n" +
+                   (Get-ShortTail $Output))
+        }
+        $Hashes += (Get-FileHash -LiteralPath $Png -Algorithm SHA256).Hash
+    }
+    if ($Hashes[0] -ne $Hashes[1]) {
+        throw "TGVR lab $PreviewPath $Item render frame $Frame was nondeterministic."
+    }
+    return $Hashes[0]
+}
+
+function Invoke-NormalLiveDebugRender {
+    $Hashes = @()
+    for ($Pass = 0; $Pass -lt 2; ++$Pass) {
+        $Png = Join-Path $Scratch ("normal-live-f3-overlay-$Pass.png")
+        $Output = @(& $Executable --root $ProjectRoot `
+            --render-test-mode "gameplay-live-f3-overlay" $Png 2>&1)
+        $Text = $Output -join [Environment]::NewLine
+        if ($LASTEXITCODE -ne 0 -or
+            !(Test-Path -LiteralPath $Png -PathType Leaf) -or
+            $Text -notmatch "normal-debug-overlay=1 violation-lab=0" -or
+            $Text -notmatch "phase=live") {
+            throw ("Normal LIVE F3 overlay render failed.`n" +
+                   (Get-ShortTail $Output))
+        }
+        $Hashes += (Get-FileHash -LiteralPath $Png -Algorithm SHA256).Hash
+    }
+    if ($Hashes[0] -ne $Hashes[1]) {
+        throw "Normal LIVE F3 overlay render was nondeterministic."
+    }
+    return $Hashes[0]
+}
+
 try {
     $env:TECMO_SKIP_SHORTCUT = "1"
     New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
@@ -364,6 +426,30 @@ try {
     }
 
     $env:TECMO_ASSETPACK = $PackPath
+    $LabOutput = @(& $Executable --gameplay-violation-lab-test 2>&1)
+    if ($LASTEXITCODE -ne 0 -or
+        ($LabOutput -join [Environment]::NewLine).Trim() -ne
+            "VIOLATION LAB SELF TEST PASS") {
+        throw "Violation lab input/state self-test failed.`n$(Get-ShortTail $LabOutput)"
+    }
+
+    $LabSourceHashes = @{}
+    foreach ($Item in @(
+        "out-of-bounds", "backcourt", "five-seconds", "ten-seconds",
+        "shot-clock", "traveling", "goaltending", "foul"
+    )) {
+        $LabSourceHashes[$Item] = Invoke-ViolationLabRender $Item "source" 23
+    }
+    $LabStateHashes = @{}
+    foreach ($Item in @("out-of-bounds", "backcourt", "shot-clock", "foul")) {
+        $LabStateHashes[$Item] = Invoke-ViolationLabRender $Item "state" 27
+    }
+    if (@($LabSourceHashes.Values | Select-Object -Unique).Count -ne 8 -or
+        @($LabStateHashes.Values | Select-Object -Unique).Count -ne 4) {
+        throw "TGVR lab source/state visual routes collapsed together."
+    }
+    $NormalLiveDebugHash = Invoke-NormalLiveDebugRender
+
     $ShotClockHashes = @{}
     foreach ($Frame in @(0, 9, 23, 27, 80)) {
         $ShotClockHashes[$Frame] = Invoke-Render "shot-clock" $Frame
@@ -401,6 +487,7 @@ try {
         "fixed-`$E95E foul selector-0 groups 1->2, " +
         "shot-clock groups 9->10, live TGMO/TPNL out-of-bounds and " +
         "TGBC/TPNL backcourt groups 3->4->5, 168-frame settlement, " +
+        "all-seven-plus-foul developer previews, normal LIVE F3-only CPU pane, " +
         "deterministic render checkpoints, " +
         "strict provenance and fail-closed dependencies")
     $global:LASTEXITCODE = 0

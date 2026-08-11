@@ -119,6 +119,7 @@ $Sources = @(
     "src\tecmo_gameplay_rebound_audit.c",
     "src\tecmo_gameplay_penalties.c",
     "src\tecmo_gameplay_violation_referee.c",
+    "src\tecmo_gameplay_violation_lab.c",
     "src\tecmo_gameplay_pretip.c",
     "src\tecmo_gameplay_free_throw_lineup.c",
     "src\tecmo_gameplay_free_throw_projection_test.c",

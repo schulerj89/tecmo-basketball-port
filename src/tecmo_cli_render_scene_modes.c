@@ -83,8 +83,32 @@ static bool configure_gameplay_mode(TecmoRuntime *runtime, const char *mode_name
                            mode_name);
                     result = 1;
                 } else {
-                    arena_render_succeeded = tecmo_render_gameplay_scene(
-                        runtime, &framebuffer);
+                    if (runtime->violation_lab.active) {
+                        /* The lab is a developer-state render surface.  Its
+                           own UI calls the same source/scene renderers, so
+                           render the runtime rather than bypassing F3 gating
+                           through the normal checkpoint helper. */
+                        tecmo_runtime_render(runtime, &framebuffer);
+                        arena_render_succeeded = true;
+                        printf("violation-lab item=%s path=%s frame=%u paused=%u detector=0\n",
+                               tecmo_gameplay_violation_lab_item_token(
+                                   (TecmoGameplayViolationLabItem)
+                                       runtime->violation_lab.selection),
+                               tecmo_gameplay_violation_lab_path_label(
+                                   runtime->violation_lab.path),
+                               (unsigned)runtime->violation_lab.phase_frame,
+                               runtime->violation_lab.paused ? 1U : 0U);
+                    } else if (runtime->debug_overlay) {
+                        /* This checkpoint is the ordinary F3 surface: it
+                           keeps the active LIVE scene and never opens the
+                           violation lab. */
+                        tecmo_runtime_render(runtime, &framebuffer);
+                        arena_render_succeeded = true;
+                        printf("normal-debug-overlay=1 violation-lab=0\n");
+                    } else {
+                        arena_render_succeeded = tecmo_render_gameplay_scene(
+                            runtime, &framebuffer);
+                    }
                     result = arena_render_succeeded ? 0 : 1;
                     printf("gameplay-state frame=%u shot=%s phase=%s score=%u/%u clock=%u:%02u period=%u overtime=%u shot-clock=%u pretip=%s phase-frame=%u violation=%s\n",
                            runtime->gameplay_scene.frame,
