@@ -528,6 +528,9 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
     int distance_y;
     int16_t variant_selection_approach;
     uint8_t classified_points;
+    uint8_t jump_family;
+    uint8_t jump_profile;
+    uint8_t jump_direction;
     bool close;
     bool shot_facing_right;
     bool contact_context;
@@ -650,6 +653,16 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
     if (!scene_shot_select_rim_route(scene, stable_sample)) {
         return false;
     }
+    if (scene->legacy_direct_launch) {
+        jump_family = scene_shot_family_for_context(
+            target_delta_x, target_delta_y, stable_sample);
+        jump_profile = profile;
+        jump_direction = (uint8_t)direction_slot;
+    } else {
+        jump_family = (uint8_t)TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_FAMILY;
+        jump_profile = (uint8_t)TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_PROFILE;
+        jump_direction = (uint8_t)TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_DIRECTION;
+    }
     memset(&evaluation_input, 0, sizeof(evaluation_input));
     evaluation_input.player_rating = player->profile[0];
     evaluation_input.point_value = classified_points;
@@ -659,16 +672,18 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
     evaluation_input.horizontal_distance = target_delta_x;
     evaluation_input.vertical_distance =
         (int16_t)(TECMO_GAMEPLAY_SHOT_TARGET_Y - actor->position.y);
-    evaluation_input.family = scene_shot_family_for_context(
-        target_delta_x, target_delta_y, stable_sample);
+    evaluation_input.family = close
+        ? scene_shot_family_for_context(
+              target_delta_x, target_delta_y, stable_sample)
+        : jump_family;
     if (!close && scene->legacy_direct_launch && classified_points == 3U) {
         /* The accepted direct render/shot-clock adapter is source-pinned to
-           family 0 before the unported family inputs are available. Bound
-           production uses the recomputable geometry/sample gate above. */
+           family 0 before the unported family inputs are available. */
         evaluation_input.family = 0U;
     }
-    evaluation_input.profile = profile;
-    evaluation_input.direction = (uint8_t)direction_slot;
+    evaluation_input.profile = close ? profile : jump_profile;
+    evaluation_input.direction = close
+        ? (uint8_t)direction_slot : jump_direction;
     evaluation_input.numeric_variant = (uint8_t)scene->close_shot_variant;
     evaluation_input.stable_sample = stable_sample;
     if (!tecmo_gameplay_shot_resolution_evaluate(
@@ -736,10 +751,11 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
         memset(&close_info, 0, sizeof(close_info));
         scene->shot_controller = (uint8_t)controller;
         scene->jump_family =
-            (TecmoGameplayJumpShotFamily)evaluation_input.family;
-        scene->jump_profile = (TecmoGameplayJumpShotProfile)profile;
+            (TecmoGameplayJumpShotFamily)jump_family;
+        scene->jump_profile =
+            (TecmoGameplayJumpShotProfile)jump_profile;
         scene->jump_direction =
-            (TecmoGameplayJumpShotDirection)direction_slot;
+            (TecmoGameplayJumpShotDirection)jump_direction;
         if (!scene_jump_pose_for_context(scene, &initial_pose)) {
             scene->shot_kind = TECMO_GAMEPLAY_SCENE_SHOT_NONE;
             scene_shot_clear_jump_playback(scene);

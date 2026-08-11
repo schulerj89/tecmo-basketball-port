@@ -4609,6 +4609,9 @@ static bool scene_test_find_close_route(
     return false;
 }
 
+static bool scene_test_settlement_one_point_fields(
+    TecmoGameplayScene *scene);
+
 static bool scene_test_find_approx_make(
     TecmoGameplayScene *scene,
     const TecmoGameplaySceneLaunch *base_launch,
@@ -4648,8 +4651,28 @@ static bool scene_test_find_approx_make(
                      (desired_selector < 0 ||
                       scene->shot_rim_route.selector ==
                           (uint8_t)desired_selector) &&
-                     (desired_points == 0U ||
+                    (desired_points == 0U || desired_points == 1U ||
                       scene->shot_points == desired_points)) {
+                    if (desired_points == 1U) {
+                        bool rebound = false;
+                        for (uint32_t launch_frame = 0U;
+                             launch_frame < 256U; ++launch_frame) {
+                            TecmoGameplayScene one_point = *scene;
+                            one_point.shot_launch_frame = launch_frame;
+                            one_point.frame = launch_frame;
+                            if (scene_test_settlement_one_point_fields(
+                                    &one_point) &&
+                                scene_ownership_valid(&one_point)) {
+                                *scene = one_point;
+                                rebound = true;
+                                break;
+                            }
+                        }
+                        if (!rebound) {
+                            tecmo_gameplay_scene_end(scene);
+                            return false;
+                        }
+                    }
                     return true;
                 }
                 tecmo_gameplay_scene_end(scene);
@@ -4899,9 +4922,11 @@ static bool scene_test_production_jump_matrix(
     memset(&neutral, 0, sizeof(neutral));
     scene_test_production_matrix_failure = 0U;
     scene_test_matrix_setup_failure = 0U;
-    /* Bound production can prove only the Bank05 $8B12 reset family.  Family
-       1 remains covered by the strict TGJS asset-table tests, but the scene
-       must not synthesize its missing $006A gate from a frame hash. */
+    /* Exercise both roster profile bits and all eight physical hoop-vector
+       sectors. Bound live presentation must still select the one captured
+       family-0/profile-0/direction-1 TGJS route and mirror it toward the
+       resolved hoop. The remaining 31 numeric table entries stay asset/lab
+       evidence only until their complete source selectors are owned. */
     for (unsigned family = 0U; family < 1U; ++family) {
         for (unsigned profile = 0U; profile < 2U; ++profile) {
             for (unsigned direction = 0U; direction < 8U; ++direction) {
@@ -4923,11 +4948,11 @@ static bool scene_test_production_jump_matrix(
                         if (scene->shot_kind !=
                             TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
                         scene->jump_family !=
-                            (TecmoGameplayJumpShotFamily)family ||
+                            TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_FAMILY ||
                         scene->jump_profile !=
-                            (TecmoGameplayJumpShotProfile)profile ||
+                            TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_PROFILE ||
                         scene->jump_direction !=
-                            (TecmoGameplayJumpShotDirection)direction ||
+                            TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_DIRECTION ||
                         !tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
                             &scene->jump_shots, scene->jump_family,
                             scene->jump_profile, scene->jump_direction,
@@ -6997,10 +7022,8 @@ static bool scene_test_settlement_one_point_fields(
     const TecmoTeamDataPlayer *player;
     TecmoGameplayShotEvaluationInput input;
     TecmoGameplayShotEvaluation evaluation;
-    TecmoGameplayShotDirectionSlot direction;
     int32_t delta_x;
     int32_t delta_y;
-    uint8_t profile;
     uint32_t stable_sample;
     TecmoGameplayShotRimRoute route;
     uint16_t resolved_pose;
@@ -7016,11 +7039,7 @@ static bool scene_test_settlement_one_point_fields(
     delta_y = scene->shot_target_delta_y;
     if (delta_x < INT16_MIN || delta_x > INT16_MAX ||
         delta_y < INT16_MIN || delta_y > INT16_MAX ||
-        (delta_x == 0 && delta_y == 0) || player == NULL ||
-        !tecmo_gameplay_shot_profile_from_profile_byte2(
-            player->profile[2], &profile) ||
-        !tecmo_gameplay_shot_resolution_direction_for_delta(
-            (int16_t)delta_x, (int16_t)delta_y, &direction)) {
+        (delta_x == 0 && delta_y == 0) || player == NULL) {
         scene_test_claimant_failure = 44U;
         return false;
     }
@@ -7034,11 +7053,9 @@ static bool scene_test_settlement_one_point_fields(
     input.vertical_distance = (int16_t)(
         TECMO_GAMEPLAY_SHOT_TARGET_Y -
         (int)scene->shot_actor_launch_position.y);
-    input.family = scene_shot_family_for_context(
-        (int16_t)delta_x, (int16_t)delta_y,
-        scene->shot_sample);
-    input.profile = profile;
-    input.direction = (uint8_t)direction;
+    input.family = (uint8_t)TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_FAMILY;
+    input.profile = (uint8_t)TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_PROFILE;
+    input.direction = (uint8_t)TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_DIRECTION;
     input.numeric_variant = 0U;
     stable_sample = scene_shot_stable_sample_from_inputs(
         scene->shot_actor_launch_position.x,
@@ -7047,13 +7064,14 @@ static bool scene_test_settlement_one_point_fields(
         scene->shot_actor_team, scene->shot_actor_roster_index,
         scene->shot_launch_frame);
     input.stable_sample = stable_sample;
-    input.family = scene_shot_family_for_context(
-        (int16_t)delta_x, (int16_t)delta_y, stable_sample);
     if (!tecmo_gameplay_shot_resolution_resolve_rim_route(
             &scene->shot_resolution, (uint8_t)stable_sample, &route) ||
         !tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
-            &scene->jump_shots, input.family, profile,
-            (uint8_t)direction, &resolved_pose)) {
+            &scene->jump_shots,
+            (TecmoGameplayJumpShotFamily)input.family,
+            (TecmoGameplayJumpShotProfile)input.profile,
+            (TecmoGameplayJumpShotDirection)input.direction,
+            &resolved_pose)) {
         return false;
     }
     if (!tecmo_gameplay_shot_resolution_evaluate(
@@ -7075,8 +7093,8 @@ static bool scene_test_settlement_one_point_fields(
        but the miss-only rattle activation bit must stay clear. */
     scene->shot_rim_rattle_selected = false;
     scene->jump_family = (TecmoGameplayJumpShotFamily)input.family;
-    scene->jump_profile = (TecmoGameplayJumpShotProfile)profile;
-    scene->jump_direction = (TecmoGameplayJumpShotDirection)direction;
+    scene->jump_profile = (TecmoGameplayJumpShotProfile)input.profile;
+    scene->jump_direction = (TecmoGameplayJumpShotDirection)input.direction;
     scene->jump_resolved_pose_index = resolved_pose;
     scene->shot_make_probability = evaluation.make_probability;
     scene->shot_contact_context = evaluation.contact_context;
@@ -7106,15 +7124,16 @@ static bool scene_test_approximate_make_physics(
     uint8_t settlement_stat_roster = 0U;
     if (!scene_test_find_approx_make(
             scene, base_launch,
-            settlement_one_point ? 0U : desired_points, -1)) {
+            desired_points, -1)) {
         return false;
     }
     if (settlement_one_point) {
         /* The controller's current point classifier with shot_flags==0 only
            selects 2/3.  This is a settlement-only one-point fixture, not a
            claim that the production selector emits free throws here. */
-        if (!scene_test_settlement_one_point_fields(scene) ||
-            !scene_ownership_valid(scene)) return false;
+        if (!scene_ownership_valid(scene)) {
+            return false;
+        }
         settlement_stat_team = scene->shot_actor_team;
         settlement_stat_roster = scene->shot_actor_roster_index;
         if (settlement_stat_team >= TECMO_GAMEPLAY_TEAM_COUNT ||
@@ -7125,8 +7144,9 @@ static bool scene_test_approximate_make_physics(
                 settlement_stat_roster][TECMO_PLAYER_STATS_COUNTER_FGM] != 0U ||
             scene->player_stats.counters[settlement_stat_team][
                 settlement_stat_roster][TECMO_PLAYER_STATS_COUNTER_THREE_PM] !=
-                0U)
+                0U) {
             return false;
+        }
     } else if (scene->shot_points != desired_points && desired_points != 0U) {
         return false;
     }
@@ -7139,7 +7159,9 @@ static bool scene_test_approximate_make_physics(
        explicitly proves the inclusive unreleased gather boundary. */
     while (scene->shot_frame <
                TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RELEASE_FRAME - 1U) {
-        if (!scene_update_shot(scene, &held)) return false;
+        if (!scene_update_shot(scene, &held)) {
+            return false;
+        }
     }
     if (scene->shot_frame !=
             TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RELEASE_FRAME - 1U ||
@@ -7162,7 +7184,9 @@ static bool scene_test_approximate_make_physics(
     while (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
            updates < 80U) {
         uint16_t frame_before = scene->shot_frame;
-        if (!scene_update_shot(scene, &neutral)) return false;
+        if (!scene_update_shot(scene, &neutral)) {
+            return false;
+        }
         ++updates;
         if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
             if (frame_before != TECMO_GAMEPLAY_JUMP_APPROX_MAKE_DURATION - 1U) {
@@ -7207,19 +7231,21 @@ static bool scene_test_approximate_make_physics(
              settlement_stat_roster][TECMO_PLAYER_STATS_COUNTER_FGM] != 1U ||
          scene->player_stats.counters[settlement_stat_team][
              settlement_stat_roster][TECMO_PLAYER_STATS_COUNTER_THREE_PM] !=
-             0U))
+             0U)) {
         return false;
+    }
 
     /* The public update wrapper rejects malformed schedule, state, and
        approximate-settlement markers transactionally before any step/audio. */
     if (!scene_test_find_approx_make(
             scene, base_launch,
-            settlement_one_point ? 0U : desired_points, -1)) {
+            desired_points, -1)) {
         return false;
     }
     if (settlement_one_point) {
-        if (!scene_test_settlement_one_point_fields(scene) ||
-            !scene_ownership_valid(scene)) return false;
+        if (!scene_ownership_valid(scene)) {
+            return false;
+        }
     }
     malformed = *scene;
     malformed.shot_schedule = (TecmoGameplayShotScheduleKind)99;
@@ -7230,14 +7256,17 @@ static bool scene_test_approximate_make_physics(
     }
     if (settlement_one_point) {
         TecmoGameplayScene recovery_probe;
-        if (!scene_test_find_approx_make(scene, base_launch, 0U, -1)) {
+        if (!scene_test_find_approx_make(scene, base_launch, 1U, -1)) {
             return false;
         }
-        if (!scene_test_settlement_one_point_fields(scene) ||
-            !scene_ownership_valid(scene)) return false;
+        if (!scene_ownership_valid(scene)) {
+            return false;
+        }
         while (scene->shot_frame <
                    TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RECOVERY_START_FRAME) {
-            if (!scene_update_shot(scene, &neutral)) return false;
+            if (!scene_update_shot(scene, &neutral)) {
+                return false;
+            }
         }
         if (scene->shot_frame !=
                 TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RECOVERY_START_FRAME) {
@@ -7484,7 +7513,8 @@ static bool scene_test_owned_shot_boundary(
     }
     if (!scene_test_approximate_make_physics(scene, base_launch, 1U)) {
         tecmo_gameplay_scene_test_message(
-            message, message_size, "owned approximate one-point settlement matrix failed");
+            message, message_size,
+            "owned approximate one-point settlement matrix failed");
         return false;
     }
     if (!scene_test_approximate_make_physics(scene, base_launch, 2U)) {

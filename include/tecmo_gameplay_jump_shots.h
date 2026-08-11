@@ -47,6 +47,17 @@ typedef enum TecmoGameplayJumpShotDirection {
     TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_7 = 7
 } TecmoGameplayJumpShotDirection;
 
+/* The one bounded ordinary-shot presentation route.  Native gameplay may
+   mirror this numeric sequence toward the active hoop, but must not select a
+   different TGJS family/profile/direction until its source inputs are owned. */
+#define TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_FAMILY \
+    TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0
+#define TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_PROFILE \
+    TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0
+#define TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_DIRECTION \
+    TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_1
+#define TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_SELECTION 1U
+
 typedef struct TecmoGameplayJumpShotConstants {
     uint8_t nes_b_mask;
     uint8_t actor_state_gather;

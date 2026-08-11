@@ -162,7 +162,6 @@ static bool scene_shot_bound_selectors_valid(
     const TecmoTeamDataPlayer *player;
     TecmoGameplayShotDirectionSlot direction;
     uint8_t profile;
-    uint8_t family;
     int16_t target_delta_x;
     int16_t target_delta_y;
     int32_t target_x;
@@ -218,13 +217,12 @@ static bool scene_shot_bound_selectors_valid(
                    (TecmoGameplayCloseShotDirection)direction &&
                scene->close_shot_variant == expected_variant;
     }
-    family = scene_shot_family_for_context(
-        target_delta_x, target_delta_y, scene->shot_sample);
     return scene->jump_profile ==
-               (TecmoGameplayJumpShotProfile)profile &&
+               TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_PROFILE &&
            scene->jump_direction ==
-               (TecmoGameplayJumpShotDirection)direction &&
-           scene->jump_family == (TecmoGameplayJumpShotFamily)family;
+               TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_DIRECTION &&
+           scene->jump_family ==
+               TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_FAMILY;
 }
 
 static bool scene_shot_bound_evaluation_valid(
@@ -308,9 +306,13 @@ static bool scene_shot_bound_evaluation_valid(
     input.vertical_distance = (int16_t)(
         TECMO_GAMEPLAY_SHOT_TARGET_Y -
         (int)scene->shot_actor_launch_position.y);
-    input.family = family;
-    input.profile = profile;
-    input.direction = (uint8_t)direction;
+    input.family = close
+        ? family : (uint8_t)TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_FAMILY;
+    input.profile = close
+        ? profile : (uint8_t)TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_PROFILE;
+    input.direction = close
+        ? (uint8_t)direction
+        : (uint8_t)TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_DIRECTION;
     input.numeric_variant = close
         ? (uint8_t)scene->close_shot_variant : 0U;
     input.stable_sample = expected_sample;

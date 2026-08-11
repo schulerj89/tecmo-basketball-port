@@ -815,17 +815,24 @@ static bool scene_test_continuous_tip_render(
                                         sizeof(failure)) ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
         scene->shot_actor != shooting_actor ||
-        scene->jump_family != TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0 ||
+        scene->jump_family != TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_FAMILY ||
+        scene->jump_profile != TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_PROFILE ||
+        scene->jump_direction != TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_DIRECTION ||
+        scene->jump_resolved_pose_index != 213U ||
         scene->actors[shooting_actor].pose_orientation_encoded ||
         scene->actors[shooting_actor].facing_right !=
             scene->shot_launch_facing_right) {
         (void)snprintf(failure, sizeof(failure),
                        "post-tip shot selected wrong family/orientation: "
-                       "kind=%u actor=%u/%u family=%u encoded=%u face=%u/%u",
+                       "kind=%u actor=%u/%u route=%u/%u/%u pose=%u "
+                       "encoded=%u face=%u/%u",
                        (unsigned)scene->shot_kind,
                        (unsigned)scene->shot_actor,
                        (unsigned)shooting_actor,
                        (unsigned)scene->jump_family,
+                       (unsigned)scene->jump_profile,
+                       (unsigned)scene->jump_direction,
+                       (unsigned)scene->jump_resolved_pose_index,
                        scene->actors[shooting_actor]
                                .pose_orientation_encoded ? 1U : 0U,
                        scene->actors[shooting_actor].facing_right ? 1U : 0U,

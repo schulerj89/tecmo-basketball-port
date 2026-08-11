@@ -21,7 +21,7 @@ bool tecmo_gameplay_shooting_lab_open(TecmoGameplayShootingLab *lab,
     lab->active = true;
     lab->paused = true;
     /* This numeric slot is the bounded captured route, not a semantic name. */
-    lab->selection = 1U;
+    lab->selection = TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_SELECTION;
     return true;
 }
 
@@ -174,12 +174,13 @@ bool tecmo_gameplay_shooting_lab_self_test(char *message,
     scene.jump_shots.available = true;
     tecmo_gameplay_shooting_lab_init(&lab);
     if (!tecmo_gameplay_shooting_lab_open(&lab, &scene) || !lab.active ||
-        !lab.paused || lab.selection != 1U ||
+        !lab.paused ||
+        lab.selection != TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_SELECTION ||
         !tecmo_gameplay_shooting_lab_selection(
             &lab, &family, &profile, &direction) ||
-        family != TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0 ||
-        profile != TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0 ||
-        direction != TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_1) {
+        family != TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_FAMILY ||
+        profile != TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_PROFILE ||
+        direction != TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_DIRECTION) {
         (void)snprintf(message, message_size,
                        "SHOOTING LAB OPEN/MAP FAILED");
         return false;

@@ -730,8 +730,11 @@ frames 38 and 53; native code does not reproduce those renderer stalls. Score
 and shot-clock reset remain the separately observed frame-85 checkpoint, while
 frame 111 hands possession over and queues crowd 11 only. The make ball arc
 remains a native approximation while its world endpoint and TGCP camera
-projection are now production-wired. Live scene policy may reuse and
-horizontally mirror this one numeric route for either manually controlled team.
+projection are now production-wired. Live scene policy reuses and horizontally
+mirrors this one numeric route for either manually controlled team. Ordinary
+live jumps therefore select the shooting lab default's
+family-0/profile-0/direction-1 TGJS base; physical hoop resolution still owns
+actor facing and the ball target.
 At launch it transactionally verifies actor/possession/TGOR coherence, resolves
 the tracked offensive hoop, faces the actor toward it, and freezes that endpoint;
 this two-basket facing adapter is native approximation, not evidence for another
