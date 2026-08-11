@@ -113,13 +113,13 @@ bool tecmo_gameplay_cpu_opcode10_workspace_harness(
         input == (const void *)result_out ||
         input->contract_tag !=
             TECMO_GAMEPLAY_CPU_OPCODE10_WORKSPACE_INPUT_TAG ||
-        !workspace_actor_valid(input->actor_x) ||
+        !workspace_actor_valid(input->actor_index) ||
         input->orientation_035a > 1U || input->rate_index_075f >= 3U) {
         return false;
     }
     memset(&result, 0, sizeof(result));
     result.contract_tag = TECMO_GAMEPLAY_CPU_OPCODE10_WORKSPACE_RESULT_TAG;
-    linked_actor = input->actor_x == input->special_actor_07df
+    linked_actor = input->actor_index == input->special_actor_07df
         ? input->primary_actor_0308 : input->dynamic_link_06cb;
     /* Bank06 $8D59 compares X to $07DF; $07DF itself is never dereferenced.
        Validate only the selected $0308/$06CB target before its workspace read. */
@@ -283,7 +283,7 @@ static bool workspace_test_opcode10(char *message, size_t message_size)
     TecmoGameplayCpuOpcode10WorkspaceResult before;
     memset(&input, 0, sizeof(input));
     input.contract_tag = TECMO_GAMEPLAY_CPU_OPCODE10_WORKSPACE_INPUT_TAG;
-    input.actor_x = 2U;
+    input.actor_index = 2U;
     input.special_actor_07df = 2U;
     input.primary_actor_0308 = 4U;
     /* This unselected $06CB value is intentionally invalid: source does not
@@ -304,7 +304,7 @@ static bool workspace_test_opcode10(char *message, size_t message_size)
                        "opcode-10 primary reload/shift failed");
         return false;
     }
-    input.actor_x = 1U;
+    input.actor_index = 1U;
     input.dynamic_link_06cb = 7U;
     input.orientation_035a = 0U;
     input.linked_target_x = 0x0268U;
@@ -339,7 +339,7 @@ static bool workspace_test_opcode10(char *message, size_t message_size)
                        "opcode-10 unscaled branch failed");
         return false;
     }
-    input.actor_x = 2U;
+    input.actor_index = 2U;
     input.special_actor_07df = 0xFFU;
     input.dynamic_link_06cb = 6U;
     input.linked_target_x = 0x0120U;

@@ -71,7 +71,8 @@ typedef struct TecmoGameplayCpuOpcodeWorkspaceAssessment {
  * $055B/$0566/$0571 workspace, not a bounded actor-position substitute. */
 typedef struct TecmoGameplayCpuOpcode10WorkspaceInput {
     uint32_t contract_tag;
-    uint8_t actor_x;
+    /* CPU X register at Bank06 $8CD0, not a court X coordinate. */
+    uint8_t actor_index;
     uint8_t special_actor_07df;
     uint8_t primary_actor_0308;
     uint8_t dynamic_link_06cb;
