@@ -500,20 +500,16 @@ uint8_t scene_shot_family_for_context(
     int16_t target_delta_y,
     uint32_t stable_sample)
 {
-    int32_t abs_x = target_delta_x;
-    int32_t abs_y = target_delta_y;
-    uint32_t span;
-    if (abs_x < 0) abs_x = -abs_x;
-    if (abs_y < 0) abs_y = -abs_y;
-    span = (uint32_t)(abs_x + abs_y);
-    /* Native substitution for the available $8B83-$8BC8 geometry gate.  The
-       raw $038A/$006A timer/state inputs are not proven here.  A stable
-       sample bit supplies the missing short-span branch; the observed
-       long-span polarity remains inverted.  This keeps family selection
-       deterministic and independent of shot-local contact/contest state. */
-    return span <= 0x0100U
-        ? (uint8_t)((stable_sample >> 13U) & 1U)
-        : (uint8_t)(1U ^ ((stable_sample >> 13U) & 1U));
+    (void)target_delta_x;
+    (void)target_delta_y;
+    (void)stable_sample;
+    /* Bank05 $8B12 resets $038C to family 0.  $8B83-$8BC8 may increment it
+       only after the source has proved the near-hoop, near-defender,
+       defender-side, and raw $006A<$9C gates.  The native scene does not
+       retain that last raw input at shot launch, so fail closed to the reset
+       family.  Do not substitute a hash bit here: that selected family 1 for
+       ordinary uncontested shots and displayed the wrong TGJS sequence. */
+    return TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0;
 }
 
 static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
@@ -770,6 +766,10 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
     scene->ball_holder = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     ++scene->action_serial;
     actor->facing_right = shot_facing_right;
+    /* The retained tip-off pose owns its encoded orientation only until a
+       court action selects a new TGJS pose.  Once shooting owns the pose,
+       allow the renderer to apply the launch-facing mirror. */
+    actor->pose_orientation_encoded = false;
     if (close) {
         scene->shot_duration =
             scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_DUNK
@@ -1247,6 +1247,7 @@ static bool scene_finish_shot(TecmoGameplayScene *scene,
     TecmoGameplayShotSettlementDecision decision;
     uint8_t claimant = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     uint16_t idle_pose;
+    bool source_claimant = false;
     if (scene->shot_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         actor != &scene->actors[scene->shot_actor] ||
         !scene_actor_movement_state(scene, actor, &movement) ||
@@ -1256,11 +1257,19 @@ static bool scene_finish_shot(TecmoGameplayScene *scene,
         return false;
     }
     if (!made && scene->state.phase !=
-            TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE &&
-        (!scene_select_shot_claimant(
-             scene, shooting_team, &claimant, &claimant_relation,
-             &decision))) {
-        return false;
+            TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE) {
+        source_claimant = scene_select_shot_claimant(
+            scene, shooting_team, &claimant, &claimant_relation, &decision);
+        if (!source_claimant) {
+            claimant = scene_first_actor_for_team(
+                scene_other_team(shooting_team));
+            if (claimant >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+                !scene->actors[claimant].active ||
+                scene->actors[claimant].team !=
+                    (uint8_t)scene_other_team(shooting_team)) {
+                return false;
+            }
+        }
     }
     if (made) {
         if (!tecmo_gameplay_award_points(&scene->state, shooting_team,
@@ -1306,14 +1315,19 @@ static bool scene_finish_shot(TecmoGameplayScene *scene,
         }
         return true;
     }
-    if (!scene_handoff_miss_claimant(
-        scene,
-        claimant_relation == TECMO_GAMEPLAY_SHOT_CLAIMANT_OTHER_TEAM
-            ? next_team : shooting_team,
-        claimant)) {
-        return false;
+    if (source_claimant) {
+        return scene_handoff_miss_claimant(
+            scene,
+            claimant_relation == TECMO_GAMEPLAY_SHOT_CLAIMANT_OTHER_TEAM
+                ? next_team : shooting_team,
+            claimant);
     }
-    return true;
+    /* A normal court can finish the ball route before any actor enters the
+       strict $B73E-$B87C claimant envelope.  The C scene has no loose-ball
+       object scheduler yet, so keep that unproven case playable with the
+       existing generic opposing-team handoff.  This deliberately emits no
+       B87C claimant settlement event and is not rebound/steal parity. */
+    return scene_handoff_possession(scene, next_team, claimant);
 }
 
 static bool scene_finish_jump_miss(TecmoGameplayScene *scene,
@@ -1327,6 +1341,7 @@ static bool scene_finish_jump_miss(TecmoGameplayScene *scene,
     uint8_t claimant = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     uint8_t shooting_actor;
     bool period_expiry;
+    bool source_claimant = false;
     if (scene == NULL || actor == NULL ||
         scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) {
         return false;
@@ -1336,11 +1351,18 @@ static bool scene_finish_jump_miss(TecmoGameplayScene *scene,
         TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE;
     shooting_actor = (uint8_t)(actor - scene->actors);
     next_team = scene_other_team(shooting_team);
-    if (!period_expiry &&
-        !scene_select_shot_claimant(
+    if (!period_expiry) {
+        source_claimant = scene_select_shot_claimant(
             scene, shooting_team, &claimant, &claimant_relation,
-            &claimant_decision)) {
-        return false;
+            &claimant_decision);
+        if (!source_claimant) {
+            claimant = scene_first_actor_for_team(next_team);
+            if (claimant >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+                !scene->actors[claimant].active ||
+                scene->actors[claimant].team != (uint8_t)next_team) {
+                return false;
+            }
+        }
     }
 
     actor->pose_index = TECMO_GAMEPLAY_JUMP_SLOT0_IDLE_POSE;
@@ -1358,11 +1380,16 @@ static bool scene_finish_jump_miss(TecmoGameplayScene *scene,
             scene, scene->state.possession,
             shooting_actor);
     }
-    return scene_handoff_miss_claimant(
-        scene,
-        claimant_relation == TECMO_GAMEPLAY_SHOT_CLAIMANT_OTHER_TEAM
-            ? next_team : shooting_team,
-        claimant);
+    if (source_claimant) {
+        return scene_handoff_miss_claimant(
+            scene,
+            claimant_relation == TECMO_GAMEPLAY_SHOT_CLAIMANT_OTHER_TEAM
+                ? next_team : shooting_team,
+            claimant);
+    }
+    /* See scene_finish_shot(): no strict claimant means a documented generic
+       compatibility handoff, not a fabricated $B87C settlement. */
+    return scene_handoff_possession(scene, next_team, claimant);
 }
 
 static int32_t scene_lerp_q8(int32_t start, int32_t end,
@@ -1876,6 +1903,14 @@ static bool scene_update_jump_make_approx(
         if (scene->shot_frame >
                 TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RELEASE_FRAME) {
             return false;
+        }
+        if (scene->shot_frame ==
+                TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RELEASE_FRAME &&
+            shooting_controls != NULL && shooting_controls->held.cancel) {
+            /* Bank05 $86DD releases from actor state $0C only after current B
+               clears.  Reaching the native-C gather cap is not a release
+               edge and must not detach the ball automatically. */
+            return true;
         }
         outcome = TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN;
         if (!tecmo_gameplay_shot_resolution_classify_terminal_outcome(

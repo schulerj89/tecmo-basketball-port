@@ -1018,6 +1018,14 @@ decision. Frame 87 awards zero points, queues crowd 11 and then side result
 explicitly approximate opposing actor. At period expiry it retains the current
 side and crowd 11.
 
+Production family selection follows the proven fail-closed boundary: Bank05
+`$8B12` resets `$038C` to family 0, while `$8B83-$8BC8` requires complete
+near-hoop/near-defender/defender-side plus raw `$006A<$9C` evidence before
+family 1. Because live C does not retain `$006A` at shot launch, it remains on
+family 0 instead of substituting a frame-hash bit. A terminal miss with no
+strictly eligible claimant uses the generic opposing-team compatibility
+handoff and emits no B87C settlement trace; it is not rebound/steal parity.
+
 The make branch follows the bounded two-controller capture: B remains current
 through frames 1-8 and releases at 9. The already-selected entry pose 325
 (`$028A`) remains visible for frames 1-4, followed by 1060 (`$0848`) for 5-8,

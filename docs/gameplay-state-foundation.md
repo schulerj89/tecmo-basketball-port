@@ -562,6 +562,15 @@ actor. A simultaneous period expiry queues only crowd 11 and retains the
 current side. Outcome state clears after settlement and no rebound/block/steal
 stat event is synthesized.
 
+Family selection no longer invents the missing Bank05 `$006A` predicate from
+a stable hash. `$8B12` proves the reset value is family 0; `$8B83-$8BC8` can
+select family 1 only after its complete hoop/defender/side/raw-state gate. The
+scene therefore keeps production on family 0 until that raw owner is retained.
+When a miss route ends with no actor inside the strict claimant envelope, the
+native scene uses its existing generic opposing-team handoff instead of
+rejecting the update. That compatibility path emits no B87C claimant trace and
+does not claim a rebound, steal, or source-exact claimant.
+
 TGSR-4 adds a separate deterministic diagnostic for the proven state-`$15`
 prefix without changing the normal frame-87 miss. Its canonical source uses
 four passes. Frame 73 snaps the exact orientation-0 state to raw `(157,147)`,

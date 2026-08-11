@@ -4827,7 +4827,10 @@ static bool scene_test_production_jump_matrix(
     memset(&neutral, 0, sizeof(neutral));
     scene_test_production_matrix_failure = 0U;
     scene_test_matrix_setup_failure = 0U;
-    for (unsigned family = 0U; family < 2U; ++family) {
+    /* Bound production can prove only the Bank05 $8B12 reset family.  Family
+       1 remains covered by the strict TGJS asset-table tests, but the scene
+       must not synthesize its missing $006A gate from a frame hash. */
+    for (unsigned family = 0U; family < 1U; ++family) {
         for (unsigned profile = 0U; profile < 2U; ++profile) {
             for (unsigned direction = 0U; direction < 8U; ++direction) {
                 bool found = false;
@@ -5850,8 +5853,13 @@ static bool scene_test_run_bound_approximate_make_terminal(
     }
     while (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
            updates < 80U) {
-        const TecmoControlFrame *controls = scene->jump_b_released
-            ? neutral : &held;
+        /* Hold through the gather cap, then provide the current-level B clear
+           that Bank05 $86DD requires.  Reaching the cap itself must not be
+           treated as a release edge. */
+        const TecmoControlFrame *controls = !scene->jump_b_released &&
+                scene->shot_frame <
+                    TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RELEASE_FRAME
+            ? &held : neutral;
         if (!scene_update_shot(scene, controls)) return false;
         ++updates;
         if (desired_selector == 1 &&
@@ -6357,6 +6365,83 @@ static bool scene_test_production_terminal_scenarios(
                 tecmo_gameplay_scene_end(scene);
                 return false;
             }
+        }
+        tecmo_gameplay_scene_end(scene);
+    }
+
+    /* A normal jump miss may finish with every actor outside the strict
+       $B73E-$B87C claimant envelope.  That used to reject the scene update and
+       made the desktop appear frozen.  Exercise the documented native
+       compatibility handoff without moving a claimant onto the endpoint or
+       emitting a source-shaped claimant event. */
+    {
+        TecmoGameplayTeam fallback_shooting_team = TECMO_GAMEPLAY_TEAM_AWAY;
+        TecmoGameplayTeam fallback_next_team = TECMO_GAMEPLAY_TEAM_HOME;
+        uint8_t fallback_holder = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+        uint32_t fallback_serial = 0U;
+        unsigned fallback_updates = 0U;
+        bool fallback_found = false;
+        for (unsigned team = 0U; team < TECMO_GAMEPLAY_TEAM_COUNT &&
+                 !fallback_found; ++team) {
+            for (uint8_t roster = 0U;
+                 roster < TECMO_TEAM_DATA_PLAYERS_PER_TEAM &&
+                 !fallback_found; ++roster) {
+                for (uint32_t frame = 0U; frame < 256U; ++frame) {
+                    if (!scene_test_prepare_matrix_fixture(
+                            scene, base_launch, (TecmoGameplayTeam)team,
+                            roster, team == 0U ? -160 : 160, 0, frame, 0U)) {
+                        continue;
+                    }
+                    if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
+                        scene->shot_outcome ==
+                            TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) {
+                        fallback_found = true;
+                        break;
+                    }
+                    tecmo_gameplay_scene_end(scene);
+                }
+            }
+        }
+        if (!fallback_found) {
+            scene_test_terminal_failure = 260U;
+            return false;
+        }
+        fallback_shooting_team =
+            (TecmoGameplayTeam)scene->actors[scene->shot_actor].team;
+        fallback_next_team = scene_other_team(fallback_shooting_team);
+        fallback_holder = scene_first_actor_for_team(fallback_next_team);
+        fallback_serial = scene->claimant_settlement_trace.event_serial;
+        for (uint8_t actor = 0U;
+             actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            scene->actors[actor].position.x = (int16_t)(340 + actor * 3);
+            scene->actors[actor].position.y = 198;
+            scene->actors[actor].anchor = scene->actors[actor].position;
+        }
+        if (!scene_test_prepare_terminal_holder(
+                scene, fallback_holder, true)) {
+            scene_test_terminal_failure = 261U;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        while (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+               fallback_updates < 140U) {
+            if (!scene_update_shot(scene, &neutral)) {
+                scene_test_terminal_failure = 262U;
+                scene_test_terminal_detail = scene->shot_frame;
+                tecmo_gameplay_scene_end(scene);
+                return false;
+            }
+            ++fallback_updates;
+        }
+        if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+            scene->state.possession != fallback_next_team ||
+            scene->ball_holder != fallback_holder ||
+            scene->claimant_settlement_trace.event_serial != fallback_serial ||
+            !scene_shot_state_valid(scene) || !scene_ownership_valid(scene)) {
+            scene_test_terminal_failure = 263U;
+            scene_test_terminal_detail = fallback_updates;
+            tecmo_gameplay_scene_end(scene);
+            return false;
         }
         tecmo_gameplay_scene_end(scene);
     }

@@ -492,6 +492,13 @@ static bool scene_test_continuous_tip_render(
     uint32_t *pixels = NULL;
     uint8_t away_actor;
     uint8_t home_actor;
+    uint8_t shooting_actor;
+    uint8_t shooting_controller = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    TecmoGameplayTeam shooting_team;
+    TecmoControlFrame *shooting_controls;
+    uint32_t claimant_serial_before;
+    unsigned shot_probe_started = 0U;
+    unsigned shot_probe_jump = 0U;
     uint16_t last_court_frame = UINT16_MAX;
     bool saw_resumed_airborne = false;
     bool saw_natural_landing = false;
@@ -726,6 +733,133 @@ static bool scene_test_continuous_tip_render(
     if (!saw_natural_landing || !saw_live_post_landing) {
         (void)snprintf(failure, sizeof(failure),
                        "tipped jumper did not naturally recover in live play");
+        goto failed;
+    }
+
+    /* Reproduce the desktop failure from the untouched cinematic-to-live
+       state: use the real holder and its assigned controller, start the same
+       scene shot transaction that B dispatches, release on the next update,
+       and run it through settlement.
+       No actor is moved to the rim and no claimant/phase/possession fixture is
+       injected. */
+    p1.held.right = false;
+    p2.held.right = false;
+    shooting_actor = scene->ball_holder;
+    if (shooting_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        !scene->actors[shooting_actor].active) {
+        (void)snprintf(failure, sizeof(failure),
+                       "post-tip shot has no active holder");
+        goto failed;
+    }
+    shooting_team = (TecmoGameplayTeam)scene->actors[shooting_actor].team;
+    for (uint8_t controller = 0U;
+         controller < TECMO_GAMEPLAY_CONTROLLER_COUNT; ++controller) {
+        if (scene->launch.controller_team[controller] ==
+                (uint8_t)shooting_team) {
+            shooting_controller = controller;
+            break;
+        }
+    }
+    if (shooting_controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT) {
+        (void)snprintf(failure, sizeof(failure),
+                       "post-tip holder has no controller");
+        goto failed;
+    }
+    shooting_controls = shooting_controller == 0U ? &p1 : &p2;
+
+    /* The stable evaluator is frame-bound. Advance naturally only if needed
+       until this holder has an ordinary jump-shot sample; no shot result or
+       geometry is injected. */
+    for (frame = 0U; frame < 256U; ++frame) {
+        TecmoGameplayScene probe = *scene;
+        if (scene_start_shot_actor(&probe, shooting_controller,
+                                   shooting_actor) &&
+            probe.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
+            ++shot_probe_started;
+            if (probe.shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP) {
+                ++shot_probe_jump;
+                break;
+            }
+        }
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            !scene_test_render_continuously(scene, pixels, failure,
+                                            sizeof(failure))) {
+            (void)snprintf(failure, sizeof(failure),
+                           "post-tip shot search rejected: %s", scene->status);
+            goto failed;
+        }
+        shooting_actor = scene->ball_holder;
+        if (shooting_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+            scene->actors[shooting_actor].team != (uint8_t)shooting_team) {
+            (void)snprintf(failure, sizeof(failure),
+                           "post-tip holder changed during miss search");
+            goto failed;
+        }
+    }
+    if (frame == 256U) {
+        (void)snprintf(failure, sizeof(failure),
+                       "post-tip organic jump shot unavailable "
+                       "started=%u jump=%u holder=%u pos=%d,%d frame=%u",
+                       shot_probe_started, shot_probe_jump,
+                       (unsigned)shooting_actor,
+                       (int)scene->actors[shooting_actor].position.x,
+                       (int)scene->actors[shooting_actor].position.y,
+                       (unsigned)scene->frame);
+        goto failed;
+    }
+
+    claimant_serial_before =
+        scene->claimant_settlement_trace.event_serial;
+    if (!scene_start_shot_actor(scene, shooting_controller, shooting_actor) ||
+        !scene_test_render_continuously(scene, pixels, failure,
+                                        sizeof(failure)) ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+        scene->shot_actor != shooting_actor ||
+        scene->jump_family != TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0 ||
+        scene->actors[shooting_actor].pose_orientation_encoded ||
+        scene->actors[shooting_actor].facing_right !=
+            scene->shot_launch_facing_right) {
+        (void)snprintf(failure, sizeof(failure),
+                       "post-tip shot selected wrong family/orientation: "
+                       "kind=%u actor=%u/%u family=%u encoded=%u face=%u/%u",
+                       (unsigned)scene->shot_kind,
+                       (unsigned)scene->shot_actor,
+                       (unsigned)shooting_actor,
+                       (unsigned)scene->jump_family,
+                       scene->actors[shooting_actor]
+                               .pose_orientation_encoded ? 1U : 0U,
+                       scene->actors[shooting_actor].facing_right ? 1U : 0U,
+                       scene->shot_launch_facing_right ? 1U : 0U);
+        goto failed;
+    }
+    shooting_controls->held.cancel = false;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        !scene_test_render_continuously(scene, pixels, failure,
+                                        sizeof(failure)) ||
+        !scene->jump_b_released) {
+        (void)snprintf(failure, sizeof(failure),
+                       "post-tip B release did not launch shot: %s",
+                       scene->status);
+        goto failed;
+    }
+    for (frame = 0U; frame < 180U &&
+            scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            !scene_test_render_continuously(scene, pixels, failure,
+                                            sizeof(failure))) {
+            (void)snprintf(failure, sizeof(failure),
+                           "post-tip shot tail rejected at %u: %s",
+                           (unsigned)frame, scene->status);
+            goto failed;
+        }
+    }
+    if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        scene->state.possession == shooting_team ||
+        scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->claimant_settlement_trace.event_serial !=
+            claimant_serial_before) {
+        (void)snprintf(failure, sizeof(failure),
+                       "post-tip organic shot did not settle cleanly");
         goto failed;
     }
     tecmo_gameplay_scene_end(scene);

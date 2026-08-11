@@ -747,6 +747,16 @@ the shorter exact `$0C/$0D/$0E` route: actual entry pose for held ticks 1-4,
 is intentionally compact, and horizontal mirroring remains native policy. Do
 not describe that composition as a complete ROM-exact state-`$1E/$0B` miss
 timeline, and do not add ASM/capture files as runtime inputs.
+For live ordinary shots, Bank05 `$8B12` proves family 0 as the reset state;
+family 1 remains unavailable until `$8B83-$8BC8`'s full hoop, defender,
+defender-side, and raw `$006A<$9C` gate has a retained native owner. Never
+substitute a stable/frame hash for that raw gate. A terminal miss with no actor
+inside the strict claimant envelope may use the explicitly native generic
+opposing-team handoff so play does not freeze, but it must not emit a B87C
+claimant trace or be labeled rebound/steal parity. A TGJS-owned shot pose clears
+the retained pre-tip orientation-encoded flag before rendering its launch-facing
+mirror.
+
 Post-handoff live actor layout, CPU locomotion/AI, pre-tip jump/ball
 interpolation and original tip-claim/tie settlement, unsupported jump
 directions/profiles and outcomes, ordinary two-point makes, the longer +157-update claimant route,
