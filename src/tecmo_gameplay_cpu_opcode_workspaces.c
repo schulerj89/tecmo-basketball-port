@@ -304,6 +304,29 @@ static bool workspace_test_opcode10(char *message, size_t message_size)
                        "opcode-10 primary reload/shift failed");
         return false;
     }
+    /* Canonical Rev1 $8DCE is raw BCC $8E03 (90 33).  With X==$07DF,
+       selected Y==$0308, a zero timer, and table[$075F]<$006A, execution
+       enters the second shift pair: three right shifts, no $0798 reload or
+       decrement. The signed output proves $8E22-$8E4E restoration too. */
+    input.actor_index = 2U;
+    input.special_actor_07df = 2U;
+    input.primary_actor_0308 = 4U;
+    input.dynamic_link_06cb = 0xFFU;
+    input.orientation_035a = 0U;
+    input.linked_target_x = 0x0120U;
+    input.linked_target_depth = TECMO_GAMEPLAY_COURT_HOOP_Y;
+    input.timer_0798 = 0U;
+    input.rate_index_075f = 1U;
+    input.sample_006a = 2U;
+    if (!tecmo_gameplay_cpu_opcode10_workspace_harness(&input, &result) ||
+        result.linked_actor != 4U || result.linked_relative_x != -16 ||
+        result.linked_relative_depth != 0 || result.right_shift_count != 3U ||
+        result.timer_0798_after != 0U || result.timer_reloaded ||
+        result.timer_decremented) {
+        (void)snprintf(message, message_size,
+                       "opcode-10 primary $8DCE/$8E03 shift failed");
+        return false;
+    }
     input.actor_index = 1U;
     input.dynamic_link_06cb = 7U;
     input.orientation_035a = 0U;
