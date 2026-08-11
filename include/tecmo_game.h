@@ -7,6 +7,7 @@
 #include "tecmo_all_star_menu.h"
 #include "tecmo_framebuffer.h"
 #include "tecmo_gameplay_scene.h"
+#include "tecmo_gameplay_cpu_playbook_lab.h"
 #include "tecmo_gameplay_shooting_lab.h"
 #include "tecmo_gameplay_violation_lab.h"
 #include "tecmo_intro_arena.h"
@@ -98,6 +99,7 @@ typedef struct TecmoRuntime {
     TecmoGameplayScene gameplay_scene;
     TecmoGameplayViolationLab violation_lab;
     TecmoGameplayShootingLab shooting_lab;
+    TecmoGameplayCpuPlaybookLab cpu_playbook_lab;
     bool developer_lab_menu_active;
     uint8_t developer_lab_menu_selection;
     TecmoTeamDataAsset team_data_asset;

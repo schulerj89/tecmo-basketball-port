@@ -6,6 +6,7 @@
 #include "tecmo_game.h"
 #include "tecmo_gameplay_camera.h"
 #include "tecmo_gameplay_candidate_selection.h"
+#include "tecmo_gameplay_cpu_playbook_lab.h"
 #include "tecmo_gameplay_cpu_steering.h"
 #include "tecmo_gameplay_court_orientation.h"
 #include "tecmo_gameplay_free_throw_lineup.h"
@@ -60,6 +61,8 @@ typedef struct TecmoCliGameplayCheckpointConfig {
     bool foul_presentation;
     bool debug_overlay_only;
     bool violation_lab;
+    bool cpu_playbook_lab;
+    unsigned cpu_playbook_lab_steps;
     TecmoGameplayViolationLabItem violation_lab_item;
     TecmoGameplayViolationLabPath violation_lab_path;
     int possession_slice;
@@ -365,6 +368,8 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     bool foul_presentation = false;
     bool debug_overlay_only = false;
     bool violation_lab = false;
+    bool cpu_playbook_lab = false;
+    unsigned cpu_playbook_lab_steps = 0U;
     TecmoGameplayViolationLabItem violation_lab_item =
         TECMO_GAMEPLAY_VIOLATION_LAB_OUT_OF_BOUNDS;
     TecmoGameplayViolationLabPath violation_lab_path =
@@ -376,6 +381,14 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     if (parse_violation_lab_render_mode(mode_name, &violation_lab_item,
                                         &violation_lab_path, &checkpoint)) {
         violation_lab = true;
+    } else if (tecmo_cli_parse_render_frame_suffix(
+                   mode_name, "gameplay-cpu-playbook-lab-step",
+                   &cpu_playbook_lab_steps)) {
+        /* Boot one deterministic ordinary CPU LIVE slice first; each lab
+           step thereafter runs only against the private preview copy. */
+        checkpoint = 1U;
+        cpu_steering = true;
+        cpu_playbook_lab = true;
     } else if (strcmp(mode_name, "gameplay-start") == 0) {
         checkpoint = 0U;
         pretip_checkpoint = true;
@@ -513,6 +526,7 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     if (cpu_steering && (checkpoint == 0U || checkpoint > 240U)) {
         return false;
     }
+    if (cpu_playbook_lab && cpu_playbook_lab_steps > 32U) return false;
     if (pass_handoff_proof && checkpoint > 2U) return false;
     if (directional_selection_proof && checkpoint > 5U) return false;
     if ((shot_clock_violation || out_of_bounds_violation ||
@@ -569,6 +583,8 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     config->foul_presentation = foul_presentation;
     config->debug_overlay_only = debug_overlay_only;
     config->violation_lab = violation_lab;
+    config->cpu_playbook_lab = cpu_playbook_lab;
+    config->cpu_playbook_lab_steps = cpu_playbook_lab_steps;
     config->violation_lab_item = violation_lab_item;
     config->violation_lab_path = violation_lab_path;
     config->possession_slice = possession_slice;
@@ -1901,6 +1917,7 @@ static bool run_gameplay_shot_checkpoint(TecmoRuntime *runtime, const TecmoCliGa
 bool tecmo_cli_setup_gameplay_render_checkpoint(TecmoRuntime *runtime, const char *mode_name)
 {
     TecmoCliGameplayCheckpointConfig config;
+    TecmoControlFrame lab_controls;
     bool done;
     bool handled;
 
@@ -1930,6 +1947,70 @@ bool tecmo_cli_setup_gameplay_render_checkpoint(TecmoRuntime *runtime, const cha
         }
         return runtime->mode == TECMO_MODE_COURT &&
                runtime->violation_lab.active;
+    }
+    if (config.cpu_playbook_lab) {
+        char json[TECMO_GAMEPLAY_CPU_PLAYBOOK_LAB_JSON_CAPACITY];
+        TecmoGameplayCpuPlaybookLabSnapshot snapshot;
+        unsigned step;
+        size_t actor;
+        /* The renderer's generic checkpoint reaches LIVE through its legacy
+           compatibility launch. Bind the already-launched starter identities
+           (not an assumed identity roster) after that handoff, synchronize
+           the typed foundation, then inspect the production TGAI slice on
+           the private lab copy. */
+        runtime->gameplay_scene.legacy_direct_launch = false;
+        runtime->gameplay_scene.launch.starter_binding_bound = true;
+        for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT;
+             ++actor) {
+            runtime->gameplay_scene.launch.starter_roster_index[0U][actor] =
+                runtime->gameplay_scene.actors[actor].roster_index;
+            runtime->gameplay_scene.launch.starter_roster_index[1U][actor] =
+                runtime->gameplay_scene.actors[
+                    TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT + actor].roster_index;
+        }
+        if (!scene_sync_live_foundation(&runtime->gameplay_scene)) return false;
+        runtime->debug_overlay = true;
+        if (!tecmo_gameplay_cpu_playbook_lab_open(
+                &runtime->cpu_playbook_lab, &runtime->gameplay_scene)) {
+            return false;
+        }
+        /* This checkpoint is a reproducible post-handoff fixture, not an
+           observed PRETIP->LIVE launch. Keep its provenance explicit. */
+        if (!tecmo_gameplay_cpu_playbook_lab_set_entry_provenance(
+                &runtime->cpu_playbook_lab, true, false)) {
+            tecmo_gameplay_cpu_playbook_lab_close(
+                &runtime->cpu_playbook_lab);
+            return false;
+        }
+        for (step = 0U; step < config.cpu_playbook_lab_steps; ++step) {
+            memset(&lab_controls, 0, sizeof(lab_controls));
+            tecmo_input_set_button(&lab_controls.pressed,
+                                   TECMO_CONTROL_VIOLATION_LAB_STEP, true);
+            if (!tecmo_gameplay_cpu_playbook_lab_update(
+                    &runtime->cpu_playbook_lab, &lab_controls) ||
+                runtime->cpu_playbook_lab.last_step_status !=
+                    TECMO_GAMEPLAY_CPU_PLAYBOOK_LAB_STEP_ACCEPTED) {
+                tecmo_gameplay_cpu_playbook_lab_close(
+                    &runtime->cpu_playbook_lab);
+                return false;
+            }
+        }
+        if (!tecmo_gameplay_cpu_playbook_lab_write_json(
+                &runtime->cpu_playbook_lab, json, sizeof(json))) {
+            tecmo_gameplay_cpu_playbook_lab_close(
+                &runtime->cpu_playbook_lab);
+            return false;
+        }
+        if (!tecmo_gameplay_cpu_playbook_lab_snapshot(
+                &runtime->cpu_playbook_lab, &snapshot) ||
+            !snapshot.direct_fixture_input || snapshot.organic_live_entry) {
+            tecmo_gameplay_cpu_playbook_lab_close(
+                &runtime->cpu_playbook_lab);
+            return false;
+        }
+        printf("cpu-playbook-lab-state %s\n", json);
+        return runtime->mode == TECMO_MODE_COURT &&
+               runtime->cpu_playbook_lab.active;
     }
     if (config.debug_overlay_only) {
         runtime->debug_overlay = true;
