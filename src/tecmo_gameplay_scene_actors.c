@@ -473,6 +473,34 @@ bool scene_pass_active(const TecmoGameplayScene *scene)
            scene->pass_state.phase != TECMO_GAMEPLAY_SCENE_PASS_NONE;
 }
 
+bool scene_pass_bank05_bd6e_step(
+    uint16_t *x_accumulator_io,
+    uint16_t x_delta,
+    uint16_t *y_accumulator_io,
+    uint16_t y_delta,
+    uint16_t *x_position_out,
+    uint8_t *y_position_out)
+{
+    uint16_t x_accumulator;
+    uint16_t y_accumulator;
+    if (x_accumulator_io == NULL || y_accumulator_io == NULL ||
+        x_position_out == NULL || y_position_out == NULL) {
+        return false;
+    }
+    /* Bank05 $BD6E-$BDC6 adds each low byte then each high byte with carry,
+       preserving ordinary 6502 uint16 wrap. Six LSR/ROR pairs expose Q10.6
+       coordinates: $E8/$73 retain both X bytes, while $F3 retains only the
+       low Y result byte. Use unsigned words so a high delta such as $FF is
+       never subjected to implementation-defined signed right shift. */
+    x_accumulator = (uint16_t)(*x_accumulator_io + x_delta);
+    y_accumulator = (uint16_t)(*y_accumulator_io + y_delta);
+    *x_accumulator_io = x_accumulator;
+    *y_accumulator_io = y_accumulator;
+    *x_position_out = (uint16_t)(x_accumulator >> 6U);
+    *y_position_out = (uint8_t)(y_accumulator >> 6U);
+    return true;
+}
+
 void scene_pass_clear(TecmoGameplayScene *scene)
 {
     if (scene == NULL) return;
@@ -485,6 +513,7 @@ void scene_pass_clear(TecmoGameplayScene *scene)
 bool scene_pass_state_valid(const TecmoGameplayScene *scene)
 {
     const TecmoGameplayScenePassState *pass;
+    bool cpu_transport;
     if (scene == NULL) return false;
     pass = &scene->pass_state;
     if (pass->phase == TECMO_GAMEPLAY_SCENE_PASS_NONE) {
@@ -492,6 +521,8 @@ bool scene_pass_state_valid(const TecmoGameplayScene *scene)
                pass->receiver == TECMO_GAMEPLAY_SCENE_NO_ACTOR &&
                pass->controller == TECMO_GAMEPLAY_SCENE_NO_ACTOR &&
                pass->packed_animation_state == 0U &&
+               !pass->receiver_locked &&
+               pass->reserved[0U] == 0U && pass->reserved[1U] == 0U &&
                pass->flight_frame == 0U && pass->flight_duration == 0U &&
                pass->start_position.x_q8 == 0 &&
                pass->start_position.y_q8 == 0 &&
@@ -502,31 +533,58 @@ bool scene_pass_state_valid(const TecmoGameplayScene *scene)
         pass->passer >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         pass->receiver >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         pass->passer == pass->receiver ||
-        pass->controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
+        (pass->controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT &&
+         pass->controller != TECMO_GAMEPLAY_SCENE_NO_ACTOR) ||
         scene->actors[pass->passer].team != scene->state.possession ||
         scene->actors[pass->receiver].team != scene->state.possession ||
         scene->ball_holder != pass->passer ||
-        scene->controlled_actor[pass->controller] != pass->passer ||
-        scene->launch.controller_team[pass->controller] !=
-            scene->state.possession ||
         pass->flight_duration < TECMO_GAMEPLAY_PASS_MIN_FLIGHT_UPDATES ||
         pass->flight_duration > TECMO_GAMEPLAY_PASS_MAX_FLIGHT_UPDATES ||
         pass->flight_frame > pass->flight_duration) {
         return false;
     }
-    if (pass->phase == TECMO_GAMEPLAY_SCENE_PASS_GATHER) {
-        return pass->packed_animation_state == 0x32U ||
-               pass->packed_animation_state == 0x22U ||
-               pass->packed_animation_state == 0x12U ||
-               pass->packed_animation_state == 0x04U;
+    cpu_transport = pass->controller == TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    if (cpu_transport) {
+        for (size_t controller = 0U;
+             controller < TECMO_GAMEPLAY_CONTROLLER_COUNT; ++controller) {
+            if (scene->launch.controller_team[controller] ==
+                    scene->state.possession ||
+                scene->controlled_actor[controller] == pass->passer) {
+                return false;
+            }
+        }
+    } else if (scene->controlled_actor[pass->controller] != pass->passer ||
+               scene->launch.controller_team[pass->controller] !=
+                   scene->state.possession) {
+        return false;
     }
-    return pass->phase == TECMO_GAMEPLAY_SCENE_PASS_FLIGHT &&
-           pass->packed_animation_state == 0x04U;
+    if (pass->phase == TECMO_GAMEPLAY_SCENE_PASS_GATHER) {
+        return !pass->receiver_locked &&
+               (pass->packed_animation_state == 0x32U ||
+                pass->packed_animation_state == 0x22U ||
+                pass->packed_animation_state == 0x12U ||
+                pass->packed_animation_state == 0x02U ||
+                pass->packed_animation_state == 0x03U);
+    }
+    if (pass->phase != TECMO_GAMEPLAY_SCENE_PASS_FLIGHT ||
+        pass->packed_animation_state != 0x04U || !pass->receiver_locked) {
+        return false;
+    }
+    if (!scene->legacy_direct_launch &&
+        (scene->live_foundation.primary_actor != pass->passer ||
+         scene->live_foundation.selected_actor_by_side[
+             scene->live_foundation.offense_side] != pass->receiver ||
+         scene->live_foundation.candidate_actor_by_side[
+             scene->live_foundation.offense_side] != pass->passer)) {
+        return false;
+    }
+    return true;
 }
 
-bool scene_begin_pass(TecmoGameplayScene *scene, size_t controller,
-                      uint8_t receiver)
+bool scene_begin_actor_pass(TecmoGameplayScene *scene, uint8_t passer,
+                            uint8_t receiver, uint8_t controller_or_none)
 {
+    TecmoGameplayScene candidate;
     TecmoGameplayScenePassState pass;
     TecmoGameplayCourtCoordinateQ8 start;
     TecmoGameplayCourtCoordinateQ8 target;
@@ -537,15 +595,28 @@ bool scene_begin_pass(TecmoGameplayScene *scene, size_t controller,
     if (scene == NULL || scene_pass_active(scene) ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
-        controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
         scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        passer != scene->ball_holder ||
         receiver >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
-        receiver == scene->ball_holder ||
-        scene->launch.controller_team[controller] != scene->state.possession ||
+        receiver == passer ||
         scene->actors[receiver].team != scene->state.possession ||
-        scene->controlled_actor[controller] != scene->ball_holder ||
-        !scene_attached_ball_position(&scene->actors[scene->ball_holder], &start) ||
+        !scene_attached_ball_position(&scene->actors[passer], &start) ||
         !scene_attached_ball_position(&scene->actors[receiver], &target)) {
+        return false;
+    }
+    if (controller_or_none == TECMO_GAMEPLAY_SCENE_NO_ACTOR) {
+        for (size_t controller = 0U;
+             controller < TECMO_GAMEPLAY_CONTROLLER_COUNT; ++controller) {
+            if (scene->launch.controller_team[controller] ==
+                    scene->state.possession ||
+                scene->controlled_actor[controller] == passer) {
+                return false;
+            }
+        }
+    } else if (controller_or_none >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
+               scene->launch.controller_team[controller_or_none] !=
+                   scene->state.possession ||
+               scene->controlled_actor[controller_or_none] != passer) {
         return false;
     }
     dx = target.x_q8 - start.x_q8;
@@ -561,17 +632,71 @@ bool scene_begin_pass(TecmoGameplayScene *scene, size_t controller,
         duration = TECMO_GAMEPLAY_PASS_MAX_FLIGHT_UPDATES;
     memset(&pass, 0, sizeof(pass));
     pass.phase = TECMO_GAMEPLAY_SCENE_PASS_GATHER;
-    pass.passer = scene->ball_holder;
+    pass.passer = passer;
     pass.receiver = receiver;
-    pass.controller = (uint8_t)controller;
-    /* $89D7 seeds $32; $86A8 launches only at the complete byte $04. */
+    pass.controller = controller_or_none;
+    /* Bank05 $89D7 begins the shared passer gather: it writes state $0F and
+       packed $0458=$32. State $0F dispatches through $8695 and $8999/$9C29;
+       CPU admission to $89D7 is documented at the exact action-$21 helper
+       below without imposing that upstream route on human NES-A passing. */
     pass.packed_animation_state = 0x32U;
     pass.flight_duration = duration;
     pass.start_position = start;
     pass.target_position = target;
-    scene->pass_state = pass;
-    scene->ball_position = start;
-    return scene_pass_state_valid(scene);
+    candidate = *scene;
+    candidate.pass_state = pass;
+    candidate.ball_position = start;
+    if (!candidate.legacy_direct_launch) {
+        candidate.live_foundation.play_state
+            .action_state_046e[passer] = 0x0FU;
+        candidate.live_foundation.play_state
+            .actor_state[receiver] = 0x0CU;
+        /* The remaining $89D7 writes seed slot-10 $0478=$13 plus receiver
+           pose/direction workspaces. Pass phase GATHER owns the former
+           semantically; the raw pose-pointer workspaces are not retained and
+           must not be fabricated in C. */
+        if (!tecmo_gameplay_live_foundation_valid(
+                &candidate.cpu_steering_assets,
+                &candidate.live_foundation)) {
+            return false;
+        }
+    }
+    if (!scene_pass_state_valid(&candidate)) return false;
+    *scene = candidate;
+    return true;
+}
+
+bool scene_begin_pass(TecmoGameplayScene *scene, size_t controller,
+                      uint8_t receiver)
+{
+    if (controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT) return false;
+    return scene_begin_actor_pass(
+        scene, scene != NULL ? scene->ball_holder
+                             : TECMO_GAMEPLAY_SCENE_NO_ACTOR,
+        receiver, (uint8_t)controller);
+}
+
+bool scene_begin_cpu_pass_from_action21(TecmoGameplayScene *scene,
+                                        uint8_t passer)
+{
+    uint8_t receiver;
+    if (scene == NULL || scene->legacy_direct_launch ||
+        passer >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->live_foundation.play_state.action_state_046e[passer] !=
+            0x21U ||
+        passer != scene->ball_holder ||
+        scene->live_foundation.primary_actor != passer) {
+        return false;
+    }
+    receiver = scene->live_foundation.candidate_actor_by_side[
+        scene->live_foundation.offense_side];
+    /* Canonical Rev1 Bank06 $8FC5-$8FE7 naturally copies C9=$21 into the
+       $0308 primary's $046E slot. $8284-$82A5 then excludes that primary from
+       ordinary per-actor dispatch, leaving Bank05's selected-primary table to
+       enter $89D7. C still does not force a Bank04 record/cursor or route
+       autonomous offense through the human NES-A handler. */
+    return scene_begin_actor_pass(
+        scene, passer, receiver, TECMO_GAMEPLAY_SCENE_NO_ACTOR);
 }
 
 bool scene_update_pass(TecmoGameplayScene *scene)
@@ -585,14 +710,40 @@ bool scene_update_pass(TecmoGameplayScene *scene)
     candidate = *scene;
     pass = &candidate.pass_state;
     if (pass->phase == TECMO_GAMEPLAY_SCENE_PASS_GATHER) {
+        bool release_now = false;
         if (pass->packed_animation_state == 0x32U)
             pass->packed_animation_state = 0x22U;
         else if (pass->packed_animation_state == 0x22U)
             pass->packed_animation_state = 0x12U;
         else if (pass->packed_animation_state == 0x12U)
+            pass->packed_animation_state = 0x02U;
+        else if (pass->packed_animation_state == 0x02U)
+            pass->packed_animation_state = 0x03U;
+        else if (pass->packed_animation_state == 0x03U) {
             pass->packed_animation_state = 0x04U;
-        else {
-            /* $86A8->$B074: state $04 begins ball-owned flight. */
+            release_now = true;
+        } else {
+            return false;
+        }
+        /* Bank05 $8999 jumps to $9C29 while the packed byte is >=$10,
+           subtracting $10 without changing its low nibble. Below $10 it
+           advances that nibble under raw $0385/$0391. The captured pass is
+           $32->$22->$12->$02->$03->$04; those raw animation-global owners
+           are not retained, so this is deliberately capture-bounded rather
+           than a claim that every possible $8999 cadence is implemented. */
+        if (release_now) {
+            /* Bank05 $86A8-$86B7 jumps directly to shared $B074; this route
+               arrives with slot-10 $0478=$13, not a required state $03.
+               $B074-$B0FD locks $037F[$030A] as receiver and swaps its
+               $000E-shaped role now while the $0308-shaped holder stays the
+               passer until Bank05 $B24F. */
+            if (!candidate.legacy_direct_launch &&
+                !tecmo_gameplay_live_foundation_pass_launch_lock(
+                    &candidate.cpu_steering_assets, pass->receiver,
+                    &candidate.live_foundation)) {
+                return false;
+            }
+            pass->receiver_locked = true;
             pass->phase = TECMO_GAMEPLAY_SCENE_PASS_FLIGHT;
             pass->flight_frame = 0U;
         }
@@ -608,6 +759,11 @@ bool scene_update_pass(TecmoGameplayScene *scene)
     if (pass->flight_frame < pass->flight_duration)
         ++pass->flight_frame;
     step = pass->flight_frame;
+    /* Bank05 $B1E7 schedules five $B500->$BD6E fixed-point substeps. Its
+       $B42F/$BB9F/$BBA0 trajectory asset is not imported yet, so this shared
+       human/CPU interpolation remains a deliberately local native adapter;
+       gather, launch lock, holder lifetime, and catch ordering are source-
+       proven and do not depend on pretending these coordinates are exact. */
     candidate.ball_position.x_q8 = pass->start_position.x_q8 + (int32_t)(
         ((int64_t)(pass->target_position.x_q8 - pass->start_position.x_q8) *
          step) / pass->flight_duration);
@@ -619,14 +775,20 @@ bool scene_update_pass(TecmoGameplayScene *scene)
         *scene = candidate;
         return true;
     }
-    /* $B24F is the sole ownership transfer. Reuse its existing typed C
-       transaction only after the ball reaches the locked receiver snapshot. */
+    /* Genuine Bank05 $B24F begins AC 0A 03 and is the sole ownership
+       transfer (Bank06 $B24F is unrelated geometry). The actor-2 -> actor-4
+       capture reads $000E[0]=$04, stores actor 4 to $0308, clears its action/
+       animation/actor-state workspaces, and only then calls $B2FA. $B2FA-
+       $B300 clears raw $BA bit 2; no broader meaning is inferred here. Reuse
+       the typed transaction only after reaching the locked receiver. */
     if (!candidate.legacy_direct_launch &&
         !tecmo_gameplay_live_foundation_pass_handoff(
             &candidate.cpu_steering_assets, pass->receiver,
             &candidate.live_foundation)) return false;
     candidate.ball_holder = pass->receiver;
-    candidate.controlled_actor[pass->controller] = pass->receiver;
+    if (pass->controller < TECMO_GAMEPLAY_CONTROLLER_COUNT) {
+        candidate.controlled_actor[pass->controller] = pass->receiver;
+    }
     /* $B24F->$88B6 installs a direction-selected catch pose. The scene does
        not retain that raw pose-pointer workspace, so use the validated TGOR
        attack-facing baseline rather than copying the passer's orientation. */
@@ -1997,6 +2159,7 @@ bool scene_update_ai(
         TECMO_GAMEPLAY_SCENE_ACTOR_COUNT] = {
         0U, 1U, 2U, 3U, 4U, 5U, 6U, 7U, 8U, 9U
     };
+    uint8_t cpu_pass_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     size_t actor;
     if (scene == NULL || shot_request_out == NULL ||
         !scene->cpu_steering_assets.available ||
@@ -2082,6 +2245,19 @@ bool scene_update_ai(
                 &candidate_foundation, &play_result)) {
             return false;
         }
+        if (actor == scene->ball_holder &&
+            candidate_foundation.play_state.action_state_046e[actor] ==
+                0x21U &&
+            !scene_team_has_controller(
+                scene, scene->state.possession)) {
+            /* Canonical Rev1 Bank06 $8FC5-$8FE7 is the owned producer of
+               $046E[X]=C9; capture confirms C9=$21 for the $0308 primary.
+               Bank06 $8284-$82A5 excludes that primary from ordinary $057C
+               dispatch, and Bank05's selected-primary table consumes index
+               $21 at $89D7. Upstream play selection and the cursor reaching
+               such a record remain unowned; this branch invents neither. */
+            cpu_pass_actor = (uint8_t)actor;
+        }
         source_target = candidate_foundation.source_target_valid[actor];
         source_direction = candidate_foundation.source_direction_valid[actor];
         input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_MOVEMENT_INPUT_TAG;
@@ -2098,6 +2274,26 @@ bool scene_update_ai(
         /* Native fixed projection; never expose it as live $037F/$06CB. */
         input.steering.matchup_actor = candidate_foundation.play_state
             .fixed_link_target[actor];
+        if (cpu_pass_actor == actor) {
+            /* $89D7 takes ownership from ordinary target locomotion. Leave
+               this actor fixed on the command-write update; the actor-neutral
+               pass transaction below converts $21 to state $0F exactly once. */
+            cpu->decision_serial = 0U;
+            cpu->snapshot_fingerprint = 0U;
+            cpu->target_position.x = 0;
+            cpu->target_position.y = 0;
+            cpu->target_kind =
+                TECMO_GAMEPLAY_CPU_STEERING_HARNESS_TARGET_KIND_COUNT;
+            cpu->direction = TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+            cpu->held_direction_bits = TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
+            cpu->target_valid = false;
+            cpu->writes_direction = false;
+            cpu->command_offset = TECMO_GAMEPLAY_SCENE_CPU_NO_COMMAND_OFFSET;
+            cpu->linked_actor = candidate_foundation.play_state
+                .fixed_link[actor];
+            if (!scene_cpu_actor_state_valid(scene, actor, cpu)) return false;
+            continue;
+        }
         if (candidate_foundation.selected_defender_handoff_active &&
             actor == candidate_foundation.defender_actor) {
             /* Bank06 omits $0309 from ordinary command dispatch; the
@@ -2263,6 +2459,23 @@ bool scene_update_ai(
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     candidate_foundation.last_shot_deferred = false;
     candidate_foundation.last_shot_playback_supported = false;
+
+    if (cpu_pass_actor != TECMO_GAMEPLAY_SCENE_NO_ACTOR) {
+        candidate_scene = *scene;
+        memcpy(candidate_scene.actors, candidate_actors,
+               sizeof(candidate_actors));
+        memcpy(candidate_scene.cpu_actors, candidate_cpu,
+               sizeof(candidate_cpu));
+        candidate_scene.ball_position = candidate_ball;
+        candidate_scene.live_foundation = candidate_foundation;
+        if (!scene_begin_cpu_pass_from_action21(
+                &candidate_scene, cpu_pass_actor) ||
+            !scene_ownership_valid(&candidate_scene)) {
+            return false;
+        }
+        *scene = candidate_scene;
+        return true;
+    }
 
     if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
         !scene_team_has_controller(scene, scene->state.possession) &&

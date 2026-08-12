@@ -191,8 +191,22 @@ bool scene_pass_active(const TecmoGameplayScene *scene);
 bool scene_pass_state_valid(const TecmoGameplayScene *scene);
 void scene_pass_clear(TecmoGameplayScene *scene);
 bool scene_update_pass(TecmoGameplayScene *scene);
+bool scene_begin_actor_pass(TecmoGameplayScene *scene, uint8_t passer,
+                            uint8_t receiver, uint8_t controller_or_none);
 bool scene_begin_pass(TecmoGameplayScene *scene, size_t controller,
                       uint8_t receiver);
+bool scene_begin_cpu_pass_from_action21(TecmoGameplayScene *scene,
+                                        uint8_t passer);
+/* Portable Bank05 $BD6E fixed-point accumulator kernel. This intentionally
+   exposes only the now-proven arithmetic; the pass launch solver/table inputs
+   that seed these values remain outside the native transport. */
+bool scene_pass_bank05_bd6e_step(
+    uint16_t *x_accumulator_io,
+    uint16_t x_delta,
+    uint16_t *y_accumulator_io,
+    uint16_t y_delta,
+    uint16_t *x_position_out,
+    uint8_t *y_position_out);
 bool scene_inbound_active(const TecmoGameplayScene *scene);
 bool scene_inbound_state_valid(const TecmoGameplayScene *scene);
 void scene_inbound_clear(TecmoGameplayScene *scene);

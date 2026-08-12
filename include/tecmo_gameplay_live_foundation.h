@@ -98,7 +98,10 @@ typedef struct TecmoGameplayLiveFoundation {
     uint8_t prior_selected_actor;
     uint8_t prior_defender_actor;
     bool selected_defender_handoff_active;
-    /* Native $030C/$030D semantics: zero is human, nonzero automatic. */
+    /* Native typed controller assignment projection used by bounded C
+       handoff policy. Runtime captures show that raw $030C/$030D cannot be
+       classified as a zero-human/nonzero-automatic mirror, so these bytes
+       deliberately carry no raw-RAM identity. */
     uint8_t control_mode[TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT];
     /* Explicit live mirrors of the $04B0 bit-$10 predicate and $06CB link. */
     bool defender_eligible[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
@@ -202,6 +205,14 @@ bool tecmo_gameplay_live_foundation_synchronize(
 bool tecmo_gameplay_live_foundation_pass_handoff(
     const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t new_selected_actor,
+    TecmoGameplayLiveFoundation *foundation_io);
+
+/* Bank05 $B074-$B0FD launch-time identity lock. This swaps the typed
+ * $000E/$037F-shaped side roles while retaining the $0308-shaped primary and
+ * ball holder until Bank05 $B24F performs the catch. */
+bool tecmo_gameplay_live_foundation_pass_launch_lock(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t receiver_actor,
     TecmoGameplayLiveFoundation *foundation_io);
 
 /* Bounded Bank05 $B87C-$B98A claimant settlement, callable only after a

@@ -1824,6 +1824,227 @@ static bool scene_test_live_foundation_regressions(
     bound.controller_team[1] = TECMO_GAMEPLAY_TEAM_HOME;
     bound.game_music_enabled = false;
 
+    /* Source-proven bounded CPU pass slice. The fixture selects the exact
+       imported Bank04 $A05F/stream-$0131 opcode-9 record; production still
+       requires its live command cursor to arrive here naturally. */
+    {
+        const uint8_t passer = 2U;
+        const uint8_t captured_receiver = 4U;
+        const uint16_t action21_offset = 0x0131U;
+        TecmoGameplayCpuSteeringCommand action21;
+        TecmoGameplayLiveFoundation pass_foundation;
+        TecmoGameplayScene before;
+        TecmoGameplaySceneCpuShotRequest no_shot;
+        uint16_t x_accumulator;
+        uint16_t y_accumulator;
+        uint16_t x_position;
+        uint8_t y_position;
+        uint8_t receiver;
+        uint8_t opposing_controlled_actor;
+        size_t pass_updates;
+
+        /* Bank05 $BD6E-$BDC6 exact uint16 accumulation/Q10.6 extraction.
+           Include captured-shape values, carry, wrap, and a high-byte $FF
+           delta so the C helper cannot regress to signed right shifts. */
+        x_accumulator = 0x2422U;
+        y_accumulator = 0x1040U;
+        if (!scene_pass_bank05_bd6e_step(
+                &x_accumulator, 0x0062U, &y_accumulator, 0x0020U,
+                &x_position, &y_position) ||
+            x_accumulator != 0x2484U || y_accumulator != 0x1060U ||
+            x_position != 0x0092U || y_position != 0x41U) {
+            LIVE_FAIL("LIVE pass BD6E captured-shape vector failed");
+        }
+        x_accumulator = 0x12FFU;
+        y_accumulator = 0xFF00U;
+        if (!scene_pass_bank05_bd6e_step(
+                &x_accumulator, 0x0001U, &y_accumulator, 0x0200U,
+                &x_position, &y_position) ||
+            x_accumulator != 0x1300U || y_accumulator != 0x0100U ||
+            x_position != 0x004CU || y_position != 0x04U) {
+            LIVE_FAIL("LIVE pass BD6E carry/wrap vector failed");
+        }
+        x_accumulator = 0x3000U;
+        y_accumulator = 0x0100U;
+        if (!scene_pass_bank05_bd6e_step(
+                &x_accumulator, 0xFF80U, &y_accumulator, 0xFFC0U,
+                &x_position, &y_position) ||
+            x_accumulator != 0x2F80U || y_accumulator != 0x00C0U ||
+            x_position != 0x00BEU || y_position != 0x03U) {
+            LIVE_FAIL("LIVE pass BD6E high-delta vector failed");
+        }
+
+        cpu_only = bound;
+        cpu_only.controller_team[0U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+        /* Away is CPU-controlled; retain a real human controller on Home so
+           controller=NONE catch proves it leaves unrelated human control
+           byte-for-byte unchanged. */
+        tecmo_gameplay_scene_test_set_skip_pretip(true);
+        if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
+            !scene_handoff_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, passer) ||
+            !scene_sync_live_foundation(scene) ||
+            !tecmo_gameplay_cpu_steering_decode_command(
+                &scene->cpu_steering_assets, action21_offset, &action21) ||
+            action21.opcode != 9U || action21.arguments[0U] != 0U ||
+            action21.arguments[1U] != 0x21U) {
+            LIVE_FAIL("LIVE CPU action-21 pass fixture setup rejected");
+        }
+        tecmo_gameplay_scene_test_set_skip_pretip(false);
+        opposing_controlled_actor = scene->controlled_actor[1U];
+        if (opposing_controlled_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+            scene->actors[opposing_controlled_actor].team !=
+                TECMO_GAMEPLAY_TEAM_HOME) {
+            LIVE_FAIL("LIVE CPU pass opposing human control fixture invalid");
+        }
+        /* FCEUX closes the downstream identity for this observed route:
+           offense side 0 entered $89D7 with primary actor 2 and raw
+           $037F[0]=4; genuine Bank05 $B24F later stored actor 4 to $0308. */
+        receiver = captured_receiver;
+        scene->live_foundation.candidate_actor_by_side[
+            scene->live_foundation.offense_side] = receiver;
+        if (scene->actors[receiver].team != TECMO_GAMEPLAY_TEAM_AWAY ||
+            !tecmo_gameplay_live_foundation_valid(
+                &scene->cpu_steering_assets, &scene->live_foundation)) {
+            LIVE_FAIL("LIVE CPU action-21 receiver fixture invalid");
+        }
+
+        /* Any action other than exact $21 and a self-candidate both reject
+           transactionally; neither can smuggle a human-button pass into CPU
+           offense. */
+        scene->live_foundation.play_state.action_state_046e[passer] = 0x20U;
+        before = *scene;
+        if (scene_begin_cpu_pass_from_action21(scene, passer) ||
+            memcmp(scene, &before, sizeof(before)) != 0) {
+            LIVE_FAIL("LIVE non-21 CPU action started or mutated a pass");
+        }
+        scene->live_foundation.play_state.action_state_046e[passer] = 0x21U;
+        scene->live_foundation.candidate_actor_by_side[
+            scene->live_foundation.offense_side] = passer;
+        before = *scene;
+        if (scene_begin_cpu_pass_from_action21(scene, passer) ||
+            memcmp(scene, &before, sizeof(before)) != 0) {
+            LIVE_FAIL("LIVE invalid CPU pass candidate was not transactional");
+        }
+        scene->live_foundation = before.live_foundation;
+        scene->live_foundation.play_state.action_state_046e[passer] = 0U;
+        scene->live_foundation.candidate_actor_by_side[
+            scene->live_foundation.offense_side] = receiver;
+
+        pass_foundation = scene->live_foundation;
+        for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            pass_foundation.play_state.wait_counter[actor] =
+                actor == passer ? 0U : 1U;
+            pass_foundation.deferred[actor] = false;
+            pass_foundation.deferred_reason[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+        }
+        pass_foundation.play_state.actor_state[passer] = 0x04U;
+        pass_foundation.play_state.stream_offset[passer] = action21_offset;
+        pass_foundation.last_step_offset[passer] = action21_offset;
+        if (!tecmo_gameplay_live_foundation_valid(
+                &scene->cpu_steering_assets, &pass_foundation)) {
+            LIVE_FAIL("LIVE CPU action-21 source foundation rejected");
+        }
+        scene->live_foundation = pass_foundation;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
+            no_shot.playback_supported || no_shot.deferred ||
+            !scene_pass_active(scene) ||
+            scene->pass_state.phase != TECMO_GAMEPLAY_SCENE_PASS_GATHER ||
+            scene->pass_state.passer != passer ||
+            scene->pass_state.receiver != receiver ||
+            scene->pass_state.controller != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+            scene->pass_state.packed_animation_state != 0x32U ||
+            scene->pass_state.receiver_locked ||
+            scene->ball_holder != passer ||
+            scene->live_foundation.play_state
+                    .action_state_046e[passer] != 0x0FU ||
+            /* Opcode 9 C8 writes actor state 0; $8284-$82A5 excludes the
+               primary from ordinary $057C dispatch before $89D7 consumes
+               action $21. The typed gather must preserve that separation. */
+            scene->live_foundation.play_state.actor_state[passer] != 0U ||
+            scene->live_foundation.play_state.actor_state[receiver] != 0x0CU ||
+            scene->controlled_actor[0U] != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+            scene->controlled_actor[1U] != opposing_controlled_actor) {
+            LIVE_FAIL("LIVE exact action-21 did not start CPU gather once");
+        }
+        for (pass_updates = 0U; pass_updates < 4U; ++pass_updates) {
+            static const uint8_t expected_gather[4U] = {
+                0x22U, 0x12U, 0x02U, 0x03U
+            };
+            if (!scene_update_pass(scene) ||
+                scene->pass_state.phase !=
+                    TECMO_GAMEPLAY_SCENE_PASS_GATHER ||
+                scene->pass_state.receiver_locked ||
+                scene->ball_holder != passer ||
+                scene->pass_state.packed_animation_state !=
+                    expected_gather[pass_updates]) {
+                LIVE_FAIL("LIVE CPU pass gather order failed");
+            }
+        }
+        if (!scene_update_pass(scene) ||
+            scene->pass_state.phase != TECMO_GAMEPLAY_SCENE_PASS_FLIGHT ||
+            scene->pass_state.packed_animation_state != 0x04U ||
+            !scene->pass_state.receiver_locked ||
+            scene->ball_holder != passer ||
+            scene->live_foundation.primary_actor != passer ||
+            scene->live_foundation.selected_actor_by_side[
+                scene->live_foundation.offense_side] != receiver ||
+            scene->live_foundation.candidate_actor_by_side[
+                scene->live_foundation.offense_side] != passer) {
+            LIVE_FAIL("LIVE CPU pass launch identity lock failed");
+        }
+        for (pass_updates = 0U;
+             scene_pass_active(scene) && pass_updates < 32U;
+             ++pass_updates) {
+            if (!scene_update_pass(scene)) {
+                LIVE_FAIL("LIVE CPU pass flight/catch rejected");
+            }
+        }
+        if (scene_pass_active(scene) || scene->ball_holder != receiver ||
+            scene->controlled_actor[0U] != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+            scene->controlled_actor[1U] != opposing_controlled_actor ||
+            scene->live_foundation.primary_actor != receiver ||
+            scene->live_foundation.play_state
+                    .action_state_046e[passer] != 0U ||
+            scene->live_foundation.play_state.actor_state[receiver] != 0U) {
+            LIVE_FAIL("LIVE CPU pass catch/control handoff failed");
+        }
+        before = *scene;
+        if (scene_begin_cpu_pass_from_action21(scene, passer) ||
+            memcmp(scene, &before, sizeof(before)) != 0) {
+            LIVE_FAIL("LIVE consumed CPU pass restarted without action 21");
+        }
+
+        /* Existing human A transport shares the actor-neutral kernel but
+           retains its controller handoff at the same Bank05 $B24F seam. */
+        tecmo_gameplay_scene_test_set_skip_pretip(true);
+        if (!tecmo_gameplay_scene_launch(scene, &bound) ||
+            !scene_handoff_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, passer) ||
+            !scene_sync_live_foundation(scene)) {
+            LIVE_FAIL("LIVE human pass regression setup rejected");
+        }
+        tecmo_gameplay_scene_test_set_skip_pretip(false);
+        receiver = scene->live_foundation.candidate_actor_by_side[
+            scene->live_foundation.offense_side];
+        if (!scene_begin_pass(scene, 0U, receiver)) {
+            LIVE_FAIL("LIVE human pass regression gather rejected");
+        }
+        for (pass_updates = 0U;
+             scene_pass_active(scene) && pass_updates < 32U;
+             ++pass_updates) {
+            if (!scene_update_pass(scene)) {
+                LIVE_FAIL("LIVE human pass regression update rejected");
+            }
+        }
+        if (scene_pass_active(scene) || scene->ball_holder != receiver ||
+            scene->controlled_actor[0U] != receiver) {
+            LIVE_FAIL("LIVE human pass regression catch/control failed");
+        }
+    }
+
     if (!scene_test_pretip_cpu_common_tail_handoff(
             scene, &bound, message, message_size)) {
         tecmo_gameplay_scene_test_set_skip_pretip(false);

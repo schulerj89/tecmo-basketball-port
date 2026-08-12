@@ -63,6 +63,40 @@ scene resolves slot `10` from one immutable floored-Q8 ball snapshot before
 its normal TGMO composition. This is source-to-C target transport, not a claim
 to reconstruct offensive play selection.
 
+## Opcode 9 action `$21`: bounded autonomous pass consumer
+
+The exact opcode-9 executor copies Bank04 command byte `C9` into actor-local
+`$046E[X]`. Native LIVE now recognizes only a naturally produced exact `$21`
+on the unassigned possession holder. FCEUX closes that handoff: canonical Rev1
+Bank06 `$8FC5-$8FE7` writes `C9=$21` to the current `$0308` primary's `$046E`
+(observed actor 9), then `$8284-$82A5` excludes both `$0308` and `$0309` from
+the ordinary descending `$057C` actor-state dispatch. Bank05's selected-primary
+pointer table consumes index `$21` at `$89D7`. The lifted Bank06 helper label
+is four bytes early; canonical Rev1 bytes/capture are authoritative. `$89D7`
+writes selected-actor state `$0F` and packed `$0458=$32`;
+state `$0F` dispatches through `$8695`; `$8999/$9C29` produced the observed
+`$32->$22->$12->$02->$03->$04` cadence; `$86A8-$86B7` releases at the complete
+byte `$04` directly into shared `$B074`; and genuine Bank05 `$B24F` performs
+the catch. This route does not require slot-10 state `$03`: runtime evidence
+observes `$0478=$13` at direct `$B074` entry before it writes flight state `$04`.
+
+At launch, the typed `$037F[$030A]` candidate is locked as receiver and the
+`$000E/$037F`-shaped side roles swap, while the `$0308`-shaped primary/native
+holder remains the passer until catch. CPU transport has no controller, so the
+catch cannot mutate either human assignment. Human NES-A passing continues to
+use the same transport with its controller attached.
+
+This implements the source-proven action assignment, selected-primary dispatch,
+and downstream gather-to-catch consumer. The static Bank04 `$A05F` / stream
+`$0131` record is exact, but live play-selection and
+cursor reach to that record remain unproven and are never forced by C. The
+current flight duration/interpolation also remains a labeled native adapter
+until `$B42F/$BB9F/$BBA0` and `$B1E7/$B500` are imported as a strict asset.
+The standalone C `$BD6E-$BDC6` arithmetic kernel exactly preserves uint16
+wrap/carry and six logical shifts, but is not wired into flight until its
+solver/table inputs are owned. Bank05 `$B13F` interception/contact remains
+fail-closed.
+
 ## Exact direction selection
 
 Two bounded paths write the same actor direction field `$0463`:
@@ -236,8 +270,10 @@ normal play calls the pure API directly.
 
 ## Deliberate limits and next integration
 
-TGAI-2 does not claim a complete CPU play policy. In particular, it does not
-identify the shot/pass/steal selector, reconstruct every actor-link assignment,
+TGAI-2 does not claim a complete CPU play policy. It now consumes the exact
+downstream opcode-9 action `$21` pass request when naturally emitted, but does
+not prove or synthesize the upstream pass selector/cursor reach. It also does
+not reconstruct every actor-link assignment,
 own live collision/contact or speed-setting policy, or treat the nearby Bank06
 `$B081-$B32E` candidate scan as ordinary movement targeting. That scan is now
 converted separately as the per-frame receiver/defensive-switch selector; it

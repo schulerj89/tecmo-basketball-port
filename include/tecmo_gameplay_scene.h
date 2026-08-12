@@ -73,10 +73,12 @@ typedef enum TecmoGameplaySceneShotKind {
     TECMO_GAMEPLAY_SCENE_SHOT_KIND_COUNT
 } TecmoGameplaySceneShotKind;
 
-/* Bank05 $89D7 starts a pass in a passer-owned gather state, $86A8 releases
-   only when the full packed animation byte reaches $04, $B074/$B42F advance
-   the ball, and $B24F transfers ownership at the catch.  These names retain
-   that ordering without exposing source RAM as the native scene ABI. */
+/* Bank05 $89D7 starts a pass in a passer-owned gather state, state $0F
+   dispatches through $8695, $8999/$9C29 advances the captured packed-byte
+   cadence, $86A8 releases only when the complete byte reaches $04, $B074
+   locks the receiver, and genuine Bank05 $B24F transfers ownership at the
+   catch. The current flight interpolation remains a native adapter pending
+   strict $B42F/$BB9F/$BBA0 and $B1E7/$B500 assets. */
 typedef enum TecmoGameplayScenePassPhase {
     TECMO_GAMEPLAY_SCENE_PASS_NONE = 0,
     TECMO_GAMEPLAY_SCENE_PASS_GATHER,
@@ -88,10 +90,15 @@ typedef struct TecmoGameplayScenePassState {
     TecmoGameplayScenePassPhase phase;
     uint8_t passer;
     uint8_t receiver;
+    /* A human pad index, or NO_ACTOR for an autonomous CPU transport. */
     uint8_t controller;
-    /* Source-shaped release countdown: $32 setup then full-byte $04. */
+    /* Capture-bounded $32->$22->$12->$02->$03 cadence; $04 releases. */
     uint8_t packed_animation_state;
-    uint8_t reserved[3];
+    /* Bank05 $B074-$B0FD locks $037F[$030A] and swaps the source-side
+       selected/candidate roles at launch; $0308 remains the passer until
+       the genuine Bank05 $B24F catch. */
+    bool receiver_locked;
+    uint8_t reserved[2];
     uint16_t flight_frame;
     uint16_t flight_duration;
     TecmoGameplayCourtCoordinateQ8 start_position;
@@ -275,6 +282,9 @@ typedef struct TecmoGameplayScenePossessionTraceSnapshot {
     uint8_t raw_0309_defender_actor;
     uint8_t raw_030a_offense_side;
     uint8_t raw_030b_defense_side;
+    /* Compatibility/proof-schema name only. Runtime captures show $01 in
+       both user and CPU contexts; this stores the typed native controller
+       projection and must not be interpreted as a raw RAM encoding. */
     uint8_t raw_030c_030d_control_mode[TECMO_GAMEPLAY_TEAM_COUNT];
     uint8_t raw_000e_000f_selected_actor[TECMO_GAMEPLAY_TEAM_COUNT];
     uint8_t raw_037f_0380_candidate_actor[TECMO_GAMEPLAY_TEAM_COUNT];

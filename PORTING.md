@@ -1515,15 +1515,31 @@ caller scheduling are not claimed as exact ROM behavior. Deterministic render
 checkpoints `gameplay-ball-bounce-frame1` and `frame12` freeze visibly distinct
 high and low positions.
 
-Ordinary human passes use a separate visible, transactional lifecycle rather
-than changing possession on the NES A edge. Bank05 `$89D7/$86A8` supplies the
-packed gather order `$32,$22,$12,$04`; `$B074/$B42F/$B500` owns the moving ball;
-and `$B24F` is the only point that changes the native holder, controller, and
-typed LIVE foundation to the locked receiver. The C flight duration and linear
-interpolation are bounded native adapters because the original `$BB9F/$BBA0`
-duration table and five-substep scheduler are not yet strict assets. The
-implementation does not add CPU pass intent, `$B13F` interception/contact, or
-complete object-slot-10 state parity. See
+Ordinary human passes and bounded autonomous CPU action `$21` share a visible,
+actor-neutral transactional lifecycle. Bank06 opcode 9 must naturally emit
+`$046E[holder]=$21`; C never forces its Bank04 record or routes CPU intent
+through NES A. Canonical Rev1 Bank06 `$8FC5-$8FE7` writes `C9=$21` to the
+current `$0308` primary's `$046E`, and `$8284-$82A5` excludes `$0308/$0309`
+from ordinary `$057C` actor dispatch so Bank05's selected-primary pointer table
+consumes index `$21` at `$89D7`. The lifted Bank06 helper label is four bytes
+early; canonical bytes win. `$89D7` writes state `$0F` and seeds packed gather
+`$32->$22->$12->$02->$03->$04` through
+`$8999/$9C29`; `$8695/$86A8-$86B7` releases directly into shared `$B074` at
+the full byte `$04`. The direct route is observed with
+slot-10 `$0478=$13`, so `$B074` is not state-`$03`-only. `$B074-$B0FD` locks
+the typed `$037F[$030A]` receiver and swaps the `$000E/$037F`-shaped roles at
+launch while the `$0308`-shaped native holder remains the passer. Genuine
+Bank05 `$B24F` (`AC 0A 03`) alone changes holder/primary at catch; CPU transport
+has no controller and therefore cannot mutate human control. The observed
+actor-2 route locks receiver actor 4 and genuine `$B24F` later stores 4 to
+`$0308`; `$B2FA-$B300` clears raw `$BA` bit 2 without a broader inferred name.
+The C flight
+duration and linear interpolation remain bounded native adapters because
+`$B42F/$BB9F/$BBA0` and the `$B1E7/$B500` five-substep scheduler are not yet
+strict assets. An isolated exact `$BD6E-$BDC6` helper preserves uint16
+wrap/carry and six logical shifts, but does not make the unseeded trajectory
+exact. Upstream CPU pass selection/cursor reach, `$B13F`
+interception/contact, and complete object-slot-10 parity remain deferred. See
 `docs/pass-defender-handoff-evidence.md` for the separately bounded defender
 handoff and dynamic-link limitations.
 

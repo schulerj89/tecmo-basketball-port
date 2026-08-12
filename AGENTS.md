@@ -1317,6 +1317,29 @@ or complete 6502 caller scheduling as ROM-exact. Verify the strict asset and
 phase/sound vectors with
 `tools\Run-GameplayBallDribbleTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 
+Ordinary passes use one actor-neutral scene transport. Human NES-A passes
+carry their controller; autonomous passes carry no controller and may begin
+only when the owned Bank06 opcode-9 executor naturally writes exact action
+`$21` for the unassigned holder. Canonical Rev1 Bank06 `$8FC5-$8FE7` writes
+`C9=$21` to the current `$0308` primary's `$046E`; `$8284-$82A5` excludes
+`$0308/$0309` from ordinary `$057C` dispatch, leaving Bank05's selected-primary
+pointer index `$21` to enter `$89D7`. The lifted Bank06 helper label is four
+bytes early; canonical Rev1 bytes/capture win. `$89D7` writes state
+`$0F`/packed `$32`; state `$0F` dispatches through `$8695`,
+and `$8999/$9C29` yields the captured `$32->$22->$12->$02->$03->$04` cadence
+before `$86A8-$86B7` jumps directly to shared `$B074`. Do not require
+slot-10 state `$03`; the direct route is observed entering with `$0478=$13`.
+`$B074-$B0FD` locks the typed candidate and swaps the `$000E/$037F`-shaped
+roles at launch while the `$0308`-shaped holder stays the passer until genuine
+Bank05 `$B24F` (`AC 0A 03`). The captured actor-2 route locks receiver actor 4,
+and `$B24F` stores 4 to `$0308`; `$B2FA-$B300` only clears raw `$BA` bit 2.
+CPU catch must not mutate human control. Current
+duration/interpolation remains native-approximate until `$B42F/$BB9F/$BBA0`
+and `$B1E7/$B500` are strict assets. The isolated exact `$BD6E-$BDC6` uint16
+kernel does not imply trajectory ownership. Upstream pass policy/cursor reach and
+`$B13F` interception/contact remain fail-closed. Raw `$030C/$030D` is not a
+valid zero-human/nonzero-automatic classifier; use typed controller ownership.
+
 TGFT-1 `gameplay/fatigue` is a strict 512-byte ROM-only boundary (FNV1a32
 `F80F170D`) with Bank02 `$B4E6-$B5C7` (`F61DFFF7`), fixed `$ED2F-$ED3E`
 (`09342B88`), and exact same-pack TTDT-1. Preserve cadence reloads `6/4/1`,

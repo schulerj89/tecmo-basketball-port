@@ -873,6 +873,42 @@ bool tecmo_gameplay_live_foundation_pass_handoff(
     return true;
 }
 
+bool tecmo_gameplay_live_foundation_pass_launch_lock(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t receiver_actor,
+    TecmoGameplayLiveFoundation *foundation_io)
+{
+    TecmoGameplayLiveFoundation candidate;
+    uint8_t offense;
+    uint8_t passer;
+    if (assets == NULL || foundation_io == NULL ||
+        !live_play_state_valid(assets, foundation_io) ||
+        foundation_io->first_sync_pending ||
+        receiver_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT) {
+        return false;
+    }
+    candidate = *foundation_io;
+    offense = candidate.offense_side;
+    passer = candidate.primary_actor;
+    if (candidate.last_ball_holder != passer ||
+        candidate.selected_actor_by_side[offense] != passer ||
+        candidate.candidate_actor_by_side[offense] != receiver_actor ||
+        receiver_actor == passer ||
+        candidate.actor_team[receiver_actor] != offense) {
+        return false;
+    }
+
+    /* Bank05 $B0ED-$B0FA, inside the shared $B074 launch path, swaps
+       $000E[$030A] with $037F[$030A]. The source does not write $0308 here:
+       keep primary_actor/last_ball_holder on the passer until $B24F. */
+    candidate.selected_actor_by_side[offense] = receiver_actor;
+    candidate.candidate_actor_by_side[offense] = passer;
+    candidate.sync_serial = live_serial_next(candidate.sync_serial);
+    if (!live_play_state_valid(assets, &candidate)) return false;
+    *foundation_io = candidate;
+    return true;
+}
+
 bool tecmo_gameplay_live_foundation_claimant_settlement(
     const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t selected_claimant,
