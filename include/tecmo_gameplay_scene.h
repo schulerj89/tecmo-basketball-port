@@ -442,8 +442,9 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayJumpShotProfile jump_profile;
     TecmoGameplayJumpShotDirection jump_direction;
     /* Scene-native playback and predicted-route bookkeeping with no direct
-       RAM-byte identity. Bank05 $83E9-$847A supplies bounded ordinary-jump
-       playback evidence; the live make/miss prediction remains native policy. */
+       RAM-byte identity. Bank05 $83E9-$842B and $8469-$847A supply bounded
+       ordinary-jump pose-cycle evidence; live make/miss prediction remains
+       native policy. */
     bool jump_playback_active;
     bool predicted_make_route;
     bool jump_b_released;
