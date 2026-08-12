@@ -184,9 +184,10 @@ The first original-ROM two-point pilot stopped at exactly that guard because an
 AI-controlled front defender could not be selected and cleared. TGLM-4 was
 added to investigate that blocker. Its first launch then exposed and fixed a
 Lua 5.1 60-upvalue compilation error in status generation; both tracked Lua
-files now pass the bundled 32-bit Lua 5.1 parser. A final bounded launch still
-failed before creating the startup sentinel, with empty FCEUX output logs, so
-the controller and timing contract have not been runtime-validated. Diagnose
-that FCEUX/Lua startup boundary before another pilot; do not compensate with
-coordinate, delay, or controller sweeps. No live native two-point schedule is
-claimed.
+files now pass the bundled 32-bit Lua 5.1 parser. A later bounded launch reached
+live setup but aborted at frame 4214's defensive-A store-confirmation deadline
+before any shot. It supplied no `$B100`, state-08, or score evidence and closed
+FCEUX. The startup boundary is therefore no longer the current blocker, but the
+controller/timing contract still has no successful pilot. Do not compensate
+with coordinate, delay, or controller sweeps. No live native two-point schedule
+is claimed.

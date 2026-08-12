@@ -69,13 +69,14 @@ field columns, colon `$16`, black backing, and live `$FA` binding are
 reference-verified. Three-digit score capping and the unassigned CPU-side
 holder/shooter matchup label are explicit native adapter policies.
 
-TGAI-2 is now a strict compound-scene dependency. The live adapter owns a
-fixed opposing roster-slot link, explicit target snapshot, direction result,
-and decision serial for each actor. The link remains matchup/pose and defender-
-reference metadata; it is not the non-holder's implicit movement target. Its
-explicit no-command sentinel is important: the ROM play-command offset/link/
-advance lifecycle remains unported and is not silently implied by the live
-dependency.
+TGAI-2 is now a strict compound-scene dependency. The compatibility
+`TecmoGameplaySceneCpuActor` record owns render/movement observations and keeps
+its explicit no-command sentinel; it is not the command-stream owner. Bound
+production retains source cursors, target/direction results, and typed deferrals
+in `live_foundation.play_state`. Fixed opposing links remain matchup/pose and
+defender-reference metadata rather than implicit movement targets. This split
+prevents the compatibility record from duplicating or overstating the bounded
+Bank06 command lifecycle that production now owns.
 
 TGOR-1 owns only the binary offensive-direction state synchronized with live
 possession. Its exact Bank05 sources are the possession transition gate-and-
@@ -270,7 +271,7 @@ flight still terminates at the separately proven Y `$8F`. A transactional
 scene snapshot exposes all ten player coordinates, the ball, and both hoops;
 live validation and rendering reject invalid coordinates before consuming
 them. Bank04 `$AC8C` and `$ADA3/$ADAE/$ADB9` now supply the exact static
-tip-off players and ball anchor through TPTI-1. The post-handoff live layout,
+tip-off players and ball anchor through TPTI-2. The post-handoff live layout,
 tip animation, and other scene policy do not inherit that evidence.
 
 Typed transactional adapters now connect that state to the existing TGCP raw
@@ -422,20 +423,21 @@ result so no prior direction has to be fabricated.
 
 For each ordinary live update, the scene captures one immutable post-human-
 input snapshot of all ten canonical coordinates. Supported automatic selected
-primary executes its state-4 command once first. Eligible noncontrolled,
-nonselected actors then use mirrored per-slot offensive formation coordinates or
-explicit goal-side defensive offsets from their fixed linked opponent. A
-goal-side target outside the shaped court uses an equal inward offset before
-final validation. Those target choices are native approximations; TGAI supplies
-the exact nonzero octant and TGMO supplies the converted secondary movement
-step. Candidate actor/movement/target states commit together so loop order
-cannot alter this frame's targets. Bank06 `$8286-$82A5` skips selected `$0308`
-only in the later ordinary loop, preventing a second fetch after
-`$8374->$83F3->$8491`. Typed automatic ownership and ordinary `$05A1=0`
-admit the supported primary flow; human and unsupported primary gates/states
-remain excluded/fail-closed. Fixed links, nonselected formation/defensive
-targets, zero-vector bridging, object state/flags, and shot proximity/cadence
-remain native policy.
+primary executes its state-4 command once first; exact opcode 9 action `$21`
+may enter the shared pass transport in that update. The later Bank06 loop visits
+actors in canonical descending `9..0` order and skips selected `$0308/$0309`,
+preventing duplicate dispatch after `$8374->$83F3->$8491`. Eligible ordinary
+actors advance their source streams from `live_foundation.play_state`. A valid
+source actor/object target follows the current immutable snapshot, while a
+source direction may use the bounded TGMO target-composition adapter. Missing
+or unsupported target workspaces remain typed deferrals; with no retained
+target, the actor is inert rather than falling back to the legacy fixed
+formation/goal-side adapter. Candidate state commits transactionally. Typed
+automatic ownership and ordinary `$05A1=0` admit the supported primary flow;
+human and unsupported primary gates/states remain excluded/fail-closed. Fixed
+links, direction-only target composition, zero-vector bridging, object
+state/flags, pass duration/interpolation, and shot proximity/cadence remain
+native policy or explicitly incomplete.
 
 TGSR-4 also has FNV1a64 `FACCE42B52382D6B` and requires exact same-pack
 TGPL-1. Its revision-fingerprinted sources are Bank05 `$91BC-$943A`,
@@ -506,9 +508,12 @@ Variant 0 is the dunk family and has 32 exact steps in the
 direct/held-release family; variant 2 is the layup family and has 16 exact
 steps in the arc/longer-trajectory/contactable family. Their phase
 tables and all 208 TGCS-stored profile/direction resolutions into TGPL pose data
-are exact assets. Live play currently selects only profile 0/direction 0; that
-narrower selection remains a native approximation, not a property proved by the
-asset. Resolved uniform pose-cell polarity is preserved from fixed
+are exact assets. Bound production retains the selected roster profile-byte-2
+bit and geometry-derived active-hoop direction; only the isolated legacy
+direct-launch checkpoint fixes profile 0/direction 0. The close-vs-jump and
+numeric-variant reachability substitutions remain native policy and do not
+establish broader source semantics. Resolved uniform pose-cell polarity is
+preserved from fixed
 `$D413/$D498` and `$D503` `AND #$41`, then compared with effective facing only
 while that facing equals the actor's assigned TGOR goal baseline. Deliberate
 movement/action overrides, mixed poses, pre-tip presentation, and encoded
@@ -807,11 +812,14 @@ These are provenance only and are not runtime inputs.
   timing, aiming, and made/missed and rebound behavior remain unresolved. Only
   explicit made/missed results and settlement are modeled.
 - The exact TGCS numeric step/phase tables and the selected TGPL pose resolution
-  are consumed directly by the scene. TGCS exposes 208 exact resolutions, but
-  live selection is limited to profile 0/direction 0. Eligible baseline-facing
+  are consumed directly by the scene. TGCS exposes 208 exact resolutions, and
+  bound production retains the roster profile bit and geometry-derived
+  active-hoop direction. Only the isolated legacy direct-launch checkpoint is
+  limited to profile 0/direction 0. Eligible baseline-facing
   uniform poses reconcile their authored cell polarity with the actor's TGOR
   goal; explicit movement/action overrides retain their prior facing path. That
-  live selection policy remains approximate. The older state-only rightward
+  close-vs-jump/variant reachability policy remains approximate. The older
+  state-only rightward
   actor-9 observation remains provenance for the semantic event layer, not a
   universal animation label.
 - TGJS/TGSR exact playback proves only the human away/right

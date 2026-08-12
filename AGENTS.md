@@ -711,8 +711,9 @@ command offsets `$007D/$00D7`, and Bank06 `$8B8E-$8B9D` maps those from base
 `$9F2E` to stream/dispatch pointers; those values are not frame timers. The
 native scene does not yet implement that positioning/script system. Its
 per-attempt observed-schedule counter resets at launch, after each attempt, and
-when the scene ends. The exact ordinary-jump evidence boundary now includes the
-human away/right family-0/profile-0/direction-1 miss slot: current-level NES B
+when the scene ends. The exact ordinary-jump evidence boundary includes the
+captured human away/right family-0/profile-0/direction-1 miss slot:
+current-level NES B
 release, actor states `$0C/$0D/$0E/0`, Bank05 Q8.8
 height/velocity seed `$02E8`, gravity, frame-40 clamp, recovery through frame
 46, independent ball routes through frame
@@ -730,11 +731,11 @@ frames 38 and 53; native code does not reproduce those renderer stalls. Score
 and shot-clock reset remain the separately observed frame-85 checkpoint, while
 frame 111 hands possession over and queues crowd 11 only. The make ball arc
 remains a native approximation while its world endpoint and TGCP camera
-projection are now production-wired. Live scene policy reuses and horizontally
-mirrors this one numeric route for either manually controlled team. Ordinary
-live jumps therefore select the shooting lab default's
-family-0/profile-0/direction-1 TGJS base; physical hoop resolution still owns
-actor facing and the ball target.
+projection are production-wired. Bound production no longer fixes the captured
+profile/direction tuple: Bank02 profile byte 2 bit 5 selects the profile, and
+Bank05 `$9054-$90AF->$8DD3-$8E4D->$BF6C` supplies the eight-way active-hoop
+direction. Bank05 `$8B12` still resets family 0, which remains the only admitted
+family until `$8B83-$8BC8`'s complete raw gate is retained.
 At launch it transactionally verifies actor/possession/TGOR coherence, resolves
 the tracked offensive hoop, faces the actor toward it, and freezes that endpoint;
 this two-basket facing adapter is native approximation, not evidence for another
@@ -770,9 +771,9 @@ claimant trace or be labeled rebound/steal parity. A TGJS-owned shot pose clears
 the retained pre-tip orientation-encoded flag before rendering its launch-facing
 mirror.
 
-Post-handoff live actor layout, CPU locomotion/AI, pre-tip jump/ball
-interpolation and original tip-claim/tie settlement, unsupported jump
-directions/profiles and outcomes, ordinary two-point makes, the longer +157-update claimant route,
+Post-handoff live actor layout, incomplete CPU locomotion/AI, pre-tip jump/ball
+interpolation and original tip-claim/tie settlement, jump family 1 and
+unsupported outcomes, ordinary two-point makes, the longer +157-update claimant route,
 semantic rebounds/blocks/steals, general make/contact rules, the distance policy
 selecting dunk/variant 0 versus layup/variant 2, live close-shot
 profile/direction selection and left-facing render
@@ -798,9 +799,10 @@ palette recipe, including offsets 6/7/9 and the light variant at 13. TGDK uses
 that bounded recipe. The scene's fixed slots 0..4 lineup selection remains
 native policy; that does not make starter selection exact.
 
-Every gameplay launch now enters strict `gameplay/pre-tip` TPTI-1 before live
-updates. TPTI-1 is 5888 bytes / FNV1a32 `99ADFE3D`, has 20 exact Rev1 source
-spans, and requires same-pack TGPL-1, TTDT-1, TMUS-1, TWAR-1, and `chr/all`.
+Every gameplay launch now enters strict `gameplay/pre-tip` TPTI-2 before live
+updates. TPTI-2 is 7680 bytes / FNV1a32 `8E6367FC`, has 29 exact Rev1 source
+spans, and requires same-pack TGPL-1, TTDT-1, TMUS-1, TWAR-1, TGJS-2, and
+`chr/all`.
 The first `61/121/61` card waits, Bank06 character mapping, `$AF05` 2-by-2
 metatile glyphs, `$C6/$FA` text CHR selectors, and the 16-pixel cell positions
 are ASM-exact. The later phase durations are capture-bounded. The asset-backed
@@ -866,7 +868,7 @@ nametable figures scroll right; the 33-frame phase anchor is capture-bounded,
 but the per-step projection and OAM-Y semantics are ROM-exact. Bank04
 `$AC8C-$ACD9` initializes object slots 0..10 from state `$AD82`, sprite-slot
 base `$AD8D`, facing `$AD98`, X-low `$ADA3`, X-high `$ADAE`, Y `$ADB9`, and
-facing-indexed pose tables `$ADC4/$ADCD`. TPTI-1 retains those bytes across
+facing-indexed pose tables `$ADC4/$ADCD`. TPTI-2 retains those bytes across
 its close-up-control/timing spans, and
 `tecmo_gameplay_pretip_tip_lineup` transactionally exposes the complete setup
 for ten players plus the ball in canonical TGCT space. The scene consumes the
@@ -886,10 +888,11 @@ including the Bulls/Pacers tip palette checkpoint, and requires the visible
 `1ST PERIOD` mask to match exactly. Ignored PNGs and
 reference frames remain local evidence only.
 
-TGCS stores 208 exact profile/direction resolutions into TGPL pose data, but the
-live scene currently selects only profile 0/direction 0 and mirrors
-actor-facing-left; the asset breadth must not be read as proof of that narrower
-live policy.
+TGCS stores 208 exact profile/direction resolutions into TGPL pose data. Bound
+production retains the selected roster profile-byte-2 bit and geometry-derived
+active-hoop direction. Only the isolated legacy direct-launch checkpoint fixes
+profile 0/direction 0; do not generalize that compatibility fixture to live
+selection.
 `gameplay/dunk-cutaway` is the strict 20272-byte TGDK-1 payload (FNV1a32
 `E02F2D21`). It resolves screen `$0B`'s two D9F6 nametable pages, exact palette
 recipe, both side-specific sprite streams, seven stage anchors, CHR selectors,
@@ -943,13 +946,13 @@ and the holder/shooter matchup fallback for an unassigned CPU side are native
 adapter policies. Do not call those policies ROM-exact.
 
 TGAI-2 is a production scene dependency for bounded ordinary CPU movement.
-The scene owns a fixed opposing roster-slot link, explicit target result,
-snapshot fingerprint, and decision serial. The link remains matchup/pose and
-defender-reference metadata; non-holder movement consumes scene-owned explicit
-formation/marking coordinates. A defender goal-side target outside the shaped
-court uses the equal 32-pixel court-side offset before final validation. An
-explicit no-command sentinel keeps the still-unported ROM command/advance
-lifecycle out of the exactness claim.
+`TecmoGameplaySceneCpuActor.command_offset` remains a compatibility sentinel;
+it is not the source-stream owner. Bound production retains source command
+cursors, targets, directions, and typed defer reasons in
+`live_foundation.play_state`. Valid source targets compose through TGMO, while
+an unavailable effect with no retained target is inert rather than falling
+back to the legacy fixed-formation adapter. Fixed opposing links remain
+matchup/pose and defender-reference metadata, not universal movement targets.
 
 TGSR-4 is 608 bytes (FNV1a32 `5376E82B`, FNV1a64
 `FACCE42B52382D6B`) and revision-locks Bank05 `$91BC-$943A`, `$A6EE-$A9D9`,
@@ -1431,18 +1434,20 @@ snapshot re-evaluation, and
 malformed state/profile inputs.
 
 `TecmoGameplayScene` loads TGAI-2 and evaluates the supported automatic
-selected primary first, then eligible non-controlled non-selected actors from
-one immutable post-human-input ten-coordinate snapshot. Candidates commit
-together. The primary command runs once before ordinary-loop exclusion and its
-source target composes through TGMO; ordinary actors use scene-owned native
-targets and fixed opposing roster links. Keep unsupported primary gates/states,
-zero-vector bridging, object state/flags, native targets, and shot timing
-explicitly approximate/fail-closed.
-The live state must retain its no-command sentinel and no pending advance until
-the original play/formation command lifecycle is reconstructed. Do not claim a
-complete CPU policy, shot/pass/steal choice, ROM actor-link ownership, or full
-live parity. `$B081-$B32E` is converted separately as the per-frame candidate
-selector and must not be classified as ordinary targeting.
+selected primary first, then visits eligible non-controlled non-selected actors
+in Bank06's descending `9..0` ordinary-loop order from one immutable
+post-human-input snapshot. The primary command runs once before ordinary-loop
+exclusion; exact opcode 9 action `$21` may enter the shared actor-neutral pass
+transport. Other accepted source targets/directions compose through TGMO, and
+missing target workspaces remain typed deferrals with no legacy formation
+fallback. Keep unsupported primary gates/states, zero-vector bridging, object
+state/flags, pass duration/interpolation, and shot timing explicitly
+approximate/fail-closed. Keep the compatibility `cpu_actors[].command_offset`
+sentinel separate from the accepted `live_foundation.play_state` cursor owner;
+do not duplicate command advancement in both structures. Do not claim a
+complete CPU play, pass, shot, steal, or ROM actor-link policy. `$B081-$B32E`
+is converted separately as the per-frame candidate selector and must not be
+classified as ordinary targeting.
 `--gameplay-cpu-steering-test`,
 `--gameplay-cpu-steering-inspect`, `--gameplay-cpu-steering-harness`, and
 `--gameplay-cpu-steering-movement-harness` are console-only and must not

@@ -15,12 +15,13 @@ original game logic is being reconstructed.
   persistent results, and completed-game return paths
 - Full scrolling court with ten players, possession, passing, shooting, dunks,
   layups, free throws, fatigue, turnovers, clocks, scoring, periods, and overtime
-- Interactive opening tip with timed player and CPU jumps, ROM-derived poses and
-  trajectory timing, receiver-directed ball flight, and continuous movement into
-  live play
+- Interactive opening tip with source-clocked input/presentation timing,
+  ROM-derived pose data, a bounded native jump-trajectory adapter,
+  receiver-directed ball flight, and continuous movement into live play
 - Possession-aware offensive control and defender handoff, with partial
-  source-command CPU movement plus explicitly native targeting and matchup
-  adapters while the full playbook/assignment lifecycle is reconstructed
+  source-command CPU movement, one bounded autonomous action-pass route, and
+  explicitly native targeting/matchup adapters while the full playbook and
+  assignment lifecycle is reconstructed
 - Ordinary jump shots use the ROM's player-profile and active-hoop-direction
   animation sequences through gather, release, flight, and recovery. Production
   remains fail-closed on source-reset family 0 until the complete family-1 raw
@@ -29,8 +30,9 @@ original game logic is being reconstructed.
   uniforms
 - Team Data, rosters, starters, playbooks, and player details
 
-The largest remaining gaps are exact CPU offensive play selection, autonomous
-passing/shooting, and full-team assignment/spacing; broad steals, blocks,
+The largest remaining gaps are exact CPU offensive play selection, broader
+autonomous passing and shooting, and full-team assignment/spacing; broad steals,
+blocks,
 rebounds, contact, and fouls beyond the narrow supported routes; several shot
 lifecycles and outcomes; complete per-player statistics; All-Star game launch;
 and populated League Leaders.

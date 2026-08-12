@@ -283,23 +283,26 @@ does not change the TGAI movement-target boundary. Fatigue evolution is owned
 separately by TGFT-1 and supplies condition to TGMO. Handler-effect
 names describe bounded entry behavior; they are not play names.
 
-The scene owns a fixed opposing roster-slot link, an explicit target position,
-direction/write result, immutable-snapshot fingerprint, and decision serial
-for each eligible actor. The supported automatic selected primary executes one
-source command first; non-controlled non-selected candidates follow from the
-same post-human-input snapshot. Their movement commits together, while the
-ordinary loop skips primary to prevent duplicate dispatch.
+The scene's compatibility CPU record owns an explicit target position,
+direction/write result, immutable-snapshot fingerprint, and decision serial;
+its `command_offset` stays at the no-command sentinel. The actual source-stream
+owner is `live_foundation.play_state`. The supported automatic selected primary
+executes one source command first; non-controlled non-selected candidates then
+advance in Bank06's exact descending `9..0` ordinary-loop order from the same
+post-human-input snapshot. The loop skips selected primary and defender, so the
+primary cannot double-dispatch after its dedicated step.
 
-Offensive non-holders use five scene-owned formation points (`256,148`; `288,112`;
-`288,184`; `352,96`; `352,200`) and mirror X as `767-X` for the other
-orientation. Defenders target a point 32 pixels goal-side of their linked
-offensive actor, with per-slot court-depth splits `0,-10,10,-14,14`. When the
-goal-side candidate leaves the shaped court at that depth, the adapter uses the
-equal 32-pixel offset toward the court before its final bounds check. The fixed
-link remains pose/facing and defender-reference metadata instead of forcing two
-actors onto one coordinate. All of these target choices are explicit native
-approximations; only the resulting TGAI octant and TGMO movement step are
-ROM-exact. Shot proximity and cadence remain separate native policy.
+Bound production consumes validated source actor/object targets and source
+directions from `play_state`. Actor references resolve against the current
+immutable snapshot; direction-only records use the documented bounded TGMO
+target-composition adapter. Unsupported effects retain typed defer reasons and,
+without a validated target, produce no movement instead of falling back to the
+older five-point offensive formation and goal-side defender policy. Those fixed
+points remain compatibility/legacy native policy only. Fixed opposing links
+remain pose/facing and defender-reference metadata, not universal movement
+targets. The TGAI octant and TGMO movement step are exact where their inputs are
+owned; direction-only target construction, zero-vector handling, pass flight
+duration/interpolation, shot proximity, and cadence remain native policy.
 
 The bounded executor accepts explicit captured inputs for opcode 10's
 `$8CD0` branch context and `$8D59-$8E21` relative workspace, plus opcode

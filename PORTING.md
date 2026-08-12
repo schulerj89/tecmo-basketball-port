@@ -963,9 +963,11 @@ The TGAI-2 production binding owns a fixed opposing roster-slot link, an
 explicit target coordinate, direction result, immutable-snapshot fingerprint,
 and decision serial per actor. The link remains pose/facing and defensive
 reference metadata; it is no longer treated as the non-holder's implicit target
-coordinate. The binding carries an explicit no-command sentinel: the original
-actor-local command offsets and advance lifecycle are not inferred by loading
-the asset.
+coordinate. Its compatibility CPU record carries an explicit no-command
+sentinel: loading the asset alone does not infer an actor-local command
+lifecycle. Bound normal play owns the narrower accepted source cursors and
+advancement separately in `live_foundation.play_state`; the two ownership
+planes must not be conflated.
 
 Numeric close variant 0 has the exact 32-step direct/held-release table and
 variant 2 has the exact 16-step arc/longer-trajectory/contactable table. Their
@@ -1562,16 +1564,15 @@ Opposing directions on one axis are normalized to neutral as a native
 integration policy. Initial actor placement/direction, the current fixed
 five-player roster-slot/matchup-link binding, and CPU target selection/AI remain
 native integration or approximations. Supported automatic selected primary
-runs its source command once before ordinary-loop exclusion. Offensive non-holders use five deterministic formation points
-`(256,148)`, `(288,112)`, `(288,184)`, `(352,96)`, and `(352,200)`, mirrored as
-`767-X` for the other orientation. Defenders use their linked offensive actor's
-immutable snapshot coordinate with a 32-pixel offset toward the attacked hoop
-and roster depth splits `0,-10,10,-14,14`. If that goal-side offset crosses the
-shaped court boundary at the target depth, the adapter uses the equal 32-pixel
-offset toward the court before final validation. This restores meaningful
-spacing without claiming the original formation/play lifecycle. Supported
-selected primary and eligible non-selected CPU actors use the exact TGMO step
-after TGAI direction selection. The
+runs its source command once before ordinary-loop exclusion. Eligible
+non-selected automatic actors then advance source streams in Bank06's descending
+`9..0` order. Validated source actor/object targets follow the immutable
+snapshot, while direction-only records use a bounded target-composition adapter.
+Missing target workspaces defer without movement instead of falling back to the
+older five deterministic formation points and goal-side defender offsets. Those
+fixed points remain legacy/native compatibility policy rather than current
+bound-production targeting. Supported actors use the exact TGMO step after TGAI
+direction selection where the source input is owned. The
 deterministic `--gameplay-movement-harness` is console/test-only and never
 enters normal play.
 
@@ -1612,9 +1613,9 @@ possession-consistent holder, an explicit opposing linked/matchup actor,
 difficulty `0..2`, and an optional validated explicit target coordinate. It
 validates the complete snapshot transactionally and prints every coordinate
 plus a domain-separated canonical FNV1a32 fingerprint. Default and explicit
-targets remain deterministic harness/native policy. The live scene composes a
-supported selected-primary source target plus explicit formation/marking
-coordinates for eligible ordinary actors. The resulting
+targets remain deterministic harness/native policy. The live scene instead
+consumes accepted source targets/directions from `live_foundation.play_state`;
+direction-only target construction remains a documented adapter. The resulting
 nonzero target delta alone consumes the exact TGAI
 octant quantizer; zero delta reports a successful keep-direction/no-write
 result.
@@ -1638,10 +1639,13 @@ than reconstructed CPU command behavior.
 
 For live ordinary movement, the scene takes one immutable ten-actor snapshot
 after human input, evaluates the supported automatic selected primary first,
-then eligible non-controlled non-selected actors, and commits candidates
-together. The primary command executes once before ordinary-loop exclusion;
-ordinary actors retain their native target/link adapters. Shot proximity and
-unsupported selected-primary gates/states remain approximate/fail-closed.
+then eligible non-controlled non-selected actors in descending `9..0` source
+order, and commits candidates together. The primary command executes once
+before ordinary-loop exclusion; exact opcode 9 action `$21` may enter the shared
+pass transport. Other actors use accepted source targets/directions or remain
+inert with typed defer reasons. Shot proximity, direction-only target
+construction, pass duration/interpolation, and unsupported selected-primary
+gates/states remain approximate/fail-closed.
 
 The Bank06 common target tail has one additional, deliberately narrow live
 owner. `$92CA-$92D0` tests only `$BA & 3` before `$8FD9` advances the actor's
@@ -1659,7 +1663,7 @@ establishes the bounded Bank06 selected-primary order, not a complete CPU
 playbook, holder policy, passing decision, jump/far shot lifecycle, or
 downstream `$92DD+` side-effect parity.
 
-Do not use this asset to claim a complete CPU policy, shot/pass/steal choice,
+Do not use this asset to claim a complete CPU policy, general pass/shot/steal choice,
 ROM actor-link ownership, or live collision/contact ownership. In particular, the
 nearby `$B081-$B32E` candidate scan is excluded from ordinary movement
 targeting until its callers and outcomes are separately proven. The harness
