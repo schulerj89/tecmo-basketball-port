@@ -719,11 +719,20 @@ static bool scene_test_shot_clock_live_input_pass(
     p1.held.shoot = true;
     p1.pressed.shoot = true;
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
-        scene->ball_holder == holder ||
+        (!scene->legacy_direct_launch &&
+         (!scene_pass_active(scene) || scene->ball_holder != holder)) ||
+        (scene->legacy_direct_launch && scene->ball_holder == holder) ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
         return scene_test_shot_clock_fail(run, "NES A pass contract failed");
     }
-    if (scene->controlled_actor[0] != scene->ball_holder) {
+    for (size_t pass_guard = 0U;
+         scene_pass_active(scene) && pass_guard < 40U; ++pass_guard) {
+        memset(&p1, 0, sizeof(p1));
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2))
+            return scene_test_shot_clock_fail(run, "NES A pass update failed");
+    }
+    if (scene_pass_active(scene) || scene->ball_holder == holder ||
+        scene->controlled_actor[0] != scene->ball_holder) {
         return scene_test_shot_clock_fail(
             run, "pass ownership invariant failed");
     }

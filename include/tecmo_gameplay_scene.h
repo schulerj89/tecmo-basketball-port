@@ -73,6 +73,31 @@ typedef enum TecmoGameplaySceneShotKind {
     TECMO_GAMEPLAY_SCENE_SHOT_KIND_COUNT
 } TecmoGameplaySceneShotKind;
 
+/* Bank05 $89D7 starts a pass in a passer-owned gather state, $86A8 releases
+   only when the full packed animation byte reaches $04, $B074/$B42F advance
+   the ball, and $B24F transfers ownership at the catch.  These names retain
+   that ordering without exposing source RAM as the native scene ABI. */
+typedef enum TecmoGameplayScenePassPhase {
+    TECMO_GAMEPLAY_SCENE_PASS_NONE = 0,
+    TECMO_GAMEPLAY_SCENE_PASS_GATHER,
+    TECMO_GAMEPLAY_SCENE_PASS_FLIGHT,
+    TECMO_GAMEPLAY_SCENE_PASS_PHASE_COUNT
+} TecmoGameplayScenePassPhase;
+
+typedef struct TecmoGameplayScenePassState {
+    TecmoGameplayScenePassPhase phase;
+    uint8_t passer;
+    uint8_t receiver;
+    uint8_t controller;
+    /* Source-shaped release countdown: $32 setup then full-byte $04. */
+    uint8_t packed_animation_state;
+    uint8_t reserved[3];
+    uint16_t flight_frame;
+    uint16_t flight_duration;
+    TecmoGameplayCourtCoordinateQ8 start_position;
+    TecmoGameplayCourtCoordinateQ8 target_position;
+} TecmoGameplayScenePassState;
+
 typedef struct TecmoGameplaySceneLaunch {
     TecmoGameplaySceneSource source;
     uint16_t game_index;
@@ -310,6 +335,7 @@ typedef struct TecmoGameplayScene {
     TecmoGameplaySceneClaimantSettlementTrace claimant_settlement_trace;
     uint8_t controlled_actor[TECMO_GAMEPLAY_CONTROLLER_COUNT];
     uint8_t ball_holder;
+    TecmoGameplayScenePassState pass_state;
     TecmoGameplayCourtCoordinateQ8 ball_position;
     TecmoGameplayCourtCoordinateQ8 shot_start_position;
     TecmoGameplayCourtCoordinateQ8 shot_end_position;

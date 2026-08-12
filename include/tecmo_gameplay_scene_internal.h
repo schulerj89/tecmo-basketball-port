@@ -187,6 +187,12 @@ bool scene_move_controlled_actor(TecmoGameplayScene *scene,
                                  const TecmoControlFrame *controls);
 uint8_t scene_first_actor_for_team(TecmoGameplayTeam team);
 bool scene_attach_ball(TecmoGameplayScene *scene);
+bool scene_pass_active(const TecmoGameplayScene *scene);
+bool scene_pass_state_valid(const TecmoGameplayScene *scene);
+void scene_pass_clear(TecmoGameplayScene *scene);
+bool scene_update_pass(TecmoGameplayScene *scene);
+bool scene_begin_pass(TecmoGameplayScene *scene, size_t controller,
+                      uint8_t receiver);
 
 /* Stable TGSR sample input retained at the shot boundary.  The native
    substitution preserves the accepted low-byte sample stream and adds

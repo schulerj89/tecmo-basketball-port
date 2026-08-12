@@ -1623,6 +1623,7 @@ bool scene_ownership_valid(const TecmoGameplayScene *scene)
                  TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE
              ? !scene_court_free_throw_lineup_matches(scene)
              : scene->free_throw_lineup_active) ||
+        !scene_pass_state_valid(scene) ||
         !tecmo_gameplay_scene_court_coordinates(
             scene, &coordinates)) {
         return false;

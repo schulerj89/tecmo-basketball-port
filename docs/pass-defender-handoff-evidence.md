@@ -1,5 +1,24 @@
 # Pass defender handoff evidence
 
+## Shared visible pass lifecycle
+
+Ordinary bound human passes now retain the Bank05 ordering rather than
+teleporting possession at the NES A edge:
+
+- `$89D7` seeds the passer-owned gather state and packed `$0458=$32`.
+- `$86A8` releases only when the complete packed byte reaches `$04`.
+- `$B074/$B42F/$B500` own a separately moving ball before the catch.
+- `$B24F` is the only point where the native `ball_holder`, controller, and
+  typed LIVE foundation move to the receiver.
+
+The current Q8 flight duration is explicitly a native adapter because the
+Bank05 `$BB9F/$BBA0` duration lookup and five-substep scheduler are not yet a
+strict pass asset. The source ordering, locked receiver snapshot, multi-update
+ball ownership, and catch-only handoff are preserved. This does not add a CPU
+pass-decision policy, `$B13F` interception/contact semantics, or claim that the
+generic violation restart handoff is the complete Bank06 inbound formation
+route.
+
 This change is bounded to Bank05 `$B24F-$B32B` and the selected-actor skip
 contract at Bank06 `$81F7-$82D`.
 
