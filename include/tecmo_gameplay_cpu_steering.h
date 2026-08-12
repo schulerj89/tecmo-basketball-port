@@ -280,9 +280,10 @@ typedef struct TecmoGameplayCpuSteeringPlayInput {
     uint8_t step_budget;
     /* Exact $035A orientation selector; only 0 and 1 are valid. */
     uint8_t orientation_035a;
-    /* Bank06 $92CA consumes $BA low bits for the common target tail.  A
-       value is meaningful only when the caller has a faithful owner; LIVE
-       deliberately leaves this unavailable rather than treating zero as RAM. */
+    /* Bank06 $92CA consumes $BA low bits for the common target tail. A value
+       is meaningful only when the caller has a faithful owner; ordinary LIVE
+       may supply the typed no-transient-action zero, while all other paths
+       remain unavailable rather than treating zero as raw RAM. */
     bool common_tail_ba_available;
     uint8_t flags_ba;
     /* Exact $04B0 values for opcode 14; bit $10 is the qualification gate. */

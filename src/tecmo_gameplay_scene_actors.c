@@ -1304,6 +1304,23 @@ bool scene_cpu_target_for_source_direction(
     return true;
 }
 
+static bool scene_cpu_common_tail_has_ordinary_live_zero(
+    const TecmoGameplayScene *scene)
+{
+    /* Bank05 $86DD-$8798 owns nonzero $BA low bits while shot/recovery
+       lifecycles are active, and Bank05 $8FAD permits the ordinary possession
+       handoff only when ($BA & 3) is zero.  This is a narrow projection for
+       Bank06 $92CA's same low-bit gate, not a raw-RAM mirror or timer value. */
+    return scene != NULL && scene->active && !scene->result_ready &&
+           !scene->pretip_abort_pending &&
+           scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
+           scene->state.violation == TECMO_GAMEPLAY_VIOLATION_NONE &&
+           scene->state.free_throws.attempts_remaining == 0U &&
+           scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+           !scene_pass_active(scene) && !scene->free_throw_lineup_active &&
+           !tecmo_gameplay_scene_in_dunk_presentation(scene);
+}
+
 static bool scene_cpu_build_play_input(
     const TecmoGameplayScene *scene,
     const TecmoGameplayCourtCoordinate
@@ -1327,10 +1344,16 @@ static bool scene_cpu_build_play_input(
        value here rather than a substitute for missing RAM. */
     memcpy(input->actor_04b0, foundation->actor_selector_flags,
            sizeof(input->actor_04b0));
+    /* Only the Bank06 $92CA low-two-bit gate has a typed ordinary-LIVE owner:
+       every modeled transient lifecycle above is absent, so its exact zero
+       branch may advance the five-byte stream. This does not represent all of
+       $BA or derive a value from a zeroed struct, shot clock, or frame count. */
+    input->common_tail_ba_available =
+        scene_cpu_common_tail_has_ordinary_live_zero(scene);
+    input->flags_ba = 0U;
     /* The remaining Bank06 inputs have no faithful typed LIVE owner. Keep
-       their availability false: never turn a zeroed struct, shot clock, or
-       frame counter into $BA, $046E, $07DF, or the opcode-21 gate plane. */
-    input->common_tail_ba_available = false;
+       their availability false rather than inventing $046E, $07DF, or the
+       opcode-21 gate plane. */
     input->actor_046e_probe_available = false;
     input->opcode21_gate_inputs_available = false;
     input->special_actor_07df_available = false;
