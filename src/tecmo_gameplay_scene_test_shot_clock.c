@@ -28,7 +28,7 @@ static bool scene_test_close_semantic_chain_untouched(
 {
     const TecmoGameplayCloseShotState *shot;
     if (scene == NULL) return false;
-    shot = &scene->state.close_shot_subtype01;
+    shot = &scene->state.close_shot_phase_trace;
     return shot->phase == TECMO_GAMEPLAY_CLOSE_SHOT_NEUTRAL &&
            shot->observation == TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_ONLY &&
            shot->observed_actor_pose_index == UINT16_MAX &&
@@ -788,7 +788,7 @@ static bool scene_test_shot_clock_dunk_layup(
     }
     scene->close_shot_direction = TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0;
     close_transition_serial =
-        scene->state.close_shot_subtype01.transition_serial;
+        scene->state.close_shot_phase_trace.transition_serial;
     shot_actor = scene->shot_actor;
     for (frame = 0U; frame < 140U &&
          scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE; ++frame) {
@@ -805,7 +805,7 @@ static bool scene_test_shot_clock_dunk_layup(
                scene->actors[shot_actor].pose_index != expected_pose ||
                !scene_test_close_semantic_chain_untouched(scene) ||
                scene_test_has_close_semantic_event(&scene->events) ||
-               scene->state.close_shot_subtype01.transition_serial !=
+               scene->state.close_shot_phase_trace.transition_serial !=
                    close_transition_serial ||
                !tecmo_gameplay_scene_test_draw_exact_step(scene)))) {
             return scene_test_shot_clock_fail(
@@ -884,7 +884,7 @@ static bool scene_test_shot_clock_dunk_layup(
             run, "NES B layup/TGCS variant-2 contract failed");
     }
     close_transition_serial =
-        scene->state.close_shot_subtype01.transition_serial;
+        scene->state.close_shot_phase_trace.transition_serial;
     shot_actor = scene->shot_actor;
     for (frame = 0U; frame < 24U &&
          scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE; ++frame) {
@@ -896,7 +896,7 @@ static bool scene_test_shot_clock_dunk_layup(
                scene->actors[shot_actor].pose_index != expected_pose ||
                !scene_test_close_semantic_chain_untouched(scene) ||
                scene_test_has_close_semantic_event(&scene->events) ||
-               scene->state.close_shot_subtype01.transition_serial !=
+               scene->state.close_shot_phase_trace.transition_serial !=
                    close_transition_serial ||
                !tecmo_gameplay_scene_test_draw_exact_step(scene)))) {
             return scene_test_shot_clock_fail(

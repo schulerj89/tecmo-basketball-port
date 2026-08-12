@@ -586,7 +586,7 @@ static bool live_proof_trigger_claimant_settlement(
     for (seed = 0U; seed < 256U; ++seed) {
         launched = *scene;
         shooter.x = (int16_t)(
-            launched.orientation_state.current_direction == 0U
+            launched.orientation_state.attack_direction == 0U
                 ? launched.orientation_state.offensive_hoop.x + 48
                 : launched.orientation_state.offensive_hoop.x - 48);
         shooter.y = TECMO_GAMEPLAY_SHOT_TARGET_Y;
@@ -1537,7 +1537,7 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
               scene->live_foundation.sync_serial != 0U) ? "true" : "false",
              (unsigned)scene->frame, (unsigned)scene->state.phase,
             (unsigned)scene->state.possession, (unsigned)scene->ball_holder,
-            (unsigned)scene->orientation_state.current_direction,
+            (unsigned)scene->orientation_state.attack_direction,
             (unsigned)scene->controlled_actor[0U],
             (unsigned)scene->controlled_actor[1U],
             (unsigned)scene->action_serial, (unsigned)scene->shot_kind,

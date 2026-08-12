@@ -265,7 +265,7 @@ try {
             $Map.lineup_contract.base_shooter_state.raw_046E -eq 32 -and
             $Map.lineup_contract.base_shooter_state.raw_0479 -eq 65 -and
             $Map.live_scene_integration.orientation_source -match
-                "TGOR-1 current_direction" -and
+                "TGOR-1 attack_direction" -and
             $Map.live_scene_integration.position_binding -match
                 "exact TGFL-1 raw world X/Y" -and
             $Map.live_scene_integration.camera_binding -match

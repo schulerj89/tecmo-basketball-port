@@ -1189,7 +1189,7 @@ try {
     }
     if ($LineupMaps.Count -ne 1 -or
         $LineupMaps[0].live_scene_integration.orientation_source -notmatch
-            "TGOR-1 current_direction" -or
+            "TGOR-1 attack_direction" -or
         $LineupMaps[0].live_scene_integration.position_binding -notmatch
             "exact TGFL-1 raw world X/Y" -or
         $LineupMaps[0].live_scene_integration.camera_binding -notmatch

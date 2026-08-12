@@ -66,7 +66,7 @@ static bool scene_test_free_throw_lineup_bound(
         scene->free_throw_secondary != expected_secondary ||
         scene->free_throw_lineup_transition_serial !=
             scene->orientation_state.transition_serial ||
-        scene->orientation_state.current_direction !=
+        scene->orientation_state.attack_direction !=
             expected_orientation ||
         scene->camera_state.camera_x != expected_camera_x ||
         !tecmo_gameplay_scene_free_throw_lineup(scene, &lineup) ||
@@ -531,7 +531,7 @@ static bool scene_test_violations_and_cpu_offense(
                 (unsigned)scene->inbound_state.passer,
                 (unsigned)scene->inbound_state.receiver,
                 (unsigned)scene->inbound_state.defender,
-                (unsigned)scene->orientation_state.current_direction,
+                (unsigned)scene->orientation_state.attack_direction,
                 scene->status);
             tecmo_gameplay_scene_test_message(message, message_size, failure);
         }
@@ -1463,7 +1463,7 @@ static bool scene_test_cpu_formation_regression(
             return false;
         }
     }
-    if (scene->orientation_state.current_direction != 0U ||
+    if (scene->orientation_state.attack_direction != 0U ||
         scene->cpu_actors[5U].target_kind !=
             TECMO_GAMEPLAY_CPU_STEERING_HARNESS_EXPLICIT_TARGET ||
         scene->cpu_actors[5U].linked_actor != 0U ||
@@ -1494,7 +1494,7 @@ static bool scene_test_cpu_formation_regression(
     zero_input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_HARNESS_INPUT_TAG;
     zero_input.actor = 5U;
     zero_input.possession = (uint8_t)scene->state.possession;
-    zero_input.orientation = scene->orientation_state.current_direction;
+    zero_input.orientation = scene->orientation_state.attack_direction;
     zero_input.ball_holder = scene->ball_holder;
     zero_input.matchup_actor = 0U;
     zero_input.difficulty = scene->launch.difficulty;
@@ -1528,7 +1528,7 @@ static bool scene_test_cpu_formation_regression(
         pre_update_positions[actor] = scene->actors[actor].position;
     }
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
-        scene->orientation_state.current_direction != 1U ||
+        scene->orientation_state.attack_direction != 1U ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE) {
         tecmo_gameplay_scene_test_message(
             message, message_size,
@@ -1554,7 +1554,7 @@ static bool scene_test_cpu_formation_regression(
         pre_update_positions[actor] = scene->actors[actor].position;
     }
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
-        scene->orientation_state.current_direction != 1U ||
+        scene->orientation_state.attack_direction != 1U ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE) {
         tecmo_gameplay_scene_test_message(
             message, message_size,
@@ -3197,7 +3197,7 @@ static bool scene_test_live_foundation_regressions(
             play_input.actor = edge_actor;
             play_input.step_budget = 1U;
             play_input.orientation_035a =
-                scene->orientation_state.current_direction;
+                scene->orientation_state.attack_direction;
             memcpy(play_input.actor_position, edge_positions,
                    sizeof(edge_positions));
             play_input.ball_position = edge_positions[0U];
@@ -3286,7 +3286,7 @@ static bool scene_test_live_foundation_regressions(
             edge_ball_before = scene->ball_position;
             edge_holder_before = scene->ball_holder;
             edge_orientation_before =
-                scene->orientation_state.current_direction;
+                scene->orientation_state.attack_direction;
             edge_possession_before = (uint8_t)scene->state.possession;
             edge_action_serial_before = scene->action_serial;
             memcpy(edge_controlled_before, scene->controlled_actor,
@@ -3301,7 +3301,7 @@ static bool scene_test_live_foundation_regressions(
                 memcmp(&scene->ball_position, &edge_ball_before,
                        sizeof(edge_ball_before)) != 0 ||
                 scene->ball_holder != edge_holder_before ||
-                scene->orientation_state.current_direction !=
+                scene->orientation_state.attack_direction !=
                     edge_orientation_before ||
                 (uint8_t)scene->state.possession != edge_possession_before ||
                 scene->action_serial != edge_action_serial_before ||
@@ -3694,7 +3694,7 @@ static bool scene_test_live_foundation_regressions(
     }
     malformed_scene = *scene;
     malformed_scene.live_foundation.orientation =
-        (uint8_t)(scene->orientation_state.current_direction ^ 1U);
+        (uint8_t)(scene->orientation_state.attack_direction ^ 1U);
     if (scene_ownership_valid(&malformed_scene)) {
         LIVE_FAIL("LIVE ownership orientation mismatch was accepted");
     }
@@ -4776,7 +4776,7 @@ static bool scene_test_prepare_owned_shot_fixture(
     }
     scene_test_prepare_failure_stage = 3U;
     hoop = scene->orientation_state.offensive_hoop;
-    position.x = scene->orientation_state.current_direction == 0U
+    position.x = scene->orientation_state.attack_direction == 0U
         ? (int16_t)((int)hoop.x + approach_distance_x)
         : (int16_t)((int)hoop.x - approach_distance_x);
     position.y = y;
@@ -4793,7 +4793,7 @@ static bool scene_test_prepare_owned_shot_fixture(
     scene->actors[0U].position = position;
     scene->actors[0U].anchor = position;
     scene->actors[0U].facing_right =
-        scene->orientation_state.current_direction == 0U
+        scene->orientation_state.attack_direction == 0U
             ? position.x < hoop.x : position.x > hoop.x;
     scene->state.clock_minutes = 1U;
     scene->state.clock_seconds = 0U;
@@ -7002,7 +7002,7 @@ static bool scene_test_home_a7a9_orientation_one(
                     TecmoGameplayScene endpoint_probe = *scene;
                     TecmoGameplayScene snapshot;
                     uint8_t captured_orientation;
-                    orientation_probe.orientation_state.current_direction = 0U;
+                    orientation_probe.orientation_state.attack_direction = 0U;
                     if (!scene_shot_state_valid(&orientation_probe) ||
                         !scene_shot_captured_rattle_orientation(
                             &orientation_probe, &captured_orientation) ||
@@ -7771,7 +7771,7 @@ static bool scene_test_owned_shot_boundary(
                        (unsigned)scene->shot_outcome,
                        (unsigned)scene->shot_rim_route.selector,
                        (unsigned)scene->shot_rim_route.source_target_cpu,
-                       (unsigned)scene->orientation_state.current_direction,
+                       (unsigned)scene->orientation_state.attack_direction,
                        (unsigned)scene->shot_frame,
                        scene->jump_rim_rattle.active ? 1U : 0U,
                        (unsigned)scene->jump_rim_rattle.orientation,

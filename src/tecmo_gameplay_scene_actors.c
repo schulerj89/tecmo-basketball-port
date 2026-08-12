@@ -212,7 +212,7 @@ bool scene_sync_live_foundation(TecmoGameplayScene *scene)
     candidate = scene->live_foundation;
     if (!tecmo_gameplay_live_foundation_synchronize(
             &scene->cpu_steering_assets, positions,
-            scene->orientation_state.current_direction,
+            scene->orientation_state.attack_direction,
             (uint8_t)scene->state.possession, scene->ball_holder,
             actor_team, scene->launch.controller_team,
             scene->controlled_actor, &candidate)) {
@@ -820,7 +820,7 @@ bool scene_begin_inbound(TecmoGameplayScene *scene,
         scene->actors[defender].team == (uint8_t)restart_team ||
         !tecmo_gameplay_free_throw_lineup_derive_round_setup(
             &scene->free_throw_lineup_assets,
-            scene->orientation_state.current_direction, passer, defender,
+            scene->orientation_state.attack_direction, passer, defender,
             &setup)) {
         goto reject;
     }
@@ -1061,7 +1061,7 @@ bool scene_settle_backcourt(TecmoGameplayScene *scene,
         return false;
     }
     *settled_out = false;
-    input.orientation = scene->orientation_state.current_direction;
+    input.orientation = scene->orientation_state.attack_direction;
     input.global_object_state = 0U;
     next_backcourt = scene->backcourt_state;
     if (!tecmo_gameplay_backcourt_step(
@@ -1668,7 +1668,7 @@ static bool scene_cpu_build_play_input(
        live tick. The accepted executor's maximum budget is not a per-actor
        scene tick budget. */
     input->step_budget = 1U;
-    input->orientation_035a = scene->orientation_state.current_direction;
+    input->orientation_035a = scene->orientation_state.attack_direction;
     /* Bank06 $9146 reads only $04B0 bit-$10. LIVE owns that selector flag
        through formation synchronization, so zero is a valid unselected
        value here rather than a substitute for missing RAM. */
@@ -1761,7 +1761,7 @@ static bool scene_cpu_legacy_policy_target(
         !scene->legacy_direct_launch ||
         actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         scene->state.possession > TECMO_GAMEPLAY_TEAM_HOME ||
-        scene->orientation_state.current_direction >=
+        scene->orientation_state.attack_direction >=
             TECMO_GAMEPLAY_COURT_ORIENTATION_COUNT) {
         return false;
     }
@@ -1777,13 +1777,13 @@ static bool scene_cpu_legacy_policy_target(
     if (item->team == (uint8_t)scene->state.possession) {
         const TecmoGameplayCourtCoordinate *formation =
             &formation_targets[item->roster_index];
-        target_x = scene->orientation_state.current_direction == 0U
+        target_x = scene->orientation_state.attack_direction == 0U
             ? formation->x
             : TECMO_GAMEPLAY_COURT_WORLD_MAX_X - formation->x;
         target_y = formation->y;
     } else {
         const TecmoGameplayCourtCoordinate *linked = &snapshot[linked_actor];
-        goal_side = scene->orientation_state.current_direction == 0U
+        goal_side = scene->orientation_state.attack_direction == 0U
             ? -1 : 1;
         target_x = (int32_t)linked->x + goal_side * 32;
         target_y = (int32_t)linked->y +
@@ -1884,7 +1884,7 @@ static bool scene_update_ai_legacy(
         input.steering.actor = (uint8_t)actor;
         input.steering.possession = (uint8_t)scene->state.possession;
         input.steering.orientation =
-            scene->orientation_state.current_direction;
+            scene->orientation_state.attack_direction;
         input.steering.ball_holder = scene->ball_holder;
         input.steering.matchup_actor = cpu->linked_actor;
         input.steering.difficulty = scene->launch.difficulty;
@@ -2030,7 +2030,7 @@ bool scene_update_ai(
     candidate_foundation = scene->live_foundation;
     if (!tecmo_gameplay_live_foundation_synchronize(
             &scene->cpu_steering_assets, steering_snapshot,
-            scene->orientation_state.current_direction,
+            scene->orientation_state.attack_direction,
             (uint8_t)scene->state.possession, scene->ball_holder,
             actor_team, scene->launch.controller_team,
             scene->controlled_actor, &candidate_foundation)) {
@@ -2092,7 +2092,7 @@ bool scene_update_ai(
         input.steering.actor = (uint8_t)actor;
         input.steering.possession = (uint8_t)scene->state.possession;
         input.steering.orientation =
-            scene->orientation_state.current_direction;
+            scene->orientation_state.attack_direction;
         input.steering.ball_holder = scene->ball_holder;
         input.steering.difficulty = scene->launch.difficulty;
         /* Native fixed projection; never expose it as live $037F/$06CB. */
@@ -2108,7 +2108,7 @@ bool scene_update_ai(
                horizontal adjustment (+16/-16). It supplies separation and
                prevents the old exact-coordinate overlap policy. */
             target.x = (int16_t)(target.x +
-                (scene->orientation_state.current_direction == 0U
+                (scene->orientation_state.attack_direction == 0U
                     ? 16 : -16));
             if (!tecmo_gameplay_court_coordinate_valid(&target)) {
                 return false;

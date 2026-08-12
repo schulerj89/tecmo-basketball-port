@@ -714,7 +714,7 @@ static bool scene_initialize_actors(TecmoGameplayScene *scene)
     scene->ball_position = ball_position;
     if (!tecmo_gameplay_live_foundation_initialize(
             &scene->cpu_steering_assets, positions,
-            scene->orientation_state.current_direction,
+            scene->orientation_state.attack_direction,
             (uint8_t)scene->state.possession, scene->ball_holder,
             actor_team, scene->launch.controller_team, controlled,
             &scene->live_foundation)) {
@@ -930,7 +930,7 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
     if (!tecmo_gameplay_camera_settle_court(
             &scene->camera_assets, &scene->camera_state,
             &scene->ball_position,
-            scene->orientation_state.current_direction, false) ||
+            scene->orientation_state.attack_direction, false) ||
         !tecmo_gameplay_camera_state_live_valid(
             &scene->camera_assets, &scene->camera_state)) {
         scene_set_status(scene, "gameplay live camera initialization rejected");
@@ -1151,7 +1151,7 @@ static bool scene_apply_free_throw_lineup(
     size_t actor;
     if (scene == NULL ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_FREE_THROW_SEQUENCE ||
-        scene->orientation_state.current_direction >=
+        scene->orientation_state.attack_direction >=
             TECMO_GAMEPLAY_FREE_THROW_LINEUP_ORIENTATION_COUNT ||
         scene->orientation_state.tracked_possession_team !=
             (uint8_t)scene->state.free_throws.scoring_team ||
@@ -1164,7 +1164,7 @@ static bool scene_apply_free_throw_lineup(
             (uint8_t)scene->state.free_throws.scoring_team ||
         !tecmo_gameplay_free_throw_lineup_derive(
             &scene->free_throw_lineup_assets,
-            scene->orientation_state.current_direction,
+            scene->orientation_state.attack_direction,
             shooter, secondary, &lineup)) {
         return false;
     }
@@ -1204,7 +1204,7 @@ static bool scene_apply_free_throw_lineup(
     candidate_camera = scene->camera_state;
     if (!tecmo_gameplay_camera_settle_court(
             &scene->camera_assets, &candidate_camera, &focus,
-            scene->orientation_state.current_direction, false) ||
+            scene->orientation_state.attack_direction, false) ||
         !tecmo_gameplay_camera_state_live_valid(
             &scene->camera_assets, &candidate_camera)) {
         return false;
@@ -1243,7 +1243,7 @@ static bool scene_apply_free_throw_lineup(
     scene->free_throw_lineup_transition_serial =
         scene->orientation_state.transition_serial;
     scene->free_throw_lineup_orientation =
-        scene->orientation_state.current_direction;
+            scene->orientation_state.attack_direction;
     scene->free_throw_shooter = shooter;
     scene->free_throw_secondary = secondary;
     scene->free_throw_lineup_active = true;
@@ -1628,7 +1628,7 @@ static bool scene_follow_live_camera_once(TecmoGameplayScene *scene)
     followed = scene->camera_state;
     if (!tecmo_gameplay_camera_follow_court(
             &scene->camera_assets, &followed, &scene->ball_position,
-            scene->orientation_state.current_direction, 0U, false) ||
+            scene->orientation_state.attack_direction, 0U, false) ||
         !tecmo_gameplay_camera_state_live_valid(
             &scene->camera_assets, &followed)) {
         return false;
@@ -1798,7 +1798,7 @@ static bool scene_update_pretip_frame(
             !tecmo_gameplay_camera_settle_court(
                 &scene->camera_assets, &scene->camera_state,
                 &scene->ball_position,
-                scene->orientation_state.current_direction, false) ||
+                scene->orientation_state.attack_direction, false) ||
             (scene->launch.game_music_enabled &&
              !tecmo_gameplay_audio_queue_game_music(
                  &scene->audio_player))) {

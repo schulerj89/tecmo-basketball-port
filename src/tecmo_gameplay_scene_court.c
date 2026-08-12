@@ -102,7 +102,7 @@ bool scene_court_free_throw_lineup_matches(
         scene->free_throw_lineup_orientation >=
             TECMO_GAMEPLAY_FREE_THROW_LINEUP_ORIENTATION_COUNT ||
         scene->free_throw_lineup_orientation !=
-            scene->orientation_state.current_direction ||
+            scene->orientation_state.attack_direction ||
         scene->free_throw_lineup_transition_serial !=
             scene->orientation_state.transition_serial ||
         scene->orientation_state.tracked_possession_team !=
@@ -318,7 +318,7 @@ bool tecmo_gameplay_scene_court_slice(
     slice.contract_tag = TECMO_GAMEPLAY_SCENE_COURT_SLICE_TAG;
     slice.transition_serial = scene->orientation_state.transition_serial;
     slice.possession = (uint8_t)scene->state.possession;
-    slice.direction = scene->orientation_state.current_direction;
+    slice.direction = scene->orientation_state.attack_direction;
     if (!tecmo_gameplay_court_slice_viewport(
             &scene->court_world, scene->camera_state.camera_x,
             &slice.viewport) ||

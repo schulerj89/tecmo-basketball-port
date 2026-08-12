@@ -316,7 +316,7 @@ static bool scene_resolve_actor_offensive_hoop(
             (uint8_t)scene->state.possession ||
         !tecmo_gameplay_court_orientation_hoop(
             &scene->court_orientation,
-            scene->orientation_state.current_direction, &hoop)) {
+            scene->orientation_state.attack_direction, &hoop)) {
         return false;
     }
     actor = &scene->actors[actor_index];
@@ -327,7 +327,7 @@ static bool scene_resolve_actor_offensive_hoop(
     }
     *hoop_out = hoop;
     *facing_right_out = actor->position.x == hoop.x
-                            ? scene->orientation_state.current_direction != 0U
+                            ? scene->orientation_state.attack_direction != 0U
                             : actor->position.x < hoop.x;
     return true;
 }
@@ -576,7 +576,7 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
         return false;
     }
     approach_distance_x =
-        scene->orientation_state.current_direction == 0U
+        scene->orientation_state.attack_direction == 0U
             ? actor->position.x - (int)offensive_hoop.x
             : (int)offensive_hoop.x - actor->position.x;
     distance_y = TECMO_GAMEPLAY_SHOT_TARGET_Y - actor->position.y;
@@ -598,7 +598,7 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
     if (!tecmo_gameplay_shot_resolution_classify_point_value(
             &scene->shot_resolution, (uint16_t)actor->position.x,
             (uint8_t)actor->position.y,
-            scene->orientation_state.current_direction, 0U,
+            scene->orientation_state.attack_direction, 0U,
             &classified_points)) {
         return false;
     }

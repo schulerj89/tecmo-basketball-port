@@ -809,7 +809,7 @@ static bool gameplay_checkpoint_report_tipoff_proof(
         input_evidence->bridge_end_count,
         input_evidence->bridge_update_players_count,
         (unsigned)scene->state.possession,
-        (unsigned)scene->orientation_state.current_direction,
+        (unsigned)scene->orientation_state.attack_direction,
         (int)scene->orientation_state.offensive_hoop.x,
         (long)scene->ball_position.x_q8,
         (long)scene->ball_position.y_q8,
@@ -1053,7 +1053,7 @@ static bool gameplay_checkpoint_setup_shot_direction_proof(
     if (!tecmo_gameplay_camera_settle_court(
             &scene->camera_assets, &scene->camera_state,
             &scene->ball_position,
-            scene->orientation_state.current_direction, false) ||
+            scene->orientation_state.attack_direction, false) ||
         !scene_sync_live_foundation(scene) ||
         !scene_start_shot_actor(scene, 0U, shooter)) {
         return false;
@@ -1061,7 +1061,7 @@ static bool gameplay_checkpoint_setup_shot_direction_proof(
     player = scene_actor_player(scene, actor);
     expected_facing_right = scene->shot_target_delta_x > 0 ||
         (scene->shot_target_delta_x == 0 &&
-         scene->orientation_state.current_direction != 0U);
+         scene->orientation_state.attack_direction != 0U);
     if (player == NULL ||
         !tecmo_gameplay_shot_profile_from_profile_byte2(
             player->profile[2], &expected_profile) ||
@@ -1108,7 +1108,7 @@ static bool gameplay_checkpoint_setup_shot_direction_proof(
            "\"end_x_q8\":%ld,\"end_y_q8\":%ld,"
            "\"ball_x_q8\":%ld,\"ball_y_q8\":%ld}\n",
            case_names[case_index], checkpoint,
-           (unsigned)scene->orientation_state.current_direction,
+           (unsigned)scene->orientation_state.attack_direction,
            (unsigned)scene->jump_family, (unsigned)scene->jump_profile,
            (unsigned)scene->jump_direction,
            (unsigned)scene->jump_resolved_pose_index,
@@ -1607,7 +1607,7 @@ static bool run_gameplay_facing_checkpoint(
     if (runtime == NULL || !runtime->gameplay_scene.active) return false;
     scene = &runtime->gameplay_scene;
     if (scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        scene->orientation_state.current_direction != 0U ||
+        scene->orientation_state.attack_direction != 0U ||
         scene->orientation_state.tracked_possession_team !=
             TECMO_GAMEPLAY_TEAM_AWAY ||
         scene->orientation_state.offensive_hoop.x !=
@@ -1905,7 +1905,7 @@ static bool run_gameplay_inbound_checkpoint(
     }
     if (!tecmo_gameplay_free_throw_lineup_derive_round_setup(
             &scene->free_throw_lineup_assets,
-            scene->orientation_state.current_direction,
+            scene->orientation_state.attack_direction,
             scene->inbound_state.passer, scene->inbound_state.defender,
             &setup)) {
         return false;
@@ -1978,7 +1978,7 @@ static bool run_gameplay_inbound_checkpoint(
            (unsigned)scene->inbound_state.passer,
            (unsigned)scene->inbound_state.receiver,
            (unsigned)scene->inbound_state.defender,
-           (unsigned)scene->orientation_state.current_direction,
+           (unsigned)scene->orientation_state.attack_direction,
            (unsigned)scene->state.clock_minutes,
            (unsigned)scene->state.clock_seconds,
            (unsigned)scene->state.clock_divider,
@@ -2050,7 +2050,7 @@ static bool run_gameplay_camera_checkpoint(
         if (!tecmo_gameplay_camera_settle_court(
                 &scene->camera_assets, &scene->camera_state,
                 &scene->ball_position,
-                scene->orientation_state.current_direction, false) ||
+                scene->orientation_state.attack_direction, false) ||
             !tecmo_gameplay_camera_state_live_valid(
                 &scene->camera_assets, &scene->camera_state)) {
             return false;
@@ -2182,7 +2182,7 @@ static bool run_gameplay_shot_checkpoint(TecmoRuntime *runtime, const TecmoCliGa
                 &runtime->gameplay_scene.camera_assets,
                 &runtime->gameplay_scene.camera_state,
                 &runtime->gameplay_scene.ball_position,
-                runtime->gameplay_scene.orientation_state.current_direction,
+                runtime->gameplay_scene.orientation_state.attack_direction,
                 false)) {
             return false;
         }
@@ -2209,7 +2209,7 @@ static bool run_gameplay_shot_checkpoint(TecmoRuntime *runtime, const TecmoCliGa
                 &runtime->gameplay_scene.camera_assets,
                 &runtime->gameplay_scene.camera_state,
                 &runtime->gameplay_scene.ball_position,
-                runtime->gameplay_scene.orientation_state.current_direction,
+                runtime->gameplay_scene.orientation_state.attack_direction,
                 false)) {
             return false;
         }

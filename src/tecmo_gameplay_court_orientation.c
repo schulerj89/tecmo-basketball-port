@@ -520,7 +520,7 @@ bool tecmo_gameplay_court_orientation_team_hoop(
         hoop_out == NULL) {
         return false;
     }
-    direction = state->current_direction;
+    direction = state->attack_direction;
     if (team != state->tracked_possession_team) direction ^= 1U;
     if (!tecmo_gameplay_court_orientation_hoop(
             assets, direction, &hoop)) {
@@ -539,8 +539,8 @@ bool tecmo_gameplay_court_orientation_state_initialize(
     memset(&state, 0, sizeof(state));
     state.contract_tag = TECMO_GAMEPLAY_COURT_ORIENTATION_STATE_TAG;
     state.offensive_hoop = assets->hoops[0U];
-    state.current_direction = 0U;
-    state.previous_direction = 0U;
+    state.attack_direction = 0U;
+    state.previous_attack_direction = 0U;
     state.tracked_possession_team =
         TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY;
     *state_out = state;
@@ -554,9 +554,9 @@ bool tecmo_gameplay_court_orientation_state_valid(
     return assets_valid(assets) && state != NULL &&
            state->contract_tag ==
                TECMO_GAMEPLAY_COURT_ORIENTATION_STATE_TAG &&
-           state->current_direction <
+           state->attack_direction <
                TECMO_GAMEPLAY_COURT_ORIENTATION_COUNT &&
-           state->previous_direction <
+           state->previous_attack_direction <
                TECMO_GAMEPLAY_COURT_ORIENTATION_COUNT &&
            state->tracked_possession_team <
                TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_COUNT &&
@@ -564,14 +564,14 @@ bool tecmo_gameplay_court_orientation_state_valid(
            tecmo_gameplay_court_coordinate_valid(
                &state->offensive_hoop) &&
            ((state->transition_serial == 0U &&
-             state->previous_direction == state->current_direction) ||
+             state->previous_attack_direction == state->attack_direction) ||
             (state->transition_serial != 0U &&
-             state->previous_direction ==
-                 (uint8_t)(state->current_direction ^ 1U))) &&
+             state->previous_attack_direction ==
+                 (uint8_t)(state->attack_direction ^ 1U))) &&
            state->offensive_hoop.x ==
-               assets->hoops[state->current_direction].x &&
+               assets->hoops[state->attack_direction].x &&
            state->offensive_hoop.y ==
-               assets->hoops[state->current_direction].y;
+               assets->hoops[state->attack_direction].y;
 }
 
 bool tecmo_gameplay_court_orientation_synchronize(
@@ -587,12 +587,12 @@ bool tecmo_gameplay_court_orientation_synchronize(
     if (state->tracked_possession_team == possession_team) return true;
     if (state->transition_serial == UINT32_MAX) return false;
     candidate = *state;
-    candidate.previous_direction = candidate.current_direction;
-    candidate.current_direction ^= 1U;
+    candidate.previous_attack_direction = candidate.attack_direction;
+    candidate.attack_direction ^= 1U;
     candidate.tracked_possession_team = possession_team;
     ++candidate.transition_serial;
     candidate.offensive_hoop =
-        assets->hoops[candidate.current_direction];
+        assets->hoops[candidate.attack_direction];
     *state = candidate;
     return true;
 }
@@ -670,7 +670,8 @@ bool tecmo_gameplay_court_orientation_self_test(
     if (!tecmo_gameplay_court_orientation_state_initialize(
             &assets, &state) ||
         !tecmo_gameplay_court_orientation_state_valid(&assets, &state) ||
-        state.current_direction != 0U || state.previous_direction != 0U ||
+        state.attack_direction != 0U ||
+        state.previous_attack_direction != 0U ||
         state.tracked_possession_team !=
             TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY ||
         state.transition_serial != 0U ||
@@ -698,7 +699,8 @@ bool tecmo_gameplay_court_orientation_self_test(
         !tecmo_gameplay_court_orientation_synchronize(
             &assets, &state,
             TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_HOME) ||
-        state.current_direction != 1U || state.previous_direction != 0U ||
+        state.attack_direction != 1U ||
+        state.previous_attack_direction != 0U ||
         state.tracked_possession_team !=
             TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_HOME ||
         state.transition_serial != 1U ||
@@ -715,7 +717,8 @@ bool tecmo_gameplay_court_orientation_self_test(
         !tecmo_gameplay_court_orientation_synchronize(
             &assets, &state,
             TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY) ||
-        state.current_direction != 0U || state.previous_direction != 1U ||
+        state.attack_direction != 0U ||
+        state.previous_attack_direction != 1U ||
         state.transition_serial != 2U ||
         state.offensive_hoop.x != TECMO_GAMEPLAY_COURT_LEFT_HOOP_X ||
         state.offensive_hoop.y != TECMO_GAMEPLAY_COURT_HOOP_Y) {
@@ -727,8 +730,8 @@ bool tecmo_gameplay_court_orientation_self_test(
        Exercise the crossed case explicitly: Away may own direction 1 and
        Home then owns direction 0. */
     crossed = state;
-    crossed.current_direction = 1U;
-    crossed.previous_direction = 0U;
+    crossed.attack_direction = 1U;
+    crossed.previous_attack_direction = 0U;
     crossed.transition_serial = 1U;
     crossed.tracked_possession_team =
         TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY;

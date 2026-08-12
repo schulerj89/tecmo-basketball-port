@@ -1726,7 +1726,7 @@ bool scene_ownership_valid(const TecmoGameplayScene *scene)
     }
     if (live_sync_required &&
         (scene->live_foundation.orientation !=
-             scene->orientation_state.current_direction ||
+             scene->orientation_state.attack_direction ||
          scene->live_foundation.last_possession !=
              (uint8_t)scene->state.possession ||
          scene->live_foundation.last_ball_holder != scene->ball_holder ||

@@ -830,7 +830,7 @@ static bool scene_test_backcourt(
     holder = TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT;
     if (!scene_handoff_possession(
             &backcourt_probe, TECMO_GAMEPLAY_TEAM_HOME, holder) ||
-        backcourt_probe.orientation_state.current_direction != 1U) {
+        backcourt_probe.orientation_state.attack_direction != 1U) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "reverse backcourt possession setup failed");
         return false;
@@ -1492,8 +1492,8 @@ static bool scene_test_orientation_contract(
     size_t actor;
     if (!tecmo_gameplay_court_orientation_state_valid(
             &scene->court_orientation, &scene->orientation_state) ||
-        scene->orientation_state.current_direction != 0U ||
-        scene->orientation_state.previous_direction != 0U ||
+        scene->orientation_state.attack_direction != 0U ||
+        scene->orientation_state.previous_attack_direction != 0U ||
         scene->orientation_state.tracked_possession_team !=
             TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY ||
         scene->orientation_state.transition_serial != 0U ||
@@ -1547,8 +1547,8 @@ static bool scene_test_orientation_contract(
         return false;
     }
     orientation_probe = *scene;
-    orientation_probe.orientation_state.current_direction = 1U;
-    orientation_probe.orientation_state.previous_direction = 0U;
+    orientation_probe.orientation_state.attack_direction = 1U;
+    orientation_probe.orientation_state.previous_attack_direction = 0U;
     orientation_probe.orientation_state.transition_serial = 1U;
     orientation_probe.orientation_state.tracked_possession_team =
         TECMO_GAMEPLAY_TEAM_AWAY;
@@ -1607,8 +1607,8 @@ static bool scene_test_orientation_contract(
         !scene_handoff_possession(
             scene, TECMO_GAMEPLAY_TEAM_HOME,
             TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT) ||
-        scene->orientation_state.current_direction != 1U ||
-        scene->orientation_state.previous_direction != 0U ||
+        scene->orientation_state.attack_direction != 1U ||
+        scene->orientation_state.previous_attack_direction != 0U ||
         scene->orientation_state.tracked_possession_team !=
             TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_HOME ||
         scene->orientation_state.transition_serial != 1U ||
@@ -1659,8 +1659,8 @@ static bool scene_test_orientation_contract(
                sizeof(orientation_before)) != 0 ||
         !scene_handoff_possession(
             scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
-        scene->orientation_state.current_direction != 0U ||
-        scene->orientation_state.previous_direction != 1U ||
+        scene->orientation_state.attack_direction != 0U ||
+        scene->orientation_state.previous_attack_direction != 1U ||
         scene->orientation_state.tracked_possession_team !=
             TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY ||
         scene->orientation_state.transition_serial != 2U ||
@@ -1686,7 +1686,7 @@ static bool scene_test_orientation_contract(
         return false;
     }
     if (!tecmo_gameplay_scene_launch(scene, launch) ||
-        scene->orientation_state.current_direction != 0U ||
+        scene->orientation_state.attack_direction != 0U ||
         scene->orientation_state.transition_serial != 0U ||
         scene->orientation_state.tracked_possession_team !=
             TECMO_GAMEPLAY_COURT_ORIENTATION_TEAM_AWAY ||
@@ -2179,8 +2179,8 @@ static bool scene_test_render_orientation_pixels(
     /* Exercise the crossed TGOR matrix used by the production goal accessor:
        Away may own direction 1, which requires a right-facing Away roster. */
     away_right = *scene;
-    away_right.orientation_state.current_direction = 1U;
-    away_right.orientation_state.previous_direction = 0U;
+    away_right.orientation_state.attack_direction = 1U;
+    away_right.orientation_state.previous_attack_direction = 0U;
     away_right.orientation_state.transition_serial = 1U;
     away_right.orientation_state.tracked_possession_team =
         TECMO_GAMEPLAY_TEAM_AWAY;

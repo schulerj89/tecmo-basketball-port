@@ -53,8 +53,11 @@ typedef struct TecmoGameplayCourtOrientationState {
     uint32_t contract_tag;
     uint32_t transition_serial;
     TecmoGameplayCourtCoordinate offensive_hoop;
-    uint8_t current_direction;
-    uint8_t previous_direction;
+    /* Bank05 $8FAD-$8FE7: live $035A attack direction. $035B is only saved
+       in this span and has no proven reader; previous_attack_direction is
+       typed validation history, not a claimed live $035B owner. */
+    uint8_t attack_direction;
+    uint8_t previous_attack_direction;
     uint8_t tracked_possession_team;
     uint8_t reserved;
     uint32_t reserved_padding;

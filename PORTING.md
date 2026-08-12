@@ -1302,7 +1302,7 @@ or a target that differs from the validated orientation asset. Once resolved,
 the scene faces the actor toward that hoop, freezes the endpoint, and lets TGCP
 follow by at most its normal seven-pixel update cap. Base actor facing also
 comes from the validated team-to-goal mapping: the tracked possession team owns
-`current_direction`, the other team owns its XOR-1 direction, a left hoop means
+`attack_direction`, the other team owns its XOR-1 direction, a left hoop means
 `facing_right=false`, and a right hoop means `facing_right=true`. Possession
 handoff rebases active actors transactionally; deliberate horizontal movement
 and supported shot actions are the only native overrides. This mapping remains

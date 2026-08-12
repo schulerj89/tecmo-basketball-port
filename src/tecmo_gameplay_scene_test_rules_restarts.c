@@ -105,7 +105,7 @@ static bool rules_launch_scene(TecmoGameplayScene *scene,
     return scene->active && scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
            scene->state.possession == initial_possession &&
            scene->ball_holder == holder &&
-           scene->orientation_state.current_direction ==
+           scene->orientation_state.attack_direction ==
                rules_direction_for_team(initial_possession) &&
            scene->orientation_state.tracked_possession_team ==
                initial_possession;
@@ -349,7 +349,7 @@ static bool rules_check_live_frame_coherence(const TecmoGameplayScene *scene,
         scene->actors[holder].team != (uint8_t)possession ||
         scene->controlled_actor[possession == TECMO_GAMEPLAY_TEAM_AWAY ? 0U : 1U]
             != holder ||
-        scene->orientation_state.current_direction != direction ||
+        scene->orientation_state.attack_direction != direction ||
         scene->orientation_state.tracked_possession_team != possession ||
         frame.contract_tag != TECMO_GAMEPLAY_SCENE_COURT_FRAME_TAG ||
         frame.scene_frame != scene->frame ||
@@ -384,7 +384,7 @@ static bool rules_inbound_setup_matches(const TecmoGameplayScene *scene,
     inbound = &scene->inbound_state;
     if (!tecmo_gameplay_free_throw_lineup_derive_round_setup(
             &scene->free_throw_lineup_assets,
-            scene->orientation_state.current_direction, inbound->passer,
+            scene->orientation_state.attack_direction, inbound->passer,
             inbound->defender, &setup)) {
         return false;
     }

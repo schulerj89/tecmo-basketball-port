@@ -831,7 +831,7 @@ static bool scene_test_continuous_tip_render(
     expected_shot_end_y = (int32_t)TECMO_GAMEPLAY_SHOT_TARGET_Y * 256;
     expected_shot_facing_right = scene->shot_target_delta_x > 0 ||
         (scene->shot_target_delta_x == 0 &&
-         scene->orientation_state.current_direction != 0U);
+         scene->orientation_state.attack_direction != 0U);
     if (shooting_player == NULL ||
         !tecmo_gameplay_shot_profile_from_profile_byte2(
             shooting_player->profile[2], &expected_shot_profile) ||

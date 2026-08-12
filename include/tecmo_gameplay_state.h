@@ -223,7 +223,9 @@ typedef struct TecmoGameplayState {
     TecmoGameplayTeam possession;
     TecmoGameplayTeam restart_possession;
     TecmoGameplayFreeThrowState free_throws;
-    TecmoGameplayCloseShotState close_shot_subtype01;
+    /* Pure rules/test phase trace for bounded Bank05 $8ABD-$8CE4 numeric
+       subtype-01 evidence; production scene shot playback is separate. */
+    TecmoGameplayCloseShotState close_shot_phase_trace;
     uint16_t score[TECMO_GAMEPLAY_TEAM_COUNT];
     uint8_t individual_fouls[TECMO_GAMEPLAY_TEAM_COUNT]
                              [TECMO_GAMEPLAY_PLAYER_COUNT];

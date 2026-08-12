@@ -507,11 +507,11 @@ bool tecmo_gameplay_state_init(TecmoGameplayState *state,
     next.free_throws.scoring_team = initial_possession;
     next.period = 1U;
     gameplay_clock_reset(&next, config->regulation_minutes);
-    next.close_shot_subtype01.observation =
+    next.close_shot_phase_trace.observation =
         TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_ONLY;
-    gameplay_close_shot_set_phase(&next.close_shot_subtype01,
+    gameplay_close_shot_set_phase(&next.close_shot_phase_trace,
                                   TECMO_GAMEPLAY_CLOSE_SHOT_NEUTRAL);
-    next.close_shot_subtype01.transition_serial = 0U;
+    next.close_shot_phase_trace.transition_serial = 0U;
     next.initialized = true;
     if (!tecmo_gameplay_state_valid(&next)) {
         return false;
@@ -569,12 +569,12 @@ bool tecmo_gameplay_state_valid(const TecmoGameplayState *state)
         state->clock_divider > TECMO_GAMEPLAY_POSSESSION_DIVIDER_FRAMES ||
         state->shot_clock > TECMO_GAMEPLAY_SHOT_CLOCK_SECONDS ||
         state->free_throws.attempts_remaining > 3U ||
-        state->close_shot_subtype01.phase <
+        state->close_shot_phase_trace.phase <
             TECMO_GAMEPLAY_CLOSE_SHOT_NEUTRAL ||
-        state->close_shot_subtype01.phase >=
+        state->close_shot_phase_trace.phase >=
             TECMO_GAMEPLAY_CLOSE_SHOT_PHASE_COUNT ||
         !gameplay_close_shot_observation_valid(
-            state->close_shot_subtype01.observation)) {
+            state->close_shot_phase_trace.observation)) {
         return false;
     }
 
@@ -603,18 +603,18 @@ bool tecmo_gameplay_state_valid(const TecmoGameplayState *state)
     }
 
     expected_pose_available = gameplay_close_shot_observed_pose(
-        state->close_shot_subtype01.observation,
-        state->close_shot_subtype01.phase,
+        state->close_shot_phase_trace.observation,
+        state->close_shot_phase_trace.phase,
         &expected_actor_pose,
         &expected_ball_pose);
-    if (state->close_shot_subtype01.observed_pose_available !=
+    if (state->close_shot_phase_trace.observed_pose_available !=
             expected_pose_available ||
-        state->close_shot_subtype01.observed_actor_pose_index !=
+        state->close_shot_phase_trace.observed_actor_pose_index !=
             expected_actor_pose ||
-        state->close_shot_subtype01.observed_ball_pose_index !=
+        state->close_shot_phase_trace.observed_ball_pose_index !=
             expected_ball_pose ||
-        state->close_shot_subtype01.active !=
-            (state->close_shot_subtype01.phase !=
+        state->close_shot_phase_trace.active !=
+            (state->close_shot_phase_trace.phase !=
              TECMO_GAMEPLAY_CLOSE_SHOT_NEUTRAL)) {
         return false;
     }
@@ -1272,7 +1272,7 @@ bool tecmo_gameplay_nes_b_begin_close_shot_subtype01(
         !tecmo_gameplay_state_valid(state) ||
         events->count >= TECMO_GAMEPLAY_EVENT_CAPACITY ||
         state->phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        state->close_shot_subtype01.active ||
+        state->close_shot_phase_trace.active ||
         !gameplay_close_shot_observation_valid(observation) ||
         !tecmo_gameplay_input_nes_b_jump_steal_shot_held(input, controller)) {
         return false;
@@ -1280,15 +1280,15 @@ bool tecmo_gameplay_nes_b_begin_close_shot_subtype01(
 
     next = *state;
     next_events = *events;
-    next.close_shot_subtype01.observation = observation;
+    next.close_shot_phase_trace.observation = observation;
     gameplay_close_shot_set_phase(
-        &next.close_shot_subtype01,
+        &next.close_shot_phase_trace,
         TECMO_GAMEPLAY_CLOSE_SHOT_ENTRY);
     if (!gameplay_event_append(
             &next_events,
             TECMO_GAMEPLAY_EVENT_CLOSE_SHOT_PHASE_CHANGED,
-            (uint16_t)next.close_shot_subtype01.phase,
-            next.close_shot_subtype01.observed_actor_pose_index)) {
+            (uint16_t)next.close_shot_phase_trace.phase,
+            next.close_shot_phase_trace.observed_actor_pose_index)) {
         return false;
     }
     if (!tecmo_gameplay_state_valid(&next)) {
@@ -1312,14 +1312,14 @@ bool tecmo_gameplay_advance_close_shot_subtype01(
                                 sizeof(*events)) ||
         !tecmo_gameplay_state_valid(state) ||
         events->count >= TECMO_GAMEPLAY_EVENT_CAPACITY ||
-        !state->close_shot_subtype01.active) {
+        !state->close_shot_phase_trace.active) {
         return false;
     }
 
     next_state = *state;
     next_events = *events;
 
-    switch (next_state.close_shot_subtype01.phase) {
+    switch (next_state.close_shot_phase_trace.phase) {
     case TECMO_GAMEPLAY_CLOSE_SHOT_ENTRY:
         next = TECMO_GAMEPLAY_CLOSE_SHOT_GATHER_A;
         break;
@@ -1344,12 +1344,12 @@ bool tecmo_gameplay_advance_close_shot_subtype01(
         return false;
     }
 
-    gameplay_close_shot_set_phase(&next_state.close_shot_subtype01, next);
+    gameplay_close_shot_set_phase(&next_state.close_shot_phase_trace, next);
     if (!gameplay_event_append(
             &next_events,
             TECMO_GAMEPLAY_EVENT_CLOSE_SHOT_PHASE_CHANGED,
-            (uint16_t)next_state.close_shot_subtype01.phase,
-            next_state.close_shot_subtype01.observed_actor_pose_index)) {
+            (uint16_t)next_state.close_shot_phase_trace.phase,
+            next_state.close_shot_phase_trace.observed_actor_pose_index)) {
         return false;
     }
     if (!tecmo_gameplay_state_valid(&next_state)) {
@@ -1464,19 +1464,19 @@ uint64_t tecmo_gameplay_state_hash(const TecmoGameplayState *state)
     hash = gameplay_hash_byte(hash, (uint8_t)state->free_throws.scoring_team);
     hash = gameplay_hash_byte(hash, state->free_throws.attempts_remaining);
     hash = gameplay_hash_byte(
-        hash, (uint8_t)state->close_shot_subtype01.phase);
+        hash, (uint8_t)state->close_shot_phase_trace.phase);
     hash = gameplay_hash_byte(
-        hash, (uint8_t)state->close_shot_subtype01.observation);
+        hash, (uint8_t)state->close_shot_phase_trace.observation);
     hash = gameplay_hash_u16(
-        hash, state->close_shot_subtype01.observed_actor_pose_index);
+        hash, state->close_shot_phase_trace.observed_actor_pose_index);
     hash = gameplay_hash_u16(
-        hash, state->close_shot_subtype01.observed_ball_pose_index);
+        hash, state->close_shot_phase_trace.observed_ball_pose_index);
     hash = gameplay_hash_u32(
-        hash, state->close_shot_subtype01.transition_serial);
+        hash, state->close_shot_phase_trace.transition_serial);
     hash = gameplay_hash_byte(
-        hash, state->close_shot_subtype01.observed_pose_available ? 1U : 0U);
+        hash, state->close_shot_phase_trace.observed_pose_available ? 1U : 0U);
     hash = gameplay_hash_byte(
-        hash, state->close_shot_subtype01.active ? 1U : 0U);
+        hash, state->close_shot_phase_trace.active ? 1U : 0U);
     return hash;
 }
 
@@ -1703,10 +1703,10 @@ static bool gameplay_self_test_config_and_input(char *message,
     if (!tecmo_gameplay_nes_b_begin_close_shot_subtype01(
             &state, &input, 0U,
             TECMO_GAMEPLAY_CLOSE_SHOT_SEMANTIC_ONLY, &events) ||
-        state.close_shot_subtype01.phase != TECMO_GAMEPLAY_CLOSE_SHOT_ENTRY ||
-        state.close_shot_subtype01.observed_pose_available ||
-        state.close_shot_subtype01.observed_actor_pose_index != UINT16_MAX ||
-        state.close_shot_subtype01.observed_ball_pose_index != UINT16_MAX ||
+        state.close_shot_phase_trace.phase != TECMO_GAMEPLAY_CLOSE_SHOT_ENTRY ||
+        state.close_shot_phase_trace.observed_pose_available ||
+        state.close_shot_phase_trace.observed_actor_pose_index != UINT16_MAX ||
+        state.close_shot_phase_trace.observed_ball_pose_index != UINT16_MAX ||
         !gameplay_events_contain(
             &events, TECMO_GAMEPLAY_EVENT_CLOSE_SHOT_PHASE_CHANGED,
             TECMO_GAMEPLAY_CLOSE_SHOT_ENTRY)) {
@@ -1719,15 +1719,15 @@ static bool gameplay_self_test_config_and_input(char *message,
          index < sizeof(expected_phases) / sizeof(expected_phases[0]);
          ++index) {
         if (!tecmo_gameplay_advance_close_shot_subtype01(&state, &events) ||
-            state.close_shot_subtype01.phase != expected_phases[index] ||
-            state.close_shot_subtype01.observed_pose_available) {
+            state.close_shot_phase_trace.phase != expected_phases[index] ||
+            state.close_shot_phase_trace.observed_pose_available) {
             gameplay_self_test_message(message, message_size,
                                        "SEMANTIC CLOSE SHOT SEQUENCE FAILED");
             return false;
         }
     }
-    if (state.close_shot_subtype01.active ||
-        state.close_shot_subtype01.phase !=
+    if (state.close_shot_phase_trace.active ||
+        state.close_shot_phase_trace.phase !=
             TECMO_GAMEPLAY_CLOSE_SHOT_NEUTRAL ||
         tecmo_gameplay_advance_close_shot_subtype01(&state, &events)) {
         gameplay_self_test_message(message, message_size,
@@ -1745,13 +1745,13 @@ static bool gameplay_self_test_config_and_input(char *message,
     if (tecmo_gameplay_nes_b_begin_close_shot_subtype01(
             &state, &input, 0U,
             TECMO_GAMEPLAY_CLOSE_SHOT_OBSERVATION_COUNT, &events) ||
-        state.close_shot_subtype01.active || events.count != 0U ||
+        state.close_shot_phase_trace.active || events.count != 0U ||
         !tecmo_gameplay_nes_b_begin_close_shot_subtype01(
             &state, &input, 0U,
             TECMO_GAMEPLAY_CLOSE_SHOT_OBSERVED_RIGHTWARD_TRACE, &events) ||
-        !state.close_shot_subtype01.observed_pose_available ||
-        state.close_shot_subtype01.observed_actor_pose_index != 445U ||
-        state.close_shot_subtype01.observed_ball_pose_index != 64U) {
+        !state.close_shot_phase_trace.observed_pose_available ||
+        state.close_shot_phase_trace.observed_actor_pose_index != 445U ||
+        state.close_shot_phase_trace.observed_ball_pose_index != 64U) {
         gameplay_self_test_message(message, message_size,
                                    "BOUNDED SHOT TRACE ENTRY FAILED");
         return false;
@@ -1761,10 +1761,10 @@ static bool gameplay_self_test_config_and_input(char *message,
                      sizeof(expected_advance_poses[0]);
          ++index) {
         if (!tecmo_gameplay_advance_close_shot_subtype01(&state, &events) ||
-            !state.close_shot_subtype01.observed_pose_available ||
-            state.close_shot_subtype01.observed_actor_pose_index !=
+            !state.close_shot_phase_trace.observed_pose_available ||
+            state.close_shot_phase_trace.observed_actor_pose_index !=
                 expected_advance_poses[index] ||
-            state.close_shot_subtype01.observed_ball_pose_index != 64U) {
+            state.close_shot_phase_trace.observed_ball_pose_index != 64U) {
             gameplay_self_test_message(message, message_size,
                                        "BOUNDED SHOT TRACE SEQUENCE FAILED");
             return false;
@@ -3736,7 +3736,7 @@ static bool gameplay_self_test_transaction_boundaries(char *message,
         return false;
     }
     if (!gameplay_events_equal(&events, close_entry_event, 1U) ||
-        state.close_shot_subtype01.phase !=
+        state.close_shot_phase_trace.phase !=
             TECMO_GAMEPLAY_CLOSE_SHOT_ENTRY) {
         gameplay_self_test_message(message, message_size,
                                    "CLOSE SHOT ENTRY VECTOR FAILED");
