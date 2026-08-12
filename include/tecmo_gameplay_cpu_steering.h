@@ -245,9 +245,9 @@ typedef struct TecmoGameplayCpuSteeringPlayState {
     uint8_t direction[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t pose[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t action[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
-    /* Bank06 bounded handler projection of actor/object state $046E[X].
-       This owns only the converted command-handler seams, not a complete
-       object-lifecycle mirror. */
+    /* Bounded actor/object-state $046E[X] projection for converted Bank06
+       command handlers and Bank05 $B24F-$B2CB pass/defender handoff resets.
+       This remains incomplete object-lifecycle ownership. */
     uint8_t action_state_046e[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     /* Source target-object identity. Slots 0..9 identify player
        coordinates; slot 10 is the typed ball coordinate for the exact
