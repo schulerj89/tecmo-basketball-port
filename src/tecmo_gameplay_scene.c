@@ -938,6 +938,7 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
     }
     scene->shot_kind = TECMO_GAMEPLAY_SCENE_SHOT_NONE;
     scene->shot_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    scene_pass_clear(scene);
     scene->close_shot_step = 0U;
     scene->close_shot_profile = TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0;
     scene->close_shot_direction = TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0;
@@ -1023,6 +1024,7 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
             scene->active = false;
             return false;
         }
+        scene_pass_clear(scene);
         if (launch->game_music_enabled &&
             !tecmo_gameplay_audio_queue_game_music(&scene->audio_player)) {
             scene_set_status(scene, "self-test live music handoff rejected");
@@ -1892,7 +1894,12 @@ static bool scene_update_live_action_ordered(
     bool boundary_settled = false;
     size_t controller;
 
-    if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
+    if (scene_pass_active(scene)) {
+        if (!scene_update_pass(scene)) {
+            scene_set_status(scene, "pass animation update rejected");
+            return false;
+        }
+    } else if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
         bool terminal_jump_miss =
             scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
             !scene->jump_make_route &&
@@ -1960,7 +1967,7 @@ static bool scene_update_live_action_ordered(
                 break;
             }
         }
-        if (!boundary_settled &&
+        if (!boundary_settled && !scene_pass_active(scene) &&
             scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
             for (controller = 0U;
                  controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
@@ -1977,13 +1984,14 @@ static bool scene_update_live_action_ordered(
                 return false;
             }
         }
-        if (!boundary_settled &&
+        if (!boundary_settled && !scene_pass_active(scene) &&
             scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
             !scene_update_ai(scene, cpu_shot_request)) {
             scene_set_status(scene, "native offense update rejected");
             return false;
         }
-        if (!boundary_settled && cpu_shot_request->requested) {
+        if (!boundary_settled && !scene_pass_active(scene) &&
+            cpu_shot_request->requested) {
             /* scene_update_ai already attempted the excluded playback once
                on its complete candidate. Never call shots.c a second time.
                Unsupported jump/far/controller-dependent requests are an
@@ -2004,18 +2012,19 @@ static bool scene_update_live_action_ordered(
                     scene, "CPU shot request playback classification rejected");
                 return false;
             }
-        } else if (!boundary_settled && cpu_shot_request->deferred) {
+        } else if (!boundary_settled && !scene_pass_active(scene) &&
+                   cpu_shot_request->deferred) {
             scene_set_status(
                 scene, "CPU shot request deferred/non-launch");
         }
-        if (!boundary_settled &&
+        if (!boundary_settled && !scene_pass_active(scene) &&
             scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
             !scene_settle_boundary_latch(scene, &boundary_settled)) {
             scene_set_status(
                 scene, "CPU out-of-bounds settlement rejected");
             return false;
         }
-        if (!boundary_settled &&
+        if (!boundary_settled && !scene_pass_active(scene) &&
             scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
             TecmoGameplayBallDribbleFrame dribble = {0};
             if (!scene_attach_ball(scene)) {

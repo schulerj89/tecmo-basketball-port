@@ -464,6 +464,183 @@ bool scene_attach_ball(TecmoGameplayScene *scene)
     return true;
 }
 
+#define TECMO_GAMEPLAY_PASS_MIN_FLIGHT_UPDATES 8U
+#define TECMO_GAMEPLAY_PASS_MAX_FLIGHT_UPDATES 24U
+
+bool scene_pass_active(const TecmoGameplayScene *scene)
+{
+    return scene != NULL &&
+           scene->pass_state.phase != TECMO_GAMEPLAY_SCENE_PASS_NONE;
+}
+
+void scene_pass_clear(TecmoGameplayScene *scene)
+{
+    if (scene == NULL) return;
+    memset(&scene->pass_state, 0, sizeof(scene->pass_state));
+    scene->pass_state.passer = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    scene->pass_state.receiver = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    scene->pass_state.controller = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+}
+
+bool scene_pass_state_valid(const TecmoGameplayScene *scene)
+{
+    const TecmoGameplayScenePassState *pass;
+    if (scene == NULL) return false;
+    pass = &scene->pass_state;
+    if (pass->phase == TECMO_GAMEPLAY_SCENE_PASS_NONE) {
+        return pass->passer == TECMO_GAMEPLAY_SCENE_NO_ACTOR &&
+               pass->receiver == TECMO_GAMEPLAY_SCENE_NO_ACTOR &&
+               pass->controller == TECMO_GAMEPLAY_SCENE_NO_ACTOR &&
+               pass->packed_animation_state == 0U &&
+               pass->flight_frame == 0U && pass->flight_duration == 0U &&
+               pass->start_position.x_q8 == 0 &&
+               pass->start_position.y_q8 == 0 &&
+               pass->target_position.x_q8 == 0 &&
+               pass->target_position.y_q8 == 0;
+    }
+    if (pass->phase >= TECMO_GAMEPLAY_SCENE_PASS_PHASE_COUNT ||
+        pass->passer >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        pass->receiver >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        pass->passer == pass->receiver ||
+        pass->controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
+        scene->actors[pass->passer].team != scene->state.possession ||
+        scene->actors[pass->receiver].team != scene->state.possession ||
+        scene->ball_holder != pass->passer ||
+        scene->controlled_actor[pass->controller] != pass->passer ||
+        scene->launch.controller_team[pass->controller] !=
+            scene->state.possession ||
+        pass->flight_duration < TECMO_GAMEPLAY_PASS_MIN_FLIGHT_UPDATES ||
+        pass->flight_duration > TECMO_GAMEPLAY_PASS_MAX_FLIGHT_UPDATES ||
+        pass->flight_frame > pass->flight_duration) {
+        return false;
+    }
+    if (pass->phase == TECMO_GAMEPLAY_SCENE_PASS_GATHER) {
+        return pass->packed_animation_state == 0x32U ||
+               pass->packed_animation_state == 0x22U ||
+               pass->packed_animation_state == 0x12U ||
+               pass->packed_animation_state == 0x04U;
+    }
+    return pass->phase == TECMO_GAMEPLAY_SCENE_PASS_FLIGHT &&
+           pass->packed_animation_state == 0x04U;
+}
+
+bool scene_begin_pass(TecmoGameplayScene *scene, size_t controller,
+                      uint8_t receiver)
+{
+    TecmoGameplayScenePassState pass;
+    TecmoGameplayCourtCoordinateQ8 start;
+    TecmoGameplayCourtCoordinateQ8 target;
+    int32_t dx;
+    int32_t dy;
+    uint32_t distance;
+    uint16_t duration;
+    if (scene == NULL || scene_pass_active(scene) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
+        scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        receiver >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        receiver == scene->ball_holder ||
+        scene->launch.controller_team[controller] != scene->state.possession ||
+        scene->actors[receiver].team != scene->state.possession ||
+        scene->controlled_actor[controller] != scene->ball_holder ||
+        !scene_attached_ball_position(&scene->actors[scene->ball_holder], &start) ||
+        !scene_attached_ball_position(&scene->actors[receiver], &target)) {
+        return false;
+    }
+    dx = target.x_q8 - start.x_q8;
+    dy = target.y_q8 - start.y_q8;
+    distance = (uint32_t)((dx < 0 ? -dx : dx) +
+                          (dy < 0 ? -dy : dy)) / 256U;
+    /* The source duration comes from $B42F's $BB9F/$BBA0 lookup. That table
+       is not yet a strict pass asset, so only this duration mapping is a
+       native adapter; release/flight/catch ownership follows the ROM order. */
+    duration = (uint16_t)(TECMO_GAMEPLAY_PASS_MIN_FLIGHT_UPDATES +
+                          distance / 12U);
+    if (duration > TECMO_GAMEPLAY_PASS_MAX_FLIGHT_UPDATES)
+        duration = TECMO_GAMEPLAY_PASS_MAX_FLIGHT_UPDATES;
+    memset(&pass, 0, sizeof(pass));
+    pass.phase = TECMO_GAMEPLAY_SCENE_PASS_GATHER;
+    pass.passer = scene->ball_holder;
+    pass.receiver = receiver;
+    pass.controller = (uint8_t)controller;
+    /* $89D7 seeds $32; $86A8 launches only at the complete byte $04. */
+    pass.packed_animation_state = 0x32U;
+    pass.flight_duration = duration;
+    pass.start_position = start;
+    pass.target_position = target;
+    scene->pass_state = pass;
+    scene->ball_position = start;
+    return scene_pass_state_valid(scene);
+}
+
+bool scene_update_pass(TecmoGameplayScene *scene)
+{
+    TecmoGameplayScene candidate;
+    TecmoGameplayScenePassState *pass;
+    bool receiver_facing_right;
+    uint32_t step;
+    if (scene == NULL || !scene_pass_active(scene) ||
+        !scene_pass_state_valid(scene)) return false;
+    candidate = *scene;
+    pass = &candidate.pass_state;
+    if (pass->phase == TECMO_GAMEPLAY_SCENE_PASS_GATHER) {
+        if (pass->packed_animation_state == 0x32U)
+            pass->packed_animation_state = 0x22U;
+        else if (pass->packed_animation_state == 0x22U)
+            pass->packed_animation_state = 0x12U;
+        else if (pass->packed_animation_state == 0x12U)
+            pass->packed_animation_state = 0x04U;
+        else {
+            /* $86A8->$B074: state $04 begins ball-owned flight. */
+            pass->phase = TECMO_GAMEPLAY_SCENE_PASS_FLIGHT;
+            pass->flight_frame = 0U;
+        }
+        if (pass->phase == TECMO_GAMEPLAY_SCENE_PASS_GATHER) {
+            if (!scene_attached_ball_position(
+                    &candidate.actors[pass->passer],
+                    &candidate.ball_position) ||
+                !scene_pass_state_valid(&candidate)) return false;
+            *scene = candidate;
+            return true;
+        }
+    }
+    if (pass->flight_frame < pass->flight_duration)
+        ++pass->flight_frame;
+    step = pass->flight_frame;
+    candidate.ball_position.x_q8 = pass->start_position.x_q8 + (int32_t)(
+        ((int64_t)(pass->target_position.x_q8 - pass->start_position.x_q8) *
+         step) / pass->flight_duration);
+    candidate.ball_position.y_q8 = pass->start_position.y_q8 + (int32_t)(
+        ((int64_t)(pass->target_position.y_q8 - pass->start_position.y_q8) *
+         step) / pass->flight_duration);
+    if (pass->flight_frame < pass->flight_duration) {
+        if (!scene_pass_state_valid(&candidate)) return false;
+        *scene = candidate;
+        return true;
+    }
+    /* $B24F is the sole ownership transfer. Reuse its existing typed C
+       transaction only after the ball reaches the locked receiver snapshot. */
+    if (!candidate.legacy_direct_launch &&
+        !tecmo_gameplay_live_foundation_pass_handoff(
+            &candidate.cpu_steering_assets, pass->receiver,
+            &candidate.live_foundation)) return false;
+    candidate.ball_holder = pass->receiver;
+    candidate.controlled_actor[pass->controller] = pass->receiver;
+    /* $B24F->$88B6 installs a direction-selected catch pose. The scene does
+       not retain that raw pose-pointer workspace, so use the validated TGOR
+       attack-facing baseline rather than copying the passer's orientation. */
+    if (!scene_goal_facing_right_for_team(
+            &candidate, candidate.state.possession,
+            &receiver_facing_right)) return false;
+    candidate.actors[pass->receiver].facing_right = receiver_facing_right;
+    scene_pass_clear(&candidate);
+    if (!scene_attach_ball(&candidate) ||
+        !scene_pass_state_valid(&candidate)) return false;
+    *scene = candidate;
+    return true;
+}
+
 bool scene_settle_boundary_latch(TecmoGameplayScene *scene,
                                         bool *settled_out)
 {
@@ -830,6 +1007,9 @@ bool scene_pass_or_switch(TecmoGameplayScene *scene,
             : scene->live_foundation.candidate_actor_by_side[
                 scene->live_foundation.offense_side];
         if (next < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+            if (!scene->legacy_direct_launch) {
+                return scene_begin_pass(scene, controller, next);
+            }
             /* A pass is an action boundary: the new holder starts from the
                validated attack-facing baseline, then movement/shot actions
                may deliberately override it. Stage both facing and ball

@@ -884,11 +884,16 @@ static bool scene_test_controller_policy(
     p1.held.cancel = true;
     p1.pressed.cancel = true;
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
-        scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
-        scene->shot_actor != 1U || scene->action_serial != 2U ||
-        scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN) {
+        (!scene->legacy_direct_launch &&
+         (!scene_pass_active(scene) || scene->ball_holder != 0U ||
+          scene->controlled_actor[0U] != 0U ||
+          scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+          scene->action_serial != 1U)) ||
+        (scene->legacy_direct_launch &&
+         (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+          scene->shot_actor != 1U || scene->action_serial != 2U))) {
         tecmo_gameplay_scene_test_message(message, message_size,
-                           "combined NES A+B resolution failed");
+                           "combined NES A+B did not retain passer ownership");
         return false;
     }
     tecmo_gameplay_scene_end(scene);
@@ -2778,11 +2783,20 @@ static bool scene_test_live_foundation_regressions(
         memset(&human_p1, 0, sizeof(human_p1));
         human_p1.pressed.shoot = true;
         if (!tecmo_gameplay_scene_update(scene, &human_p1, &human_p2) ||
-            scene->ball_holder != 1U ||
-            scene->controlled_actor[0U] != 1U ||
+            !scene_pass_active(scene) || scene->ball_holder != 0U ||
+            scene->controlled_actor[0U] != 0U ||
             scene->actors[1U].team != TECMO_GAMEPLAY_TEAM_AWAY) {
             LIVE_FAIL("LIVE bound human offensive A pass failed");
         }
+        for (size_t pass_guard = 0U;
+             scene_pass_active(scene) && pass_guard < 40U; ++pass_guard) {
+            memset(&human_p1, 0, sizeof(human_p1));
+            if (!tecmo_gameplay_scene_update(scene, &human_p1, &human_p2))
+                LIVE_FAIL("LIVE bound human pass update failed");
+        }
+        if (scene_pass_active(scene) || scene->ball_holder != 1U ||
+            scene->controlled_actor[0U] != 1U)
+            LIVE_FAIL("LIVE bound human pass catch failed");
         expected_roster =
             scene->launch.starter_roster_index[TECMO_GAMEPLAY_TEAM_AWAY][1U];
         if (scene->actors[1U].roster_index != expected_roster ||
@@ -2835,10 +2849,19 @@ static bool scene_test_live_foundation_regressions(
         memset(&human_p2, 0, sizeof(human_p2));
         human_p2.pressed.shoot = true;
         if (!tecmo_gameplay_scene_update(scene, &human_p1, &human_p2) ||
-            scene->ball_holder != 1U ||
-            scene->controlled_actor[1U] != 1U) {
+            !scene_pass_active(scene) || scene->ball_holder != 0U ||
+            scene->controlled_actor[1U] != 0U) {
             LIVE_FAIL("LIVE swapped controller offensive A pass failed");
         }
+        for (size_t pass_guard = 0U;
+             scene_pass_active(scene) && pass_guard < 40U; ++pass_guard) {
+            memset(&human_p2, 0, sizeof(human_p2));
+            if (!tecmo_gameplay_scene_update(scene, &human_p1, &human_p2))
+                LIVE_FAIL("LIVE swapped controller pass update failed");
+        }
+        if (scene_pass_active(scene) || scene->ball_holder != 1U ||
+            scene->controlled_actor[1U] != 1U)
+            LIVE_FAIL("LIVE swapped controller pass catch failed");
         expected_team = scene->actors[scene->controlled_actor[0U]].team;
         if (expected_team != TECMO_GAMEPLAY_TEAM_HOME ||
             scene->actors[5U].roster_index !=

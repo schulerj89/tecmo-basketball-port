@@ -872,7 +872,8 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
         p1.held.shoot = true;
         p1.pressed.shoot = true;
         if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
-            scene->ball_holder != 1U || scene->controlled_actor[0U] != 1U ||
+            !scene_pass_active(scene) || scene->ball_holder != 0U ||
+            scene->controlled_actor[0U] != 0U ||
             scene->actors[1U].team != TECMO_GAMEPLAY_TEAM_AWAY ||
             scene->actors[1U].roster_index != expected_roster ||
             scene->actors[1U].condition != expected_condition) {
@@ -880,6 +881,17 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
                 message, message_size,
                 "offensive pass did not preserve bound receiver identity");
         }
+        for (size_t pass_guard = 0U;
+             scene_pass_active(scene) && pass_guard < 40U; ++pass_guard) {
+            memset(&p1, 0, sizeof(p1));
+            if (!tecmo_gameplay_scene_update(scene, &p1, &p2))
+                return live_proof_reject(message, message_size,
+                                         "offensive pass flight rejected");
+        }
+        if (scene_pass_active(scene) || scene->ball_holder != 1U ||
+            scene->controlled_actor[0U] != 1U)
+            return live_proof_reject(message, message_size,
+                                     "offensive pass catch did not settle");
         return live_proof_live_ownership(scene, message, message_size);
     }
     if (strcmp(event, "defensive-switch") == 0) {
