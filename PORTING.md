@@ -1518,7 +1518,7 @@ high and low positions.
 Ordinary human passes and bounded autonomous CPU action `$21` share a visible,
 actor-neutral transactional lifecycle. Bank06 opcode 9 must naturally emit
 `$046E[holder]=$21`; C never forces its Bank04 record or routes CPU intent
-through NES A. Canonical Rev1 Bank06 `$8FC5-$8FE7` writes `C9=$21` to the
+through NES A. Canonical Rev1 Bank06 `$8FC5-$8FE3` writes `C9=$21` at `$8FCA/$8FCC` to the
 current `$0308` primary's `$046E`, and `$8284-$82A5` excludes `$0308/$0309`
 from ordinary `$057C` actor dispatch so Bank05's selected-primary pointer table
 consumes index `$21` at `$89D7`. The lifted Bank06 helper label is four bytes

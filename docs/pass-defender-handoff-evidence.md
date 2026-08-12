@@ -8,7 +8,7 @@ now share one actor-neutral transport rather than teleporting possession:
 - Bank06 opcode 9 is the already-owned writer of actor-local `$046E`; only a
   naturally emitted value `$21` may start an autonomous pass. The native code
   does not force the Bank04 `$A05F` record or route CPU intent through NES A.
-- Canonical Rev1 Bank06 `$8FC5-$8FE7` writes `C9=$21` to the current `$0308`
+- Canonical Rev1 Bank06 `$8FC5-$8FE3` writes `C9=$21` at `$8FCA/$8FCC` to the current `$0308`
   primary's `$046E` (captured actor 9), while `$8284-$82A5` excludes `$0308`
   and `$0309` from ordinary descending `$057C` actor-state dispatch. Bank05's
   selected-primary pointer table consumes index `$21` at `$89D7`. The lifted
@@ -18,6 +18,10 @@ now share one actor-neutral transport rather than teleporting possession:
   displayed `$24` beside `$89DB`, but FCEUX effective-value annotations can
   reflect later register/memory state; it neither disproves this bounded chain
   nor proves the absence of an intermediate write.
+- Native LIVE mirrors that ownership boundary: the selected primary never runs
+  ordinary Bank06 `play_step`. Only an already-retained exact `$21` can enter
+  `$89D7`; the external play-selection/role lifecycle that retains it remains
+  outside this bounded consumer.
 - `$8999` is not a tight loop. At bytes >=`$10` it jumps to `$9C29`, which
   subtracts `$10` from the high nibble while preserving the low nibble. The
   captured route then advances below `$10` through raw `$0385/$0391`, yielding
@@ -54,7 +58,7 @@ general pass desirability, `$B13F` interception/contact semantics, and the
 complete Bank06 inbound formation route remain deferred/fail-closed.
 
 This change is bounded to Bank05 `$B24F-$B32B` and the selected-actor skip
-contract at Bank06 `$81F7-$82D`.
+contract at Bank06 `$81F7-$82D3`.
 
 - `$B24F`: `primary_actor`/`last_ball_holder` becomes the actual receiver.
 - `$B27B-$B291`: the prior offensive actor receives `actor_state=4`,

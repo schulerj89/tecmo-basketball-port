@@ -1308,7 +1308,7 @@ try {
         "defensive-switch",
         "cpu-target-deferred",
         "actor-command-assignment-deferred",
-        "cpu-source-shot",
+        "cpu-primary-stream-excluded",
         "shot-path",
         "claimant-settlement",
         "defensive-foul-presentation"
@@ -1490,31 +1490,34 @@ try {
             } elseif ([bool]$State.claimant_settlement.emitted) {
                 throw "Non-claimant LIVE proof event unexpectedly emitted Bank05 B87C diagnostics."
             }
-            if ($Event -eq "cpu-source-shot") {
-                $CpuSourceShot = $State.cpu_source_shot
+            if ($Event -eq "cpu-primary-stream-excluded") {
+                $PrimaryExclusion = $State.cpu_primary_stream_excluded
                 $AsmEvidence = $State.asm_evidence
-                if (![bool]$CpuSourceShot.executed -or
-                    [string]$CpuSourceShot.record_offset -ne "0000" -or
-                    [int]$CpuSourceShot.wait_frames -ne 0 -or
-                    ![bool]$State.opcode4_ball_target.executed -or
-                    [int]$State.opcode4_ball_target.target_object -ne 10 -or
-                    [int]($CpuSourceShot.target[0]) -ne
-                        [int]($State.opcode4_ball_target.snapshot_ball[0]) -or
-                    [int]($CpuSourceShot.target[1]) -ne
-                        [int]($State.opcode4_ball_target.snapshot_ball[1]) -or
-                    [int]$CpuSourceShot.updates_until_shot -le 0 -or
-                    ![bool]$State.live.last_shot_request -or
-                    ![bool]$State.live.last_shot_playback_supported -or
+                if (![bool]$PrimaryExclusion.proved -or
+                    [string]$PrimaryExclusion.record_offset -ne "0000" -or
+                    [int]$PrimaryExclusion.wait_frames -ne 0 -or
+                    ((@($PrimaryExclusion.stream) -join ',') -ne
+                        '0000,0000') -or
+                    ((@($PrimaryExclusion.last_step) -join ',') -ne
+                        '0000,0000') -or
+                    ((@($PrimaryExclusion.action) -join ',') -ne '0,0') -or
+                    ((@($PrimaryExclusion.action_serial) -join ',') -ne
+                        '0,0') -or
+                    [bool]$State.opcode4_ball_target.executed -or
+                    [bool]$State.live.last_shot_request -or
+                    [bool]$State.live.last_shot_playback_supported -or
                     [bool]$State.live.last_shot_deferred -or
-                    [int]$State.action_serial -ne 1 -or
-                    [int]$State.shot_frame -lt 1 -or
+                    [int]$State.action_serial -ne 0 -or
+                    [int]$State.shot_kind -ne 0 -or
                     [string]$AsmEvidence.formation_refresh -ne
                         "Bank06 C-0039 `$944D-`$9465" -or
                     [string]$AsmEvidence.command_stream -ne
                         "Bank04 `$9F2E five-byte records" -or
+                    [string]$AsmEvidence.primary_exclusion -ne
+                        "Bank06 `$8286-`$8289 -> `$82A4" -or
                     [string]$AsmEvidence.cpu_shot_gate -ne
                         "Bank06 C-0011 `$8431-`$8475") {
-                    throw "LIVE proof CPU opcode-4 target/shot-gate evidence regressed."
+                    throw "LIVE proof selected-primary stream exclusion regressed."
                 }
             }
             if ($Event -eq "defensive-foul-presentation") {
@@ -1673,7 +1676,7 @@ try {
             "defensive-switch: P1 NES A with home possession"
             "cpu-target-deferred: deterministic source-offset fixture"
             "actor-command-assignment-deferred: real PRETIP/live handoff, then no source-shaped A023 caller or mutation"
-            "cpu-source-shot: supported Bank04 opcode-4 held-ball target through CPU shot gate"
+            "cpu-primary-stream-excluded: selected `$0308` primary cannot consume ordinary Bank04 opcode-4 stream"
             "shot-path: deterministic supported close-shot fixture"
             "claimant-settlement: native pre-tip handoff then deterministic coordinate/frame fixture, normal controller-B miss and production terminal claimant handoff (no direct claimant/phase/possession injection)"
             "defensive-foul-presentation: real PRETIP/live handoff, optional human A switch, human defensive-B, then neutral capture at TGVR visible group 1"

@@ -690,11 +690,12 @@ bool scene_begin_cpu_pass_from_action21(TecmoGameplayScene *scene,
     }
     receiver = scene->live_foundation.candidate_actor_by_side[
         scene->live_foundation.offense_side];
-    /* Canonical Rev1 Bank06 $8FC5-$8FE7 naturally copies C9=$21 into the
-       $0308 primary's $046E slot. $8284-$82A5 then excludes that primary from
-       ordinary per-actor dispatch, leaving Bank05's selected-primary table to
-       enter $89D7. C still does not force a Bank04 record/cursor or route
-       autonomous offense through the human NES-A handler. */
+    /* Canonical Rev1 Bank06 $8FCA/$8FCC copies C9=$21 into $046E[X] inside
+       the $8FC5-$8FE3 handler; capture identifies X as the $0308 primary.
+       Bank06 $8284-$82A5 excludes that primary from ordinary actor dispatch,
+       so C consumes only an already-retained $21 at Bank05's selected-primary
+       $89D7 seam. It never executes a primary stream record to synthesize the
+       value, forces a Bank04 cursor, or routes CPU offense through NES A. */
     return scene_begin_actor_pass(
         scene, passer, receiver, TECMO_GAMEPLAY_SCENE_NO_ACTOR);
 }
@@ -2159,7 +2160,6 @@ bool scene_update_ai(
         TECMO_GAMEPLAY_SCENE_ACTOR_COUNT] = {
         0U, 1U, 2U, 3U, 4U, 5U, 6U, 7U, 8U, 9U
     };
-    uint8_t cpu_pass_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     size_t actor;
     if (scene == NULL || shot_request_out == NULL ||
         !scene->cpu_steering_assets.available ||
@@ -2199,15 +2199,34 @@ bool scene_update_ai(
             scene->controlled_actor, &candidate_foundation)) {
         return false;
     }
+    /* Bank06 $8284-$82A5 excludes the selected primary ($0308) before
+       ordinary $057C->$8B90 command dispatch. Bank05 owns its separate
+       selected-primary state table, so consume an exact retained $21 before
+       running any ordinary actor stream. This scene must never manufacture
+       the pass action by executing a Bank04 record for the primary. */
+    if (candidate_foundation.primary_actor == scene->ball_holder &&
+        candidate_foundation.play_state.action_state_046e[
+            candidate_foundation.primary_actor] == 0x21U &&
+        !scene_team_has_controller(scene, scene->state.possession)) {
+        candidate_scene = *scene;
+        candidate_scene.live_foundation = candidate_foundation;
+        if (!scene_begin_cpu_pass_from_action21(
+                &candidate_scene, candidate_foundation.primary_actor) ||
+            !scene_ownership_valid(&candidate_scene)) {
+            return false;
+        }
+        *scene = candidate_scene;
+        return true;
+    }
     if (!scene_cpu_build_play_input(
             scene, steering_snapshot, &candidate_foundation, &play_input)) {
         return false;
     }
 
-    /* All ten decisions consume one immutable post-human-input court
-       snapshot. Each accepted play step is staged in candidate_foundation;
-       no actor, CPU metadata, or ball state reaches the scene until every
-       requested validation succeeds. */
+    /* Ordinary non-selected decisions consume one immutable post-human-input
+       court snapshot. Each accepted play step is staged in
+       candidate_foundation; no actor, CPU metadata, or ball state reaches the
+       scene until every requested validation succeeds. */
     for (size_t source_index = 0U;
          source_index < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++source_index) {
         TecmoGameplayCpuSteeringPlayResult play_result;
@@ -2236,27 +2255,35 @@ bool scene_update_ai(
         memset(&input, 0, sizeof(input));
         play_input.actor = (uint8_t)actor;
         memset(&play_result, 0, sizeof(play_result));
-        /* Bank06 $81F7-$82D3 excludes $0309. Never consume its ordinary
-           stream while the native selected-defender path owns the actor. */
+        /* Bank06 $8286/$8289 skips $0308 and $828B/$828E skips $0309 before
+           the ordinary $057C indirect dispatch. Keep the selected primary
+           inert here whether or not it carries retained action $21; its
+           Bank05 selected-primary dispatcher is a separate owner. */
+        if (actor == candidate_foundation.primary_actor) {
+            cpu->decision_serial = 0U;
+            cpu->snapshot_fingerprint = 0U;
+            cpu->target_position.x = 0;
+            cpu->target_position.y = 0;
+            cpu->target_kind =
+                TECMO_GAMEPLAY_CPU_STEERING_HARNESS_TARGET_KIND_COUNT;
+            cpu->direction = TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+            cpu->held_direction_bits = TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
+            cpu->target_valid = false;
+            cpu->writes_direction = false;
+            cpu->command_offset = TECMO_GAMEPLAY_SCENE_CPU_NO_COMMAND_OFFSET;
+            cpu->linked_actor = candidate_foundation.play_state
+                .fixed_link[actor];
+            if (!scene_cpu_actor_state_valid(scene, actor, cpu)) return false;
+            continue;
+        }
+        /* The selected-defender setup is also outside ordinary dispatch while
+           Bank05 $9B27 owns its on-ball responsibility. */
         if (!(candidate_foundation.selected_defender_handoff_active &&
               actor == candidate_foundation.defender_actor) &&
             !tecmo_gameplay_live_foundation_play_step(
                 &scene->cpu_steering_assets, &play_input,
                 &candidate_foundation, &play_result)) {
             return false;
-        }
-        if (actor == scene->ball_holder &&
-            candidate_foundation.play_state.action_state_046e[actor] ==
-                0x21U &&
-            !scene_team_has_controller(
-                scene, scene->state.possession)) {
-            /* Canonical Rev1 Bank06 $8FC5-$8FE7 is the owned producer of
-               $046E[X]=C9; capture confirms C9=$21 for the $0308 primary.
-               Bank06 $8284-$82A5 excludes that primary from ordinary $057C
-               dispatch, and Bank05's selected-primary table consumes index
-               $21 at $89D7. Upstream play selection and the cursor reaching
-               such a record remain unowned; this branch invents neither. */
-            cpu_pass_actor = (uint8_t)actor;
         }
         source_target = candidate_foundation.source_target_valid[actor];
         source_direction = candidate_foundation.source_direction_valid[actor];
@@ -2274,26 +2301,6 @@ bool scene_update_ai(
         /* Native fixed projection; never expose it as live $037F/$06CB. */
         input.steering.matchup_actor = candidate_foundation.play_state
             .fixed_link_target[actor];
-        if (cpu_pass_actor == actor) {
-            /* $89D7 takes ownership from ordinary target locomotion. Leave
-               this actor fixed on the command-write update; the actor-neutral
-               pass transaction below converts $21 to state $0F exactly once. */
-            cpu->decision_serial = 0U;
-            cpu->snapshot_fingerprint = 0U;
-            cpu->target_position.x = 0;
-            cpu->target_position.y = 0;
-            cpu->target_kind =
-                TECMO_GAMEPLAY_CPU_STEERING_HARNESS_TARGET_KIND_COUNT;
-            cpu->direction = TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
-            cpu->held_direction_bits = TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
-            cpu->target_valid = false;
-            cpu->writes_direction = false;
-            cpu->command_offset = TECMO_GAMEPLAY_SCENE_CPU_NO_COMMAND_OFFSET;
-            cpu->linked_actor = candidate_foundation.play_state
-                .fixed_link[actor];
-            if (!scene_cpu_actor_state_valid(scene, actor, cpu)) return false;
-            continue;
-        }
         if (candidate_foundation.selected_defender_handoff_active &&
             actor == candidate_foundation.defender_actor) {
             /* Bank06 omits $0309 from ordinary command dispatch; the
@@ -2459,23 +2466,6 @@ bool scene_update_ai(
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     candidate_foundation.last_shot_deferred = false;
     candidate_foundation.last_shot_playback_supported = false;
-
-    if (cpu_pass_actor != TECMO_GAMEPLAY_SCENE_NO_ACTOR) {
-        candidate_scene = *scene;
-        memcpy(candidate_scene.actors, candidate_actors,
-               sizeof(candidate_actors));
-        memcpy(candidate_scene.cpu_actors, candidate_cpu,
-               sizeof(candidate_cpu));
-        candidate_scene.ball_position = candidate_ball;
-        candidate_scene.live_foundation = candidate_foundation;
-        if (!scene_begin_cpu_pass_from_action21(
-                &candidate_scene, cpu_pass_actor) ||
-            !scene_ownership_valid(&candidate_scene)) {
-            return false;
-        }
-        *scene = candidate_scene;
-        return true;
-    }
 
     if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
         !scene_team_has_controller(scene, scene->state.possession) &&

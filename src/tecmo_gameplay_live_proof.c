@@ -14,7 +14,7 @@
 #define LIVE_PROOF_HEIGHT 480
 #define LIVE_PROOF_MEMORY_SIZE (16U * 1024U * 1024U)
 #define LIVE_PROOF_MAX_PRETIP_UPDATES 2048U
-#define LIVE_PROOF_MAX_CPU_SOURCE_SHOT_UPDATES 96U
+#define LIVE_PROOF_PRIMARY_STREAM_HOLD_UPDATES 96U
 #define LIVE_PROOF_FOUL_VISIBLE_FRAME \
     TECMO_GAMEPLAY_VIOLATION_REFEREE_SEQUENCE_START_FRAME
 
@@ -25,12 +25,17 @@ typedef struct LiveProofEventEvidence {
     uint8_t opcode4_target_object;
     TecmoGameplayCourtCoordinate opcode4_ball_snapshot;
     TecmoGameplayCourtCoordinate opcode4_source_target;
-    bool cpu_source_shot;
-    uint16_t source_record_offset;
-    uint8_t source_wait_frames;
-    uint8_t formation_before_cross;
-    uint8_t formation_after_cross;
-    uint8_t updates_until_shot;
+    bool cpu_primary_stream_excluded;
+    uint16_t primary_record_offset;
+    uint8_t primary_wait_frames;
+    uint16_t primary_stream_before;
+    uint16_t primary_stream_after;
+    uint16_t primary_last_step_before;
+    uint16_t primary_last_step_after;
+    uint8_t primary_action_before;
+    uint8_t primary_action_after;
+    uint16_t primary_action_serial_before;
+    uint16_t primary_action_serial_after;
     uint8_t foul_referee_group;
     uint16_t foul_visible_phase_frame;
     bool foul_overlay_retained;
@@ -61,8 +66,6 @@ typedef struct LiveProofEventEvidence {
     uint32_t actor_command_assignment_scene_frame_after;
     uint32_t actor_command_assignment_sync_serial_before;
     uint32_t actor_command_assignment_sync_serial_after;
-    TecmoGameplayCourtCoordinate source_target;
-    TecmoGameplayCourtCoordinate start_position;
 } LiveProofEventEvidence;
 
 static void live_proof_error(char *message, size_t message_size,
@@ -119,7 +122,7 @@ static bool live_proof_event_valid(const char *event)
         "defensive-switch",
         "cpu-target-deferred",
         "actor-command-assignment-deferred",
-        "cpu-source-shot",
+        "cpu-primary-stream-excluded",
         "shot-path",
         "claimant-settlement",
         "defensive-foul-presentation"
@@ -280,11 +283,10 @@ static bool live_proof_find_offset(
     return false;
 }
 
-/* Choose the canonical Bank04 opcode-4 ball-object record. LIVE owns the
-   ball coordinate but not the `$BA` lifecycle required by opcode 2, so this
-   fixture proves the supported source-target/CPU-shot seam without pretending
-   an absolute-target record is live. */
-static bool live_proof_find_cpu_source_shot_record(
+/* Choose the canonical Bank04 opcode-4 ball-object record. The selected-primary
+   exclusion fixture parks this otherwise supported record on `$0308` and
+   proves the ordinary Bank06 actor loop cannot execute it. */
+static bool live_proof_find_opcode4_ball_record(
     const TecmoGameplayScene *scene,
     uint16_t *offset_out,
     uint8_t *wait_out,
@@ -975,36 +977,23 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
         evidence->opcode4_ball_target = true;
         return live_proof_live_ownership(scene, message, message_size);
     }
-    if (strcmp(event, "cpu-source-shot") == 0) {
+    if (strcmp(event, "cpu-primary-stream-excluded") == 0) {
         TecmoGameplayLiveFoundation candidate;
-        TecmoGameplayCourtCoordinate start;
+        TecmoGameplayCourtCoordinate unused_target;
         uint16_t source_offset;
-        uint16_t action_before;
         uint8_t source_wait;
-        bool saw_source_target = false;
-        size_t update;
         scene->launch.controller_team[0U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
         scene->launch.controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
         scene->controlled_actor[0U] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
         scene->controlled_actor[1U] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
         if (!live_proof_force_possession(
                 scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
-            !live_proof_find_cpu_source_shot_record(
+            !live_proof_find_opcode4_ball_record(
                 scene, &source_offset, &source_wait,
-                &evidence->source_target)) {
+                &unused_target)) {
             return live_proof_reject(
                 message, message_size,
-                "CPU source-shot fixture could not locate Bank04 ball target");
-        }
-        start.x = (int16_t)(scene->orientation_state.offensive_hoop.x +
-            (scene->orientation_state.offensive_hoop.x ==
-                    TECMO_GAMEPLAY_COURT_LEFT_HOOP_X
-                ? 8 : -8));
-        start.y = TECMO_GAMEPLAY_SHOT_TARGET_Y;
-        if (!scene_actor_coordinate_valid(&start)) {
-            return live_proof_reject(
-                message, message_size,
-                "CPU source-shot fixture start was outside court bounds");
+                "CPU primary-exclusion fixture could not locate Bank04 ball target");
         }
         candidate = scene->live_foundation;
         candidate.play_state.stream_offset[0U] = source_offset;
@@ -1024,15 +1013,14 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
         candidate.deferred[0U] = false;
         candidate.deferred_reason[0U] =
             TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
-        candidate.actor_position[0U] = start;
-        /* Hold unrelated actor streams for this one-thread proof. Their
-           source handlers can legitimately retarget selected slots, which
-           would test a different unported interaction instead of the
-           $944D preservation seam exercised here. */
+        /* Bank06 `$8286 CPX $0308` / `$8289 BEQ $82A4` skips the selected
+           primary before ordinary `$057C` dispatch. Park a valid opcode-4
+           record on actor 0 and hold every non-primary actor so a production
+           update can prove that the primary cursor is not consumed. */
         for (size_t actor = 1U;
              actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
             candidate.play_state.wait_counter[actor] =
-                LIVE_PROOF_MAX_CPU_SOURCE_SHOT_UPDATES;
+                LIVE_PROOF_PRIMARY_STREAM_HOLD_UPDATES;
             candidate.play_state.actor_state[actor] = 0x06U;
             candidate.deferred[actor] = false;
             candidate.deferred_reason[actor] =
@@ -1042,115 +1030,49 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
                 &scene->cpu_steering_assets, &candidate)) {
             return live_proof_reject(
                 message, message_size,
-                "CPU source-shot fixture foundation was rejected");
+                "CPU primary-exclusion fixture foundation was rejected");
         }
         scene->live_foundation = candidate;
-        scene->actors[0U].position = start;
-        scene->actors[0U].anchor = start;
-        scene->actors[0U].movement_boundary_latched = false;
-        scene->state.shot_clock = 12U;
-        scene->state.clock_divider = 1U;
         if (!scene_attach_ball(scene)) {
             return live_proof_reject(message, message_size,
-                                     "CPU source-shot ball attach failed");
+                                     "CPU primary-exclusion ball attach failed");
         }
-        /* Bank04 opcode 4 resolves C8 == $0A through the live ball owner.
-           Snapshot that owner after attach; the sprite/ball anchor is not
-           necessarily the holder's court coordinate. */
-        if (!tecmo_gameplay_court_coordinate_q8_floor(
-                &scene->ball_position, &evidence->source_target)) {
+        evidence->primary_record_offset = source_offset;
+        evidence->primary_wait_frames = source_wait;
+        evidence->primary_stream_before = source_offset;
+        evidence->primary_last_step_before = source_offset;
+        evidence->primary_action_before = candidate.play_state
+            .action_state_046e[0U];
+        evidence->primary_action_serial_before = scene->action_serial;
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
             return live_proof_reject(
                 message, message_size,
-                "CPU source-shot ball coordinate was unavailable");
+                "CPU primary-exclusion production update failed");
         }
-        action_before = scene->action_serial;
-        for (update = 0U;
-             update < LIVE_PROOF_MAX_CPU_SOURCE_SHOT_UPDATES; ++update) {
-            if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
-                if (message != NULL && message_size != 0U) {
-                    (void)snprintf(
-                        message, message_size,
-                        "CPU source-shot production update failed update=%u "
-                        "status=%s phase=%u holder=%u form=%u source=%u "
-                        "cursor=%04X target=%d,%d",
-                        (unsigned)update, scene->status,
-                        (unsigned)scene->state.phase,
-                        (unsigned)scene->ball_holder,
-                        (unsigned)scene->live_foundation.formation_index,
-                        scene->live_foundation.source_target_valid[0U] ? 1U : 0U,
-                        (unsigned)scene->live_foundation.play_state
-                            .stream_offset[0U],
-                        (int)scene->live_foundation.play_state.target_x[0U],
-                        (int)scene->live_foundation.play_state.target_depth[0U]);
-                }
-                return false;
-            }
-            if (scene->live_foundation.source_target_valid[0U]) {
-                saw_source_target = true;
-                if (scene->live_foundation.play_state.target_object[0U] !=
-                        TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT ||
-                    scene->live_foundation.play_state.target_x[0U] !=
-                        evidence->source_target.x ||
-                    scene->live_foundation.play_state.target_depth[0U] !=
-                        evidence->source_target.y ||
-                    scene->live_foundation.deferred[0U]) {
-                    if (message != NULL && message_size != 0U) {
-                        (void)snprintf(
-                            message, message_size,
-                            "CPU opcode-4 target mismatch object=%u target=%d,%d "
-                            "expected=%d,%d deferred=%u",
-                            (unsigned)scene->live_foundation.play_state
-                                .target_object[0U],
-                            (int)scene->live_foundation.play_state.target_x[0U],
-                            (int)scene->live_foundation.play_state.target_depth[0U],
-                            (int)evidence->source_target.x,
-                            (int)evidence->source_target.y,
-                            scene->live_foundation.deferred[0U] ? 1U : 0U);
-                    }
-                    return false;
-                }
-            }
-            if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
-                evidence->updates_until_shot = (uint8_t)(update + 1U);
-                break;
-            }
-        }
-        if (!saw_source_target ||
-            scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
-            scene->shot_actor != 0U ||
-            scene->action_serial != (uint16_t)(action_before + 1U) ||
-            !scene->live_foundation.last_shot_request ||
-            !scene->live_foundation.last_shot_playback_supported ||
-            scene->live_foundation.last_shot_deferred) {
+        evidence->primary_stream_after = scene->live_foundation.play_state
+            .stream_offset[0U];
+        evidence->primary_last_step_after =
+            scene->live_foundation.last_step_offset[0U];
+        evidence->primary_action_after = scene->live_foundation.play_state
+            .action_state_046e[0U];
+        evidence->primary_action_serial_after = scene->action_serial;
+        if (scene->live_foundation.primary_actor != 0U ||
+            evidence->primary_stream_after !=
+                evidence->primary_stream_before ||
+            evidence->primary_last_step_after !=
+                evidence->primary_last_step_before ||
+            evidence->primary_action_after !=
+                evidence->primary_action_before ||
+            evidence->primary_action_serial_after !=
+                evidence->primary_action_serial_before ||
+            scene->live_foundation.source_target_valid[0U] ||
+            scene->cpu_actors[0U].target_valid ||
+            scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
             return live_proof_reject(
                 message, message_size,
-                "CPU source target did not reach the supported shot gate");
+                "selected primary executed an ordinary Bank06 stream");
         }
-        /* Render an actual visible shot frame after the CPU-owned launch.
-           The second update stays in the normal outer scene path, so this is
-           not a direct playback injection. */
-        for (size_t visible_update = 0U; visible_update < 3U;
-             ++visible_update) {
-            if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
-                scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
-                scene->shot_actor != 0U || scene->shot_frame == 0U) {
-                return live_proof_reject(
-                    message, message_size,
-                    "CPU source-shot playback did not become visible");
-            }
-        }
-        evidence->cpu_source_shot = true;
-        evidence->source_record_offset = source_offset;
-        evidence->source_wait_frames = source_wait;
-        evidence->start_position = start;
-        evidence->opcode4_ball_target = true;
-        evidence->opcode4_record_offset = source_offset;
-        evidence->opcode4_argument_c8 =
-            TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT;
-        evidence->opcode4_target_object =
-            TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT;
-        evidence->opcode4_ball_snapshot = evidence->source_target;
-        evidence->opcode4_source_target = evidence->source_target;
+        evidence->cpu_primary_stream_excluded = true;
         return true;
     }
     if (strcmp(event, "shot-path") == 0) {
@@ -1498,11 +1420,13 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             "\"asm_evidence\":{\"formation_refresh\":"
             "\"Bank06 C-0039 $944D-$9465\","
             "\"command_stream\":\"Bank04 $9F2E five-byte records\","
+            "\"primary_exclusion\":\"Bank06 $8286-$8289 -> $82A4\","
             "\"cpu_shot_gate\":\"Bank06 C-0011 $8431-$8475\"},"
-            "\"cpu_source_shot\":{\"executed\":%s,"
+            "\"cpu_primary_stream_excluded\":{\"proved\":%s,"
             "\"record_offset\":\"%04X\",\"wait_frames\":%u,"
-            "\"target\":[%d,%d],\"start\":[%d,%d],"
-            "\"formation_cross\":[%u,%u],\"updates_until_shot\":%u},"
+            "\"stream\":[\"%04X\",\"%04X\"],"
+            "\"last_step\":[\"%04X\",\"%04X\"],"
+            "\"action\":[%u,%u],\"action_serial\":[%u,%u]},"
             "\"opcode4_ball_target\":{\"executed\":%s,"
             "\"record_offset\":\"%04X\",\"argument_c8\":%u,"
             "\"target_object\":%u,\"snapshot_ball\":[%d,%d],"
@@ -1569,14 +1493,17 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
                                                                   "false",
             (unsigned)scene->live_foundation.last_shot_actor,
             (unsigned)target_count, (unsigned)deferred_count,
-            evidence->cpu_source_shot ? "true" : "false",
-            (unsigned)evidence->source_record_offset,
-            (unsigned)evidence->source_wait_frames,
-            (int)evidence->source_target.x, (int)evidence->source_target.y,
-            (int)evidence->start_position.x, (int)evidence->start_position.y,
-            (unsigned)evidence->formation_before_cross,
-            (unsigned)evidence->formation_after_cross,
-            (unsigned)evidence->updates_until_shot,
+            evidence->cpu_primary_stream_excluded ? "true" : "false",
+            (unsigned)evidence->primary_record_offset,
+            (unsigned)evidence->primary_wait_frames,
+            (unsigned)evidence->primary_stream_before,
+            (unsigned)evidence->primary_stream_after,
+            (unsigned)evidence->primary_last_step_before,
+            (unsigned)evidence->primary_last_step_after,
+            (unsigned)evidence->primary_action_before,
+            (unsigned)evidence->primary_action_after,
+            (unsigned)evidence->primary_action_serial_before,
+            (unsigned)evidence->primary_action_serial_after,
             evidence->opcode4_ball_target ? "true" : "false",
             (unsigned)evidence->opcode4_record_offset,
             (unsigned)evidence->opcode4_argument_c8,

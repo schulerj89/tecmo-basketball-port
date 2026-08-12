@@ -68,7 +68,7 @@ to reconstruct offensive play selection.
 The exact opcode-9 executor copies Bank04 command byte `C9` into actor-local
 `$046E[X]`. Native LIVE now recognizes only a naturally produced exact `$21`
 on the unassigned possession holder. FCEUX closes that handoff: canonical Rev1
-Bank06 `$8FC5-$8FE7` writes `C9=$21` to the current `$0308` primary's `$046E`
+Bank06 `$8FC5-$8FE3` writes `C9=$21` at `$8FCA/$8FCC` to the current `$0308` primary's `$046E`
 (observed actor 9), then `$8284-$82A5` excludes both `$0308` and `$0309` from
 the ordinary descending `$057C` actor-state dispatch. Bank05's selected-primary
 pointer table consumes index `$21` at `$89D7`. The lifted Bank06 helper label
@@ -86,10 +86,13 @@ holder remains the passer until catch. CPU transport has no controller, so the
 catch cannot mutate either human assignment. Human NES-A passing continues to
 use the same transport with its controller attached.
 
-This implements the source-proven action assignment, selected-primary dispatch,
-and downstream gather-to-catch consumer. The static Bank04 `$A05F` / stream
-`$0131` record is exact, but live play-selection and
-cursor reach to that record remain unproven and are never forced by C. The
+This implements the source-proven retained-action admission, selected-primary
+dispatch, and downstream gather-to-catch consumer. Native LIVE does not run
+the current primary through ordinary `play_step`; it consumes `$21` only when
+the synchronized selected-primary state already retains it. The static Bank04
+`$A05F` / stream `$0131` record is exact, but live play-selection, cursor reach,
+and the exact external lifecycle that leaves `$21` on the selected primary
+remain unproven and are never forced by C. The
 current flight duration/interpolation also remains a labeled native adapter
 until `$B42F/$BB9F/$BBA0` and `$B1E7/$B500` are imported as a strict asset.
 The standalone C `$BD6E-$BDC6` arithmetic kernel exactly preserves uint16
@@ -350,25 +353,25 @@ Formation refresh quantizes the current selected ball handler into 64-pixel
 X/depth buckets. A bucket change reloads only ordinary eligible actors,
 retains both `$0308` and `$0309` lifecycles, and clears source target/direction
 metadata only for the ordinary actors whose `$0547/$0551` cursor it replaces.
-That matches Bank06 `$944D-$9465`: clearing every actor at a bucket transition
-would erase a selected CPU holder's already-written Bank04 target and stop its
-route before the Bank06 `$8431-$8475` shot predicate could be reached. An
-unchanged bucket is a no-op. Automatic selected defense is active on initial
-possession and after pass handoff. The selected defender is excluded from
-ordinary dispatch and uses the source `+16/-16` orientation separation rather
+That matches Bank06 `$944D-$9465`. An unchanged bucket is a no-op. Automatic
+selected defense is active on initial possession and after pass handoff. The
+selected defender uses the source `+16/-16` orientation separation rather
 than chasing the holder's exact coordinate.
 
-`--gameplay-live-foundation-proof <PACK> cpu-source-shot <PNG>` is a bounded,
-deterministic regression fixture for the supported seam. It executes the Rev1
-Bank04 opcode-4 ball-object record at `$0000` with the held ball at a valid
-close-shot coordinate, then lets the existing CPU shot gate launch a visible
-close shot. It deliberately holds unrelated actor streams. The scene-state
-suite additionally runs the real PRETIP-to-home-CPU handoff with no injected
-possession or captured workspaces: its actual holder record is decoded as
-opcode 2, must advance by five through `$92CA-$92D0`, and must leave at least
-one actor moving. That regression proves the narrow ordinary-LIVE `$BA` gate,
-not a complete reconstructed play-selection policy, downstream `$92DD` side
-effects, or formation-refresh parity for every opcode-2 route.
+The selected primary is also excluded from ordinary Bank06 actor dispatch:
+`$8286 CPX $0308` / `$8289 BEQ $82A4` bypasses its `$057C` handler and Bank04
+cursor. `--gameplay-live-foundation-proof <PACK>
+cpu-primary-stream-excluded <PNG>` parks the canonical opcode-4 ball-object
+record at `$0000` on selected actor 0 and proves one production update leaves
+its stream, last-step offset, action state, target metadata, and scene action
+serial unchanged. The scene-state suite separately runs the real
+PRETIP-to-home-CPU handoff: the holder cursor remains unchanged while at least
+one nonselected actor moves. These regressions prove selected-primary
+exclusion, not complete play-selection policy, downstream `$92DD` side
+effects, or formation-refresh parity for every ordinary actor route. The
+native close-shot `shot-path` proof remains a separately classified bounded
+shot-policy slice; it is not evidence that a selected primary executed an
+ordinary opcode-4 stream.
 
 `tools/Invoke-CpuBallTargetOpcode4Proof.ps1 -RomPath <LOCAL_ROM.nes>` creates
 an ignored two-run production proof under `build/cpu-ball-target-opcode4-proof`.

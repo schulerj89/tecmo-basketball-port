@@ -1320,8 +1320,8 @@ phase/sound vectors with
 Ordinary passes use one actor-neutral scene transport. Human NES-A passes
 carry their controller; autonomous passes carry no controller and may begin
 only when the owned Bank06 opcode-9 executor naturally writes exact action
-`$21` for the unassigned holder. Canonical Rev1 Bank06 `$8FC5-$8FE7` writes
-`C9=$21` to the current `$0308` primary's `$046E`; `$8284-$82A5` excludes
+`$21` for the unassigned holder. Canonical Rev1 Bank06 `$8FC5-$8FE3` writes
+`C9=$21` at `$8FCA/$8FCC` to the current `$0308` primary's `$046E`; `$8284-$82A5` excludes
 `$0308/$0309` from ordinary `$057C` dispatch, leaving Bank05's selected-primary
 pointer index `$21` to enter `$89D7`. The lifted Bank06 helper label is four
 bytes early; canonical Rev1 bytes/capture win. `$89D7` writes state
