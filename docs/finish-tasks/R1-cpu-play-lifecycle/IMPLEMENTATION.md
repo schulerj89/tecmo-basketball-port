@@ -75,7 +75,7 @@ effect/transport decision.
 | 6 | transition/reset | none | effect deferred; no advance exact |
 | 7 | actor-state compare/branch | branch +5 or current +5 | exact `$046E` eleven-entry probe, CA/CB branch, state 4 |
 | 8 | boundary branch | conditional none/+5 | effect deferred; transport gate retained |
-| 9 | state/animation | +5 | bounded state/timer/action writes |
+| 9 | state/animation | +5 | bounded state, `$046E` action-state, and action writes |
 | 10 | fixed-link proximity/retry | BA/retry complexity | effect deferred; current contract retains same record |
 | 11 | fixed-link relative pose | +5 | effect deferred; transport exact |
 | 12 | fixed-link follow-up gate | conditional none/+5 | helper inputs deferred |

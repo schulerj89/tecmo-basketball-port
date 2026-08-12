@@ -24,7 +24,8 @@ contract at Bank06 `$81F7-$82D`.
 
 - `$B24F`: `primary_actor`/`last_ball_holder` becomes the actual receiver.
 - `$B27B-$B291`: the prior offensive actor receives `actor_state=4`,
-  `timer=0`, and command offset `$0B63` (`$9F2E+$0B63=$AA91`).
+  `$046E` action state `0`, and command offset `$0B63`
+  (`$9F2E+$0B63=$AA91`).
 - `$B292-$B2CC`: automatic/human opposition is explicit in `control_mode`.
   Automatic opposition scans slots 9 down to 0 and requires both explicit
   `$04B0 & $10` eligibility and `$06CB` dynamic link equality. The selected

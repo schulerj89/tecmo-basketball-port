@@ -46,7 +46,7 @@ The exact Bank04 actor-slot values used by bound LIVE are:
 | 8 | `(400,192)` | 5 | 3 |
 | 9 | `(372,144)` | 0 | 4 |
 
-Static seeds are primary actor `4`, defender actor `9`, matchup seed family `{2,7}`. They remain separate from the first post-handoff holder-driven synchronization and from inferred native matchup metadata.
+Static seeds are primary actor `4`, defender actor `9`, matchup seed family `{2,7}`. They remain separate from the first post-handoff holder-driven synchronization and from the native fixed-link projection, which is not live `$037F` or `$06CB` ownership.
 
 ## Classification table
 
@@ -60,7 +60,7 @@ Static seeds are primary actor `4`, defender actor `9`, matchup seed family `{2,
 | Formation/play-state/one-step lifecycle | Accepted API integration | One immutable ten-actor snapshot, source actor order, `step_budget=1`, transactional commit. |
 | Source actor target | Native-faithful adapter | A valid stored coordinate is required; movement follows the current referenced actor on every immutable post-human snapshot/tick. Original Bank05 dynamic retarget/matchup semantics remain incomplete and unproven. `(0,0)` is a valid TGCT coordinate. |
 | Source direction to TGMO | Native-faithful adapter | Synthesized targets stay inside the playable court polygon. Direct direction is composed when exposed; otherwise tested target-to-direction equivalence is used. An outward edge/corner direction with no legal target is preserved as metadata and applied inert/deferred, without an out-of-court target or scene failure. |
-| Controller/matchup routing | Native-faithful/inferred | Controller observations are validated; fixed links remain exact and native matchup is explicitly inferred. |
+| Controller/fixed-link routing | Native-faithful projection | Controller observations are validated; exact fixed links are projected for bounded integration and are not live `$037F` candidate or `$06CB` link ownership. |
 | Shot request workspace/random | Native approximation | Deterministic caller input; not a claim of original RNG or complete caller workspaces. |
 | Unsupported `shots.c` playback | Incomplete/deferred | Request and exact actor are recorded with explicit non-launch classification; no shot outcome code was changed. |
 | Original first running-clock RAM snapshot | Unproven | Not labelled as the static Bank04 setup. |
