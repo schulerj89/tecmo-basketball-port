@@ -421,19 +421,21 @@ zero-delta harness evaluation succeeds with an explicit keep-direction/no-write
 result so no prior direction has to be fabricated.
 
 For each ordinary live update, the scene captures one immutable post-human-
-input snapshot of all ten canonical coordinates. The ball holder uses the
-orientation-aware `48/48/40`-pixel hoop approach, offensive non-holders use
-mirrored per-slot formation coordinates, and defenders use explicit goal-side
-offsets from their fixed linked opponent. A goal-side target outside the shaped
-court uses an equal inward offset before final validation. Those target choices
-are native approximations. TGAI supplies the exact nonzero octant, and TGMO
-supplies exact latency, accumulation, animation, and role-coherent clamp behavior: primary
-for the offensive holder and secondary for every other actor. Candidate actor/
-movement/target states commit together so loop order cannot alter this frame's
-targets. The
-fixed link, holder approach, zero-vector neutral bridge, object state/flags,
-and shot proximity/cadence remain native policy. No ROM command offset or
-advance is fabricated: live state carries an explicit no-command sentinel.
+input snapshot of all ten canonical coordinates. Eligible noncontrolled,
+nonselected actors use mirrored per-slot offensive formation coordinates or
+explicit goal-side defensive offsets from their fixed linked opponent. A
+goal-side target outside the shaped court uses an equal inward offset before
+final validation. Those target choices are native approximations; TGAI supplies
+the exact nonzero octant and TGMO supplies the converted secondary movement
+step. Candidate actor/movement/target states commit together so loop order
+cannot alter this frame's targets. Bank06 `$8286-$82A5` excludes the selected
+`$0308` primary, so the bound CPU holder is currently frozen apart from TGBD
+ball attachment; its locomotion, animation cadence, command adoption, and
+holder policy remain deferred. Fixed links, nonselected formation/defensive
+targets, zero-vector bridging, object state/flags, and shot proximity/cadence
+remain native policy. No ROM command offset or advance is fabricated for the
+selected primary: live state preserves its retained cursor and action without
+executing the ordinary stream.
 
 TGSR-4 also has FNV1a64 `FACCE42B52382D6B` and requires exact same-pack
 TGPL-1. Its revision-fingerprinted sources are Bank05 `$91BC-$943A`,

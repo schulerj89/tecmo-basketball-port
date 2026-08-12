@@ -1648,13 +1648,14 @@ five-byte command record. When the scene is ordinary LIVE with no result or
 pre-tip abort, violation, free throw, shot, visible pass, lineup, or dunk
 presentation, C projects only the proven zero low-two-bit condition. It does
 not mirror the `$BA` byte, derive it from a frame counter, or claim its other
-flags. All transient contexts remain `missing-ba-lifecycle`. This closes the
-post-tip stall where a CPU holder repeatedly deferred on opcode 2: a natural,
-non-injected PRETIP-to-CPU regression decodes the aligned holder record at
-`$0A41`, requires `$0A41->$0A46`, observes no defer reason, and requires actor
-movement. It proves command transport through this ordinary-live gate, not a
-complete CPU playbook, passing decision, jump/far shot lifecycle, or downstream
-`$92DD+` side-effect parity.
+flags. All transient contexts remain `missing-ba-lifecycle`. A natural,
+non-injected PRETIP-to-CPU regression now proves the selected `$0308` primary
+is excluded from ordinary command transport: its `$0A41` cursor, retained
+action, movement/animation, and CPU decision metadata remain frozen while the
+held ball stays attached through TGBD. A nonselected actor must still advance,
+proving ordinary actor transport remains live. This establishes the Bank06
+selected-primary boundary, not a complete CPU playbook, holder policy, passing
+decision, jump/far shot lifecycle, or downstream `$92DD+` side-effect parity.
 
 Do not use this asset to claim a complete CPU policy, shot/pass/steal choice,
 ROM actor-link ownership, or live collision/contact ownership. In particular, the
