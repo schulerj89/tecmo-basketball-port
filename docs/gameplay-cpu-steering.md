@@ -63,17 +63,22 @@ scene resolves slot `10` from one immutable floored-Q8 ball snapshot before
 its normal TGMO composition. This is source-to-C target transport, not a claim
 to reconstruct offensive play selection.
 
-## Opcode 9 action `$21`: bounded autonomous pass consumer
+## Opcode 9 action `$21`: downstream pass consumer, producer fail-closed
 
 The exact opcode-9 executor copies Bank04 command byte `C9` into actor-local
-`$046E[X]`. Native LIVE now recognizes only a naturally produced exact `$21`
-on the unassigned possession holder. FCEUX closes that handoff: canonical Rev1
-Bank06 `$8FC5-$8FE3` writes `C9=$21` at `$8FCA/$8FCC` to the current `$0308` primary's `$046E`
-(observed actor 9), then `$8284-$82A5` excludes both `$0308` and `$0309` from
-the ordinary descending `$057C` actor-state dispatch. Bank05's selected-primary
-pointer table consumes index `$21` at `$89D7`. The lifted Bank06 helper label
-is four bytes early; canonical Rev1 bytes/capture are authoritative. `$89D7`
-writes selected-actor state `$0F` and packed `$0458=$32`;
+`$046E[X]`. Canonical Rev1 Bank06 `$8FC5-$8FE7` contains that handler, with
+the `C9` load/store at `$8FCA/$8FCC` and RTS at `$8FE7`; rewind begins at
+`$8FE8`. A runtime capture proves `C9=$21` was written to actor 9, but it does
+not prove actor 9 was already current `$0308`, nor the retention/adoption
+lifecycle that could make that actor selected primary afterward.
+
+Bank06 `$8284-$82A5` excludes both `$0308` and `$0309` from ordinary
+descending `$057C` dispatch. Native LIVE now preserves that exclusion, so its
+ordinary `play_step` cannot produce `$21` on the selected primary. The native
+downstream consumer is therefore testable only from an already-retained typed
+`$21`; no live producer currently reaches it and autonomous CPU passing remains
+fail-closed. Bank05's selected-primary pointer table consumes index `$21` at
+`$89D7`. `$89D7` writes selected-actor state `$0F` and packed `$0458=$32`;
 state `$0F` dispatches through `$8695`; `$8999/$9C29` produced the observed
 `$32->$22->$12->$02->$03->$04` cadence; `$86A8-$86B7` releases at the complete
 byte `$04` directly into shared `$B074`; and genuine Bank05 `$B24F` performs
@@ -82,17 +87,16 @@ observes `$0478=$13` at direct `$B074` entry before it writes flight state `$04`
 
 At launch, the typed `$037F[$030A]` candidate is locked as receiver and the
 `$000E/$037F`-shaped side roles swap, while the `$0308`-shaped primary/native
-holder remains the passer until catch. CPU transport has no controller, so the
-catch cannot mutate either human assignment. Human NES-A passing continues to
-use the same transport with its controller attached.
+holder remains the passer until catch. The controller-none deterministic
+fixture cannot mutate either human assignment. Human NES-A passing continues
+to use the same transport with its controller attached.
 
-This implements the source-proven retained-action admission, selected-primary
-dispatch, and downstream gather-to-catch consumer. Native LIVE does not run
-the current primary through ordinary `play_step`; it consumes `$21` only when
-the synchronized selected-primary state already retains it. The static Bank04
-`$A05F` / stream `$0131` record is exact, but live play-selection, cursor reach,
-and the exact external lifecycle that leaves `$21` on the selected primary
-remain unproven and are never forced by C. The
+This implements a source-proven downstream gather-to-catch consumer behind an
+explicit retained-action admission seam. Native LIVE does not run the current
+primary through ordinary `play_step`; without a proven producer/retention/
+adoption lifecycle, normal play cannot supply that seam. The static Bank04
+`$A05F` / stream `$0131` record is exact, but live play-selection and cursor
+reach remain unproven and are never forced by C. The
 current flight duration/interpolation also remains a labeled native adapter
 until `$B42F/$BB9F/$BBA0` and `$B1E7/$B500` are imported as a strict asset.
 The standalone C `$BD6E-$BDC6` arithmetic kernel exactly preserves uint16
@@ -211,12 +215,10 @@ The core API, with CLI-only inspection wrappers, provides:
   invalid raw direction vectors.
 
 The snapshot evaluator deliberately composes exact and native-owned pieces.
-For the ball holder it uses the scene's implementation-owned hoop
-approach (`48/48/40` pixels for difficulty `0/1/2`); orientation 0 targets the
-left hoop and orientation 1 the right. Every other selected actor targets the
-explicit opposing linked/matchup actor supplied by the caller. That link is a
-typed harness input, not a claim that the ROM's `$06CB,X` assignment policy has
-been reconstructed. Only the final TGAI target-minus-actor octant is ROM-exact.
+Default and explicit targets are deterministic harness inputs, not live CPU
+policy. The linked/matchup actor is likewise a typed harness input, not a claim
+that the ROM's `$06CB,X` assignment policy has been reconstructed. Only the
+final TGAI target-minus-actor octant is ROM-exact.
 
 Every coordinate must be in TGCT canonical X `0..767`, Y `0..239`; the holder
 must belong to the possession team, and the linked/matchup actor must be on the
@@ -253,7 +255,7 @@ The exactness boundary has one important seam: TGAI's zero-vector guard means
 There is no exact bit value implied by that guard. The shared adapter supplies
 neutral as a native policy and still allows TGMO's one-update latency to run.
 The initial offensive-facing direction, explicit rating/condition values,
-holder hoop approach, and linked target also remain harness-owned inputs or
+default/explicit target, and linked target also remain harness-owned inputs or
 policy. Neither the neutral choice nor those policies are presented as ROM CPU
 command behavior.
 
@@ -273,9 +275,9 @@ normal play calls the pure API directly.
 
 ## Deliberate limits and next integration
 
-TGAI-2 does not claim a complete CPU play policy. It now consumes the exact
-downstream opcode-9 action `$21` pass request when naturally emitted, but does
-not prove or synthesize the upstream pass selector/cursor reach. It also does
+TGAI-2 does not claim a complete CPU play policy. Its downstream opcode-9
+action-`$21` consumer is covered from explicit retained fixture state, but no
+live producer/retention/adoption lifecycle reaches it. It also does
 not reconstruct every actor-link assignment,
 own live collision/contact or speed-setting policy, or treat the nearby Bank06
 `$B081-$B32E` candidate scan as ordinary movement targeting. That scan is now
@@ -284,15 +286,14 @@ does not change the TGAI movement-target boundary. Fatigue evolution is owned
 separately by TGFT-1 and supplies condition to TGMO. Handler-effect
 names describe bounded entry behavior; they are not play names.
 
-The scene now owns a fixed opposing roster-slot link, an explicit target
-position, direction/write result, immutable-snapshot fingerprint, and
-monotonically advancing decision serial for each actor. All non-controlled
-candidates are evaluated from the same post-human-input snapshot and committed
-together, then their held direction is advanced through TGMO. The offensive
-holder takes the primary path; every other actor takes the secondary path.
+The scene owns a fixed opposing roster-slot link, an explicit target position,
+direction/write result, immutable-snapshot fingerprint, and decision serial
+for each ordinary eligible actor. Non-controlled non-selected candidates are
+evaluated from the same post-human-input snapshot and committed together, then
+their held direction is advanced through TGMO. The selected primary is skipped
+and remains inert.
 
-The ball holder uses the orientation-aware `48/48/40` hoop approach. Offensive
-non-holders use five scene-owned formation points (`256,148`; `288,112`;
+Offensive non-holders use five scene-owned formation points (`256,148`; `288,112`;
 `288,184`; `352,96`; `352,200`) and mirror X as `767-X` for the other
 orientation. Defenders target a point 32 pixels goal-side of their linked
 offensive actor, with per-slot court-depth splits `0,-10,10,-14,14`. When the

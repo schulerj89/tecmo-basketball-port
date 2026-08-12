@@ -1318,13 +1318,16 @@ phase/sound vectors with
 `tools\Run-GameplayBallDribbleTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 
 Ordinary passes use one actor-neutral scene transport. Human NES-A passes
-carry their controller; autonomous passes carry no controller and may begin
-only when the owned Bank06 opcode-9 executor naturally writes exact action
-`$21` for the unassigned holder. Canonical Rev1 Bank06 `$8FC5-$8FE3` writes
-`C9=$21` at `$8FCA/$8FCC` to the current `$0308` primary's `$046E`; `$8284-$82A5` excludes
-`$0308/$0309` from ordinary `$057C` dispatch, leaving Bank05's selected-primary
-pointer index `$21` to enter `$89D7`. The lifted Bank06 helper label is four
-bytes early; canonical Rev1 bytes/capture win. `$89D7` writes state
+carry their controller. A controller-none action-`$21` fixture exercises the
+source-proven downstream consumer, but autonomous CPU passing is not currently
+live. Canonical Rev1 Bank06 `$8FC5-$8FE7` copies `C9` into `$046E[X]` at
+`$8FCA/$8FCC`, returns at `$8FE7`, and starts rewind at `$8FE8`. Capture proves
+a `C9=$21` write to actor 9, not that actor 9 was current `$0308`.
+`$8284-$82A5` excludes `$0308/$0309` from ordinary `$057C` dispatch, and native
+LIVE mirrors that exclusion; it therefore has no proven producer, retention,
+or adoption lifecycle capable of placing `$21` on selected primary. Given an
+explicitly retained fixture value, Bank05's selected-primary pointer index
+`$21` enters `$89D7`. `$89D7` writes state
 `$0F`/packed `$32`; state `$0F` dispatches through `$8695`,
 and `$8999/$9C29` yields the captured `$32->$22->$12->$02->$03->$04` cadence
 before `$86A8-$86B7` jumps directly to shared `$B074`. Do not require
@@ -1336,8 +1339,9 @@ and `$B24F` stores 4 to `$0308`; `$B2FA-$B300` only clears raw `$BA` bit 2.
 CPU catch must not mutate human control. Current
 duration/interpolation remains native-approximate until `$B42F/$BB9F/$BBA0`
 and `$B1E7/$B500` are strict assets. The isolated exact `$BD6E-$BDC6` uint16
-kernel does not imply trajectory ownership. Upstream pass policy/cursor reach and
-`$B13F` interception/contact remain fail-closed. Raw `$030C/$030D` is not a
+kernel does not imply trajectory ownership. The entire live producer/policy/
+retention/adoption seam and `$B13F` interception/contact remain fail-closed.
+Raw `$030C/$030D` is not a
 valid zero-human/nonzero-automatic classifier; use typed controller ownership.
 
 TGFT-1 `gameplay/fatigue` is a strict 512-byte ROM-only boundary (FNV1a32
@@ -1398,10 +1402,11 @@ opposing linked/matchup actor, difficulty `0..2`, and an optional validated
 explicit target coordinate. Validate every coordinate and coherence field
 transactionally. Its printed canonical FNV1a32 snapshot must cover all ten
 coordinates and every context field, domain-separating the optional target when
-present. Without an override, holder target selection reuses the native scene's
-`48/48/40`-pixel hoop approach and other actors target the caller-owned link.
-The live scene supplies explicit formation/marking coordinates for non-holders.
-Never describe these choices or the link assignment as ROM-exact. Only the
+present. Default and explicit targets are deterministic harness/native policy;
+the live selected primary is excluded from ordinary movement dispatch. The
+live scene supplies explicit formation/marking coordinates only for eligible
+non-selected actors. Never describe these choices or the link assignment as
+ROM-exact. Only the
 resulting nonzero TGAI octant is exact. A
 zero delta must report keep-direction/no-write rather than inventing a prior
 direction.
@@ -1424,11 +1429,13 @@ movement, zero-vector neutral, primary/secondary role coherence, clamp,
 snapshot re-evaluation, and
 malformed state/profile inputs.
 
-`TecmoGameplayScene` loads TGAI-2 and evaluates every non-controlled actor from
-one immutable post-human-input ten-coordinate snapshot. Candidates commit
-together. The holder uses the native `48/48/40` hoop approach; other actors use
-scene-owned fixed opposing roster links. Keep the zero-vector neutral bridge,
-object state/flags, those targets, and shot timing explicitly approximate.
+`TecmoGameplayScene` loads TGAI-2 and evaluates eligible non-controlled,
+non-selected actors from one immutable post-human-input ten-coordinate
+snapshot. Candidates commit together. The selected primary is inert under the
+source-backed Bank06 exclusion; ordinary eligible actors use scene-owned
+native targets and fixed opposing roster links. Keep the zero-vector neutral
+bridge, object state/flags, those targets, and shot timing explicitly
+approximate.
 The live state must retain its no-command sentinel and no pending advance until
 the original play/formation command lifecycle is reconstructed. Do not claim a
 complete CPU policy, shot/pass/steal choice, ROM actor-link ownership, or full

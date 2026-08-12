@@ -1823,10 +1823,10 @@ static bool scene_test_live_foundation_regressions(
     bound.controller_team[1] = TECMO_GAMEPLAY_TEAM_HOME;
     bound.game_music_enabled = false;
 
-    /* Source-proven bounded CPU pass slice. The fixture decodes exact Bank04
-       $A05F/stream-$0131, then proves the selected primary cannot execute it
-       through ordinary play_step. Pass admission instead injects already-
-       retained $21 without claiming the unowned external cursor/role timing. */
+    /* Source-proven downstream action-$21 pass slice. The fixture decodes
+       exact Bank04 $A05F/stream-$0131, then proves selected primary cannot
+       execute it through ordinary play_step. Pass admission injects already-
+       retained $21; no live producer/retention/adoption lifecycle is claimed. */
     {
         const uint8_t passer = 2U;
         const uint8_t captured_receiver = 4U;
@@ -1967,9 +1967,10 @@ static bool scene_test_live_foundation_regressions(
             LIVE_FAIL("LIVE selected primary executed an ordinary stream");
         }
 
-        /* The bounded consumer starts from selected-primary state already
-           retaining exact $21. Its external producer/role timing remains
-           outside LIVE; do not run the primary opcode fixture to create it. */
+        /* The bounded downstream consumer starts from explicit selected-
+           primary state already retaining exact $21. No live producer,
+           retention, or adoption lifecycle is owned; do not run a primary
+           opcode fixture to manufacture it. */
         *scene = before;
         pass_foundation = scene->live_foundation;
         for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {

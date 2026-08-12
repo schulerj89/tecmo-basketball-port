@@ -2,17 +2,18 @@
 
 ## Shared visible pass lifecycle
 
-Ordinary bound human passes and the bounded autonomous action-`$21` CPU route
-now share one actor-neutral transport rather than teleporting possession:
+Ordinary bound human passes and the source-proven downstream action-`$21`
+fixture share one actor-neutral transport rather than teleporting possession:
 
-- Bank06 opcode 9 is the already-owned writer of actor-local `$046E`; only a
-  naturally emitted value `$21` may start an autonomous pass. The native code
-  does not force the Bank04 `$A05F` record or route CPU intent through NES A.
-- Canonical Rev1 Bank06 `$8FC5-$8FE3` writes `C9=$21` at `$8FCA/$8FCC` to the current `$0308`
-  primary's `$046E` (captured actor 9), while `$8284-$82A5` excludes `$0308`
-  and `$0309` from ordinary descending `$057C` actor-state dispatch. Bank05's
-  selected-primary pointer table consumes index `$21` at `$89D7`. The lifted
-  Bank06 helper label is four bytes early; canonical Rev1 bytes win. `$89D7`
+- Bank06 opcode 9 is the already-owned writer of actor-local `$046E`. The
+  native code does not force the Bank04 `$A05F` record or route CPU intent
+  through NES A.
+- Canonical Rev1 Bank06 `$8FC5-$8FE7` copies `C9` at `$8FCA/$8FCC` and returns
+  at `$8FE7`; rewind starts at `$8FE8`. A capture proves `C9=$21` was written
+  to actor 9, but not that actor 9 was current `$0308`. Meanwhile
+  `$8284-$82A5` excludes `$0308` and `$0309` from ordinary descending `$057C`
+  actor-state dispatch. Bank05's selected-primary pointer table consumes index
+  `$21` at `$89D7`. `$89D7`
   seeds packed `$0458=$32` and changes the selected actor to state `$0F`;
   state `$0F` dispatches to `$8695`, not state `$0A`. A separate paused trace
   displayed `$24` beside `$89DB`, but FCEUX effective-value annotations can
@@ -20,8 +21,8 @@ now share one actor-neutral transport rather than teleporting possession:
   nor proves the absence of an intermediate write.
 - Native LIVE mirrors that ownership boundary: the selected primary never runs
   ordinary Bank06 `play_step`. Only an already-retained exact `$21` can enter
-  `$89D7`; the external play-selection/role lifecycle that retains it remains
-  outside this bounded consumer.
+  the native downstream consumer. No live producer, retention, or primary-
+  adoption lifecycle is proven, so autonomous passing is not currently live.
 - `$8999` is not a tight loop. At bytes >=`$10` it jumps to `$9C29`, which
   subtracts `$10` from the high nibble while preserving the low nibble. The
   captured route then advances below `$10` through raw `$0385/$0391`, yielding
@@ -42,9 +43,8 @@ now share one actor-neutral transport rather than teleporting possession:
   offense-side raw `$037F[0]=4`, and `$B24F` later reads `$000E[0]=4` and
   stores actor 4 to `$0308`; this is the only point where native
   `ball_holder` and the typed LIVE primary move to the receiver. A human pass
-  also moves its controller; a CPU pass carries `controller=NONE` and leaves
-  both human controller assignments unchanged. Bank06 `$B24F` is unrelated
-  coordinate geometry.
+  also moves its controller; the controller-none fixture leaves both human
+  assignments unchanged. Bank06 `$B24F` is unrelated coordinate geometry.
 - `$B24F` clears the receiver action/animation/actor-state workspaces before
   calling `$B2FA`; `$B2FA-$B300` clears only raw `$BA` bit 2. No broader name
   or semantic meaning for that bit is asserted.

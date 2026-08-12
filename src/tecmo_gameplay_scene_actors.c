@@ -690,12 +690,13 @@ bool scene_begin_cpu_pass_from_action21(TecmoGameplayScene *scene,
     }
     receiver = scene->live_foundation.candidate_actor_by_side[
         scene->live_foundation.offense_side];
-    /* Canonical Rev1 Bank06 $8FCA/$8FCC copies C9=$21 into $046E[X] inside
-       the $8FC5-$8FE3 handler; capture identifies X as the $0308 primary.
-       Bank06 $8284-$82A5 excludes that primary from ordinary actor dispatch,
-       so C consumes only an already-retained $21 at Bank05's selected-primary
-       $89D7 seam. It never executes a primary stream record to synthesize the
-       value, forces a Bank04 cursor, or routes CPU offense through NES A. */
+    /* Canonical Rev1 Bank06 $8FC5-$8FE7 copies C9 into $046E[X] at
+       $8FCA/$8FCC and returns at $8FE7; rewind begins at $8FE8. Capture proves
+       C9=$21 was written to actor 9, not that actor 9 was current $0308.
+       Bank06 $8284-$82A5 excludes selected primary from ordinary dispatch,
+       so this bounded downstream consumer admits only explicit already-
+       retained $21 state. No live producer/retention/adoption lifecycle is
+       claimed, no Bank04 cursor is forced, and CPU intent never uses NES A. */
     return scene_begin_actor_pass(
         scene, passer, receiver, TECMO_GAMEPLAY_SCENE_NO_ACTOR);
 }
@@ -2199,11 +2200,10 @@ bool scene_update_ai(
             scene->controlled_actor, &candidate_foundation)) {
         return false;
     }
-    /* Bank06 $8284-$82A5 excludes the selected primary ($0308) before
-       ordinary $057C->$8B90 command dispatch. Bank05 owns its separate
-       selected-primary state table, so consume an exact retained $21 before
-       running any ordinary actor stream. This scene must never manufacture
-       the pass action by executing a Bank04 record for the primary. */
+    /* Bank06 $8284-$82A5 excludes selected primary ($0308) before ordinary
+       $057C->$8B90 dispatch. The native producer/retention/adoption lifecycle
+       is unowned; this fail-closed seam can consume only explicit already-
+       retained $21 state and must never manufacture it via a primary record. */
     if (candidate_foundation.primary_actor == scene->ball_holder &&
         candidate_foundation.play_state.action_state_046e[
             candidate_foundation.primary_actor] == 0x21U &&

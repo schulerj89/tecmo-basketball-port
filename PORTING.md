@@ -1515,14 +1515,17 @@ caller scheduling are not claimed as exact ROM behavior. Deterministic render
 checkpoints `gameplay-ball-bounce-frame1` and `frame12` freeze visibly distinct
 high and low positions.
 
-Ordinary human passes and bounded autonomous CPU action `$21` share a visible,
-actor-neutral transactional lifecycle. Bank06 opcode 9 must naturally emit
-`$046E[holder]=$21`; C never forces its Bank04 record or routes CPU intent
-through NES A. Canonical Rev1 Bank06 `$8FC5-$8FE3` writes `C9=$21` at `$8FCA/$8FCC` to the
-current `$0308` primary's `$046E`, and `$8284-$82A5` excludes `$0308/$0309`
-from ordinary `$057C` actor dispatch so Bank05's selected-primary pointer table
-consumes index `$21` at `$89D7`. The lifted Bank06 helper label is four bytes
-early; canonical bytes win. `$89D7` writes state `$0F` and seeds packed gather
+Ordinary human passes and a controller-none action-`$21` fixture share a
+visible, actor-neutral transactional lifecycle. The fixture proves the
+downstream consumer; autonomous CPU passing is not currently live. Canonical
+Rev1 Bank06 `$8FC5-$8FE7` copies `C9` into `$046E[X]` at `$8FCA/$8FCC`,
+returns at `$8FE7`, and begins rewind at `$8FE8`. Capture proves `C9=$21` was
+written to actor 9, not that actor 9 was current `$0308`. `$8284-$82A5`
+excludes `$0308/$0309` from ordinary `$057C` dispatch, and native LIVE mirrors
+that exclusion. No live producer/retention/adoption lifecycle is proven to
+place `$21` on selected primary. Given explicitly retained fixture state,
+Bank05's selected-primary table consumes index `$21` at `$89D7`. `$89D7`
+writes state `$0F` and seeds packed gather
 `$32->$22->$12->$02->$03->$04` through
 `$8999/$9C29`; `$8695/$86A8-$86B7` releases directly into shared `$B074` at
 the full byte `$04`. The direct route is observed with
@@ -1538,7 +1541,7 @@ duration and linear interpolation remain bounded native adapters because
 `$B42F/$BB9F/$BBA0` and the `$B1E7/$B500` five-substep scheduler are not yet
 strict assets. An isolated exact `$BD6E-$BDC6` helper preserves uint16
 wrap/carry and six logical shifts, but does not make the unseeded trajectory
-exact. Upstream CPU pass selection/cursor reach, `$B13F`
+exact. The live action-`$21` producer/policy/retention/adoption seam, `$B13F`
 interception/contact, and complete object-slot-10 parity remain deferred. See
 `docs/pass-defender-handoff-evidence.md` for the separately bounded defender
 handoff and dynamic-link limitations.
@@ -1556,17 +1559,17 @@ actor ordering is not claimed. Active lists remain the fixed scene roster slots
 Opposing directions on one axis are normalized to neutral as a native
 integration policy. Initial actor placement/direction, the current fixed
 five-player roster-slot/matchup-link binding, and CPU target selection/AI remain
-native integration or approximations. The holder keeps the orientation-aware
-hoop approach. Offensive non-holders use five deterministic formation points
+native integration or approximations. The selected primary is excluded from
+ordinary Bank06 movement dispatch. Offensive non-holders use five deterministic formation points
 `(256,148)`, `(288,112)`, `(288,184)`, `(352,96)`, and `(352,200)`, mirrored as
 `767-X` for the other orientation. Defenders use their linked offensive actor's
 immutable snapshot coordinate with a 32-pixel offset toward the attacked hoop
 and roster depth splits `0,-10,10,-14,14`. If that goal-side offset crosses the
 shaped court boundary at the target depth, the adapter uses the equal 32-pixel
 offset toward the court before final validation. This restores meaningful
-spacing without claiming the original formation/play lifecycle. Ordinary CPU
-locomotion uses the exact TGMO step after TGAI direction selection; the offensive holder
-takes the primary clamp path and other actors take the secondary path. The
+spacing without claiming the original formation/play lifecycle. Eligible
+non-selected CPU actors use the exact TGMO step after TGAI direction selection;
+the selected primary remains inert. The
 deterministic `--gameplay-movement-harness` is console/test-only and never
 enters normal play.
 
@@ -1606,11 +1609,11 @@ TGCT canonical X/Y coordinates, possession, TGOR orientation, a
 possession-consistent holder, an explicit opposing linked/matchup actor,
 difficulty `0..2`, and an optional validated explicit target coordinate. It
 validates the complete snapshot transactionally and prints every coordinate
-plus a domain-separated canonical FNV1a32 fingerprint. Without an override,
-the holder uses the scene-owned `48/48/40`-pixel hoop approach and other actors
-target the caller-owned link. The live scene supplies explicit formation and
-marking coordinates for non-holders. Those target/link choices remain native
-policy. The resulting nonzero target delta alone consumes the exact TGAI
+plus a domain-separated canonical FNV1a32 fingerprint. Default and explicit
+targets remain deterministic harness/native policy. The live scene supplies
+explicit formation and marking coordinates only for eligible non-selected
+actors; selected primary is excluded from ordinary movement. The resulting
+nonzero target delta alone consumes the exact TGAI
 octant quantizer; zero delta reports a successful keep-direction/no-write
 result.
 
@@ -1632,11 +1635,10 @@ initial-facing, and profile inputs are likewise caller/native policy rather
 than reconstructed CPU command behavior.
 
 For live ordinary movement, the scene takes one immutable ten-actor snapshot
-after human input, evaluates every non-controlled actor from that snapshot,
-and commits all candidate actor/movement/target states together. The holder
-uses the orientation-aware `48/48/40` approach; every other actor uses its
-fixed opposing roster-slot link. Shot proximity/cadence remains a separate
-native approximation.
+after human input, evaluates eligible non-controlled non-selected actors from
+that snapshot, and commits all candidate actor/movement/target states together.
+The selected primary is inert; ordinary actors retain their native target/link
+adapters. Shot proximity/cadence remains a separate native approximation.
 
 The Bank06 common target tail has one additional, deliberately narrow live
 owner. `$92CA-$92D0` tests only `$BA & 3` before `$8FD9` advances the actor's
