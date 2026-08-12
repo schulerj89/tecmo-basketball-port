@@ -367,6 +367,66 @@ static bool rules_check_live_frame_coherence(const TecmoGameplayScene *scene,
     return true;
 }
 
+static bool rules_inbound_setup_matches(const TecmoGameplayScene *scene,
+                                        TecmoGameplayTeam restart_team,
+                                        TecmoGameplayCourtCoordinate
+                                            positions_out[
+                                                TECMO_GAMEPLAY_SCENE_ACTOR_COUNT])
+{
+    TecmoGameplayRoundSetup setup;
+    const TecmoGameplaySceneInboundState *inbound;
+    if (scene == NULL || positions_out == NULL ||
+        !scene_inbound_active(scene) ||
+        scene->inbound_state.phase != TECMO_GAMEPLAY_SCENE_INBOUND_SETUP ||
+        scene->inbound_state.restart_team != (uint8_t)restart_team) {
+        return false;
+    }
+    inbound = &scene->inbound_state;
+    if (!tecmo_gameplay_free_throw_lineup_derive_round_setup(
+            &scene->free_throw_lineup_assets,
+            scene->orientation_state.current_direction, inbound->passer,
+            inbound->defender, &setup)) {
+        return false;
+    }
+    for (size_t actor = 0U;
+         actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        if (!setup.actors[actor].position_defined ||
+            scene->actors[actor].position.x !=
+                (int16_t)setup.actors[actor].raw_world_x ||
+            scene->actors[actor].position.y !=
+                (int16_t)setup.actors[actor].raw_world_y ||
+            scene->actors[actor].anchor.x != scene->actors[actor].position.x ||
+            scene->actors[actor].anchor.y != scene->actors[actor].position.y ||
+            scene->actors[actor].movement_boundary_latched) {
+            return false;
+        }
+        positions_out[actor] = scene->actors[actor].position;
+    }
+    /* The setup is table-derived, not the old "all actors remain untouched"
+       shortcut; stale boundary latches are rejected above. */
+    return scene->ball_holder == inbound->passer &&
+           inbound->receiver != inbound->passer &&
+           scene->actors[inbound->receiver].team == (uint8_t)restart_team;
+}
+
+static bool rules_inbound_positions_frozen(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplayCourtCoordinate
+        positions[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT])
+{
+    if (scene == NULL || positions == NULL) return false;
+    for (size_t actor = 0U;
+         actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        if (scene->actors[actor].position.x != positions[actor].x ||
+            scene->actors[actor].position.y != positions[actor].y ||
+            scene->actors[actor].anchor.x != positions[actor].x ||
+            scene->actors[actor].anchor.y != positions[actor].y) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool rules_run_violation_restart(TecmoGameplayScene *scene,
                                         RulesRestartRoute route,
                                         TecmoGameplayTeam initial_possession,
@@ -378,9 +438,11 @@ static bool rules_run_violation_restart(TecmoGameplayScene *scene,
     TecmoGameplayCameraState camera;
     TecmoGameplayCourtCoordinate positions[
         TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplayCourtCoordinate prior_positions[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     TecmoGameplayTeam restart_possession = rules_other_team(initial_possession);
     uint8_t old_holder;
-    uint8_t new_holder = scene_first_actor_for_team(restart_possession);
+    uint8_t receiver;
     uint32_t transition_before;
     uint16_t frame;
     size_t actor;
@@ -432,7 +494,7 @@ static bool rules_run_violation_restart(TecmoGameplayScene *scene,
         return false;
     }
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
-        positions[actor] = scene->actors[actor].position;
+        prior_positions[actor] = scene->actors[actor].position;
     }
     old_holder = scene->ball_holder;
     transition_before = scene->orientation_state.transition_serial;
@@ -452,17 +514,24 @@ static bool rules_run_violation_restart(TecmoGameplayScene *scene,
         scene->events.events[0U].detail != (uint16_t)restart_possession ||
         scene->orientation_state.transition_serial != transition_before + 1U ||
         old_holder == scene->ball_holder ||
-        scene->ball_holder != new_holder ||
         scene->backcourt_state.frontcourt_established ||
-        !rules_check_live_frame_coherence(scene, restart_possession, new_holder)) {
+        !rules_inbound_setup_matches(scene, restart_possession, positions)) {
         return false;
     }
-    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
-        if (scene->actors[actor].position.x != positions[actor].x ||
-            scene->actors[actor].position.y != positions[actor].y ||
-            scene->actors[actor].movement_boundary_latched) {
-            return false;
+    receiver = scene->inbound_state.receiver;
+    /* $9621's table setup must replace the old on-court positions. The
+       former assertion that every actor stayed in place encoded the native
+       port shortcut rather than the observed Bank06 route. */
+    {
+        bool any_actor_repositioned = false;
+        for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            if (scene->actors[actor].position.x != prior_positions[actor].x ||
+                scene->actors[actor].position.y != prior_positions[actor].y) {
+                any_actor_repositioned = true;
+                break;
+            }
         }
+        if (!any_actor_repositioned) return false;
     }
     if (game_music_enabled) {
         if (!scene->audio_player.sfx_pending ||
@@ -492,14 +561,41 @@ static bool rules_run_violation_restart(TecmoGameplayScene *scene,
                  scene->audio_player.music->track_pending))) {
         return false;
     }
-    memset(&p1, 0, sizeof(p1));
-    memset(&p2, 0, sizeof(p2));
-    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
-        scene->orientation_state.transition_serial != transition_before + 1U ||
-        scene->audio_player.sfx_pending ||
-        (scene->audio_player.music != NULL &&
-         scene->audio_player.music->track_pending)) {
-        return false;
+    {
+        RulesRestartClock inbound_clock;
+        uint16_t inbound_frames = 0U;
+        rules_snapshot_clock(scene, &inbound_clock);
+        /* Keep both users' natural restart controls asserted. The explicit
+           inbound mode must ignore them until the shared catch commits. */
+        while (scene_inbound_active(scene) && inbound_frames < 64U) {
+            if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+                !rules_clock_matches(scene, &inbound_clock) ||
+                !rules_inbound_positions_frozen(scene, positions) ||
+                scene->orientation_state.transition_serial !=
+                    transition_before + 1U) {
+                return false;
+            }
+            ++inbound_frames;
+        }
+        if (scene_inbound_active(scene) || inbound_frames == 0U ||
+            scene->ball_holder != receiver ||
+            !rules_check_live_frame_coherence(
+                scene, restart_possession, receiver)) {
+            return false;
+        }
+        /* The next normal LIVE frame, not any setup/gather/flight frame,
+           resumes the state clock after the B24F-shaped catch. */
+        memset(&p1, 0, sizeof(p1));
+        memset(&p2, 0, sizeof(p2));
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->state.clock_divider + 1U != inbound_clock.divider ||
+            scene->orientation_state.transition_serial !=
+                transition_before + 1U ||
+            scene->audio_player.sfx_pending ||
+            (scene->audio_player.music != NULL &&
+             scene->audio_player.music->track_pending)) {
+            return false;
+        }
     }
     return true;
 }

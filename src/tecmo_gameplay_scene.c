@@ -939,6 +939,7 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
     scene->shot_kind = TECMO_GAMEPLAY_SCENE_SHOT_NONE;
     scene->shot_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     scene_pass_clear(scene);
+    scene_inbound_clear(scene);
     scene->close_shot_step = 0U;
     scene->close_shot_profile = TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0;
     scene->close_shot_direction = TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0;
@@ -1375,8 +1376,7 @@ static bool scene_apply_restart_events(TecmoGameplayScene *scene,
         }
         restart = (TecmoGameplayTeam)event->detail;
         if (scene->state.possession != restart ||
-            !scene_handoff_possession(
-                scene, restart, scene_first_actor_for_team(restart))) {
+            !scene_begin_inbound(scene, restart)) {
             return false;
         }
         *restart_applied = true;
@@ -1850,6 +1850,23 @@ static bool scene_advance_state_and_restarts(
     if (free_throw_team_captured) {
         captured_free_throw_team = scene->state.free_throws.scoring_team;
     }
+    /* Once Bank07's restart event has entered the explicit setup, it owns
+       the next visible gather/flight/catch frames. Do not feed held controls
+       to the pure state machine while that transport is active: both clocks,
+       AI, and normal court mutation remain frozen until the B24F-shaped
+       catch commits. The prior event has already been dispatched. */
+    if (scene_inbound_active(scene)) {
+        if (scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE) {
+            scene_set_status(scene, "inbound phase/state contract rejected");
+            return false;
+        }
+        tecmo_gameplay_events_clear(&scene->events);
+        *phase_before_out = phase_before;
+        *free_throw_team_captured_out = false;
+        *captured_free_throw_team_out = captured_free_throw_team;
+        *restart_frame_out = true;
+        return true;
+    }
     if (!tecmo_gameplay_update(&scene->state, input, live_context,
                                &scene->events)) {
         scene_set_status(scene, "gameplay state update rejected");
@@ -1894,7 +1911,12 @@ static bool scene_update_live_action_ordered(
     bool boundary_settled = false;
     size_t controller;
 
-    if (scene_pass_active(scene)) {
+    if (scene_inbound_active(scene)) {
+        if (!scene_update_inbound(scene)) {
+            scene_set_status(scene, "inbound transport update rejected");
+            return false;
+        }
+    } else if (scene_pass_active(scene)) {
         if (!scene_update_pass(scene)) {
             scene_set_status(scene, "pass animation update rejected");
             return false;
@@ -2189,7 +2211,9 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
         return false;
     }
     if (scene_phase_allows_live_action(scene->state.phase) &&
-        !restart_frame &&
+        (!restart_frame ||
+         (scene_inbound_active(scene) &&
+          phase_before == TECMO_GAMEPLAY_PHASE_LIVE)) &&
         !scene_update_live_action_ordered(
             scene, controls, &cpu_shot_request, &jump_miss_settled,
             &jump_miss_shooting_team)) {

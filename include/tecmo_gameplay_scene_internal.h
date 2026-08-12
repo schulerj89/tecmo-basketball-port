@@ -193,6 +193,12 @@ void scene_pass_clear(TecmoGameplayScene *scene);
 bool scene_update_pass(TecmoGameplayScene *scene);
 bool scene_begin_pass(TecmoGameplayScene *scene, size_t controller,
                       uint8_t receiver);
+bool scene_inbound_active(const TecmoGameplayScene *scene);
+bool scene_inbound_state_valid(const TecmoGameplayScene *scene);
+void scene_inbound_clear(TecmoGameplayScene *scene);
+bool scene_begin_inbound(TecmoGameplayScene *scene,
+                         TecmoGameplayTeam restart_team);
+bool scene_update_inbound(TecmoGameplayScene *scene);
 
 /* Stable TGSR sample input retained at the shot boundary.  The native
    substitution preserves the accepted low-byte sample stream and adds

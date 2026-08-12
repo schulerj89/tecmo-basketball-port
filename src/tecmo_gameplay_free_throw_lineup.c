@@ -446,6 +446,12 @@ static bool validate_table_relationships(const uint8_t *payload,
     static const uint16_t height_pointers[2] = {
         0x98ADU, 0x98BFU
     };
+    static const uint16_t round_position_pointers[2] = {
+        0x98D9U, 0x98E9U
+    };
+    static const uint16_t round_height_pointers[2] = {
+        0x98F9U, 0x9909U
+    };
     static const uint8_t pose_seeds[2] = {17U, 8U};
     static const uint8_t shooter_directions[2] = {1U, 0U};
     static const uint16_t shooter_x[2] = {0x00FAU, 0x0206U};
@@ -475,6 +481,10 @@ static bool validate_table_relationships(const uint8_t *payload,
             tables + (0x987DU - 0x985DU) + orientation * 2U);
         uint16_t height_pointer = read_u16(
             tables + (0x9885U - 0x985DU) + orientation * 2U);
+        uint16_t round_position_pointer = read_u16(
+            tables + (0x9879U - 0x985DU) + orientation * 2U);
+        uint16_t round_height_pointer = read_u16(
+            tables + (0x9881U - 0x985DU) + orientation * 2U);
         size_t position_offset;
         size_t height_offset;
         if (tables[(0x9863U - 0x985DU) + orientation] !=
@@ -483,6 +493,9 @@ static bool validate_table_relationships(const uint8_t *payload,
                 shooter_directions[orientation] ||
             position_pointer != position_pointers[orientation] ||
             height_pointer != height_pointers[orientation] ||
+            round_position_pointer !=
+                round_position_pointers[orientation] ||
+            round_height_pointer != round_height_pointers[orientation] ||
             position_pointer < 0x985DU ||
             height_pointer < 0x985DU) {
             return false;
@@ -495,6 +508,14 @@ static bool validate_table_relationships(const uint8_t *payload,
             !range_ok(
                 height_offset, 18U,
                 TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_TABLES_SIZE)) {
+            return false;
+        }
+        if (round_position_pointer < 0x985DU ||
+            round_height_pointer < 0x985DU ||
+            !range_ok((size_t)(round_position_pointer - 0x985DU), 16U,
+                      TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_TABLES_SIZE) ||
+            !range_ok((size_t)(round_height_pointer - 0x985DU), 16U,
+                      TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_TABLES_SIZE)) {
             return false;
         }
         for (size_t pair = 0U; pair < 9U; ++pair) {
@@ -897,6 +918,102 @@ bool tecmo_gameplay_free_throw_lineup_derive_caller_policy(
         derived.actors[secondary_slot].raw_action_phase = 0x15U;
     }
     *lineup = derived;
+    return true;
+}
+
+bool tecmo_gameplay_free_throw_lineup_derive_round_setup(
+    const TecmoGameplayFreeThrowLineupAssets *assets,
+    uint8_t orientation,
+    uint8_t primary_slot,
+    uint8_t defender_slot,
+    TecmoGameplayRoundSetup *setup_out)
+{
+    TecmoGameplayRoundSetup derived;
+    const uint8_t *tables;
+    uint16_t position_pointer;
+    uint16_t height_pointer;
+    size_t position_offset;
+    size_t height_offset;
+    int source_offset = 15;
+
+    if (setup_out == NULL ||
+        ranges_overlap(setup_out, sizeof(*setup_out), assets,
+                       assets != NULL ? sizeof(*assets) : 0U) ||
+        (assets != NULL &&
+         ranges_overlap(setup_out, sizeof(*setup_out), assets->storage,
+                        assets->storage_size)) ||
+        !assets_valid(assets) ||
+        orientation >= TECMO_GAMEPLAY_FREE_THROW_LINEUP_ORIENTATION_COUNT ||
+        primary_slot >= TECMO_GAMEPLAY_FREE_THROW_LINEUP_ACTOR_COUNT ||
+        defender_slot >= TECMO_GAMEPLAY_FREE_THROW_LINEUP_ACTOR_COUNT ||
+        primary_slot == defender_slot) {
+        return false;
+    }
+
+    tables = assets->tables;
+    position_pointer = read_u16(
+        tables + (0x9879U - 0x985DU) + (size_t)orientation * 2U);
+    height_pointer = read_u16(
+        tables + (0x9881U - 0x985DU) + (size_t)orientation * 2U);
+    if (position_pointer < 0x985DU || height_pointer < 0x985DU ||
+        !range_ok((size_t)(position_pointer - 0x985DU), 16U,
+                  TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_TABLES_SIZE) ||
+        !range_ok((size_t)(height_pointer - 0x985DU), 16U,
+                  TECMO_ASSET_PACK_GAMEPLAY_FREE_THROW_LINEUP_TABLES_SIZE)) {
+        return false;
+    }
+    position_offset = (size_t)(position_pointer - 0x985DU);
+    height_offset = (size_t)(height_pointer - 0x985DU);
+    memset(&derived, 0, sizeof(derived));
+    derived.orientation = orientation;
+    derived.primary_slot = primary_slot;
+    derived.defender_slot = defender_slot;
+
+    /* Exact loop shape of Bank06 $964A-$96A3: X descends 9..0 and the
+       pointer streams advance only for neither-$0308 nor-$0309 slots. */
+    for (int slot = (int)TECMO_GAMEPLAY_FREE_THROW_LINEUP_ACTOR_COUNT - 1;
+         slot >= 0; --slot) {
+        TecmoGameplayRoundSetupActor *actor =
+            &derived.actors[(size_t)slot];
+        actor->primary = (uint8_t)slot == primary_slot;
+        actor->defender = (uint8_t)slot == defender_slot;
+        if (actor->primary || actor->defender) continue;
+        if (source_offset < 1) return false;
+        actor->raw_world_x = (uint16_t)tables[
+            position_offset + (size_t)(source_offset - 1)] |
+            ((uint16_t)tables[position_offset + (size_t)source_offset]
+             << 8U);
+        actor->raw_world_y = tables[
+            height_offset + (size_t)(source_offset - 1)];
+        actor->position_defined = true;
+        source_offset -= 2;
+    }
+    if (source_offset != -1) return false;
+
+    /* $96B4-$96DA write $0308's explicitly selected coordinate. */
+    derived.actors[primary_slot].raw_world_x =
+        (uint16_t)tables[(0x98D1U - 0x985DU) + orientation] |
+        ((uint16_t)tables[(0x98D5U - 0x985DU) + orientation] << 8U);
+    derived.actors[primary_slot].raw_world_y = 0xE6U;
+    derived.actors[primary_slot].position_defined = true;
+
+    /* $96F6-$973F separately write $0309's coordinate.  It is never
+       repurposed as the shared-pass receiver. */
+    derived.actors[defender_slot].raw_world_x =
+        (uint16_t)tables[(0x98D3U - 0x985DU) + orientation] |
+        ((uint16_t)tables[(0x98D7U - 0x985DU) + orientation] << 8U);
+    derived.actors[defender_slot].raw_world_y = 0xD2U;
+    derived.actors[defender_slot].position_defined = true;
+
+    for (size_t slot = 0U;
+         slot < TECMO_GAMEPLAY_FREE_THROW_LINEUP_ACTOR_COUNT; ++slot) {
+        const TecmoGameplayRoundSetupActor *actor = &derived.actors[slot];
+        if (!actor->position_defined || actor->raw_world_x > 767U ||
+            actor->raw_world_y > 239U) {
+            return false;
+        }
+    }
+    *setup_out = derived;
     return true;
 }
 

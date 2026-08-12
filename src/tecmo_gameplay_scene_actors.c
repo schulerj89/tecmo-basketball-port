@@ -641,6 +641,336 @@ bool scene_update_pass(TecmoGameplayScene *scene)
     return true;
 }
 
+bool scene_inbound_active(const TecmoGameplayScene *scene)
+{
+    return scene != NULL &&
+           scene->inbound_state.phase != TECMO_GAMEPLAY_SCENE_INBOUND_NONE;
+}
+
+void scene_inbound_clear(TecmoGameplayScene *scene)
+{
+    if (scene == NULL) return;
+    memset(&scene->inbound_state, 0, sizeof(scene->inbound_state));
+    scene->inbound_state.passer = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    scene->inbound_state.receiver = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    scene->inbound_state.defender = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    scene->inbound_state.restart_team = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+}
+
+bool scene_inbound_state_valid(const TecmoGameplayScene *scene)
+{
+    const TecmoGameplaySceneInboundState *inbound;
+    if (scene == NULL) return false;
+    inbound = &scene->inbound_state;
+    if (inbound->phase == TECMO_GAMEPLAY_SCENE_INBOUND_NONE) {
+        return inbound->passer == TECMO_GAMEPLAY_SCENE_NO_ACTOR &&
+               inbound->receiver == TECMO_GAMEPLAY_SCENE_NO_ACTOR &&
+               inbound->defender == TECMO_GAMEPLAY_SCENE_NO_ACTOR &&
+               inbound->restart_team == TECMO_GAMEPLAY_SCENE_NO_TEAM &&
+               inbound->packed_animation_state == 0U &&
+               inbound->reserved[0U] == 0U && inbound->reserved[1U] == 0U &&
+               inbound->flight_frame == 0U && inbound->flight_duration == 0U &&
+               inbound->start_position.x_q8 == 0 &&
+               inbound->start_position.y_q8 == 0 &&
+               inbound->target_position.x_q8 == 0 &&
+               inbound->target_position.y_q8 == 0;
+    }
+    if (inbound->phase >= TECMO_GAMEPLAY_SCENE_INBOUND_PHASE_COUNT ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        inbound->restart_team >= TECMO_GAMEPLAY_TEAM_COUNT ||
+        (uint8_t)scene->state.possession != inbound->restart_team ||
+        inbound->passer >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        inbound->receiver >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        inbound->defender >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        inbound->passer == inbound->receiver ||
+        inbound->passer == inbound->defender ||
+        inbound->receiver == inbound->defender ||
+        scene->actors[inbound->passer].team != inbound->restart_team ||
+        scene->actors[inbound->receiver].team != inbound->restart_team ||
+        scene->actors[inbound->defender].team == inbound->restart_team ||
+        scene->ball_holder != inbound->passer ||
+        inbound->flight_duration < TECMO_GAMEPLAY_PASS_MIN_FLIGHT_UPDATES ||
+        inbound->flight_duration > TECMO_GAMEPLAY_PASS_MAX_FLIGHT_UPDATES ||
+        inbound->flight_frame > inbound->flight_duration) {
+        return false;
+    }
+    if (inbound->phase == TECMO_GAMEPLAY_SCENE_INBOUND_SETUP) {
+        return inbound->packed_animation_state == 0x32U;
+    }
+    if (inbound->phase == TECMO_GAMEPLAY_SCENE_INBOUND_GATHER) {
+        return inbound->packed_animation_state == 0x32U ||
+               inbound->packed_animation_state == 0x22U ||
+               inbound->packed_animation_state == 0x12U ||
+               inbound->packed_animation_state == 0x04U;
+    }
+    return inbound->phase == TECMO_GAMEPLAY_SCENE_INBOUND_FLIGHT &&
+           inbound->packed_animation_state == 0x04U;
+}
+
+static bool scene_inbound_passer_for_restart(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayTeam restart_team,
+    uint8_t *passer_out)
+{
+    uint8_t selected;
+    if (scene == NULL || passer_out == NULL ||
+        restart_team >= TECMO_GAMEPLAY_TEAM_COUNT) {
+        return false;
+    }
+    selected = scene->live_foundation.selected_actor_by_side[restart_team];
+    if (selected < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+        scene->actors[selected].team == (uint8_t)restart_team) {
+        *passer_out = selected;
+        return true;
+    }
+    /* The source captures the selected primary in $0308 before Bank06
+       $9621. LIVE lacks a restart-specific raw owner for that selection, so
+       this is an explicit identity fallback, not a claimed `$0308` policy. */
+    *passer_out = scene_first_actor_for_team(restart_team);
+    return *passer_out < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+           scene->actors[*passer_out].team == (uint8_t)restart_team;
+}
+
+static bool scene_inbound_receiver_for_setup(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayTeam restart_team,
+    uint8_t passer,
+    uint8_t *receiver_out)
+{
+    uint8_t candidate;
+    if (scene == NULL || receiver_out == NULL ||
+        restart_team >= TECMO_GAMEPLAY_TEAM_COUNT ||
+        passer >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        return false;
+    }
+    candidate = scene->live_foundation.candidate_actor_by_side[
+        scene->live_foundation.offense_side];
+    if (scene->live_foundation.offense_side == (uint8_t)restart_team &&
+        candidate < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+        candidate != passer &&
+        scene->actors[candidate].team == (uint8_t)restart_team) {
+        *receiver_out = candidate;
+        return true;
+    }
+    /* Bank05 $B074 obtains a launch candidate through `$037F[$030A]`.
+       If the typed candidate is unavailable for the current side, choose the
+       existing nearest-teammate adapter explicitly instead of relabeling
+       `$0309` or inventing a source candidate. */
+    candidate = scene_nearest_actor_for_team(scene, restart_team, passer);
+    if (candidate >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT || candidate == passer ||
+        scene->actors[candidate].team != (uint8_t)restart_team) {
+        return false;
+    }
+    *receiver_out = candidate;
+    return true;
+}
+
+bool scene_begin_inbound(TecmoGameplayScene *scene,
+                         TecmoGameplayTeam restart_team)
+{
+    TecmoGameplayState state_before;
+    TecmoGameplayCourtOrientationState orientation_before;
+    TecmoGameplayCameraState camera_before;
+    TecmoGameplayBackcourtState backcourt_before;
+    TecmoGameplaySceneActor actors_before[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplayLiveFoundation foundation_before;
+    TecmoGameplayCourtCoordinateQ8 ball_before;
+    TecmoGameplaySceneInboundState inbound_before;
+    uint8_t controlled_before[TECMO_GAMEPLAY_CONTROLLER_COUNT];
+    TecmoGameplayRoundSetup setup;
+    TecmoGameplaySceneInboundState inbound;
+    TecmoGameplayCourtCoordinateQ8 start;
+    TecmoGameplayCourtCoordinateQ8 target;
+    uint8_t passer;
+    uint8_t receiver;
+    uint8_t defender;
+    uint16_t duration;
+    int32_t dx;
+    int32_t dy;
+    uint32_t distance;
+
+    if (scene == NULL || restart_team >= TECMO_GAMEPLAY_TEAM_COUNT ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.possession != restart_team ||
+        scene_pass_active(scene) || scene_inbound_active(scene) ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        !scene_inbound_passer_for_restart(scene, restart_team, &passer)) {
+        return false;
+    }
+    state_before = scene->state;
+    orientation_before = scene->orientation_state;
+    camera_before = scene->camera_state;
+    backcourt_before = scene->backcourt_state;
+    memcpy(actors_before, scene->actors, sizeof(actors_before));
+    foundation_before = scene->live_foundation;
+    ball_before = scene->ball_position;
+    inbound_before = scene->inbound_state;
+    memcpy(controlled_before, scene->controlled_actor,
+           sizeof(controlled_before));
+
+    /* Bank07 reaches Bank06 $9621 after presentation/reset. The native
+       ownership/orientation transaction remains explicit, then only the
+       exact TGFL base-branch positions are applied below. */
+    if (!scene_handoff_possession(scene, restart_team, passer) ||
+        !scene_sync_live_foundation(scene)) {
+        goto reject;
+    }
+    defender = scene->live_foundation.defender_actor;
+    if (defender >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT || defender == passer ||
+        scene->actors[defender].team == (uint8_t)restart_team ||
+        !tecmo_gameplay_free_throw_lineup_derive_round_setup(
+            &scene->free_throw_lineup_assets,
+            scene->orientation_state.current_direction, passer, defender,
+            &setup)) {
+        goto reject;
+    }
+    for (size_t actor = 0U;
+         actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        TecmoGameplayCourtCoordinate position;
+        if (!setup.actors[actor].position_defined) goto reject;
+        position.x = (int16_t)setup.actors[actor].raw_world_x;
+        position.y = (int16_t)setup.actors[actor].raw_world_y;
+        if (!scene_actor_coordinate_valid(&position)) goto reject;
+        scene->actors[actor].position = position;
+        scene->actors[actor].anchor = position;
+    }
+    if (!scene_attach_ball(scene) || !scene_sync_live_foundation(scene) ||
+        scene->live_foundation.primary_actor != passer ||
+        scene->live_foundation.defender_actor != defender ||
+        !scene_inbound_receiver_for_setup(scene, restart_team, passer,
+                                          &receiver) ||
+        !scene_attached_ball_position(&scene->actors[passer], &start) ||
+        !scene_attached_ball_position(&scene->actors[receiver], &target)) {
+        goto reject;
+    }
+    dx = target.x_q8 - start.x_q8;
+    dy = target.y_q8 - start.y_q8;
+    distance = (uint32_t)((dx < 0 ? -dx : dx) +
+                          (dy < 0 ? -dy : dy)) / 256U;
+    /* $B42F consumes a table-derived trajectory ratio, but that duration
+       table is not a strict pass asset yet. Reuse the existing bounded native
+       trajectory adapter while retaining the source-selected setup/catch
+       ordering and mode as distinct inbound state. */
+    duration = (uint16_t)(TECMO_GAMEPLAY_PASS_MIN_FLIGHT_UPDATES +
+                          distance / 12U);
+    if (duration > TECMO_GAMEPLAY_PASS_MAX_FLIGHT_UPDATES) {
+        duration = TECMO_GAMEPLAY_PASS_MAX_FLIGHT_UPDATES;
+    }
+    memset(&inbound, 0, sizeof(inbound));
+    inbound.phase = TECMO_GAMEPLAY_SCENE_INBOUND_SETUP;
+    inbound.passer = passer;
+    inbound.receiver = receiver;
+    inbound.defender = defender;
+    inbound.restart_team = (uint8_t)restart_team;
+    inbound.packed_animation_state = 0x32U;
+    inbound.flight_duration = duration;
+    inbound.start_position = start;
+    inbound.target_position = target;
+    scene->inbound_state = inbound;
+    scene->ball_position = start;
+    return scene_inbound_state_valid(scene);
+
+reject:
+    scene->state = state_before;
+    scene->orientation_state = orientation_before;
+    scene->camera_state = camera_before;
+    scene->backcourt_state = backcourt_before;
+    memcpy(scene->actors, actors_before, sizeof(actors_before));
+    scene->live_foundation = foundation_before;
+    scene->ball_position = ball_before;
+    scene->inbound_state = inbound_before;
+    memcpy(scene->controlled_actor, controlled_before,
+           sizeof(controlled_before));
+    return false;
+}
+
+bool scene_update_inbound(TecmoGameplayScene *scene)
+{
+    TecmoGameplaySceneInboundState inbound;
+    TecmoGameplayCourtCoordinateQ8 ball;
+    bool receiver_facing_right;
+    uint32_t step;
+
+    if (scene == NULL || !scene_inbound_active(scene) ||
+        !scene_inbound_state_valid(scene)) {
+        return false;
+    }
+    inbound = scene->inbound_state;
+    if (inbound.phase == TECMO_GAMEPLAY_SCENE_INBOUND_SETUP) {
+        inbound.phase = TECMO_GAMEPLAY_SCENE_INBOUND_GATHER;
+        if (!scene_attached_ball_position(&scene->actors[inbound.passer],
+                                          &ball)) {
+            return false;
+        }
+        scene->inbound_state = inbound;
+        scene->ball_position = ball;
+        return scene_inbound_state_valid(scene);
+    }
+    if (inbound.phase == TECMO_GAMEPLAY_SCENE_INBOUND_GATHER) {
+        if (inbound.packed_animation_state == 0x32U) {
+            inbound.packed_animation_state = 0x22U;
+        } else if (inbound.packed_animation_state == 0x22U) {
+            inbound.packed_animation_state = 0x12U;
+        } else if (inbound.packed_animation_state == 0x12U) {
+            inbound.packed_animation_state = 0x04U;
+        } else {
+            /* Bank05 $86A8 only launches the shared route at full-byte $04. */
+            inbound.phase = TECMO_GAMEPLAY_SCENE_INBOUND_FLIGHT;
+            inbound.flight_frame = 0U;
+        }
+        if (inbound.phase == TECMO_GAMEPLAY_SCENE_INBOUND_GATHER) {
+            if (!scene_attached_ball_position(&scene->actors[inbound.passer],
+                                              &ball)) {
+                return false;
+            }
+            scene->inbound_state = inbound;
+            scene->ball_position = ball;
+            return scene_inbound_state_valid(scene);
+        }
+    }
+    if (inbound.phase != TECMO_GAMEPLAY_SCENE_INBOUND_FLIGHT) return false;
+    if (inbound.flight_frame < inbound.flight_duration) ++inbound.flight_frame;
+    step = inbound.flight_frame;
+    ball.x_q8 = inbound.start_position.x_q8 + (int32_t)(
+        ((int64_t)(inbound.target_position.x_q8 - inbound.start_position.x_q8) *
+         step) / inbound.flight_duration);
+    ball.y_q8 = inbound.start_position.y_q8 + (int32_t)(
+        ((int64_t)(inbound.target_position.y_q8 - inbound.start_position.y_q8) *
+         step) / inbound.flight_duration);
+    if (inbound.flight_frame < inbound.flight_duration) {
+        scene->inbound_state = inbound;
+        scene->ball_position = ball;
+        return scene_inbound_state_valid(scene);
+    }
+    /* Reuse only the typed Bank05 $B24F catch transaction after the locked
+       inbound flight reaches its `$037F[$030A]`-shaped candidate. */
+    if (!scene->legacy_direct_launch &&
+        !tecmo_gameplay_live_foundation_pass_handoff(
+            &scene->cpu_steering_assets, inbound.receiver,
+            &scene->live_foundation)) {
+        return false;
+    }
+    if (!scene_goal_facing_right_for_team(
+            scene, (TecmoGameplayTeam)inbound.restart_team,
+            &receiver_facing_right)) {
+        return false;
+    }
+    scene->actors[inbound.receiver].facing_right = receiver_facing_right;
+    scene->ball_holder = inbound.receiver;
+    for (size_t controller = 0U;
+         controller < TECMO_GAMEPLAY_CONTROLLER_COUNT; ++controller) {
+        if (scene->launch.controller_team[controller] == inbound.restart_team) {
+            scene->controlled_actor[controller] = inbound.receiver;
+        }
+    }
+    scene_inbound_clear(scene);
+    /* Match the shared `$B24F` endpoint. Once the typed catch assigns the
+       holder and goal-facing, resolve its normal live dribble/held-ball
+       coordinate; do not leave the linear flight endpoint visible. */
+    if (!scene_attach_ball(scene)) return false;
+    return scene_inbound_state_valid(scene);
+}
+
 bool scene_settle_boundary_latch(TecmoGameplayScene *scene,
                                         bool *settled_out)
 {
