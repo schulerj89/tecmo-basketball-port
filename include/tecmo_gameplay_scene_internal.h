@@ -278,6 +278,7 @@ bool scene_cpu_target_for_source_direction(
     const TecmoGameplayCourtCoordinate *actor_position,
     uint8_t source_direction,
     TecmoGameplayCourtCoordinate *target_out);
+uint8_t scene_bank06_ordinary_actor_at(size_t source_index);
 bool scene_update_ai(
     TecmoGameplayScene *scene,
     TecmoGameplaySceneCpuShotRequest *shot_request_out);

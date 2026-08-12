@@ -3086,6 +3086,19 @@ static bool scene_test_live_foundation_regressions(
         LIVE_FAIL("LIVE CPU-side controller routing was rejected");
     }
 
+    /* Lock the canonical ordinary iteration independently of command effects:
+       selected-primary prepass is covered above, then Bank06 $8284 LDX #$09 /
+       $82A4 DEX must expose actors 9..0 with no extra element. */
+    for (actor = 0U; actor < 10U; ++actor) {
+        if (scene_bank06_ordinary_actor_at(actor) != (uint8_t)(9U - actor)) {
+            LIVE_FAIL("LIVE Bank06 descending actor order regressed");
+        }
+    }
+    if (scene_bank06_ordinary_actor_at(10U) !=
+            TECMO_GAMEPLAY_SCENE_NO_ACTOR) {
+        LIVE_FAIL("LIVE Bank06 actor-order sentinel regressed");
+    }
+
     /* Production path proof for the strict Bank04 $9F2E canonical opcode-4
        record. The fixture only chooses an already imported record for an
        ordinary CPU player; scene_update_ai still builds its immutable player

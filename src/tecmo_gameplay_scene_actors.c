@@ -2139,6 +2139,16 @@ static bool scene_update_ai_legacy(
     return true;
 }
 
+uint8_t scene_bank06_ordinary_actor_at(size_t source_index)
+{
+    /* Canonical Bank06 $8284 LDX #$09 / $82A4 DEX visits 9..0. Keep this
+       small seam directly testable because opcode handlers share play state
+       and therefore make actor traversal order behaviorally significant. */
+    return source_index < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT
+        ? (uint8_t)(TECMO_GAMEPLAY_SCENE_ACTOR_COUNT - 1U - source_index)
+        : TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+}
+
 bool scene_update_ai(
     TecmoGameplayScene *scene,
     TecmoGameplaySceneCpuShotRequest *shot_request_out)
@@ -2155,10 +2165,6 @@ bool scene_update_ai(
     TecmoGameplayBallDribbleFrame candidate_dribble;
     TecmoGameplayScene candidate_scene;
     uint8_t actor_team[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
-    static const uint8_t source_actor_order[
-        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT] = {
-        0U, 1U, 2U, 3U, 4U, 5U, 6U, 7U, 8U, 9U
-    };
     bool selected_primary_stepped = false;
     size_t actor;
     if (scene == NULL || shot_request_out == NULL ||
@@ -2237,8 +2243,9 @@ bool scene_update_ai(
         }
     }
 
-    /* Ordinary non-selected decisions consume one immutable post-human-input
-       court snapshot. Each accepted play step is staged in
+    /* Bank06 $8284 loads X=$09 and $82A4 decrements through actor 0. Ordinary
+       non-selected decisions consume one immutable post-human-input court
+       snapshot in that exact 9..0 order. Each accepted play step is staged in
        candidate_foundation; no actor, CPU metadata, or ball state reaches the
        scene until every requested validation succeeds. */
     for (size_t source_index = 0U;
@@ -2255,7 +2262,7 @@ bool scene_update_ai(
         bool source_direction;
         bool source_direction_target = false;
         bool movement_target = false;
-        actor = source_actor_order[source_index];
+        actor = scene_bank06_ordinary_actor_at(source_index);
         if (scene_actor_is_controlled(scene, actor) ||
             scene_actor_in_pretip_recovery(scene, actor) ||
             actor == scene->shot_actor) {
