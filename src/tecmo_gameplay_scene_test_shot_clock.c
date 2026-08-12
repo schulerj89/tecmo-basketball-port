@@ -597,7 +597,6 @@ bool tecmo_gameplay_scene_test_combined_restart_is_inert(
     TecmoControlFrame p1;
     TecmoControlFrame p2;
     size_t frame;
-    int16_t holder_x;
     if (!tecmo_gameplay_scene_launch(scene, launch)) return false;
     scene->state.shot_clock = 1U;
     scene->state.clock_divider = 1U;
@@ -620,7 +619,6 @@ bool tecmo_gameplay_scene_test_combined_restart_is_inert(
     scene->actors[0].position.y = scene->actors[5].position.y;
     scene_attach_ball(scene);
     scene->action_serial = action_serial;
-    holder_x = scene->actors[5].position.x;
     p1.held.right = true;
     p1.held.cancel = true;
     p1.pressed.cancel = true;
@@ -628,8 +626,10 @@ bool tecmo_gameplay_scene_test_combined_restart_is_inert(
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
         scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
-        scene->ball_holder != 5U || scene->controlled_actor[1] != 5U ||
-        scene->actors[5].position.x != holder_x ||
+        scene->inbound_state.phase != TECMO_GAMEPLAY_SCENE_INBOUND_SETUP ||
+        scene->inbound_state.restart_team != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->ball_holder != scene->inbound_state.passer ||
+        scene->controlled_actor[1] != scene->inbound_state.passer ||
         scene->action_serial != action_serial ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
         return false;

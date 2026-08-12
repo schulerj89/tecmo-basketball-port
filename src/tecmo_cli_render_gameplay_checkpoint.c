@@ -58,6 +58,7 @@ typedef struct TecmoCliGameplayCheckpointConfig {
     bool shot_clock_violation;
     bool out_of_bounds_violation;
     bool backcourt_violation;
+    bool inbound_restart;
     bool foul_presentation;
     bool debug_overlay_only;
     bool violation_lab;
@@ -365,6 +366,7 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     bool shot_clock_violation = false;
     bool out_of_bounds_violation = false;
     bool backcourt_violation = false;
+    bool inbound_restart = false;
     bool foul_presentation = false;
     bool debug_overlay_only = false;
     bool violation_lab = false;
@@ -461,6 +463,10 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
                    &checkpoint)) {
         backcourt_violation = true;
     } else if (tecmo_cli_parse_render_frame_suffix(
+                   mode_name, "gameplay-inbound-oob-frame",
+                   &checkpoint)) {
+        inbound_restart = true;
+    } else if (tecmo_cli_parse_render_frame_suffix(
                    mode_name, "gameplay-foul-frame", &checkpoint)) {
         foul_presentation = true;
     } else if (strcmp(mode_name, "gameplay-uniform-pacers") == 0) {
@@ -534,6 +540,9 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
         checkpoint >= TECMO_GAMEPLAY_VIOLATION_PRESENTATION_FRAMES) {
         return false;
     }
+    /* Inbound proof frames remain before the catch so the screenshot can
+       prove the source-derived setup/flight is frozen against live input. */
+    if (inbound_restart && checkpoint > 12U) return false;
     if (foul_presentation &&
         checkpoint >= TECMO_GAMEPLAY_FOUL_PRESENTATION_FRAMES) {
         return false;
@@ -580,6 +589,7 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     config->shot_clock_violation = shot_clock_violation;
     config->out_of_bounds_violation = out_of_bounds_violation;
     config->backcourt_violation = backcourt_violation;
+    config->inbound_restart = inbound_restart;
     config->foul_presentation = foul_presentation;
     config->debug_overlay_only = debug_overlay_only;
     config->violation_lab = violation_lab;
@@ -1601,6 +1611,197 @@ static bool run_gameplay_violation_checkpoint(
     return true;
 }
 
+/* Deterministic render-only proof for the bounded Bank07 -> Bank06 restart
+   route.  It deliberately triggers the ordinary TGMO/TPNL out-of-bounds path
+   and proves only the extracted $9621-$9764 setup plus the explicit Bank05
+   gather/flight adapter; it does not claim a recovered $037F policy. */
+static bool run_gameplay_inbound_checkpoint(
+    TecmoRuntime *runtime,
+    const TecmoCliGameplayCheckpointConfig *config,
+    bool *handled_out)
+{
+    TecmoGameplayScene *scene;
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    TecmoGameplayRoundSetup setup;
+    TecmoGameplayCourtCoordinate frozen_positions[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    uint8_t clock_minutes;
+    uint8_t clock_seconds;
+    uint8_t clock_divider;
+    uint8_t shot_clock;
+    unsigned update;
+    size_t actor;
+
+    if (handled_out == NULL) return false;
+    *handled_out = false;
+    if (runtime == NULL || config == NULL || !config->inbound_restart) {
+        return runtime != NULL && config != NULL;
+    }
+    *handled_out = true;
+    scene = &runtime->gameplay_scene;
+    if (runtime->mode != TECMO_MODE_COURT || !scene->active ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE) {
+        printf("inbound-proof reject preflight mode=%u active=%u phase=%u\n",
+               (unsigned)runtime->mode, scene->active ? 1U : 0U,
+               (unsigned)scene->state.phase);
+        return false;
+    }
+
+    /* The generic renderer reaches LIVE through a compatibility launch.
+       Rebind the actually launched identities before the proof uses source
+       roles, exactly as the scene tests do for a typed native fixture. */
+    scene->legacy_direct_launch = false;
+    scene->launch.starter_binding_bound = true;
+    scene->launch.controller_team[0U] = TECMO_GAMEPLAY_TEAM_AWAY;
+    scene->launch.controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT;
+         ++actor) {
+        scene->launch.starter_roster_index[0U][actor] =
+            scene->actors[actor].roster_index;
+        scene->launch.starter_roster_index[1U][actor] =
+            scene->actors[TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT + actor]
+                .roster_index;
+    }
+    if (!scene_handoff_possession(
+            scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+        !scene_sync_live_foundation(scene)) {
+        printf("inbound-proof reject typed setup status=%s\n", scene->status);
+        return false;
+    }
+
+    /* At Y=$94, X=$95 is the legal left page edge. The second held-left
+       TGMO update attempts the clamped coordinate and enters the normal
+       out-of-bounds presentation, rather than injecting a phase. */
+    scene->actors[0U].position.x = 149;
+    scene->actors[0U].position.y = 148;
+    scene->actors[0U].anchor = scene->actors[0U].position;
+    scene->actors[0U].movement_action_state =
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
+    scene->actors[0U].movement_direction = 0U;
+    scene->actors[0U].movement_fractional_accumulator = 15U;
+    scene->actors[0U].movement_animation_phase = 0U;
+    scene->actors[0U].movement_boundary_latched = false;
+    if (!scene_attach_ball(scene)) { printf("inbound-proof reject attach\n"); return false; }
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    p1.held.left = true;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        !tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION ||
+        scene->state.violation != TECMO_GAMEPLAY_VIOLATION_OUT_OF_BOUNDS ||
+        scene->state.restart_possession != TECMO_GAMEPLAY_TEAM_HOME) {
+        printf("inbound-proof reject trigger phase=%u violation=%u restart=%u status=%s\n",
+               (unsigned)scene->state.phase, (unsigned)scene->state.violation,
+               (unsigned)scene->state.restart_possession, scene->status);
+        return false;
+    }
+    memset(&p1, 0, sizeof(p1));
+    for (update = 0U;
+         update < TECMO_GAMEPLAY_VIOLATION_RELEASE_LEAD_IN_FRAMES;
+         ++update) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->state.phase !=
+                TECMO_GAMEPLAY_PHASE_VIOLATION_PRESENTATION) {
+            printf("inbound-proof reject presentation update=%u phase=%u status=%s\n",
+                   update, (unsigned)scene->state.phase, scene->status);
+            return false;
+        }
+    }
+    p1.released.shoot = true;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->inbound_state.phase != TECMO_GAMEPLAY_SCENE_INBOUND_SETUP ||
+        !scene_inbound_active(scene)) {
+        printf("inbound-proof reject restart phase=%u possession=%u inbound=%u status=%s\n",
+               (unsigned)scene->state.phase, (unsigned)scene->state.possession,
+               (unsigned)scene->inbound_state.phase, scene->status);
+        return false;
+    }
+    if (!tecmo_gameplay_free_throw_lineup_derive_round_setup(
+            &scene->free_throw_lineup_assets,
+            scene->orientation_state.current_direction,
+            scene->inbound_state.passer, scene->inbound_state.defender,
+            &setup)) {
+        return false;
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        if (!setup.actors[actor].position_defined ||
+            scene->actors[actor].position.x !=
+                (int16_t)setup.actors[actor].raw_world_x ||
+            scene->actors[actor].position.y !=
+                (int16_t)setup.actors[actor].raw_world_y ||
+            scene->actors[actor].anchor.x != scene->actors[actor].position.x ||
+            scene->actors[actor].anchor.y != scene->actors[actor].position.y) {
+            return false;
+        }
+        frozen_positions[actor] = scene->actors[actor].position;
+    }
+    clock_minutes = scene->state.clock_minutes;
+    clock_seconds = scene->state.clock_seconds;
+    clock_divider = scene->state.clock_divider;
+    shot_clock = scene->state.shot_clock;
+    for (update = 0U; update < config->checkpoint; ++update) {
+        memset(&p1, 0, sizeof(p1));
+        memset(&p2, 0, sizeof(p2));
+        /* Prove that live direction/pass/shot edges cannot mutate this
+           transport before its B24F-shaped catch is committed. */
+        p1.held.left = true;
+        p1.held.right = true;
+        p1.pressed.shoot = true;
+        p1.pressed.cancel = true;
+        p2.held.up = true;
+        p2.held.down = true;
+        p2.pressed.shoot = true;
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            !scene_inbound_active(scene) ||
+            scene->state.clock_minutes != clock_minutes ||
+            scene->state.clock_seconds != clock_seconds ||
+            scene->state.clock_divider != clock_divider ||
+            scene->state.shot_clock != shot_clock) {
+            return false;
+        }
+        for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
+             ++actor) {
+            if (scene->actors[actor].position.x != frozen_positions[actor].x ||
+                scene->actors[actor].position.y != frozen_positions[actor].y ||
+                scene->actors[actor].anchor.x != frozen_positions[actor].x ||
+                scene->actors[actor].anchor.y != frozen_positions[actor].y) {
+                return false;
+            }
+        }
+    }
+    if (!scene_inbound_active(scene) ||
+        (config->checkpoint == 0U
+             ? scene->inbound_state.phase !=
+                   TECMO_GAMEPLAY_SCENE_INBOUND_SETUP
+             : config->checkpoint <= 4U
+                   ? scene->inbound_state.phase !=
+                         TECMO_GAMEPLAY_SCENE_INBOUND_GATHER
+                   : (scene->inbound_state.phase !=
+                            TECMO_GAMEPLAY_SCENE_INBOUND_FLIGHT ||
+                      scene->inbound_state.flight_frame !=
+                          config->checkpoint - 4U))) {
+        return false;
+    }
+    printf("inbound-proof frame=%u phase=%u packed=%02X flight=%u/%u "
+           "passer=%u receiver=%u defender=%u direction=%u clocks=%u:%02u/%u/%u\n",
+           config->checkpoint, (unsigned)scene->inbound_state.phase,
+           (unsigned)scene->inbound_state.packed_animation_state,
+           (unsigned)scene->inbound_state.flight_frame,
+           (unsigned)scene->inbound_state.flight_duration,
+           (unsigned)scene->inbound_state.passer,
+           (unsigned)scene->inbound_state.receiver,
+           (unsigned)scene->inbound_state.defender,
+           (unsigned)scene->orientation_state.current_direction,
+           (unsigned)scene->state.clock_minutes,
+           (unsigned)scene->state.clock_seconds,
+           (unsigned)scene->state.clock_divider,
+           (unsigned)scene->state.shot_clock);
+    return true;
+}
+
 static bool run_gameplay_camera_checkpoint(
     TecmoRuntime *runtime,
     const TecmoCliGameplayCheckpointConfig *config,
@@ -2025,6 +2226,10 @@ bool tecmo_cli_setup_gameplay_render_checkpoint(TecmoRuntime *runtime, const cha
                run_gameplay_facing_checkpoint(runtime, &config);
     }
     if (!run_gameplay_violation_checkpoint(runtime, &config, &handled)) {
+        return false;
+    }
+    if (handled) return true;
+    if (!run_gameplay_inbound_checkpoint(runtime, &config, &handled)) {
         return false;
     }
     if (handled) return true;

@@ -71,6 +71,30 @@ typedef struct TecmoGameplayFreeThrowLineup {
         actors[TECMO_GAMEPLAY_FREE_THROW_LINEUP_ACTOR_COUNT];
 } TecmoGameplayFreeThrowLineup;
 
+/*
+ * Bank06 $9621-$9764's base round/setup branch is also carried by TGFL-1.
+ * This is deliberately separate from the later $976F follow-up resolver:
+ * the base branch takes primary ($0308) and defender ($0309) as distinct
+ * slots, walks its two pointer streams only for the other eight actors, and
+ * then writes the two selected coordinates from $98D1/$98D5 and
+ * $98D3/$98D7.  It does not infer a free-throw, inbound, or possession rule.
+ */
+typedef struct TecmoGameplayRoundSetupActor {
+    uint16_t raw_world_x;
+    uint8_t raw_world_y;
+    bool position_defined;
+    bool primary;
+    bool defender;
+} TecmoGameplayRoundSetupActor;
+
+typedef struct TecmoGameplayRoundSetup {
+    uint8_t orientation;
+    uint8_t primary_slot;
+    uint8_t defender_slot;
+    TecmoGameplayRoundSetupActor
+        actors[TECMO_GAMEPLAY_FREE_THROW_LINEUP_ACTOR_COUNT];
+} TecmoGameplayRoundSetup;
+
 typedef struct TecmoGameplayFreeThrowLineupAssets {
     uint32_t lifecycle_tag;
     bool available;
@@ -137,6 +161,16 @@ bool tecmo_gameplay_free_throw_lineup_derive_caller_policy(
     uint8_t shooter_predicate,
     uint8_t secondary_predicate,
     TecmoGameplayFreeThrowLineup *lineup);
+
+/* Pure base-branch decode of Bank06 $9621-$9764.  The caller supplies the
+ * already typed primary/defender identities; this resolver makes no claim
+ * about how those identities were selected or whether $976F follows. */
+bool tecmo_gameplay_free_throw_lineup_derive_round_setup(
+    const TecmoGameplayFreeThrowLineupAssets *assets,
+    uint8_t orientation,
+    uint8_t primary_slot,
+    uint8_t defender_slot,
+    TecmoGameplayRoundSetup *setup_out);
 
 bool tecmo_gameplay_free_throw_lineup_self_test(
     const char *asset_pack_path,

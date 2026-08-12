@@ -98,6 +98,36 @@ typedef struct TecmoGameplayScenePassState {
     TecmoGameplayCourtCoordinateQ8 target_position;
 } TecmoGameplayScenePassState;
 
+/*
+ * Source-bounded restart transport.  Bank07 $EC9B-$ECD8 reaches Bank06
+ * $9621-$9764 for the visible setup; Bank05's shared pass path supplies the
+ * ordered gather/release/catch shape.  This is intentionally not a generic
+ * player pass: primary ($0308), selected defender ($0309), and launch
+ * candidate ($037F[$030A]) remain separate typed roles.
+ */
+typedef enum TecmoGameplaySceneInboundPhase {
+    TECMO_GAMEPLAY_SCENE_INBOUND_NONE = 0,
+    TECMO_GAMEPLAY_SCENE_INBOUND_SETUP,
+    TECMO_GAMEPLAY_SCENE_INBOUND_GATHER,
+    TECMO_GAMEPLAY_SCENE_INBOUND_FLIGHT,
+    TECMO_GAMEPLAY_SCENE_INBOUND_PHASE_COUNT
+} TecmoGameplaySceneInboundPhase;
+
+typedef struct TecmoGameplaySceneInboundState {
+    TecmoGameplaySceneInboundPhase phase;
+    uint8_t passer;
+    uint8_t receiver;
+    uint8_t defender;
+    uint8_t restart_team;
+    /* Shared Bank05 release shape: $32, $22, $12, then full-byte $04. */
+    uint8_t packed_animation_state;
+    uint8_t reserved[2];
+    uint16_t flight_frame;
+    uint16_t flight_duration;
+    TecmoGameplayCourtCoordinateQ8 start_position;
+    TecmoGameplayCourtCoordinateQ8 target_position;
+} TecmoGameplaySceneInboundState;
+
 typedef struct TecmoGameplaySceneLaunch {
     TecmoGameplaySceneSource source;
     uint16_t game_index;
@@ -336,6 +366,7 @@ typedef struct TecmoGameplayScene {
     uint8_t controlled_actor[TECMO_GAMEPLAY_CONTROLLER_COUNT];
     uint8_t ball_holder;
     TecmoGameplayScenePassState pass_state;
+    TecmoGameplaySceneInboundState inbound_state;
     TecmoGameplayCourtCoordinateQ8 ball_position;
     TecmoGameplayCourtCoordinateQ8 shot_start_position;
     TecmoGameplayCourtCoordinateQ8 shot_end_position;

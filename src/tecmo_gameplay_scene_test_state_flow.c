@@ -513,11 +513,75 @@ static bool scene_test_violations_and_cpu_offense(
         scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
         scene->state.shot_clock != TECMO_GAMEPLAY_SHOT_CLOCK_SECONDS ||
         scene->state.clock_divider != TECMO_GAMEPLAY_POSSESSION_DIVIDER_FRAMES ||
-        scene->ball_holder != TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
+        scene->inbound_state.phase != TECMO_GAMEPLAY_SCENE_INBOUND_SETUP ||
+        scene->inbound_state.restart_team != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->inbound_state.passer >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->inbound_state.receiver >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->ball_holder != scene->inbound_state.passer ||
         scene->actors[0U].movement_boundary_latched) {
-        tecmo_gameplay_scene_test_message(message, message_size,
-                           "out-of-bounds restart settlement failed");
+        {
+            char failure[384];
+            (void)snprintf(
+                failure, sizeof(failure),
+                "out-of-bounds restart settlement failed phase=%u possession=%u holder=%u inbound=%u passer=%u receiver=%u defender=%u direction=%u status=%s",
+                (unsigned)scene->state.phase,
+                (unsigned)scene->state.possession,
+                (unsigned)scene->ball_holder,
+                (unsigned)scene->inbound_state.phase,
+                (unsigned)scene->inbound_state.passer,
+                (unsigned)scene->inbound_state.receiver,
+                (unsigned)scene->inbound_state.defender,
+                (unsigned)scene->orientation_state.current_direction,
+                scene->status);
+            tecmo_gameplay_scene_test_message(message, message_size, failure);
+        }
         return false;
+    }
+    {
+        uint8_t receiver = scene->inbound_state.receiver;
+        uint8_t clock_divider = scene->state.clock_divider;
+        uint8_t shot_clock = scene->state.shot_clock;
+        uint8_t clock_seconds = scene->state.clock_seconds;
+        for (frame = 0U; frame < 64U && scene_inbound_active(scene); ++frame) {
+            TecmoGameplayCourtCoordinate positions[
+                TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+            for (size_t actor = 0U;
+                 actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+                positions[actor] = scene->actors[actor].position;
+            }
+            p1.held.left = true;
+            p1.held.right = true;
+            p1.pressed.shoot = true;
+            p1.pressed.cancel = true;
+            if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+                scene->state.clock_divider != clock_divider ||
+                scene->state.shot_clock != shot_clock ||
+                scene->state.clock_seconds != clock_seconds) {
+                tecmo_gameplay_scene_test_message(
+                    message, message_size,
+                    "inbound transport did not freeze state clocks");
+                return false;
+            }
+            for (size_t actor = 0U;
+                 actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+                if (scene->actors[actor].position.x != positions[actor].x ||
+                    scene->actors[actor].position.y != positions[actor].y) {
+                    tecmo_gameplay_scene_test_message(
+                        message, message_size,
+                        "inbound transport allowed live actor mutation");
+                    return false;
+                }
+            }
+            memset(&p1, 0, sizeof(p1));
+        }
+        if (scene_inbound_active(scene) ||
+            scene->ball_holder != receiver ||
+            scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "out-of-bounds inbound catch transfer failed");
+            return false;
+        }
     }
     tecmo_gameplay_audio_stop_all(&scene->audio_player);
     if (!scene_handoff_possession(
