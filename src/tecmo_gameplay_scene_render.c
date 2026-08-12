@@ -1266,6 +1266,26 @@ static bool scene_actor_needs_goal_mirror(
     return actor->facing_right != authored_facing_right;
 }
 
+bool tecmo_gameplay_scene_render_actor_mirror(
+    const TecmoGameplayScene *scene,
+    size_t actor_index,
+    bool *mirror_out)
+{
+    TecmoGameplayResolvedPose pose;
+    if (scene == NULL || mirror_out == NULL ||
+        actor_index >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        !tecmo_gameplay_scene_render_resolve_actor_pose(
+            scene, actor_index, &pose)) {
+        return false;
+    }
+    /* scene_draw_pose() consumes this exact single boolean once; keeping the
+       query adjacent to the decision prevents diagnostics from inventing a
+       second mirror convention. */
+    *mirror_out = scene_actor_needs_goal_mirror(
+        scene, &scene->actors[actor_index], &pose);
+    return true;
+}
+
 static void scene_make_bg_palette(uint32_t rgba[4],
                                   const uint8_t palette[16],
                                   uint8_t index)

@@ -47,9 +47,11 @@ typedef enum TecmoGameplayJumpShotDirection {
     TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_7 = 7
 } TecmoGameplayJumpShotDirection;
 
-/* The one bounded ordinary-shot presentation route.  Native gameplay may
-   mirror this numeric sequence toward the active hoop, but must not select a
-   different TGJS family/profile/direction until its source inputs are owned. */
+/* The original captured ordinary-shot fixture.  It remains the shooting-lab
+   default and a legacy diagnostic identity; bound gameplay instead uses the
+   retained Bank02 profile bit and Bank05 eight-way $05A0 direction.  Family
+   selection remains bounded to family 0 until the full $8B83-$8BC8 gate is
+   represented. */
 #define TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_FAMILY \
     TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0
 #define TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_PROFILE \

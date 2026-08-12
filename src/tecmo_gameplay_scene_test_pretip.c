@@ -496,6 +496,13 @@ static bool scene_test_continuous_tip_render(
     uint8_t shooting_controller = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     TecmoGameplayTeam shooting_team;
     TecmoControlFrame *shooting_controls;
+    const TecmoTeamDataPlayer *shooting_player;
+    TecmoGameplayShotDirectionSlot expected_shot_direction;
+    uint8_t expected_shot_profile;
+    uint16_t expected_shot_pose;
+    bool expected_shot_facing_right;
+    int32_t expected_shot_end_x;
+    int32_t expected_shot_end_y;
     uint32_t claimant_serial_before;
     unsigned shot_probe_started = 0U;
     unsigned shot_probe_jump = 0U;
@@ -812,16 +819,40 @@ static bool scene_test_continuous_tip_render(
         scene->claimant_settlement_trace.event_serial;
     if (!scene_start_shot_actor(scene, shooting_controller, shooting_actor) ||
         !scene_test_render_continuously(scene, pixels, failure,
-                                        sizeof(failure)) ||
+                                        sizeof(failure))) {
+        (void)snprintf(failure, sizeof(failure),
+                       "post-tip shot launch/render rejected: %s",
+                       scene->status);
+        goto failed;
+    }
+    shooting_player = scene_actor_player(scene, &scene->actors[shooting_actor]);
+    expected_shot_end_x =
+        (int32_t)scene->orientation_state.offensive_hoop.x * 256;
+    expected_shot_end_y = (int32_t)TECMO_GAMEPLAY_SHOT_TARGET_Y * 256;
+    expected_shot_facing_right = scene->shot_target_delta_x > 0 ||
+        (scene->shot_target_delta_x == 0 &&
+         scene->orientation_state.current_direction != 0U);
+    if (shooting_player == NULL ||
+        !tecmo_gameplay_shot_profile_from_profile_byte2(
+            shooting_player->profile[2], &expected_shot_profile) ||
+        !tecmo_gameplay_shot_resolution_direction_for_delta(
+            scene->shot_target_delta_x, scene->shot_target_delta_y,
+            &expected_shot_direction) ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
         scene->shot_actor != shooting_actor ||
-        scene->jump_family != TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_FAMILY ||
-        scene->jump_profile != TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_PROFILE ||
-        scene->jump_direction != TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_DIRECTION ||
-        scene->jump_resolved_pose_index != 213U ||
+        scene->jump_family != TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0 ||
+        scene->jump_profile != expected_shot_profile ||
+        scene->jump_direction != expected_shot_direction ||
+        !tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
+            &scene->jump_shots, scene->jump_family, scene->jump_profile,
+            scene->jump_direction, &expected_shot_pose) ||
+        scene->jump_resolved_pose_index != expected_shot_pose ||
         scene->actors[shooting_actor].pose_orientation_encoded ||
         scene->actors[shooting_actor].facing_right !=
-            scene->shot_launch_facing_right) {
+            scene->shot_launch_facing_right ||
+        scene->shot_launch_facing_right != expected_shot_facing_right ||
+        scene->shot_end_position.x_q8 != expected_shot_end_x ||
+        scene->shot_end_position.y_q8 != expected_shot_end_y) {
         (void)snprintf(failure, sizeof(failure),
                        "post-tip shot selected wrong family/orientation: "
                        "kind=%u actor=%u/%u route=%u/%u/%u pose=%u "
@@ -889,10 +920,12 @@ bool tecmo_gameplay_scene_test_pretip(
 
     tecmo_gameplay_scene_test_set_skip_pretip(false);
     if (!tecmo_gameplay_scene_test_pretip_load(test, scene) ||
-        !scene_test_continuous_tip_render(test, scene, &launch, 0U, 1U)) {
+        !scene_test_continuous_tip_render(
+            test, scene, &launch, 0U, 1U)) {
         return false;
     }
-    if (!scene_test_continuous_tip_render(test, scene, &launch, 3U, 10U)) {
+    if (!scene_test_continuous_tip_render(
+            test, scene, &launch, 3U, 10U)) {
         return false;
     }
     /* Later scene-contract tests intentionally use their historical 0/1

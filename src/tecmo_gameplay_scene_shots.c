@@ -653,16 +653,18 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
     if (!scene_shot_select_rim_route(scene, stable_sample)) {
         return false;
     }
-    if (scene->legacy_direct_launch) {
-        jump_family = scene_shot_family_for_context(
-            target_delta_x, target_delta_y, stable_sample);
-        jump_profile = profile;
-        jump_direction = (uint8_t)direction_slot;
-    } else {
-        jump_family = (uint8_t)TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_FAMILY;
-        jump_profile = (uint8_t)TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_PROFILE;
-        jump_direction = (uint8_t)TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_DIRECTION;
-    }
+    /* Bank05 $8B12 starts the selector at family 0.  The full $8B83-$8BC8
+       family-1 gate still lacks its raw object/timer input, so the helper
+       deliberately remains fail-closed.  In contrast, Bank02
+       $A8AE/$A8BA/$A8BC retains the profile[2] bit-5 selector, and Bank05
+       $9054-$90AF -> $8DD3-$8E4D -> $BF6C retains the eight-way hoop vector
+       stored at $05A0.  $842C then indexes $8D3D/$8D5D with
+       family-base + profile*8 + direction.  Do not replace those owned
+       profile/direction inputs with the old captured 0/0/1 diagnostic. */
+    jump_family = scene_shot_family_for_context(
+        target_delta_x, target_delta_y, stable_sample);
+    jump_profile = profile;
+    jump_direction = (uint8_t)direction_slot;
     memset(&evaluation_input, 0, sizeof(evaluation_input));
     evaluation_input.player_rating = player->profile[0];
     evaluation_input.point_value = classified_points;

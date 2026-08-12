@@ -217,12 +217,16 @@ static bool scene_shot_bound_selectors_valid(
                    (TecmoGameplayCloseShotDirection)direction &&
                scene->close_shot_variant == expected_variant;
     }
-    return scene->jump_profile ==
-               TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_PROFILE &&
-           scene->jump_direction ==
-               TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_DIRECTION &&
-           scene->jump_family ==
-               TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_FAMILY;
+    /* Bank05 $842C consumes the selector tuple assembled by the source
+       path: family base ($038C), retained profile bit ($04B0 bit 5), and
+       $05A0's 8-way hoop vector.  Native owns only the reset family 0; it
+       must nevertheless validate the owned profile and direction rather
+       than silently accepting the historical captured 0/0/1 fixture. */
+    return scene->jump_profile == (TecmoGameplayJumpShotProfile)profile &&
+           scene->jump_direction == (TecmoGameplayJumpShotDirection)direction &&
+           scene->jump_family == (TecmoGameplayJumpShotFamily)
+               scene_shot_family_for_context(
+                   target_delta_x, target_delta_y, scene->shot_sample);
 }
 
 static bool scene_shot_bound_evaluation_valid(
@@ -306,13 +310,12 @@ static bool scene_shot_bound_evaluation_valid(
     input.vertical_distance = (int16_t)(
         TECMO_GAMEPLAY_SHOT_TARGET_Y -
         (int)scene->shot_actor_launch_position.y);
-    input.family = close
-        ? family : (uint8_t)TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_FAMILY;
-    input.profile = close
-        ? profile : (uint8_t)TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_PROFILE;
-    input.direction = close
-        ? (uint8_t)direction
-        : (uint8_t)TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_DIRECTION;
+    /* The Bank05 $842C tuple is shared by ordinary and close source paths.
+       Family remains the bounded reset-family approximation, while the
+       profile-bit and eight-way direction are retained exactly. */
+    input.family = family;
+    input.profile = profile;
+    input.direction = (uint8_t)direction;
     input.numeric_variant = close
         ? (uint8_t)scene->close_shot_variant : 0U;
     input.stable_sample = expected_sample;
