@@ -783,11 +783,12 @@ decode, asset import, or historical comparison.
 scene owns launch settings and controller/team assignment, ten actors, ball and
 possession invariants, native input, shot animation, audio-event dispatch,
 presentation phases, and final-result handoff. Directions move the owned actor;
-NES A passes on offense or switches defenders; NES B starts an offensive shot
-or attempts a defensive steal/contact action. START and SELECT are inert, and
-unassigned controllers cannot act. Preseason results return to the blue-menu
-PRESEASON row. Season results are matched to the pending ordinal/teams and
-committed exactly once before returning to the existing result rows.
+NES A starts a visible gather/flight/catch pass on offense or switches defenders;
+NES B starts an offensive shot or attempts a defensive steal/contact action.
+START and SELECT are inert, and unassigned controllers cannot act. Preseason
+results return to the blue-menu PRESEASON row. Season results are matched to the
+pending ordinal/teams and committed exactly once before returning to the
+existing result rows.
 
 Gameplay launch first runs the strict ROM-only `gameplay/pre-tip` TPTI-1
 boundary. Its 5888-byte payload has FNV1a32 `99ADFE3D` and requires exact
@@ -999,14 +1000,19 @@ TGJS-2 revision-locks the prior jump spans plus signed math
 `$BCA1-$BDC6`, and the logical lookup `$BDF7-$BEF6`.
 It depends on the exact same-pack TGPL/TGCS payloads, rederives the 32-entry
 family/profile/direction pose matrix from `$8D3D/$8D5D`, and validates every
-resolved TGPL pointer and pose record. Its exact evidence boundary is
-deliberately one captured human-controlled away-side, facing-right
-family-0/profile-0/direction-1 context with bounded terminal-miss and
-three-point-make branches. Live scene policy reuses and horizontally mirrors
-that numeric route for either manually controlled team after transactionally
-resolving the actor's TGOR-owned offensive hoop. This supports both baskets but
-does not prove another TGJS direction or its native selector. NES B is
-tested as a current level rather than a release edge. The miss actor
+resolved TGPL pointer and pose record. Production selection follows Bank05's
+source-shaped composition: `$8B12` initializes family 0, Bank02 profile byte 2
+bit 5 supplies the profile half, `$9054-$90AF->$8DD3-$8E4D->$BF6C` derives the
+eight-way active-hoop direction stored in `$05A0`, and `$842C` combines family,
+profile, and direction to index `$8D3D/$8D5D`. The selected TGJS pose becomes a
+new court-pose owner, clears the retained pre-tip orientation encoding, and the
+renderer applies exactly one facing mirror. Deterministic Away/Home horizontal
+and diagonal production checkpoints verify the chosen table pose, profile,
+direction, facing, endpoint, release transition, and compositor mirror. This
+does not establish family 1: `$8B83-$8BC8` also requires near-hoop,
+near-defender, defender-side, and raw `$006A<$9C` inputs that live C does not
+retain, so production remains fail-closed on family 0. NES B is tested as a
+current level rather than a release edge. The miss actor
 held/airborne/recovery states and Q8.8
 height/velocity both begin at `$02E8`; height clamps on frame 40 and actor
 recovery ends at frame 46 while the ball route remains active through
@@ -1185,6 +1191,24 @@ ordering. The referee controller/groups are exact; the existing nine-frame
 blackout/fade alignment remains capture-bounded. The deterministic
 `gameplay-backcourt-frameN` checkpoint drives that live route and shows
 distinct groups at frames 23, 27, and 31.
+
+OUT OF BOUNDS and BACKCOURT restarts now enter an explicit inbound
+setup/gather/flight/catch lifecycle instead of handing the ball immediately to
+the first roster slot. The setup decoder reuses TGFL-1's revision-locked
+Bank06 `$9621-$9764` base branch and `$9879/$9881` table selection to place all
+ten actors at the source coordinates. It keeps the `$0308`-shaped primary/passer
+and `$0309`-shaped selected defender distinct. `$976F-$985C` is deliberately not
+used: that branch is conditional on unowned `$BA` state and was not taken by the
+observed inbound route. Bank05 `$B074` obtains its target through
+`$037F[$030A]`; the native scene uses that typed candidate when valid and
+otherwise labels and uses its existing nearest-teammate adapter rather than
+claiming exact receiver selection. During setup and the shared `$32,$22,$12,$04`
+gather/flight sequence, clocks, controls, and AI stay frozen. The typed
+`$B24F`-shaped catch attaches the ball to the receiver and ordinary live play
+resumes on the following update. Focused coverage includes OUT OF BOUNDS and
+BACKCOURT for both teams with game music enabled and disabled. Exact restart
+player selection, `$976F` behavior, pass duration/substeps, and a complete
+object-slot-10 inbound trajectory remain outside this boundary.
 
 TGFL-1 `gameplay/free-throw-lineup` is a strict ROM-only lineup foundation
 and live-scene dependency. Its pure resolver remains separate from scene
@@ -1475,6 +1499,18 @@ caller scheduling are not claimed as exact ROM behavior. Deterministic render
 checkpoints `gameplay-ball-bounce-frame1` and `frame12` freeze visibly distinct
 high and low positions.
 
+Ordinary human passes use a separate visible, transactional lifecycle rather
+than changing possession on the NES A edge. Bank05 `$89D7/$86A8` supplies the
+packed gather order `$32,$22,$12,$04`; `$B074/$B42F/$B500` owns the moving ball;
+and `$B24F` is the only point that changes the native holder, controller, and
+typed LIVE foundation to the locked receiver. The C flight duration and linear
+interpolation are bounded native adapters because the original `$BB9F/$BBA0`
+duration table and five-substep scheduler are not yet strict assets. The
+implementation does not add CPU pass intent, `$B13F` interception/contact, or
+complete object-slot-10 state parity. See
+`docs/pass-defender-handoff-evidence.md` for the separately bounded defender
+handoff and dynamic-link limitations.
+
 TGFT-1 `gameplay/fatigue` is the strict fatigue-evolution boundary. Its
 512-byte payload has FNV1a32 `F80F170D`, requires exact same-pack TTDT-1
 (`812628F0`), and imports Bank02 `$B4E6-$B5C7` (`F61DFFF7`) plus fixed
@@ -1570,6 +1606,20 @@ uses the orientation-aware `48/48/40` approach; every other actor uses its
 fixed opposing roster-slot link. Shot proximity/cadence remains a separate
 native approximation.
 
+The Bank06 common target tail has one additional, deliberately narrow live
+owner. `$92CA-$92D0` tests only `$BA & 3` before `$8FD9` advances the actor's
+five-byte command record. When the scene is ordinary LIVE with no result or
+pre-tip abort, violation, free throw, shot, visible pass, lineup, or dunk
+presentation, C projects only the proven zero low-two-bit condition. It does
+not mirror the `$BA` byte, derive it from a frame counter, or claim its other
+flags. All transient contexts remain `missing-ba-lifecycle`. This closes the
+post-tip stall where a CPU holder repeatedly deferred on opcode 2: a natural,
+non-injected PRETIP-to-CPU regression decodes the aligned holder record at
+`$0A41`, requires `$0A41->$0A46`, observes no defer reason, and requires actor
+movement. It proves command transport through this ordinary-live gate, not a
+complete CPU playbook, passing decision, jump/far shot lifecycle, or downstream
+`$92DD+` side-effect parity.
+
 Do not use this asset to claim a complete CPU policy, shot/pass/steal choice,
 ROM actor-link ownership, or live collision/contact ownership. In particular, the
 nearby `$B081-$B32E` candidate scan is excluded from ordinary movement
@@ -1630,21 +1680,23 @@ per attempt and across scene launch/end.
 The exact boundary covers court/CHR/imported palette data and the embedded
 FCEUX RGB profile, actor-pose decoding, numeric close-shot steps, the narrowed
 TGJS/TGSR miss actor/ball timing and three-point-make actor/result schedule,
-the state-`$15` one-to-four-pass prefix and canonical debug handoff, Q8.8 actor
+the state-`$15` one-to-four-pass prefix and canonical debug handoff, the
+source-ordered ordinary human pass gather/flight/catch lifecycle, the bounded
+OUT OF BOUNDS/BACKCOURT inbound restart, Q8.8 actor
 height, terminal outcomes, one post-miss settlement, state/event timing, foul thresholds,
 period/halftime/final transitions, and audio programs/mappings.
 Post-handoff live actor layout and fixed five-player roster-slot/matchup-link
-binding, CPU target/shot policy, exact intra-frame fatigue call placement,
-jump-ball geometry, unsupported jump
-profiles/directions/outcomes, ordinary two-point makes, make ball motion, the
+binding, complete CPU play selection/pass policy and jump/far shot lifecycle,
+exact intra-frame fatigue call placement, jump-ball geometry, jump family-1
+selection and unsupported outcomes, ordinary two-point makes, make ball motion, the
 longer +157-update claimant route, semantic rebounds/blocks/steals,
 general make/contact policy, the trigger selecting
 dunk/variant 0 versus layup/variant 2, live close-shot profile/direction
 selection and left-facing mirroring, state-dependent palette transitions
 outside the exact live-court and cutaway contexts,
 foul detection, live free-throw camera/full-court integration and lineup
-positioning/aim/outcome/rebound and CPU
-positioning/script behavior, plus the HUD fixed-column and unassigned-CPU
+positioning/aim/outcome/rebound, exact inbound receiver/timing/object state, and
+CPU positioning/script behavior, plus the HUD fixed-column and unassigned-CPU
 actor-selection adapters remain explicit native approximations. THUD-1's font,
 team marks, and Bank02 name formatting are exact within the boundary above.
 Local original-frame comparisons found no unrendered or garbage
@@ -1658,7 +1710,11 @@ HUD glyph silhouettes now match the local score/clock/jersey-number reference,
 and camera/world projection is strict within the supported horizontal slice.
 Test with
 `tools\Run-GameplaySceneTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`; its private
-scratch pack, logs, and PNGs remain under ignored `build\` output.
+scratch pack, logs, and PNGs remain under ignored `build\` output. The scene
+state suite includes the visible human pass, both-team violation inbound cases,
+and the natural post-tip CPU opcode-2 advancement regression. Run
+`tools\Run-ShotDirectionProof.ps1 -Build -PackPath <LOCAL_ASSETPACK>` for the
+four Away/Home horizontal/diagonal jump-shot selector and mirror checkpoints.
 The strict runtime checkpoints are `gameplay-start`,
 `gameplay-jump-frameN`, `gameplay-jump-rattle-frameN`,
 `gameplay-jump-make-frameN`, and
