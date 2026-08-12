@@ -1243,7 +1243,7 @@ static bool scene_apply_free_throw_lineup(
     scene->free_throw_lineup_transition_serial =
         scene->orientation_state.transition_serial;
     scene->free_throw_lineup_orientation =
-            scene->orientation_state.attack_direction;
+        scene->orientation_state.attack_direction;
     scene->free_throw_shooter = shooter;
     scene->free_throw_secondary = secondary;
     scene->free_throw_lineup_active = true;
