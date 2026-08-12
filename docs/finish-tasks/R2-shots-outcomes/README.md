@@ -1,6 +1,17 @@
 # Tecmo R2 Shots Outcomes
 
-Status: the implementation commit and committed QA-lineage child are exact:
+> **Archival lane record.** This file preserves the R2 worker-tip scope,
+> evidence, exclusions, and proof lineage; it is not a current-main status
+> page. Later integration changed shared scene/source-map ownership. Current
+> production retains the player-profile bit and eight-way active-hoop direction
+> but fails closed to jump family 0 because the complete `$8B83-$8BC8` gate,
+> including raw `$006A<$9C`, has no live owner. Close numeric 1 now has neutral
+> source-backed pose exposure and a bounded native schedule, without a semantic
+> dunk/layup/contact label or complete object trajectory. The public shot-name
+> helper still returns `"invalid"` for that neutral identity.
+
+Historical status: the implementation commit and committed QA-lineage child
+are exact:
 `24bdde9c87b1529d9ab83671bc8c60c1e136ceb1` and
 `8be0258e83369bce58d3a9eabedb4ef575127b25`. The terminal metadata tip SHA and
 its subsequent same-QA terminal-tip verification are supplied in the
@@ -59,7 +70,7 @@ terminal disposition.
 
 ## Scope
 
-This lane owns the shot/outcome boundary in native C:
+This historical lane owned the following shot/outcome boundary in native C:
 
 - transactional TGCS/TGJS/TGDK/TGSR parse/load and precise fresh-destination
   diagnostics;
@@ -95,7 +106,7 @@ SHA-256 `076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4`.
 | TGCS-1 close numeric 0/2 | Bank05 `$8BDE->$8C79->$8C7D`; fixed pose/source spans; TGCS-1, 3144 bytes, FNV32 `DACDC976` | Exact/source-pinned pose/phase metadata; native faithful selector integration | Numeric 0/2 complete source semantics remain available. It does not prove numeric-1 full object trajectory. |
 | TGCS numeric 1 | Bank05 `$8BDE->$8C79->$8C7D`, `$8C7D-$8CD4`; fixed group `$10`, `$8CED-$8D3C`; offsets `05E6,05A6,05C6,05D6,05B6,0586,05F6,0596`, pointer indexes `755,723,739,747,731,707,763,715` | Native approximation, source-backed pose-only exposure | `$99==1` selects the fixed group and adds the exact eight-direction slot. Profile is ignored for this group. Complete object animation/trajectory semantics remain incomplete; no dunk/layup/contact label is assigned. |
 | TGSR profile bit | Bank02 `$A89E-$A8C9`: `$A8AE` loads profile byte 2, `$A8BA` applies `AND #$20`, `$A8BC` stores actor `$04B0`; Bank05 `$842C/$8C7D` consume the bit | Exact/source-pinned profile selector; native faithful integration | Existing `TecmoTeamDataPlayer.profile[2]` bit 5 selects both close/jump profile paths. It proves the bit gate, not unavailable raw roster state beyond that byte. |
-| TGJS jump matrix | Bank05 `$842C-$845E` consumes family base, `$04B0 & $20` profile, and direction; TGJS-2, 2776 bytes, FNV32 `A66EE873` | Exact/source-pinned selector matrix; native faithful playback consumption | Both families × both profiles × eight directions are selected, persisted, replayed, and used during flight. Unavailable raw NES state is replaced by documented geometry/stable-sample gates. |
+| TGJS jump matrix | Bank05 `$842C-$845E` consumes family base, `$04B0 & $20` profile, and direction; TGJS-2, 2776 bytes, FNV32 `A66EE873` | Historical lane implementation, superseded for production family selection | The asset contains both families × both profiles × eight directions. Current production retains profile/direction selection but fails closed to family 0; the historical stable-sample family substitution is not current behavior. |
 | TGDK | TGDK-1, 20272 bytes, FNV32 `E02F2D21`; captured dunk schedule/cue contract | Native faithful preserved schedule with transactional boundary | Existing dunk cutaway behavior and cue boundaries are retained. Full presentation mapping is not claimed. |
 | TGSR point/scoring classification | Bank05 `$B995-$BA3F` | Exact/source-pinned point-class pieces; native faithful geometry binding | Point class is recomputed from immutable launch geometry and captured hoop endpoint; unavailable full helper inputs remain outside the exactness claim. |
 | TGSR terminal polarity | Bank05 `$91BC-$943A`, including `$933B/$942D` make and `$9434` miss branches | Exact/source-pinned terminal polarity at supported contexts | Captured terminal polarity and supported exact schedule are retained; full `$91BC` inputs are not proven. |
@@ -110,7 +121,8 @@ incomplete for the explicitly unproven helper inputs and semantics.
 
 ## Changed implementation seams
 
-Owned changes are limited to the files listed by the task. The principal
+At this historical lane tip, owned changes were limited to the files listed by
+the task. The principal
 functions are:
 
 - `tecmo_gameplay_close_shots_parse/load`,
@@ -142,18 +154,19 @@ and jump profile/direction entries are consumed, that only the captured
 three-point schedule is exact, and that other arcs/full unproven inputs are
 native approximations; it does not claim presentation completion.
 
-## Required exclusions and known follow-ups
+## Historical lane exclusions and later status
 
-`src/tecmo_gameplay_scene.c` remained completely untouched because it is held
-by the active R1 TIP boundary. Production numeric-1 mechanics are exposed
-neutrally through the owned shot contract, but the public
-`tecmo_gameplay_scene_shot_name(NUMERIC_1)` helper still returns `"invalid"`.
-The accepted future one-line `"numeric-1"` case is a sequential,
-non-product-mechanics integration follow-up after R1 releases `scene.c`; name
-integration is incomplete.
+At this lane tip, `src/tecmo_gameplay_scene.c` remained completely untouched
+because it was held by the active R1 TIP boundary. Current main has since
+integrated shot work into the scene and carries
+`TECMO_GAMEPLAY_SCENE_SHOT_NUMERIC_1` as a neutral source identity with a
+bounded native schedule. Its public `tecmo_gameplay_scene_shot_name` helper
+still returns `"invalid"`, so semantic/user-facing naming remains incomplete;
+it is no longer blocked on the historical R1 file-ownership boundary.
 
 `src/asset_pack/tecmo_asset_pack_source_map.c` also remained completely
-untouched. Both excluded shared files are confirmed untouched in this lane.
+untouched at that lane tip. Both excluded shared files were confirmed untouched
+for that historical change set only.
 TGCS-1 source-map metadata remains exact/complete for numeric 0/2,
 while numeric-1 full trajectory semantics are incomplete; the pose-only
 numeric-1 runtime exposure is a native approximation. The stale
@@ -434,10 +447,12 @@ dependencies or committed evidence.
 2. Numeric-1 uses the validated fixed pose group and a bounded 24-frame held
    pose schedule. Full object/trajectory semantics and semantic naming are
    unknown.
-3. The family gate uses captured geometry plus stable-sample bit 13 because
-   raw `$038A/$006A` state is unavailable. The close-vs-jump vertical
-   substitution uses stable-sample bit 9. These are neutral substitutions,
-   not contact/foul/family semantic claims.
+3. At this historical lane tip, the family gate used captured geometry plus
+   stable-sample bit 13 because raw `$038A/$006A` state was unavailable. That
+   family substitution is superseded: current production fails closed to
+   family 0 until the complete source gate has a live owner. Separate,
+   explicitly neutral close-shot reachability substitutions remain native
+   approximations and do not establish contact/foul/family semantics.
 4. Claimant traversal is active actor-slot/source order. Native dynamic scan
    order remains unproven. Same-team retention and other-team possession
    change are classified only as settlement relations.
@@ -458,5 +473,7 @@ worktree/index/range checks, three docs only, and both excluded shared files,
 `src/asset_pack/tecmo_asset_pack_source_map.c`, untouched. The terminal metadata
 tip SHA and its subsequent same-QA terminal-tip verification are supplied in the
 authoritative Sol/master handoff because a commit cannot contain its own object
-ID or a later audit result. This record does not assert final QA acceptance; the
-shared-file name/source-map follow-ups remain incomplete and deferred.
+ID or a later audit result. This archival record does not assert final QA
+acceptance. Its shared-file ownership and follow-up statements describe the
+historical lane tip, not the current-main integration boundary described at the
+top of this file.

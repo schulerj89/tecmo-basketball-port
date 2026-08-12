@@ -18,17 +18,22 @@ original game logic is being reconstructed.
 - Interactive opening tip with timed player and CPU jumps, ROM-derived poses and
   trajectory timing, receiver-directed ball flight, and continuous movement into
   live play
-- Possession-aware offensive control and defender handoff, with persistent CPU
-  spacing commands that keep defenders matched more closely to their assignments
-- Ordinary jump shots use the ROM's family-, player-, and direction-specific
-  animation sequences through the gather, release, flight, and recovery phases
+- Possession-aware offensive control and defender handoff, with partial
+  source-command CPU movement plus explicitly native targeting and matchup
+  adapters while the full playbook/assignment lifecycle is reconstructed
+- Ordinary jump shots use the ROM's player-profile and active-hoop-direction
+  animation sequences through gather, release, flight, and recovery. Production
+  remains fail-closed on source-reset family 0 until the complete family-1 raw
+  gate is retained
 - ROM-derived presentation, movement, animation, court layouts, palettes, and
   uniforms
 - Team Data, rosters, starters, playbooks, and player details
 
-The largest remaining gaps are exact CPU offensive play selection and full-team
-spacing; steals, blocks, rebounds, contact, and fouls; several shot outcomes;
-per-player statistics; All-Star game launch; and populated League Leaders.
+The largest remaining gaps are exact CPU offensive play selection, autonomous
+passing/shooting, and full-team assignment/spacing; broad steals, blocks,
+rebounds, contact, and fouls beyond the narrow supported routes; several shot
+lifecycles and outcomes; complete per-player statistics; All-Star game launch;
+and populated League Leaders.
 
 ## Controls
 

@@ -790,9 +790,9 @@ results return to the blue-menu PRESEASON row. Season results are matched to the
 pending ordinal/teams and committed exactly once before returning to the
 existing result rows.
 
-Gameplay launch first runs the strict ROM-only `gameplay/pre-tip` TPTI-1
-boundary. Its 5888-byte payload has FNV1a32 `99ADFE3D` and requires exact
-same-pack TGPL-1, TTDT-1, TMUS-1, TWAR-1, and `chr/all`. Twenty
+Gameplay launch first runs the strict ROM-only `gameplay/pre-tip` TPTI-2
+boundary. Its 7680-byte payload has FNV1a32 `8E6367FC` and requires exact
+same-pack TGPL-1, TTDT-1, TMUS-1, TWAR-1, TGJS-2, and `chr/all`. Twenty-nine
 revision-fingerprinted spans retain screen `$15`'s descriptor/stream/palette,
 Bank06 card waits/text flow, `$A290` character mapping, `$AF05` 16-pixel
 metatiles and `$C6/$FA` CHR setup, Bank04 `$86AB-$88A8` close-up,
@@ -804,12 +804,16 @@ dependency fingerprints, and sanitized source-map provenance fail closed.
 Runtime never reads ROM, ASM, decompilation, Lua, captures, screenshots, logs,
 states, traces, or dumps.
 
-The asset-backed pre-tip schedule reaches contest entry at 661 updates:
-`61 + 121 + 61 + 208 + 30 + 120 + 60`. The TPTI contest input window remains
-30 updates, while the native visual contest schedule is 60 updates, so the
-live handoff occurs at total frame 721. Only the first three values preserve
-Bank06's inclusive `$3C/$78/$3C` card waits for the mode card, matchup, and
-`1ST PERIOD` exactly; the later phase durations are capture-bounded.
+The asset-backed cards and close-up reach center setup after
+`61 + 121 + 61 + 208 = 451` updates. A successful Bank04-clocked human tip
+claims state `$17` during the court/ball descent, immediately enters the
+60-update toss cut-in, returns to the 30-update court contest, and then hands
+off live. The deterministic primary human route reaches those boundaries at
+frames `516/576/606`. The independent CPU-only threshold route reaches
+`508/568/598`; those values are not a human capture-clock calibration. Only
+the first three durations preserve Bank06's inclusive `$3C/$78/$3C` card
+waits for the mode card, matchup, and `1ST PERIOD` exactly; later presentation
+durations are capture-bounded.
 PRESEASON and `REGULAR SEASON` are the exact mode strings. Card letters use
 Bank06's exact character mapping, `$AF05` 2-by-2 metatiles, `$C6/$FA` CHR
 selectors, and 16-pixel centered cell placement rather than TTDT's 8-pixel
@@ -820,14 +824,15 @@ screen-`$1A` close-up includes bounded black entry/exit gates and reuses the
 strict TWAR-1 background/OAM/CHR contract. Its capture-bounded phase frame 33
 starts the ROM-exact Bank04 `$88` motion steps: fixed `$D861` moves the OAM
 player left, nametable scroll moves the referee/player layer right, and NES
-OAM-Y displays one scanline below the stored value. The center-court route then holds
-black for 30 updates, descends the ball from approximately Y 71 to Y 145 over
-60 updates and holds it through the 120-update phase, holds black for the first
-30 updates of the toss transition, and renders TGPL-1 screen `$1B`
-nametable page 1 for the final 30. Page 1 is required by the reference geometry:
+OAM-Y displays one scanline below the stored value. The center-court route
+proceeds through center black, court/ball descent, toss transition/cut-in,
+contest, and then live play. Ball descent interpolates Y 71..145 for its first
+60 updates and then holds until the source-clocked claim changes phase. The
+toss cut-in renders TGPL-1 screen `$1B` nametable page 1. Page 1 is required by
+the reference geometry:
 the ball occupies X 176..239 and the hands X 67..159; page 0 contains the
-opposite phase. The final 60 updates show the jump contest. The final live-
-background band uses the validated pre-ASL R1 selector `$40 + away_team` during
+opposite phase. The final live-background band uses the validated pre-ASL R1
+selector `$40 + away_team` during
 pre-tip, then `$40 + home_team` after live handoff. `$3F` is outside the
 accepted `$40..$5A` team-selector range and resolves high-bit final-band tiles
 through unrelated CHR data, which caused the former oversized lower-right
@@ -847,24 +852,27 @@ consuming the latch. The exact `$98E1-$9A5F` update span also reads current B
 at `$9920`. These reads prove the button and held-level semantics, but not the
 complete original winner/claim settlement.
 
-The native scene therefore accepts each team's first held B during the first
-30 `JUMP_CONTEST` input updates, after routing controllers by assigned team;
-the selected jumpers remain visible for the full 60-update presentation.
-Contest frame 0 is the native timing target, error is capped at 11, no sample
-is 12, lower error wins, and equal errors defer the native claim; the original
-single-winner tie policy remains incomplete. A hold carried into the phase
-samples frame 0; an edge without a held level does not. This deterministic
-window and timing policy are explicit native approximations. B cannot sample a
-tip during the close-up or court/toss phases and cannot cancel those phases.
+Bank04 `$86E1-$8817` owns the countdown clock. The native bridge retains its
+sampled `$6A`, evolving `$8A`, source-loop ticks, and captured input bytes;
+fixed `$CD96-$CDAB` supplies the exact 8-bit mixer. The deterministic
+presentation bridge samples `$6A=$85` after the card and route-setup schedule,
+seeds `$8A=$87`, and follows the source yields and marker waits. The primary
+Away pulse captures `$E1`, derives capped error/countdown 11, and reaches the
+state-`$17` cutaway at frame 516 through the ordinary ball-height/countdown
+gate. Byte wrap ends capture rather than manufacturing later input samples.
+Lower captured error wins; equal errors defer the native claim because the
+original single-winner tie settlement remains unproven. B cannot sample a tip
+during the close-up or toss phases and cannot cancel those phases.
 The public winner query rejects every phase before `JUMP_CONTEST` without
 changing caller-owned output; it is available during `JUMP_CONTEST` and after
 the live handoff.
 The game clock, shot clock, rules, actors, AI, and live camera remain frozen
-until the frame-721 handoff. Track 8 queues at card entry, and enabled GAME
-MUSIC queues track 5 only at that handoff. Bank04 `$AC8C-$ACD9` initializes
+until the route's live handoff (frame 606 for the deterministic primary human
+capture above). Track 8 queues at card entry, and enabled GAME MUSIC queues
+track 5 only at that handoff. Bank04 `$AC8C-$ACD9` initializes
 object slots 0..10 from state `$AD82`, sprite-slot base `$AD8D`, facing `$AD98`,
 X-low `$ADA3`, X-high `$ADAE`, Y `$ADB9`, and facing-indexed pose tables
-`$ADC4/$ADCD`. TPTI-1 already fingerprints both containing spans; the
+`$ADC4/$ADCD`. TPTI-2 already fingerprints both containing spans; the
 transactional `tecmo_gameplay_pretip_tip_lineup` decoder supplies the complete
 setup for ten players and the ball to the canonical TGCT scene. TPTI header
 selectors 178/179 preserve the Bank04-selected jumper identities `(4,9)`
@@ -880,17 +888,19 @@ native approximations; they are independent of timing error, so late/no input
 cannot truncate landing. Generic action poses use the validated actor-facing
 mirror path; the orientation-encoded flag is restored only for the Bank04
 standing pose at landing. The landing step restores both tip anchors and poses
-before the frame-721 live handoff. Raw object-state behavior, exact original
+before the route's live handoff. Raw object-state behavior, exact original
 winner/claim settlement, and a complete original jump trajectory are not thereby
 ported.
 The fixed pre-tip lineup retains TGCP's source-backed initial center camera X
 `$0100`; it must not inherit the live ball/goal pre-settle, because doing so can
 place one Bank04-selected jumper outside the 256-pixel projection window. The
-frame-721 handoff still settles transactionally around the awarded possession,
+live handoff still settles transactionally around the awarded possession,
 so this fixed presentation viewport does not replace live camera behavior.
-`tools/New-TipoffVisualProof.ps1` gates this integration from a clean commit: it
-builds a Rev1 asset pack, double-renders every production-path frame 661..725
-while Away holds B throughout `JUMP_CONTEST`, checks both jumpers' projected
+`tools/New-TipoffVisualProof.ps1` preserves the earlier frame-661..725 visual
+proof contract as historical lineage; it is not the timing authority for the
+current Bank04-clocked 516/576/606 route. It builds a Rev1 asset pack,
+double-renders that historical range while Away holds B throughout
+`JUMP_CONTEST`, checks both jumpers' projected
 pose/Y/visibility and both host margins, renders the Away-left-facing checkpoint,
 and emits numbered PNGs, all-frame active-edge sheets, a stage contact sheet, an
 optional ffmpeg MP4, and a hash/command/runtime-state manifest beneath ignored
@@ -960,8 +970,10 @@ the asset.
 Numeric close variant 0 has the exact 32-step direct/held-release table and
 variant 2 has the exact 16-step arc/longer-trajectory/contactable table. Their
 phase bytes and all 208 TGCS-stored profile/direction resolutions into TGPL pose
-data are ROM-derived. The live scene currently selects only profile 0/direction
-0; that selection remains a native approximation. Resolved uniform pose-cell
+data are ROM-derived. Bound production launches retain the selected roster
+profile-byte-2 bit and the geometry-derived eight-way active-hoop direction;
+only the isolated legacy direct-launch checkpoint remains fixed at profile 0 /
+direction 0. Resolved uniform pose-cell
 polarity is preserved from the fixed `$D413/$D498` compositor and `$D503`
 `AND #$41`, then compared with effective facing only while that facing equals
 the actor's assigned TGOR goal baseline. Deliberate movement/action overrides,
@@ -974,7 +986,11 @@ examples are Bank05 `$8F47/$8F57` raw `$012A` -> pose 149 -> `$A6E3/$884E`
 original frame/OAM independently confirms the visible Away-left bit-$40
 polarity; it does not claim a native pose-149 identity. `$40` is the
 horizontal-flip bit, not an intrinsic left meaning for arbitrary art.
-Numeric variant 1 is not exposed. Bounded local original execution proves the
+Numeric variant 1 is exposed only as a neutral source-backed pose identity with
+a bounded native schedule and stable-sample substitution for its missing raw
+predicate. Its complete object/trajectory semantics are unproven, no
+dunk/layup/contact meaning is assigned, and the public scene shot-name helper
+still returns `"invalid"` for it. Bounded local original execution proves the
 high-level mapping variant 0 = dunk and variant 2 = layup. TGCS-1 bytes,
 fingerprints, APIs, and source-map fields keep the numeric ROM identities; the
 semantic mapping is derived and validated by the loader rather than read from
