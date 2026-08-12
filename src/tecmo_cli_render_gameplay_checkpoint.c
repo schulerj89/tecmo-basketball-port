@@ -55,6 +55,8 @@ typedef struct TecmoCliGameplayCheckpointConfig {
     bool cpu_steering;
     bool pass_handoff_proof;
     bool directional_selection_proof;
+    bool shot_direction_proof;
+    unsigned shot_direction_case;
     bool shot_clock_violation;
     bool out_of_bounds_violation;
     bool backcourt_violation;
@@ -342,6 +344,36 @@ static bool parse_violation_lab_render_mode(
     return false;
 }
 
+/* Production shot-direction proof cases deliberately cover both active-hoop
+   orientations and the Bank05 $8DD3 horizontal/diagonal sectors. */
+static bool parse_shot_direction_proof_render_mode(
+    const char *mode_name,
+    unsigned *case_out,
+    unsigned *frame_out)
+{
+    static const char *tokens[] = {
+        "away-horizontal", "home-horizontal",
+        "away-diagonal", "home-diagonal"
+    };
+    size_t index;
+    if (mode_name == NULL || case_out == NULL || frame_out == NULL) {
+        return false;
+    }
+    for (index = 0U; index < sizeof(tokens) / sizeof(tokens[0]); ++index) {
+        char prefix[96];
+        int written = snprintf(prefix, sizeof(prefix),
+                               "gameplay-shot-direction-%s-frame",
+                               tokens[index]);
+        if (written >= 0 && (size_t)written < sizeof(prefix) &&
+            tecmo_cli_parse_render_frame_suffix(
+                mode_name, prefix, frame_out)) {
+            *case_out = (unsigned)index;
+            return true;
+        }
+    }
+    return false;
+}
+
 static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCliGameplayCheckpointConfig *config)
 {
     unsigned checkpoint = 0U;
@@ -362,6 +394,8 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     bool cpu_steering = false;
     bool pass_handoff_proof = false;
     bool directional_selection_proof = false;
+    bool shot_direction_proof = false;
+    unsigned shot_direction_case = 0U;
     bool shot_clock_violation = false;
     bool out_of_bounds_violation = false;
     bool backcourt_violation = false;
@@ -381,6 +415,9 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     if (parse_violation_lab_render_mode(mode_name, &violation_lab_item,
                                         &violation_lab_path, &checkpoint)) {
         violation_lab = true;
+    } else if (parse_shot_direction_proof_render_mode(
+                   mode_name, &shot_direction_case, &checkpoint)) {
+        shot_direction_proof = true;
     } else if (tecmo_cli_parse_render_frame_suffix(
                    mode_name, "gameplay-cpu-playbook-lab-step",
                    &cpu_playbook_lab_steps)) {
@@ -529,6 +566,7 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     if (cpu_playbook_lab && cpu_playbook_lab_steps > 32U) return false;
     if (pass_handoff_proof && checkpoint > 2U) return false;
     if (directional_selection_proof && checkpoint > 5U) return false;
+    if (shot_direction_proof && checkpoint > 4U) return false;
     if ((shot_clock_violation || out_of_bounds_violation ||
          backcourt_violation) &&
         checkpoint >= TECMO_GAMEPLAY_VIOLATION_PRESENTATION_FRAMES) {
@@ -577,6 +615,8 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     config->cpu_steering = cpu_steering;
     config->pass_handoff_proof = pass_handoff_proof;
     config->directional_selection_proof = directional_selection_proof;
+    config->shot_direction_proof = shot_direction_proof;
+    config->shot_direction_case = shot_direction_case;
     config->shot_clock_violation = shot_clock_violation;
     config->out_of_bounds_violation = out_of_bounds_violation;
     config->backcourt_violation = backcourt_violation;
@@ -937,6 +977,143 @@ static bool gameplay_checkpoint_report_tipoff_proof(
     return true;
 }
 
+static bool gameplay_checkpoint_setup_shot_direction_proof(
+    TecmoRuntime *runtime,
+    unsigned case_index,
+    unsigned checkpoint)
+{
+    static const char *case_names[] = {
+        "away-horizontal", "home-horizontal",
+        "away-diagonal", "home-diagonal"
+    };
+    TecmoGameplayScene *scene;
+    TecmoGameplayTeam team;
+    TecmoGameplaySceneActor *actor;
+    TecmoGameplaySceneCourtFrame court_frame;
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    const TecmoTeamDataPlayer *player;
+    TecmoGameplayShotDirectionSlot expected_direction;
+    uint8_t expected_profile;
+    uint16_t expected_pose;
+    uint8_t shooter;
+    bool expected_facing_right;
+    bool compositor_mirror;
+    int16_t position_x;
+    int16_t position_y;
+
+    if (runtime == NULL || case_index >= 4U) return false;
+    scene = &runtime->gameplay_scene;
+    team = (case_index == 0U || case_index == 2U)
+        ? TECMO_GAMEPLAY_TEAM_AWAY : TECMO_GAMEPLAY_TEAM_HOME;
+    shooter = team == TECMO_GAMEPLAY_TEAM_AWAY ? 0U : 5U;
+    /* These are ordinary mid-court vectors, not a close-shot fixture.  The
+       horizontal cases resolve left/right; the diagonal cases resolve
+       up-left/down-right through Bank05 $8DD3's 4:1 sector test. */
+    switch (case_index) {
+    case 0U: position_x = 320; position_y = 148; break;
+    case 1U: position_x = 448; position_y = 148; break;
+    case 2U: position_x = 320; position_y = 200; break;
+    default: position_x = 448; position_y = 96; break;
+    }
+    scene->legacy_direct_launch = false;
+    scene->launch.starter_binding_bound = true;
+    for (size_t side = 0U; side < TECMO_GAMEPLAY_TEAM_COUNT; ++side) {
+        for (size_t local = 0U;
+             local < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT; ++local) {
+            scene->launch.starter_roster_index[side][local] =
+                (uint8_t)local;
+        }
+    }
+    scene->launch.controller_team[0U] = (uint8_t)team;
+    scene->launch.controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    if (!scene_handoff_possession(scene, team, shooter)) return false;
+    scene->controlled_actor[0U] = shooter;
+    scene->controlled_actor[1U] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    actor = &scene->actors[shooter];
+    actor->position.x = position_x;
+    actor->position.y = position_y;
+    actor->anchor = actor->position;
+    actor->movement_boundary_latched = false;
+    if (!scene_attach_ball(scene)) {
+        return false;
+    }
+    scene->camera_state.thresholds_valid = false;
+    scene->camera_state.endpoint_latched = false;
+    if (!tecmo_gameplay_camera_settle_court(
+            &scene->camera_assets, &scene->camera_state,
+            &scene->ball_position,
+            scene->orientation_state.current_direction, false) ||
+        !scene_sync_live_foundation(scene) ||
+        !scene_start_shot_actor(scene, 0U, shooter)) {
+        return false;
+    }
+    player = scene_actor_player(scene, actor);
+    expected_facing_right = scene->shot_target_delta_x > 0 ||
+        (scene->shot_target_delta_x == 0 &&
+         scene->orientation_state.current_direction != 0U);
+    if (player == NULL ||
+        !tecmo_gameplay_shot_profile_from_profile_byte2(
+            player->profile[2], &expected_profile) ||
+        !tecmo_gameplay_shot_resolution_direction_for_delta(
+            scene->shot_target_delta_x, scene->shot_target_delta_y,
+            &expected_direction) ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+        scene->jump_family != TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0 ||
+        scene->jump_profile != expected_profile ||
+        scene->jump_direction != expected_direction ||
+        scene->actors[shooter].pose_orientation_encoded ||
+        scene->actors[shooter].facing_right != expected_facing_right ||
+        scene->shot_launch_facing_right != expected_facing_right ||
+        scene->shot_end_position.x_q8 !=
+            (int32_t)scene->orientation_state.offensive_hoop.x * 256 ||
+        scene->shot_end_position.y_q8 !=
+            (int32_t)TECMO_GAMEPLAY_SHOT_TARGET_Y * 256 ||
+        !tecmo_gameplay_scene_court_frame(scene, &court_frame) ||
+        !court_frame.projection.players[shooter].visible ||
+        !tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
+            &scene->jump_shots, scene->jump_family, scene->jump_profile,
+            scene->jump_direction, &expected_pose) ||
+        scene->jump_resolved_pose_index != expected_pose) {
+        return false;
+    }
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    for (unsigned update = 0U; update < checkpoint; ++update) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP) {
+            return false;
+        }
+    }
+    if (!tecmo_gameplay_scene_render_actor_mirror(
+            scene, shooter, &compositor_mirror)) {
+        return false;
+    }
+    printf("shot-direction-proof {\"case\":\"%s\","
+           "\"checkpoint\":%u,\"orientation\":%u,"
+           "\"family\":%u,\"profile\":%u,\"direction\":%u,"
+           "\"pose\":%u,\"facing_right\":%u,"
+           "\"pose_orientation_encoded\":%u,\"compositor_mirror\":%u,"
+           "\"released\":%u,\"target_dx\":%d,\"target_dy\":%d,"
+           "\"end_x_q8\":%ld,\"end_y_q8\":%ld,"
+           "\"ball_x_q8\":%ld,\"ball_y_q8\":%ld}\n",
+           case_names[case_index], checkpoint,
+           (unsigned)scene->orientation_state.current_direction,
+           (unsigned)scene->jump_family, (unsigned)scene->jump_profile,
+           (unsigned)scene->jump_direction,
+           (unsigned)scene->jump_resolved_pose_index,
+           scene->actors[shooter].facing_right ? 1U : 0U,
+           scene->actors[shooter].pose_orientation_encoded ? 1U : 0U,
+           compositor_mirror ? 1U : 0U,
+           scene->jump_b_released ? 1U : 0U,
+           (int)scene->shot_target_delta_x, (int)scene->shot_target_delta_y,
+           (long)scene->shot_end_position.x_q8,
+           (long)scene->shot_end_position.y_q8,
+           (long)scene->ball_position.x_q8,
+           (long)scene->ball_position.y_q8);
+    return true;
+}
+
 static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const TecmoCliGameplayCheckpointConfig *config, bool *done_out)
 {
     TecmoGameplaySceneLaunch launch;
@@ -959,6 +1136,8 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
     const bool pass_handoff_proof = config->pass_handoff_proof;
     const bool directional_selection_proof =
         config->directional_selection_proof;
+    const bool shot_direction_proof = config->shot_direction_proof;
+    const unsigned shot_direction_case = config->shot_direction_case;
     const int possession_slice = config->possession_slice;
     const int free_throw_orientation = config->free_throw_orientation;
     const unsigned first_contest_update = TECMO_CLI_PRETIP_CAPTURE_FRAME;
@@ -1014,7 +1193,7 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
             }
         }
         if (!tipoff_proof && !live_start && !pass_handoff_proof &&
-            !directional_selection_proof &&
+            !directional_selection_proof && !shot_direction_proof &&
             (!scene_handoff_possession(
                  scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
              !scene_sync_live_foundation(scene))) {
@@ -1170,6 +1349,11 @@ static bool run_gameplay_checkpoint_preflight(TecmoRuntime *runtime, const Tecmo
             printf("]}\n");
             *done_out = true;
             return true;
+        }
+        if (shot_direction_proof) {
+            *done_out = true;
+            return gameplay_checkpoint_setup_shot_direction_proof(
+                runtime, shot_direction_case, checkpoint);
         }
         if (tipoff_continuity && scene->pretip_state.live_handoff &&
             !scene_sync_live_foundation(scene)) {

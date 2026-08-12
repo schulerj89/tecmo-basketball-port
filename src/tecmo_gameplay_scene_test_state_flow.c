@@ -5110,11 +5110,12 @@ static bool scene_test_production_jump_matrix(
     memset(&neutral, 0, sizeof(neutral));
     scene_test_production_matrix_failure = 0U;
     scene_test_matrix_setup_failure = 0U;
-    /* Exercise both roster profile bits and all eight physical hoop-vector
-       sectors. Bound live presentation must still select the one captured
-       family-0/profile-0/direction-1 TGJS route and mirror it toward the
-       resolved hoop. The remaining 31 numeric table entries stay asset/lab
-       evidence only until their complete source selectors are owned. */
+    /* Exercise both retained roster profile bits and every Bank05
+       $9054/$8DD3/$BF6C hoop-vector sector in both court orientations.  The
+       $8B12 reset family remains intentionally fail-closed at zero because
+       the complete $8B83-$8BC8 gate is not owned; $842C must still use the
+       exact profile bit and eight-way direction when it indexes $8D3D/$8D5D.
+       This is a production launch test, not a shooting-lab table walk. */
     for (unsigned family = 0U; family < 1U; ++family) {
         for (unsigned profile = 0U; profile < 2U; ++profile) {
             for (unsigned direction = 0U; direction < 8U; ++direction) {
@@ -5125,6 +5126,7 @@ static bool scene_test_production_jump_matrix(
                     TECMO_GAMEPLAY_TEAM_AWAY ? 0U : 1U;
                 for (uint32_t frame = 0U; frame < 256U && !found; ++frame) {
                     bool saw_flight = false;
+                    bool saw_release = false;
                     if (!scene_test_prepare_matrix_fixture(
                             scene, &matrix_launch, shooting_team,
                             profile_roster[team_slot][profile], deltas_x[direction],
@@ -5132,21 +5134,41 @@ static bool scene_test_production_jump_matrix(
                         continue;
                     }
                     {
+                        TecmoGameplayShotDirectionSlot expected_direction;
                         uint16_t expected_pose;
-                        if (scene->shot_kind !=
-                            TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
-                        scene->jump_family !=
-                            TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_FAMILY ||
-                        scene->jump_profile !=
-                            TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_PROFILE ||
-                        scene->jump_direction !=
-                            TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_DIRECTION ||
-                        !tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
-                            &scene->jump_shots, scene->jump_family,
-                            scene->jump_profile, scene->jump_direction,
-                            &expected_pose) ||
-                        scene->jump_resolved_pose_index != expected_pose ||
-                        !scene_ownership_valid(scene)) {
+                        bool expected_facing_right = deltas_x[direction] > 0;
+                        int32_t expected_end_x;
+                        int32_t expected_end_y;
+                        expected_end_x = (int32_t)scene->orientation_state
+                                             .offensive_hoop.x * 256;
+                        expected_end_y =
+                            (int32_t)TECMO_GAMEPLAY_SHOT_TARGET_Y * 256;
+                        if (!tecmo_gameplay_shot_resolution_direction_for_delta(
+                                deltas_x[direction], deltas_y[direction],
+                                &expected_direction) ||
+                            (unsigned)expected_direction != direction ||
+                            scene->shot_kind !=
+                                TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+                            scene->jump_family !=
+                                TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0 ||
+                            (unsigned)scene->jump_profile != profile ||
+                            scene->jump_direction != expected_direction ||
+                            !tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
+                                &scene->jump_shots, scene->jump_family,
+                                scene->jump_profile, scene->jump_direction,
+                                &expected_pose) ||
+                            scene->jump_resolved_pose_index != expected_pose ||
+                            scene->actors[scene->shot_actor]
+                                .pose_orientation_encoded ||
+                            scene->actors[scene->shot_actor].facing_right !=
+                                expected_facing_right ||
+                            scene->shot_launch_facing_right !=
+                                expected_facing_right ||
+                            scene->shot_target_delta_x != deltas_x[direction] ||
+                            scene->shot_target_delta_y != deltas_y[direction] ||
+                            scene->shot_end_position.x_q8 != expected_end_x ||
+                            scene->shot_end_position.y_q8 != expected_end_y ||
+                            !scene_ownership_valid(scene)) {
                         scene_test_matrix_setup_failure = 8U +
                             ((unsigned)scene->shot_kind & 0x03U) * 16U +
                             (unsigned)scene->jump_family * 4U +
@@ -5209,6 +5231,7 @@ static bool scene_test_production_jump_matrix(
                                 TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
                             break;
                         }
+                        saw_release = saw_release || scene->jump_b_released;
                         if (scene->shot_frame >= 3U) {
                             uint16_t expected_phase_pose;
                             if (!tecmo_gameplay_jump_shots_resolve_phase_pose_pointer_index(
@@ -5229,7 +5252,8 @@ static bool scene_test_production_jump_matrix(
                             saw_flight = true;
                         }
                     }
-                    if (!saw_flight || memcmp(scene, &replay, sizeof(*scene)) != 0) {
+                    if (!saw_flight || !saw_release ||
+                        memcmp(scene, &replay, sizeof(*scene)) != 0) {
                         scene_test_production_matrix_failure =
                             200U + family * 100U + profile * 20U + direction;
                         tecmo_gameplay_scene_end(scene);
@@ -7215,6 +7239,8 @@ static bool scene_test_settlement_one_point_fields(
     uint32_t stable_sample;
     TecmoGameplayShotRimRoute route;
     uint16_t resolved_pose;
+    uint8_t profile;
+    TecmoGameplayShotDirectionSlot direction;
     if (scene == NULL || scene->shot_actor >=
             TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
@@ -7231,6 +7257,13 @@ static bool scene_test_settlement_one_point_fields(
         scene_test_claimant_failure = 44U;
         return false;
     }
+    if (!tecmo_gameplay_shot_profile_from_profile_byte2(
+            player->profile[2], &profile) ||
+        !tecmo_gameplay_shot_resolution_direction_for_delta(
+            (int16_t)delta_x, (int16_t)delta_y, &direction)) {
+        scene_test_claimant_failure = 45U;
+        return false;
+    }
     memset(&input, 0, sizeof(input));
     input.player_rating = player->profile[0];
     input.point_value = 1U;
@@ -7241,9 +7274,8 @@ static bool scene_test_settlement_one_point_fields(
     input.vertical_distance = (int16_t)(
         TECMO_GAMEPLAY_SHOT_TARGET_Y -
         (int)scene->shot_actor_launch_position.y);
-    input.family = (uint8_t)TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_FAMILY;
-    input.profile = (uint8_t)TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_PROFILE;
-    input.direction = (uint8_t)TECMO_GAMEPLAY_JUMP_SHOT_CAPTURED_DIRECTION;
+    input.profile = profile;
+    input.direction = (uint8_t)direction;
     input.numeric_variant = 0U;
     stable_sample = scene_shot_stable_sample_from_inputs(
         scene->shot_actor_launch_position.x,
@@ -7251,6 +7283,8 @@ static bool scene_test_settlement_one_point_fields(
         (int16_t)delta_x, (int16_t)delta_y,
         scene->shot_actor_team, scene->shot_actor_roster_index,
         scene->shot_launch_frame);
+    input.family = scene_shot_family_for_context(
+        (int16_t)delta_x, (int16_t)delta_y, stable_sample);
     input.stable_sample = stable_sample;
     if (!tecmo_gameplay_shot_resolution_resolve_rim_route(
             &scene->shot_resolution, (uint8_t)stable_sample, &route) ||

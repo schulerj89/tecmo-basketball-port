@@ -313,6 +313,13 @@ bool tecmo_gameplay_scene_render_resolve_actor_pose(
     const TecmoGameplayScene *scene,
     size_t actor_index,
     TecmoGameplayResolvedPose *resolved);
+/* Returns the one compositor-level horizontal mirror selected for this
+   actor/pose.  The renderer applies it once by XORing each OAM flip bit;
+   proof callers must observe this result rather than mirror a second time. */
+bool tecmo_gameplay_scene_render_actor_mirror(
+    const TecmoGameplayScene *scene,
+    size_t actor_index,
+    bool *mirror_out);
 bool tecmo_gameplay_scene_render_draw_source_pose(
     const TecmoGameplayScene *scene,
     uint16_t pointer_index,
