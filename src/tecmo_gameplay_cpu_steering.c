@@ -3346,6 +3346,29 @@ bool tecmo_gameplay_cpu_steering_self_test(
         return false;
     }
     play_input.common_tail_ba_available = true;
+    play_input.flags_ba = 0U;
+    /* A typed zero is distinct from the unavailable-input case above:
+       Bank06 $92CA-$92D0 reaches its local $8FD9 five-byte increment only
+       when ($BA & 3) is zero. */
+    if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+            &assets, 0U, &play_state)) {
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_state.stream_offset[0U] = opcode_offsets[2U];
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.command.opcode != 2U || play_result.deferred ||
+        play_result.deferred_reason != TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE ||
+        !play_result.advanced ||
+        play_result.next_offset != (uint16_t)(opcode_offsets[2U] + 5U) ||
+        play_out.stream_offset[0U] !=
+            (uint16_t)(opcode_offsets[2U] + 5U)) {
+        (void)snprintf(message, message_size,
+                       "TGAI-2 opcode-2 typed-zero BA advance failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
 
     /* With the bounded helper workspace present, opcode 10 synthesizes the
        linked target with 16-bit wrap and admits exactly [-8,+7] on each axis. */

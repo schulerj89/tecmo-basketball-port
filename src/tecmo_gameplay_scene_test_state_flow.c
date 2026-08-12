@@ -1514,6 +1514,160 @@ static bool scene_test_cpu_formation_regression(
     return true;
 }
 
+/* Exercise the production pre-tip handoff rather than injecting possession or
+   any executor workspace.  The away pad remains assigned but idle, so the
+   unassigned home side takes TPTI's own automatic jump route and becomes a
+   genuine CPU ball holder.  This catches the desktop post-tip freeze at the
+   first ordinary LIVE CPU step. */
+static bool scene_test_pretip_cpu_common_tail_handoff(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *base_launch,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplaySceneLaunch launch;
+    TecmoControlFrame away;
+    TecmoControlFrame home;
+    TecmoGameplayCpuSteeringCommand command;
+    TecmoGameplayCourtCoordinate before[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    uint8_t holder = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    uint16_t stream_before = 0U;
+    bool reached_live = false;
+    bool actor_moved = false;
+    size_t update;
+    size_t actor;
+    char failure[256] = "PRETIP CPU handoff setup rejected";
+
+    if (scene == NULL || base_launch == NULL) goto failed;
+    launch = *base_launch;
+    launch.controller_team[0U] = TECMO_GAMEPLAY_TEAM_AWAY;
+    launch.controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    launch.game_music_enabled = false;
+    memset(&away, 0, sizeof(away));
+    memset(&home, 0, sizeof(home));
+    memset(&command, 0, sizeof(command));
+    tecmo_gameplay_scene_test_set_skip_pretip(false);
+    if (!tecmo_gameplay_scene_launch(scene, &launch)) {
+        (void)snprintf(failure, sizeof(failure),
+                       "PRETIP CPU handoff launch rejected: %s",
+                       scene->status);
+        goto failed;
+    }
+
+    /* No press/captured play input is supplied.  The home automatic decision
+       is owned by TPTI; the idle human away side cannot win this fixture. */
+    for (update = 0U; update < 2048U; ++update) {
+        memset(&away, 0, sizeof(away));
+        memset(&home, 0, sizeof(home));
+        if (!tecmo_gameplay_scene_update(scene, &away, &home)) {
+            (void)snprintf(failure, sizeof(failure),
+                           "PRETIP CPU handoff update %u rejected: %s",
+                           (unsigned)update, scene->status);
+            goto failed;
+        }
+        if (!tecmo_gameplay_scene_in_pretip(scene)) {
+            reached_live = true;
+            break;
+        }
+    }
+    if (!reached_live || scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->ball_holder != scene->pretip_state.receiver_actor ||
+        scene->actors[scene->ball_holder].team != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->launch.controller_team[1U] !=
+            TECMO_GAMEPLAY_SCENE_NO_TEAM ||
+        scene->live_foundation.first_sync_pending ||
+        scene->live_foundation.primary_actor != scene->ball_holder) {
+        (void)snprintf(failure, sizeof(failure),
+                       "PRETIP CPU handoff did not retain home CPU LIVE "
+                       "owner phase=%u possession=%u holder=%u receiver=%u "
+                       "controller=%u sync=%u",
+                       (unsigned)scene->state.phase,
+                       (unsigned)scene->state.possession,
+                       (unsigned)scene->ball_holder,
+                       (unsigned)scene->pretip_state.receiver_actor,
+                       (unsigned)scene->launch.controller_team[1U],
+                       scene->live_foundation.first_sync_pending ? 0U : 1U);
+        goto failed;
+    }
+    holder = scene->ball_holder;
+    stream_before = scene->live_foundation.play_state.stream_offset[holder];
+    if (!tecmo_gameplay_cpu_steering_decode_command(
+            &scene->cpu_steering_assets, stream_before, &command) ||
+        command.opcode != 2U) {
+        (void)snprintf(failure, sizeof(failure),
+                       "PRETIP CPU holder stream is not Bank04 opcode-2 "
+                       "offset=%04X opcode=%u holder=%u",
+                       (unsigned)stream_before, (unsigned)command.opcode,
+                       (unsigned)holder);
+        goto failed;
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        before[actor] = scene->actors[actor].position;
+    }
+    memset(&away, 0, sizeof(away));
+    memset(&home, 0, sizeof(home));
+    if (!tecmo_gameplay_scene_update(scene, &away, &home) ||
+        scene->live_foundation.deferred[holder] ||
+        scene->live_foundation.deferred_reason[holder] !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE ||
+        scene->live_foundation.play_state.stream_offset[holder] !=
+            (uint16_t)(stream_before +
+                       TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE) ||
+        scene->live_foundation.last_step_offset[holder] !=
+            (uint16_t)(stream_before +
+                       TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE)) {
+        (void)snprintf(failure, sizeof(failure),
+                       "PRETIP CPU opcode-2 common-tail advance failed "
+                       "before=%04X after=%04X deferred=%u reason=%s status=%s",
+                       (unsigned)stream_before,
+                       (unsigned)scene->live_foundation.play_state
+                           .stream_offset[holder],
+                       scene->live_foundation.deferred[holder] ? 1U : 0U,
+                       tecmo_gameplay_cpu_steering_deferred_reason_name(
+                           scene->live_foundation.deferred_reason[holder]),
+                       scene->status);
+        goto failed;
+    }
+    for (update = 0U; update < 12U && !actor_moved; ++update) {
+        for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            if (scene->actors[actor].position.x != before[actor].x ||
+                scene->actors[actor].position.y != before[actor].y) {
+                actor_moved = true;
+                break;
+            }
+        }
+        if (actor_moved) break;
+        memset(&away, 0, sizeof(away));
+        memset(&home, 0, sizeof(home));
+        if (!tecmo_gameplay_scene_update(scene, &away, &home)) {
+            (void)snprintf(failure, sizeof(failure),
+                           "PRETIP CPU movement update %u rejected: %s",
+                           (unsigned)update, scene->status);
+            goto failed;
+        }
+    }
+    if (!actor_moved) {
+        (void)snprintf(failure, sizeof(failure),
+                       "PRETIP CPU opcode-2 advanced but all actors remained frozen "
+                       "holder=%u offset=%04X",
+                       (unsigned)holder,
+                       (unsigned)scene->live_foundation.play_state
+                           .stream_offset[holder]);
+        goto failed;
+    }
+    tecmo_gameplay_scene_end(scene);
+    return true;
+
+failed:
+    tecmo_gameplay_scene_test_set_skip_pretip(false);
+    tecmo_gameplay_scene_test_message(message, message_size, failure);
+    tecmo_gameplay_scene_end(scene);
+    return false;
+}
+
 static bool scene_test_live_foundation_regressions(
     TecmoGameplayScene *scene,
     TecmoGameplaySceneLaunch *launch_input,
@@ -1605,6 +1759,12 @@ static bool scene_test_live_foundation_regressions(
     bound.controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
     bound.controller_team[1] = TECMO_GAMEPLAY_TEAM_HOME;
     bound.game_music_enabled = false;
+
+    if (!scene_test_pretip_cpu_common_tail_handoff(
+            scene, &bound, message, message_size)) {
+        tecmo_gameplay_scene_test_set_skip_pretip(false);
+        return false;
+    }
 
     /* The false source/default-initializer flag normalizes to canonical
        identity binding while the
@@ -2703,9 +2863,11 @@ static bool scene_test_live_foundation_regressions(
             LIVE_FAIL("LIVE canonical opcode-4 C8 ball target was not applied");
         }
 
-        /* The same production builder has no faithful $BA owner. Install an
-           imported opcode-0 record and prove scene_update_ai reports the
-           Bank06 $92CA dependency without advancing its stream. */
+        /* Ordinary LIVE owns only Bank06 $92CA's zero branch: Bank05
+           $86DD-$8798 reserves nonzero low bits for transient shot/recovery,
+           while $8FAD requires ($BA & 3)==0 for ordinary handoff. Install an
+           imported opcode-0 record and prove the typed zero advances it;
+           this is not a raw-$BA or frame-counter substitute. */
         candidate_foundation = scene->live_foundation;
         for (actor = 0U; actor < 10U; ++actor) {
             candidate_foundation.play_state.wait_counter[actor] =
@@ -2719,21 +2881,24 @@ static bool scene_test_live_foundation_regressions(
         candidate_foundation.last_step_offset[target_actor] = opcode0_offset;
         if (!tecmo_gameplay_live_foundation_valid(
                 &scene->cpu_steering_assets, &candidate_foundation)) {
-            LIVE_FAIL("LIVE opcode-0 missing-BA foundation rejected");
+            LIVE_FAIL("LIVE opcode-0 typed-zero foundation rejected");
         }
         scene->live_foundation = candidate_foundation;
         memset(&shot_request, 0, sizeof(shot_request));
         if (!scene_update_ai(scene, &shot_request) ||
-            !scene->live_foundation.deferred[target_actor] ||
+            scene->live_foundation.deferred[target_actor] ||
             scene->live_foundation.deferred_reason[target_actor] !=
-                TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA ||
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE ||
+            !scene->live_foundation.source_target_valid[target_actor] ||
+            scene->live_foundation.last_effect[target_actor] !=
+                TECMO_GAMEPLAY_CPU_STEERING_EFFECT_RELATIVE_TARGET ||
             scene->live_foundation.play_state.stream_offset[target_actor] !=
-                opcode0_offset ||
+                (uint16_t)(opcode0_offset + 5U) ||
             scene->live_foundation.last_step_offset[target_actor] !=
-                opcode0_offset ||
+                (uint16_t)(opcode0_offset + 5U) ||
             !tecmo_gameplay_live_foundation_valid(
                 &scene->cpu_steering_assets, &scene->live_foundation)) {
-            LIVE_FAIL("LIVE production builder did not preserve missing $BA");
+            LIVE_FAIL("LIVE production builder did not advance typed-zero $BA");
         }
     }
 
