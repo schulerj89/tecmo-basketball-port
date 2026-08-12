@@ -987,7 +987,7 @@ original frame/OAM independently confirms the visible Away-left bit-$40
 polarity; it does not claim a native pose-149 identity. `$40` is the
 horizontal-flip bit, not an intrinsic left meaning for arbitrary art.
 Numeric variant 1 is exposed only as a neutral source-backed pose identity with
-a bounded native schedule and stable-sample substitution for its missing raw
+a bounded native schedule and native-policy-sample substitution for its missing raw
 predicate. Its complete object/trajectory semantics are unproven, no
 dunk/layup/contact meaning is assigned, and the public scene shot-name helper
 still returns `"invalid"` for it. Bounded local original execution proves the

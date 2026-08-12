@@ -403,16 +403,16 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayCloseShotProfile close_shot_profile;
     TecmoGameplayCloseShotDirection close_shot_direction;
     TecmoGameplayCloseShotVariant close_shot_variant;
-    /* Full stable sample retained from the structured evaluator.  The low
-       byte remains the raw TGSR rim-route selector; the upper bits keep the
-       deterministic native outcome input auditable at scene boundaries. */
-    uint32_t shot_sample;
+    /* Native FNV policy input with no Bank/address, RAM-byte, or ROM-RNG
+       identity. Its low byte feeds the raw-shaped TGSR rim-route resolver;
+       the upper bits keep the native outcome policy auditable. */
+    uint32_t native_policy_sample;
     uint8_t shot_make_probability;
     bool shot_contact_context;
     bool shot_contest_context;
-    /* Redundant launch-time binding of the captured sample/contact/contest
-       classification.  It is not an independent post-launch proximity
-       recomputation from moving defenders. */
+    /* Redundant launch-time binding of the derived policy sample/contact/
+       contest classification. It is not an independent post-launch
+       proximity recomputation from moving defenders. */
     uint32_t shot_context_signature;
     bool shot_result_awarded;
     TecmoGameplayShotOutcome shot_outcome;
@@ -441,8 +441,11 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayJumpShotFamily jump_family;
     TecmoGameplayJumpShotProfile jump_profile;
     TecmoGameplayJumpShotDirection jump_direction;
-    bool jump_oracle_active;
-    bool jump_make_route;
+    /* Scene-native playback and predicted-route bookkeeping with no direct
+       RAM-byte identity. Bank05 $83E9-$847A supplies bounded ordinary-jump
+       playback evidence; the live make/miss prediction remains native policy. */
+    bool jump_playback_active;
+    bool predicted_make_route;
     bool jump_b_released;
     TecmoGameplayShotOutcome jump_outcome;
     bool jump_actor_landed;

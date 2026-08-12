@@ -2190,7 +2190,7 @@ static bool run_gameplay_shot_checkpoint(TecmoRuntime *runtime, const TecmoCliGa
         TecmoGameplaySceneActor *actor = &runtime->gameplay_scene.actors[0];
 
         /* This is a coherent live-court input fixture.  The production shot
-           selector observes the resulting TGOR geometry and stable sample to
+           selector observes the resulting TGOR geometry and native policy sample to
            choose numeric TGCS variant 2; this fixture does not author any
            shot kind, pose, schedule, outcome, score, claimant, or settlement
            state. */

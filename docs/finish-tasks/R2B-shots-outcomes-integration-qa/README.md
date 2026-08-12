@@ -159,7 +159,7 @@ The following accepted gaps remain incomplete and are not upgraded here:
 
 1. Full numeric-1 object/trajectory semantics and a public semantic name.
 2. Full native inputs to `$91BC` and `$AD6E`.
-3. Neutral geometry/stable-sample substitutions for unavailable runtime state.
+3. Neutral geometry/native-policy-sample substitutions for unavailable runtime state.
 4. Native dynamic claimant scan ownership and semantic claimant labels.
 5. General probability, arcs, tail motion, landing, and full presentation.
 6. CPU autonomous jump/far-shot policy.

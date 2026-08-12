@@ -573,7 +573,7 @@ bool tecmo_gameplay_shot_resolution_evaluate(
     int32_t vertical;
     int32_t distance_penalty;
     int32_t probability;
-    uint8_t sample;
+    uint8_t policy_percentile;
     if (assets == NULL || !assets->available || input == NULL ||
         evaluation == NULL || input->point_value < 1U ||
         input->point_value > 3U || input->family >= 2U ||
@@ -621,8 +621,8 @@ bool tecmo_gameplay_shot_resolution_evaluate(
         evaluation->schedule =
             TECMO_GAMEPLAY_SHOT_SCHEDULE_NATIVE_APPROXIMATION;
     }
-    sample = (uint8_t)(input->stable_sample % 100U);
-    evaluation->outcome = sample < evaluation->make_probability
+    policy_percentile = (uint8_t)(input->native_policy_sample % 100U);
+    evaluation->outcome = policy_percentile < evaluation->make_probability
         ? TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE
         : TECMO_GAMEPLAY_SHOT_OUTCOME_MISS;
     return true;

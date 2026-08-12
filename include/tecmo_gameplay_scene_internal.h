@@ -200,11 +200,12 @@ bool scene_begin_inbound(TecmoGameplayScene *scene,
                          TecmoGameplayTeam restart_team);
 bool scene_update_inbound(TecmoGameplayScene *scene);
 
-/* Stable TGSR sample input retained at the shot boundary.  The native
-   substitution preserves the accepted low-byte sample stream and adds
-   identity-preserving FNV steps for every nonzero upper frame byte, so all
-   captured frame bits remain fail-closed without changing ordinary frames. */
-uint32_t scene_shot_stable_sample_from_inputs(
+/* Native policy sample retained at the shot boundary. It has no Bank/address,
+   RAM-byte, or ROM-RNG identity. The substitution preserves the accepted
+   low-byte stream and adds identity-preserving FNV steps for every nonzero
+   upper frame byte, so all captured frame bits remain fail-closed without
+   changing ordinary frames. */
+uint32_t scene_shot_native_policy_sample_from_inputs(
     int16_t actor_x,
     int16_t actor_y,
     uint8_t point_value,
@@ -214,7 +215,7 @@ uint32_t scene_shot_stable_sample_from_inputs(
     uint8_t actor_roster_index,
     uint32_t launch_frame);
 uint32_t scene_shot_context_signature(
-    uint32_t stable_sample,
+    uint32_t native_policy_sample,
     bool contact_context,
     bool contest_context);
 bool scene_shot_captured_rattle_orientation(
@@ -226,7 +227,7 @@ bool scene_shot_captured_rattle_orientation(
 int16_t scene_close_variant_selection_approach(
     int approach_distance_x,
     TecmoGameplayShotDirectionSlot direction,
-    uint32_t stable_sample);
+    uint32_t native_policy_sample);
 bool scene_ball_position_for_actors(
     const TecmoGameplayScene *scene,
     const TecmoGameplaySceneActor
@@ -276,7 +277,7 @@ bool scene_close_pose_for_step(const TecmoGameplayScene *scene,
 uint8_t scene_shot_family_for_context(
     int16_t target_delta_x,
     int16_t target_delta_y,
-    uint32_t stable_sample);
+    uint32_t native_policy_sample);
 bool scene_start_shot_actor(TecmoGameplayScene *scene,
                             size_t controller,
                             uint8_t actor_index);

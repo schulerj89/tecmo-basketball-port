@@ -1924,7 +1924,7 @@ static bool scene_update_live_action_ordered(
     } else if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
         bool terminal_jump_miss =
             scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
-            !scene->jump_make_route &&
+            !scene->predicted_make_route &&
             scene->shot_frame + 1U == scene->shot_duration &&
             scene->shot_actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
         const TecmoControlFrame *shooting_controls =

@@ -106,7 +106,7 @@ SHA-256 `076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4`.
 | TGCS-1 close numeric 0/2 | Bank05 `$8BDE->$8C79->$8C7D`; fixed pose/source spans; TGCS-1, 3144 bytes, FNV32 `DACDC976` | Exact/source-pinned pose/phase metadata; native faithful selector integration | Numeric 0/2 complete source semantics remain available. It does not prove numeric-1 full object trajectory. |
 | TGCS numeric 1 | Bank05 `$8BDE->$8C79->$8C7D`, `$8C7D-$8CD4`; fixed group `$10`, `$8CED-$8D3C`; offsets `05E6,05A6,05C6,05D6,05B6,0586,05F6,0596`, pointer indexes `755,723,739,747,731,707,763,715` | Native approximation, source-backed pose-only exposure | `$99==1` selects the fixed group and adds the exact eight-direction slot. Profile is ignored for this group. Complete object animation/trajectory semantics remain incomplete; no dunk/layup/contact label is assigned. |
 | TGSR profile bit | Bank02 `$A89E-$A8C9`: `$A8AE` loads profile byte 2, `$A8BA` applies `AND #$20`, `$A8BC` stores actor `$04B0`; Bank05 `$842C/$8C7D` consume the bit | Exact/source-pinned profile selector; native faithful integration | Existing `TecmoTeamDataPlayer.profile[2]` bit 5 selects both close/jump profile paths. It proves the bit gate, not unavailable raw roster state beyond that byte. |
-| TGJS jump matrix | Bank05 `$842C-$845E` consumes family base, `$04B0 & $20` profile, and direction; TGJS-2, 2776 bytes, FNV32 `A66EE873` | Historical lane implementation, superseded for production family selection | The asset contains both families × both profiles × eight directions. Current production retains profile/direction selection but fails closed to family 0; the historical stable-sample family substitution is not current behavior. |
+| TGJS jump matrix | Bank05 `$842C-$845E` consumes family base, `$04B0 & $20` profile, and direction; TGJS-2, 2776 bytes, FNV32 `A66EE873` | Historical lane implementation, superseded for production family selection | The asset contains both families × both profiles × eight directions. Current production retains profile/direction selection but fails closed to family 0; the historical native-policy-sample family substitution is not current behavior. |
 | TGDK | TGDK-1, 20272 bytes, FNV32 `E02F2D21`; captured dunk schedule/cue contract | Native faithful preserved schedule with transactional boundary | Existing dunk cutaway behavior and cue boundaries are retained. Full presentation mapping is not claimed. |
 | TGSR point/scoring classification | Bank05 `$B995-$BA3F` | Exact/source-pinned point-class pieces; native faithful geometry binding | Point class is recomputed from immutable launch geometry and captured hoop endpoint; unavailable full helper inputs remain outside the exactness claim. |
 | TGSR terminal polarity | Bank05 `$91BC-$943A`, including `$933B/$942D` make and `$9434` miss branches | Exact/source-pinned terminal polarity at supported contexts | Captured terminal polarity and supported exact schedule are retained; full `$91BC` inputs are not proven. |
@@ -144,8 +144,8 @@ functions are:
 - owned CLI/state-flow tests for exhaustive matrices, malformed input,
   overflow, replay, terminal settlement, claimant order, and rollback.
 
-`shot_context_signature` is a redundant binding of the captured stable sample
-and launch-time contact/contest classification. It is not an independent
+`shot_context_signature` is a redundant binding of the launch-time native policy
+sample and launch-time contact/contest classification. It is not an independent
 post-launch proximity recomputation; claimant movement after launch remains
 allowed and is validated separately.
 
@@ -448,7 +448,7 @@ dependencies or committed evidence.
    pose schedule. Full object/trajectory semantics and semantic naming are
    unknown.
 3. At this historical lane tip, the family gate used captured geometry plus
-   stable-sample bit 13 because raw `$038A/$006A` state was unavailable. That
+   native-policy-sample bit 13 because raw `$038A/$006A` state was unavailable. That
    family substitution is superseded: current production fails closed to
    family 0 until the complete source gate has a live owner. Separate,
    explicitly neutral close-shot reachability substitutions remain native

@@ -65,7 +65,8 @@ typedef struct TecmoGameplayShotEvaluationInput {
     uint8_t profile;
     uint8_t direction;
     uint8_t numeric_variant;
-    uint32_t stable_sample;
+    /* Native evaluator input; not a retained Bank/RAM/RNG value. */
+    uint32_t native_policy_sample;
 } TecmoGameplayShotEvaluationInput;
 
 typedef struct TecmoGameplayShotEvaluation {

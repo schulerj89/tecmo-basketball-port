@@ -4895,7 +4895,7 @@ static bool scene_test_find_approx_make(
                     continue;
                 }
                 if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
-                    scene->jump_make_route &&
+                    scene->predicted_make_route &&
                     scene->shot_schedule ==
                         TECMO_GAMEPLAY_SHOT_SCHEDULE_NATIVE_APPROXIMATION &&
                      scene->shot_outcome ==
@@ -5601,7 +5601,7 @@ static bool scene_test_production_close_matrix(
                     {
                         TecmoGameplayScene malformed = *scene;
                         TecmoGameplayScene snapshot;
-                        malformed.shot_sample ^= 0x80000000U;
+                        malformed.native_policy_sample ^= 0x80000000U;
                         snapshot = malformed;
                         if (scene_update_shot(&malformed, &neutral) ||
                             memcmp(&malformed, &snapshot,
@@ -6186,7 +6186,7 @@ static bool scene_test_run_bound_approximate_make_terminal(
             TECMO_GAMEPLAY_SHOT_SCHEDULE_NATIVE_APPROXIMATION ||
         scene->shot_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
-        !scene->jump_make_route || !scene_ownership_valid(scene)) {
+        !scene->predicted_make_route || !scene_ownership_valid(scene)) {
         return false;
     }
     if (desired_selector == 1 &&
@@ -6356,7 +6356,7 @@ static bool scene_test_production_terminal_scenarios(
                         exact_seen_mask |= 16U;
                     }
                     if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
-                        scene->jump_make_route) {
+                        scene->predicted_make_route) {
                         exact_seen_mask |= 32U;
                     }
                     if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
@@ -6365,7 +6365,7 @@ static bool scene_test_production_terminal_scenarios(
                         exact_seen_mask |= 64U;
                     }
                     if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
-                        scene->jump_make_route &&
+                        scene->predicted_make_route &&
                         scene->shot_points == 3U &&
                         scene->shot_schedule ==
                             TECMO_GAMEPLAY_SHOT_SCHEDULE_EXACT_THREE_POINT &&
@@ -6578,7 +6578,7 @@ static bool scene_test_production_terminal_scenarios(
                         }
                         if (scene->shot_kind ==
                                 TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
-                            !scene->jump_make_route &&
+                            !scene->predicted_make_route &&
                             scene->shot_points == 3U &&
                             scene->shot_schedule ==
                                 TECMO_GAMEPLAY_SHOT_SCHEDULE_EXACT_THREE_POINT &&
@@ -7300,7 +7300,7 @@ static bool scene_test_settlement_one_point_fields(
     TecmoGameplayShotEvaluation evaluation;
     int32_t delta_x;
     int32_t delta_y;
-    uint32_t stable_sample;
+    uint32_t native_policy_sample;
     TecmoGameplayShotRimRoute route;
     uint16_t resolved_pose;
     uint8_t profile;
@@ -7308,7 +7308,7 @@ static bool scene_test_settlement_one_point_fields(
     if (scene == NULL || scene->shot_actor >=
             TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
-        !scene->jump_make_route) {
+        !scene->predicted_make_route) {
         return false;
     }
     actor = &scene->actors[scene->shot_actor];
@@ -7341,17 +7341,17 @@ static bool scene_test_settlement_one_point_fields(
     input.profile = profile;
     input.direction = (uint8_t)direction;
     input.numeric_variant = 0U;
-    stable_sample = scene_shot_stable_sample_from_inputs(
+    native_policy_sample = scene_shot_native_policy_sample_from_inputs(
         scene->shot_actor_launch_position.x,
         scene->shot_actor_launch_position.y, 1U,
         (int16_t)delta_x, (int16_t)delta_y,
         scene->shot_actor_team, scene->shot_actor_roster_index,
         scene->shot_launch_frame);
     input.family = scene_shot_family_for_context(
-        (int16_t)delta_x, (int16_t)delta_y, stable_sample);
-    input.stable_sample = stable_sample;
+        (int16_t)delta_x, (int16_t)delta_y, native_policy_sample);
+    input.native_policy_sample = native_policy_sample;
     if (!tecmo_gameplay_shot_resolution_resolve_rim_route(
-            &scene->shot_resolution, (uint8_t)stable_sample, &route) ||
+            &scene->shot_resolution, (uint8_t)native_policy_sample, &route) ||
         !tecmo_gameplay_jump_shots_resolve_pose_pointer_index(
             &scene->jump_shots,
             (TecmoGameplayJumpShotFamily)input.family,
@@ -7369,10 +7369,10 @@ static bool scene_test_settlement_one_point_fields(
     }
     scene->shot_points = evaluation.point_value;
     scene->shot_flags = 0x01U;
-    scene->shot_sample = stable_sample;
-    scene->shot_rim_rattle_raw_selector = (uint8_t)stable_sample;
+    scene->native_policy_sample = native_policy_sample;
+    scene->shot_rim_rattle_raw_selector = (uint8_t)native_policy_sample;
     scene->shot_context_signature = scene_shot_context_signature(
-        stable_sample, evaluation.contact_context,
+        native_policy_sample, evaluation.contact_context,
         evaluation.contest_context);
     scene->shot_rim_route = route;
     /* This helper rebinds a MAKE fixture; raw A7A9 identity remains metadata,
@@ -7635,15 +7635,15 @@ static bool scene_test_owned_shot_boundary(
             message, message_size, "owned shot NULL/start guard failed");
         return false;
     }
-    if (scene_shot_stable_sample_from_inputs(
+    if (scene_shot_native_policy_sample_from_inputs(
             160, 143, 3U, 24, 0, TECMO_GAMEPLAY_TEAM_AWAY, 0U,
             0x00000100U) ==
-        scene_shot_stable_sample_from_inputs(
+        scene_shot_native_policy_sample_from_inputs(
             160, 143, 3U, 24, 0, TECMO_GAMEPLAY_TEAM_AWAY, 0U,
             0x00010000U)) {
         tecmo_gameplay_scene_test_message(
             message, message_size,
-            "owned stable-sample frame-byte-position binding failed");
+            "owned native-policy-sample frame-byte-position binding failed");
         return false;
     }
     for (index = 0U; index < sizeof(close_cases) / sizeof(close_cases[0]);
@@ -7903,7 +7903,7 @@ static bool scene_test_owned_shot_boundary(
                 continue;
             }
             if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
-                !scene->jump_make_route &&
+                !scene->predicted_make_route &&
                 scene->shot_rim_route.kind ==
                     TECMO_GAMEPLAY_SHOT_RIM_ROUTE_A7A9 &&
                 !scene->shot_rim_rattle_selected) {

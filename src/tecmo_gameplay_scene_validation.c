@@ -123,7 +123,7 @@ static bool scene_shot_expected_close_context(
     const TecmoGameplayScene *scene,
     int16_t target_delta_x,
     int16_t target_delta_y,
-    uint32_t stable_sample,
+    uint32_t native_policy_sample,
     bool *close_out)
 {
     TecmoGameplayShotDirectionSlot direction;
@@ -148,7 +148,7 @@ static bool scene_shot_expected_close_context(
     if (close &&
         (direction == TECMO_GAMEPLAY_SHOT_DIRECTION_DOWN ||
          direction == TECMO_GAMEPLAY_SHOT_DIRECTION_UP) &&
-        (stable_sample & 0x00000200U) != 0U) {
+        (native_policy_sample & 0x00000200U) != 0U) {
         close = false;
     }
     *close_out = close;
@@ -189,7 +189,7 @@ static bool scene_shot_bound_selectors_valid(
         return false;
     }
     if (!scene_shot_expected_close_context(
-            scene, target_delta_x, target_delta_y, scene->shot_sample,
+            scene, target_delta_x, target_delta_y, scene->native_policy_sample,
             &expected_close) ||
         scene->shot_close_context != expected_close ||
         scene_shot_is_close(scene->shot_kind) != expected_close) {
@@ -204,10 +204,10 @@ static bool scene_shot_bound_selectors_valid(
             (int)scene->shot_actor_launch_position.y;
         variant_selection_approach =
             scene_close_variant_selection_approach(
-                approach_distance_x, direction, scene->shot_sample);
+                approach_distance_x, direction, scene->native_policy_sample);
         if (!tecmo_gameplay_close_shots_select_numeric_variant(
                 variant_selection_approach, (int16_t)distance_y,
-                (scene->shot_sample & 0x00000100U) != 0U,
+                (scene->native_policy_sample & 0x00000100U) != 0U,
                 &expected_variant)) {
             return false;
         }
@@ -226,7 +226,7 @@ static bool scene_shot_bound_selectors_valid(
            scene->jump_direction == (TecmoGameplayJumpShotDirection)direction &&
            scene->jump_family == (TecmoGameplayJumpShotFamily)
                scene_shot_family_for_context(
-                   target_delta_x, target_delta_y, scene->shot_sample);
+                   target_delta_x, target_delta_y, scene->native_policy_sample);
 }
 
 static bool scene_shot_bound_evaluation_valid(
@@ -244,7 +244,7 @@ static bool scene_shot_bound_evaluation_valid(
     uint8_t captured_orientation;
     uint8_t point_value;
     int32_t target_x;
-    uint32_t expected_sample;
+    uint32_t expected_native_policy_sample;
     bool expected_facing_right;
     bool close;
     if (scene == NULL || scene->legacy_direct_launch) return true;
@@ -280,7 +280,7 @@ static bool scene_shot_bound_evaluation_valid(
         point_value != scene->shot_points) {
         return false;
     }
-    expected_sample = scene_shot_stable_sample_from_inputs(
+    expected_native_policy_sample = scene_shot_native_policy_sample_from_inputs(
         scene->shot_actor_launch_position.x,
         scene->shot_actor_launch_position.y,
         point_value, target_delta_x, target_delta_y,
@@ -288,18 +288,19 @@ static bool scene_shot_bound_evaluation_valid(
         scene->shot_launch_frame);
     expected_facing_right = target_delta_x > 0 ||
         (target_delta_x == 0 && captured_orientation != 0U);
-    if (scene->shot_sample != expected_sample ||
+    if (scene->native_policy_sample != expected_native_policy_sample ||
         scene->shot_launch_facing_right != expected_facing_right) {
         return false;
     }
     if (!scene_shot_expected_close_context(
-            scene, target_delta_x, target_delta_y, expected_sample, &close) ||
+            scene, target_delta_x, target_delta_y,
+            expected_native_policy_sample, &close) ||
         scene->shot_close_context != close ||
         scene_shot_is_close(scene->shot_kind) != close) {
         return false;
     }
     family = scene_shot_family_for_context(
-        target_delta_x, target_delta_y, expected_sample);
+        target_delta_x, target_delta_y, expected_native_policy_sample);
     memset(&input, 0, sizeof(input));
     input.player_rating = player->profile[0];
     input.point_value = point_value;
@@ -318,7 +319,7 @@ static bool scene_shot_bound_evaluation_valid(
     input.direction = (uint8_t)direction;
     input.numeric_variant = close
         ? (uint8_t)scene->close_shot_variant : 0U;
-    input.stable_sample = expected_sample;
+    input.native_policy_sample = expected_native_policy_sample;
     if (!tecmo_gameplay_shot_resolution_evaluate(
             &scene->shot_resolution, &input, &evaluation) ||
         evaluation.point_value != scene->shot_points ||
@@ -485,7 +486,7 @@ static bool scene_shot_pose_state_valid(
         return false;
     }
     if (!scene->jump_b_released) {
-        if (scene->jump_make_route && scene->shot_schedule ==
+        if (scene->predicted_make_route && scene->shot_schedule ==
                 TECMO_GAMEPLAY_SHOT_SCHEDULE_NATIVE_APPROXIMATION) {
             /* The bounded approximate make holds its selected entry/gather
                pose through frames 1..5; unlike the captured exact/miss
@@ -507,13 +508,13 @@ static bool scene_shot_pose_state_valid(
     }
     {
         uint16_t phase_pose = 0U;
-        uint16_t release_frame = scene->jump_make_route
+        uint16_t release_frame = scene->predicted_make_route
             ? (scene->shot_schedule ==
                    TECMO_GAMEPLAY_SHOT_SCHEDULE_NATIVE_APPROXIMATION
                    ? TECMO_GAMEPLAY_JUMP_APPROX_MAKE_RELEASE_FRAME
                    : TECMO_GAMEPLAY_JUMP_MAKE_RELEASE_FRAME)
             : 2U;
-        uint16_t neutral_frame = scene->jump_make_route
+        uint16_t neutral_frame = scene->predicted_make_route
             ? (scene->shot_schedule ==
                    TECMO_GAMEPLAY_SHOT_SCHEDULE_NATIVE_APPROXIMATION
                    ? TECMO_GAMEPLAY_JUMP_APPROX_MAKE_NEUTRAL_FRAME
@@ -706,7 +707,7 @@ static bool scene_validation_expected_ball_position(
                scene->ball_position.y_q8 == expected.y_q8;
     }
 
-    if (scene->jump_make_route) {
+    if (scene->predicted_make_route) {
         if (scene->shot_schedule ==
                 TECMO_GAMEPLAY_SHOT_SCHEDULE_EXACT_THREE_POINT) {
             apex_y = (scene->shot_start_position.y_q8 <
@@ -869,7 +870,7 @@ static bool scene_validation_jump_timeline_valid(
     if (scene == NULL || scene->shot_kind !=
             TECMO_GAMEPLAY_SCENE_SHOT_JUMP) return false;
     frame = scene->shot_frame;
-    if (scene->jump_make_route) {
+    if (scene->predicted_make_route) {
         if (scene->jump_ball_altitude_q8 != 0U ||
             scene->jump_ball_bounce_q8 != 0U) {
             return false;
@@ -1134,7 +1135,7 @@ bool scene_shot_state_valid(const TecmoGameplayScene *scene)
                scene->shot_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN &&
                scene->shot_schedule ==
                    TECMO_GAMEPLAY_SHOT_SCHEDULE_NATIVE_APPROXIMATION &&
-               scene->shot_sample == 0U &&
+               scene->native_policy_sample == 0U &&
                scene->shot_make_probability == 0U &&
                !scene->shot_contact_context &&
                !scene->shot_contest_context &&
@@ -1157,7 +1158,7 @@ bool scene_shot_state_valid(const TecmoGameplayScene *scene)
                scene->shot_target_delta_y == 0 &&
                scene->shot_launch_frame == 0U &&
                !scene->shot_close_context &&
-               !scene->jump_oracle_active && !scene->jump_make_route &&
+               !scene->jump_playback_active && !scene->predicted_make_route &&
                !scene->jump_b_released &&
                scene->jump_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN &&
                !scene->jump_actor_landed &&
@@ -1200,10 +1201,11 @@ bool scene_shot_state_valid(const TecmoGameplayScene *scene)
             (uint8_t)~scene->shot_resolution.point_shot_flags_mask) != 0U ||
         scene->shot_make_probability < 5U ||
         scene->shot_make_probability > 95U ||
-        (uint8_t)scene->shot_sample != scene->shot_rim_rattle_raw_selector ||
+        (uint8_t)scene->native_policy_sample !=
+            scene->shot_rim_rattle_raw_selector ||
         (scene->shot_contact_context && !scene->shot_contest_context) ||
         scene->shot_context_signature != scene_shot_context_signature(
-            scene->shot_sample, scene->shot_contact_context,
+            scene->native_policy_sample, scene->shot_contact_context,
             scene->shot_contest_context) ||
         (scene->shot_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE &&
          scene->shot_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) ||
@@ -1256,7 +1258,7 @@ bool scene_shot_state_valid(const TecmoGameplayScene *scene)
             return false;
         }
         if (scene->shot_result_awarded ||
-            scene->jump_oracle_active || scene->jump_make_route ||
+            scene->jump_playback_active || scene->predicted_make_route ||
             scene->jump_b_released || scene->jump_outcome !=
                 TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN ||
             scene->jump_actor_landed || scene->jump_rim_rattle_debug ||
@@ -1318,11 +1320,11 @@ bool scene_shot_state_valid(const TecmoGameplayScene *scene)
             scene->jump_resolved_pose_index != expected_jump_pose) {
             return false;
         }
-        if (scene->jump_make_route && scene->jump_entry_pose_index !=
+        if (scene->predicted_make_route && scene->jump_entry_pose_index !=
                 TECMO_GAMEPLAY_JUMP_MAKE_GATHER_POSE) {
             return false;
         }
-        if (!scene->jump_make_route &&
+        if (!scene->predicted_make_route &&
             (scene->shot_result_awarded ||
              !scene_shot_made_settlement_zero(
                  &scene->jump_made_settlement))) {
@@ -1334,7 +1336,7 @@ bool scene_shot_state_valid(const TecmoGameplayScene *scene)
                 TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_COUNT ||
             (unsigned)scene->jump_direction >=
                 TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_COUNT ||
-            !scene->jump_oracle_active ||
+            !scene->jump_playback_active ||
             scene->shot_schedule ==
                 TECMO_GAMEPLAY_SHOT_SCHEDULE_CLOSE_NUMERIC_1 ||
             (scene->shot_schedule !=
@@ -1344,21 +1346,21 @@ bool scene_shot_state_valid(const TecmoGameplayScene *scene)
             scene->shot_controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
             scene->launch.controller_team[scene->shot_controller] !=
                 scene->actors[scene->shot_actor].team ||
-            scene->jump_make_route !=
+            scene->predicted_make_route !=
                 (scene->shot_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE) ||
-            (!scene->jump_make_route && scene->shot_outcome !=
+            (!scene->predicted_make_route && scene->shot_outcome !=
                 TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) ||
             (!scene->jump_b_released && scene->jump_outcome !=
                 TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN) ||
             (scene->jump_b_released &&
-             scene->jump_make_route &&
+             scene->predicted_make_route &&
              scene->shot_schedule ==
                  TECMO_GAMEPLAY_SHOT_SCHEDULE_EXACT_THREE_POINT &&
              scene->shot_frame < TECMO_GAMEPLAY_JUMP_MAKE_DECISION_FRAME &&
              scene->jump_outcome !=
                  TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN) ||
             (scene->jump_b_released &&
-             !(scene->jump_make_route &&
+             !(scene->predicted_make_route &&
                scene->shot_schedule ==
                    TECMO_GAMEPLAY_SHOT_SCHEDULE_EXACT_THREE_POINT &&
                scene->shot_frame <
@@ -1382,7 +1384,7 @@ bool scene_shot_state_valid(const TecmoGameplayScene *scene)
                 TECMO_GAMEPLAY_SHOT_SCHEDULE_EXACT_THREE_POINT) {
             return false;
         }
-        if (scene->jump_make_route) {
+        if (scene->predicted_make_route) {
             uint16_t expected_duration =
                 scene->shot_schedule ==
                     TECMO_GAMEPLAY_SHOT_SCHEDULE_EXACT_THREE_POINT

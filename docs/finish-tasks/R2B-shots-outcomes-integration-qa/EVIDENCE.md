@@ -46,9 +46,9 @@ rattle, and settlement changes in a scene copy. Post-mutation validation and
 live-foundation synchronization must succeed before publication. Important
 reviewed invariants include:
 
-- stable samples bind actor coordinates, immutable hoop delta, point value,
+- native policy samples bind actor coordinates, immutable hoop delta, point value,
   team, roster identity, and all nonzero launch-frame bytes;
-- redundant context signatures bind stable sample plus contact/contest bits;
+- redundant context signatures bind native policy sample plus contact/contest bits;
 - contact implies contest;
 - point class binds immutable launch geometry, not mutable in-flight state;
 - numeric 0, numeric 1, numeric 2, and jump schedules remain distinct;

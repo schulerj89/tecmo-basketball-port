@@ -42,7 +42,7 @@ static bool scene_test_jump_slot0_checkpoint(
 {
     if (scene == NULL || frame < 3U || frame >= 87U ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
-        scene->shot_frame != frame || !scene->jump_oracle_active ||
+        scene->shot_frame != frame || !scene->jump_playback_active ||
         scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS ||
         !scene->jump_b_released ||
         (frame < 46U &&
@@ -118,7 +118,7 @@ static bool scene_test_jump_rattle_checkpoint(
     const TecmoGameplayShotRimRattle *rattle;
     if (scene == NULL || frame < 2U || frame >= 103U ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
-        scene->shot_frame != frame || !scene->jump_oracle_active ||
+        scene->shot_frame != frame || !scene->jump_playback_active ||
         !scene->jump_rim_rattle_debug ||
         scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) {
         return false;
@@ -227,8 +227,8 @@ static bool scene_test_jump_make_checkpoint(
     if (scene == NULL || frame == 0U ||
         frame >= TECMO_GAMEPLAY_JUMP_MAKE_DURATION ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
-        scene->shot_frame != frame || !scene->jump_oracle_active ||
-        !scene->jump_make_route) {
+        scene->shot_frame != frame || !scene->jump_playback_active ||
+        !scene->predicted_make_route) {
         return false;
     }
     switch (frame) {
@@ -520,7 +520,7 @@ bool tecmo_gameplay_scene_test_jump_make_period_expiry(
     p1.held.cancel = true;
     p1.pressed.cancel = true;
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
-        scene->shot_frame != 1U || !scene->jump_make_route) {
+        scene->shot_frame != 1U || !scene->predicted_make_route) {
         return false;
     }
     /* Use the documented early-release normalization so this helper also
@@ -1106,11 +1106,11 @@ static bool scene_test_shot_clock_jump_make(
         char failure[192];
         (void)snprintf(
             failure, sizeof(failure),
-            "jump-make launch: shot=%u frame=%u serial=%u oracle=%u make=%u outcome=%u state=%u phase=%u alt=%u vel=%u pose=%u",
+            "jump-make launch: shot=%u frame=%u serial=%u playback=%u make=%u outcome=%u state=%u phase=%u alt=%u vel=%u pose=%u",
             (unsigned)scene->shot_kind, (unsigned)scene->shot_frame,
             (unsigned)scene->action_serial,
-            scene->jump_oracle_active ? 1U : 0U,
-            scene->jump_make_route ? 1U : 0U,
+            scene->jump_playback_active ? 1U : 0U,
+            scene->predicted_make_route ? 1U : 0U,
             (unsigned)scene->jump_outcome,
             (unsigned)scene->jump_actor_state,
             (unsigned)scene->jump_phase_counter,
@@ -1157,8 +1157,8 @@ static bool scene_test_shot_clock_jump_make(
         scene->state.shot_clock != TECMO_GAMEPLAY_SHOT_CLOCK_SECONDS ||
         !scene->audio_player.sfx_pending ||
         scene->audio_player.pending_sfx_id != 11U ||
-        scene->events.count != 0U || scene->jump_oracle_active ||
-        scene->jump_make_route ||
+        scene->events.count != 0U || scene->jump_playback_active ||
+        scene->predicted_make_route ||
         scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN ||
         !tecmo_gameplay_state_valid(&scene->state)) {
         return scene_test_shot_clock_fail(
@@ -1187,7 +1187,7 @@ static bool scene_test_shot_clock_jump_make(
     p1.held.cancel = true;
     p1.pressed.cancel = true;
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
-        scene->shot_frame != 1U || !scene->jump_make_route) {
+        scene->shot_frame != 1U || !scene->predicted_make_route) {
         return scene_test_shot_clock_fail(
             run, "ordinary-jump early-release launch failed");
     }
@@ -1320,7 +1320,7 @@ static bool scene_test_shot_clock_terminal_miss_lifecycle(
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
         scene->shot_frame != 1U || scene->shot_controller != 0U ||
-        scene->action_serial != 2U || !scene->jump_oracle_active ||
+        scene->action_serial != 2U || !scene->jump_playback_active ||
         scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN ||
         scene->jump_b_released ||
         scene->jump_actor_state != 0x0CU ||
@@ -1337,11 +1337,11 @@ static bool scene_test_shot_clock_terminal_miss_lifecycle(
         char failure[256];
         (void)snprintf(
             failure, sizeof(failure),
-            "NES B jump launch failed: shot=%u frame=%u controller=%u serial=%u oracle=%u make=%u outcome=%u released=%u actor=%u ball=%u phase=%u pose_frame=%u entry=%u pose=%u alt=%u vel=%u dmc=%u",
+            "NES B jump launch failed: shot=%u frame=%u controller=%u serial=%u playback=%u make=%u outcome=%u released=%u actor=%u ball=%u phase=%u pose_frame=%u entry=%u pose=%u alt=%u vel=%u dmc=%u",
             (unsigned)scene->shot_kind, (unsigned)scene->shot_frame,
             (unsigned)scene->shot_controller, (unsigned)scene->action_serial,
-            scene->jump_oracle_active ? 1U : 0U,
-            scene->jump_make_route ? 1U : 0U,
+            scene->jump_playback_active ? 1U : 0U,
+            scene->predicted_make_route ? 1U : 0U,
             (unsigned)scene->jump_outcome,
             scene->jump_b_released ? 1U : 0U,
             (unsigned)scene->jump_actor_state,
@@ -1433,7 +1433,7 @@ static bool scene_test_shot_clock_terminal_miss_lifecycle(
             TECMO_GAMEPLAY_POSSESSION_DIVIDER_FRAMES ||
         !scene->audio_player.sfx_pending ||
         scene->audio_player.pending_sfx_id != 12U ||
-        scene->events.count != 0U || scene->jump_oracle_active ||
+        scene->events.count != 0U || scene->jump_playback_active ||
         scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN ||
         !tecmo_gameplay_state_valid(&scene->state)) {
         char failure[192];

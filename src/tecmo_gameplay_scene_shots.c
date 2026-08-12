@@ -137,7 +137,7 @@ void scene_shot_clear_jump_playback(TecmoGameplayScene *scene)
     scene->jump_profile = TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0;
     scene->jump_direction = TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_0;
     scene->close_shot_variant = TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0;
-    scene->shot_sample = 0U;
+    scene->native_policy_sample = 0U;
     scene->shot_flags = 0U;
     scene->shot_make_probability = 0U;
     scene->shot_contact_context = false;
@@ -154,8 +154,8 @@ void scene_shot_clear_jump_playback(TecmoGameplayScene *scene)
     scene->shot_rim_tail_frame = 0U;
     scene->shot_rim_tail_duration = 0U;
     scene->shot_rim_tail_base_frame = 0U;
-    scene->jump_oracle_active = false;
-    scene->jump_make_route = false;
+    scene->jump_playback_active = false;
+    scene->predicted_make_route = false;
     scene->jump_b_released = false;
     scene->jump_outcome = TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN;
     scene->jump_actor_landed = false;
@@ -367,7 +367,7 @@ static bool scene_shot_is_contested(
     return true;
 }
 
-uint32_t scene_shot_stable_sample_from_inputs(
+uint32_t scene_shot_native_policy_sample_from_inputs(
     int16_t actor_x,
     int16_t actor_y,
     uint8_t point_value,
@@ -377,20 +377,20 @@ uint32_t scene_shot_stable_sample_from_inputs(
     uint8_t actor_roster_index,
     uint32_t launch_frame)
 {
-    uint32_t sample = 2166136261U;
-    sample ^= (uint16_t)actor_x;
-    sample *= 16777619U;
-    sample ^= (uint16_t)actor_y;
-    sample *= 16777619U;
-    sample ^= (uint16_t)target_delta_x;
-    sample *= 16777619U;
-    sample ^= (uint16_t)target_delta_y;
-    sample *= 16777619U;
-    sample ^= ((uint32_t)point_value << 24U) |
-              ((uint32_t)actor_team << 16U) |
-              ((uint32_t)actor_roster_index << 8U) |
-              (launch_frame & 0xFFU);
-    sample *= 16777619U;
+    uint32_t native_policy_sample = 2166136261U;
+    native_policy_sample ^= (uint16_t)actor_x;
+    native_policy_sample *= 16777619U;
+    native_policy_sample ^= (uint16_t)actor_y;
+    native_policy_sample *= 16777619U;
+    native_policy_sample ^= (uint16_t)target_delta_x;
+    native_policy_sample *= 16777619U;
+    native_policy_sample ^= (uint16_t)target_delta_y;
+    native_policy_sample *= 16777619U;
+    native_policy_sample ^= ((uint32_t)point_value << 24U) |
+                            ((uint32_t)actor_team << 16U) |
+                            ((uint32_t)actor_roster_index << 8U) |
+                            (launch_frame & 0xFFU);
+    native_policy_sample *= 16777619U;
     /* Preserve the accepted low-byte sample stream while binding every
        upper launch-frame bit.  A nonzero byte is folded as its own FNV step;
        a zero byte is the identity contribution, so ordinary frame<256
@@ -399,22 +399,22 @@ uint32_t scene_shot_stable_sample_from_inputs(
     for (unsigned shift = 8U; shift < 32U; shift += 8U) {
         uint8_t frame_byte = (uint8_t)(launch_frame >> shift);
         if (frame_byte != 0U) {
-            sample ^= frame_byte;
-            sample *= 16777619U;
-            sample ^= (uint8_t)(shift / 8U);
-            sample *= 16777619U;
+            native_policy_sample ^= frame_byte;
+            native_policy_sample *= 16777619U;
+            native_policy_sample ^= (uint8_t)(shift / 8U);
+            native_policy_sample *= 16777619U;
         }
     }
-    return sample;
+    return native_policy_sample;
 }
 
 uint32_t scene_shot_context_signature(
-    uint32_t stable_sample,
+    uint32_t native_policy_sample,
     bool contact_context,
     bool contest_context)
 {
     uint32_t signature = 2166136261U;
-    signature ^= stable_sample;
+    signature ^= native_policy_sample;
     signature *= 16777619U;
     signature ^= contact_context ? 0xC3U : 0x3CU;
     signature *= 16777619U;
@@ -450,7 +450,7 @@ bool scene_shot_captured_rattle_orientation(
 int16_t scene_close_variant_selection_approach(
     int approach_distance_x,
     TecmoGameplayShotDirectionSlot direction,
-    uint32_t stable_sample)
+    uint32_t native_policy_sample)
 {
     /* The available close gate and the proven 4:1 direction sectors leave no
        physical vertical case with approach >24.  The raw object/timer inputs
@@ -459,7 +459,7 @@ int16_t scene_close_variant_selection_approach(
        reachability without relabeling contact, foul, or shot semantics. */
     if ((direction == TECMO_GAMEPLAY_SHOT_DIRECTION_DOWN ||
          direction == TECMO_GAMEPLAY_SHOT_DIRECTION_UP) &&
-        (stable_sample & 0x00000400U) != 0U) {
+        (native_policy_sample & 0x00000400U) != 0U) {
         return 32;
     }
     if (approach_distance_x < INT16_MIN) return INT16_MIN;
@@ -482,15 +482,17 @@ static bool scene_shot_profile_for_actor(
 
 static bool scene_shot_select_rim_route(
     TecmoGameplayScene *scene,
-    uint32_t stable_sample)
+    uint32_t native_policy_sample)
 {
     if (scene == NULL ||
         !tecmo_gameplay_shot_resolution_resolve_rim_route(
-            &scene->shot_resolution, (uint8_t)stable_sample,
+            &scene->shot_resolution, (uint8_t)native_policy_sample,
             &scene->shot_rim_route)) {
         return false;
     }
-    scene->shot_rim_rattle_raw_selector = (uint8_t)stable_sample;
+    /* TGSR's resolver boundary is raw-selector shaped, but this low byte is
+       a native policy substitution rather than retained NES RAM/RNG state. */
+    scene->shot_rim_rattle_raw_selector = (uint8_t)native_policy_sample;
     scene->shot_rim_rattle_selected = false;
     return true;
 }
@@ -498,11 +500,11 @@ static bool scene_shot_select_rim_route(
 uint8_t scene_shot_family_for_context(
     int16_t target_delta_x,
     int16_t target_delta_y,
-    uint32_t stable_sample)
+    uint32_t native_policy_sample)
 {
     (void)target_delta_x;
     (void)target_delta_y;
-    (void)stable_sample;
+    (void)native_policy_sample;
     /* Bank05 $8B12 resets $038C to family 0.  $8B83-$8BC8 may increment it
        only after the source has proved the near-hoop, near-defender,
        defender-side, and raw $006A<$9C gates.  The native scene does not
@@ -539,7 +541,7 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
     uint8_t profile;
     TecmoGameplayShotDirectionSlot direction_slot;
     const TecmoTeamDataPlayer *player;
-    uint32_t stable_sample;
+    uint32_t native_policy_sample;
     TecmoGameplayShotEvaluationInput evaluation_input;
     TecmoGameplayShotEvaluation evaluation;
     TecmoGameplayCloseShotVariantInfo close_info;
@@ -601,7 +603,7 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
         return false;
     }
     scene->shot_launch_frame = scene->frame;
-    stable_sample = scene_shot_stable_sample_from_inputs(
+    native_policy_sample = scene_shot_native_policy_sample_from_inputs(
         actor->position.x, actor->position.y, classified_points,
         target_delta_x, target_delta_y, actor->team, actor->roster_index,
         scene->shot_launch_frame);
@@ -610,14 +612,15 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
             distance_y >= -64 && distance_y <= 80;
     /* The physical court boundary makes the 4:1 vertical sectors near a hoop
        appear only inside the close gate.  The missing native object/timer
-       context is substituted by a stable-sample bit for bound production:
+       context is substituted by a native policy sample bit for bound
+       production:
        clear selects the close contract, set exposes the ordinary jump
        approximation.  This is neutral source substitution, not a contact,
        foul, or semantic shot label; legacy/direct fixtures retain geometry. */
     if (!scene->legacy_direct_launch && close &&
         (direction_slot == TECMO_GAMEPLAY_SHOT_DIRECTION_DOWN ||
          direction_slot == TECMO_GAMEPLAY_SHOT_DIRECTION_UP) &&
-        (stable_sample & 0x00000200U) != 0U) {
+        (native_policy_sample & 0x00000200U) != 0U) {
         close = false;
     }
     /* The pre-R2 direct-launch compatibility harness has an accepted
@@ -632,16 +635,16 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
     scene->shot_launch_frame = scene->frame;
     /* $8BDE/$8C79/$8C7D prove the numeric-1 path, but not its semantic
        label.  The raw object/timer predicate is unavailable, so use one
-       stable-sample bit as a neutral source/substitution gate.  It is
+       native policy sample bit as a neutral source/substitution gate.  It is
        independent of contact/contest classification and permits all eight
        direction slots to reach the pose-only numeric-1 approximation. */
     source_variant1_gate = close && !scene->legacy_direct_launch &&
-        (stable_sample & 0x00000100U) != 0U;
+        (native_policy_sample & 0x00000100U) != 0U;
     if (close) {
         variant_selection_approach = scene->legacy_direct_launch
             ? (int16_t)approach_distance_x
             : scene_close_variant_selection_approach(
-                  approach_distance_x, direction_slot, stable_sample);
+                  approach_distance_x, direction_slot, native_policy_sample);
         if (!tecmo_gameplay_close_shots_select_numeric_variant(
                 variant_selection_approach, (int16_t)distance_y,
                 source_variant1_gate, &scene->close_shot_variant)) {
@@ -650,7 +653,7 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
     } else {
         scene->close_shot_variant = TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0;
     }
-    if (!scene_shot_select_rim_route(scene, stable_sample)) {
+    if (!scene_shot_select_rim_route(scene, native_policy_sample)) {
         return false;
     }
     /* Bank05 $8B12 starts the selector at family 0.  The full $8B83-$8BC8
@@ -662,7 +665,7 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
        family-base + profile*8 + direction.  Do not replace those owned
        profile/direction inputs with the old captured 0/0/1 diagnostic. */
     jump_family = scene_shot_family_for_context(
-        target_delta_x, target_delta_y, stable_sample);
+        target_delta_x, target_delta_y, native_policy_sample);
     jump_profile = profile;
     jump_direction = (uint8_t)direction_slot;
     memset(&evaluation_input, 0, sizeof(evaluation_input));
@@ -676,7 +679,7 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
         (int16_t)(TECMO_GAMEPLAY_SHOT_TARGET_Y - actor->position.y);
     evaluation_input.family = close
         ? scene_shot_family_for_context(
-              target_delta_x, target_delta_y, stable_sample)
+              target_delta_x, target_delta_y, native_policy_sample)
         : jump_family;
     if (!close && scene->legacy_direct_launch && classified_points == 3U) {
         /* The accepted direct render/shot-clock adapter is source-pinned to
@@ -687,7 +690,7 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
     evaluation_input.direction = close
         ? (uint8_t)direction_slot : jump_direction;
     evaluation_input.numeric_variant = (uint8_t)scene->close_shot_variant;
-    evaluation_input.stable_sample = stable_sample;
+    evaluation_input.native_policy_sample = native_policy_sample;
     if (!tecmo_gameplay_shot_resolution_evaluate(
             &scene->shot_resolution, &evaluation_input, &evaluation)) {
         return false;
@@ -704,7 +707,7 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
     predicted_make = evaluation.outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE;
     /* Raw route identity is retained for every outcome, but only a bound MISS
        may activate the A7A9 rattle contract.  In particular, a MAKE whose
-       stable sample has low2==1 remains an ordinary make schedule. */
+       native policy sample has low2==1 remains an ordinary make schedule. */
     scene->shot_rim_rattle_selected =
         !scene->legacy_direct_launch &&
         evaluation.outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MISS &&
@@ -716,12 +719,12 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
            1/2-point schedule below. */
         return false;
     }
-    scene->shot_sample = stable_sample;
+    scene->native_policy_sample = native_policy_sample;
     scene->shot_make_probability = evaluation.make_probability;
     scene->shot_contact_context = evaluation.contact_context;
     scene->shot_contest_context = evaluation.contest_context;
     scene->shot_context_signature = scene_shot_context_signature(
-        stable_sample, evaluation.contact_context,
+        native_policy_sample, evaluation.contact_context,
         evaluation.contest_context);
     scene->shot_outcome = evaluation.outcome;
     scene->shot_schedule = evaluation.schedule;
@@ -821,8 +824,10 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
     if (!close) {
         scene->jump_entry_pose_index = initial_pose;
         scene->jump_pose_frame = 1U;
-        scene->jump_oracle_active = true;
-        scene->jump_make_route = predicted_make;
+        /* These booleans schedule native scene playback; neither mirrors the
+           Bank05 $91BC-$943A terminal-result route or another RAM byte. */
+        scene->jump_playback_active = true;
+        scene->predicted_make_route = predicted_make;
         scene->jump_outcome = TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN;
         if (predicted_make) {
             scene->jump_actor_state =
@@ -912,7 +917,7 @@ bool tecmo_gameplay_scene_start_rim_rattle_debug(
         return false;
     }
     if (candidate.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
-        candidate.jump_make_route ||
+        candidate.predicted_make_route ||
         candidate.shot_duration != TECMO_GAMEPLAY_JUMP_SLOT0_DURATION ||
         candidate.shot_points != 3U ||
         candidate.shot_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS ||
@@ -1523,8 +1528,8 @@ static bool scene_begin_shot_rim_tail(TecmoGameplayScene *scene)
                          scene->shot_resolution.route_selector_mask);
     if (scene->shot_rim_route.selector != selector) return false;
     if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
-        (scene->jump_rim_rattle_debug || scene->jump_make_route ||
-         !scene->jump_oracle_active ||
+        (scene->jump_rim_rattle_debug || scene->predicted_make_route ||
+         !scene->jump_playback_active ||
          scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS ||
          scene->jump_actor_state !=
              scene->jump_shots.constants.actor_state_neutral ||
@@ -1896,8 +1901,8 @@ static bool scene_update_jump_make_approx(
     TecmoGameplaySceneActor *actor;
     uint16_t next_frame;
     TecmoGameplayShotOutcome outcome;
-    if (scene == NULL || !scene->jump_oracle_active ||
-        !scene->jump_make_route || scene->shot_kind !=
+    if (scene == NULL || !scene->jump_playback_active ||
+        !scene->predicted_make_route || scene->shot_kind !=
             TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
         scene->shot_schedule == TECMO_GAMEPLAY_SHOT_SCHEDULE_EXACT_THREE_POINT ||
         scene->shot_duration != TECMO_GAMEPLAY_JUMP_APPROX_MAKE_DURATION ||
@@ -2060,7 +2065,7 @@ static bool scene_update_jump_make(
             TECMO_GAMEPLAY_SHOT_SCHEDULE_EXACT_THREE_POINT) {
         return scene_update_jump_make_approx(scene, shooting_controls);
     }
-    if (!scene->jump_oracle_active || !scene->jump_make_route ||
+    if (!scene->jump_playback_active || !scene->predicted_make_route ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
         scene->shot_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         scene->shot_duration != (uint16_t)(
@@ -2236,7 +2241,7 @@ static bool scene_update_jump_miss_mutating(
     bool landed = false;
     bool rattle_position_owned = false;
     bool actual_rattle;
-    if (!scene->jump_oracle_active || scene->jump_make_route ||
+    if (!scene->jump_playback_active || scene->predicted_make_route ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
         scene->shot_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         scene->shot_duration !=
@@ -2562,7 +2567,7 @@ static bool scene_update_jump_shot(
     const TecmoControlFrame *shooting_controls)
 {
     if (scene == NULL) return false;
-    return scene->jump_make_route
+    return scene->predicted_make_route
                ? scene_update_jump_make(scene, shooting_controls)
                : scene_update_jump_miss_mutating(scene, shooting_controls);
 }

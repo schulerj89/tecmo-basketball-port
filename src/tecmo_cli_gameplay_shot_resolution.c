@@ -185,7 +185,7 @@ static bool validate_shot_resolution_direction_and_evaluator(
     input.family = 0U;
     input.profile = 0U;
     input.direction = 1U;
-    input.stable_sample = 99U;
+    input.native_policy_sample = 99U;
     if (!tecmo_gameplay_shot_resolution_evaluate(
             assets, &input, &evaluation) ||
         evaluation.schedule !=
@@ -201,7 +201,7 @@ static bool validate_shot_resolution_direction_and_evaluator(
     }
     input.point_value = 2U;
     input.direction = 0U;
-    input.stable_sample = 0U;
+    input.native_policy_sample = 0U;
     if (!tecmo_gameplay_shot_resolution_evaluate(
             assets, &input, &evaluation) ||
         evaluation.schedule !=
@@ -213,7 +213,7 @@ static bool validate_shot_resolution_direction_and_evaluator(
     input.point_value = 1U;
     input.close_context = false;
     input.numeric_variant = 0U;
-    input.stable_sample = 0U;
+    input.native_policy_sample = 0U;
     if (!tecmo_gameplay_shot_resolution_evaluate(
             assets, &input, &evaluation) ||
         evaluation.point_value != 1U ||

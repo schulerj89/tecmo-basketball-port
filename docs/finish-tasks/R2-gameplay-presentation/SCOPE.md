@@ -95,7 +95,7 @@ their files were not writable in this grant.
   **exact-source-pinned**.
 - Existing scene/input/camera/HUD/render composition:
   **native-faithful within the named fixture**.
-- Geometry/stable-sample selection, ball arc, outcome, claimant, and landing:
+- Geometry/native-policy-sample selection, ball arc, outcome, claimant, and landing:
   **native-approximate**.
 - Original trigger policy, full layup object semantics, general directions and
   profiles, contact meaning, both screen edges, and emulator parity:

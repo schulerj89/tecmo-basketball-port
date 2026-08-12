@@ -172,10 +172,10 @@ new or empty root; only the fresh child rerun root was written.
 
 The R1 exact A7A9 MAKE search remains within its original bounded fixture
 search and resolves team 0/roster 0, vector 0 (`dx=-320,dy=64`), launch frame
-42, stable sample `AC0D3E09`, and probability 5. Its selector is 1, route kind
-is A7A9/source `$A7A9`, and `shot_rim_rattle_selected` remains false through
-the full exact settlement; the native-approximate selector-1 MAKE regression
-has the same miss-only rattle guarantee.
+42, native policy sample `AC0D3E09`, and probability 5. Its selector is 1,
+route kind is A7A9/source `$A7A9`, and `shot_rim_rattle_selected` remains
+false through the full exact settlement; the native-approximate selector-1
+MAKE regression has the same miss-only rattle guarantee.
 
 ## Sol-owned original proof sessions
 
