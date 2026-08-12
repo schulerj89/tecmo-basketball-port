@@ -1505,10 +1505,10 @@ full-ROM identity, same-pack dependencies, table semantics, movement state,
 coordinate arithmetic, and output commits are strict and fail closed.
 
 During ordinary live possession, both human and CPU holders use TGBD to keep
-the ball attached. Human and legacy routes can advance the resolver through
-TGMO's neutral cadence. In the bound scene, selected-primary exclusion skips
-the CPU holder's ordinary TGMO step, so its movement/animation is currently
-deferred and frozen while attachment remains active. Active shots and free
+the ball attached. Human/legacy movement and the supported automatic selected-
+primary flow advance TGMO/TGBD cadence. Selected primary runs once through
+`$8374->$83F3->$8491` before `$8284-$82A5` skips duplicate ordinary dispatch.
+Active shots and free
 throws retain their separately owned ball routes. `$8F02`'s signed comparison
 is exact, but the opposing actor supplying that comparison is still a fixed
 scene-owned roster link. The native scene converts the exact height to visible
@@ -1517,16 +1517,15 @@ caller scheduling are not claimed as exact ROM behavior. Deterministic render
 checkpoints `gameplay-ball-bounce-frame1` and `frame12` freeze visibly distinct
 high and low positions.
 
-Ordinary human passes and a controller-none action-`$21` fixture share a
-visible, actor-neutral transactional lifecycle. The fixture proves the
-downstream consumer; autonomous CPU passing is not currently live. Canonical
-Rev1 Bank06 `$8FC5-$8FE7` copies `C9` into `$046E[X]` at `$8FCA/$8FCC`,
-returns at `$8FE7`, and begins rewind at `$8FE8`. Capture proves `C9=$21` was
-written to actor 9, not that actor 9 was current `$0308`. `$8284-$82A5`
-excludes `$0308/$0309` from ordinary `$057C` dispatch, and native LIVE mirrors
-that exclusion. No live producer/retention/adoption lifecycle is proven to
-place `$21` on selected primary. Given explicitly retained fixture state,
-Bank05's selected-primary table consumes index `$21` at `$89D7`. `$89D7`
+Ordinary human passes and autonomous action-`$21` CPU passes share a visible,
+actor-neutral transactional lifecycle. Typed automatic ownership plus the
+supported ordinary `$05A1=0` context admits selected-primary state 4 through
+`$8374->$83F3->$8491->$8B90`. Canonical Bank06 `$8FC5-$8FE7` copies `C9=$21`
+to `$046E[X]` at `$8FCA/$8FCC` and advances the five-byte cursor. Bank05's
+selected-primary table consumes `$21` at `$89D7` in the same update; then
+`$8284-$82A5` skips `$0308/$0309` in the ordinary loop so the command cannot
+double-step. Human selected primary stays excluded and raw `$030C/$030D` is
+not used as a controller mirror. `$89D7`
 writes state `$0F` and seeds packed gather
 `$32->$22->$12->$02->$03->$04` through
 `$8999/$9C29`; `$8695/$86A8-$86B7` releases directly into shared `$B074` at
@@ -1543,8 +1542,9 @@ duration and linear interpolation remain bounded native adapters because
 `$B42F/$BB9F/$BBA0` and the `$B1E7/$B500` five-substep scheduler are not yet
 strict assets. An isolated exact `$BD6E-$BDC6` helper preserves uint16
 wrap/carry and six logical shifts, but does not make the unseeded trajectory
-exact. The live action-`$21` producer/policy/retention/adoption seam, `$B13F`
-interception/contact, and complete object-slot-10 parity remain deferred. See
+exact. Broader pass-selection policy, unsupported selected-primary gates/states,
+`$B13F` interception/contact, and complete object-slot-10 parity remain
+deferred. See
 `docs/pass-defender-handoff-evidence.md` for the separately bounded defender
 handoff and dynamic-link limitations.
 
@@ -1561,17 +1561,17 @@ actor ordering is not claimed. Active lists remain the fixed scene roster slots
 Opposing directions on one axis are normalized to neutral as a native
 integration policy. Initial actor placement/direction, the current fixed
 five-player roster-slot/matchup-link binding, and CPU target selection/AI remain
-native integration or approximations. The selected primary is excluded from
-ordinary Bank06 movement dispatch. Offensive non-holders use five deterministic formation points
+native integration or approximations. Supported automatic selected primary
+runs its source command once before ordinary-loop exclusion. Offensive non-holders use five deterministic formation points
 `(256,148)`, `(288,112)`, `(288,184)`, `(352,96)`, and `(352,200)`, mirrored as
 `767-X` for the other orientation. Defenders use their linked offensive actor's
 immutable snapshot coordinate with a 32-pixel offset toward the attacked hoop
 and roster depth splits `0,-10,10,-14,14`. If that goal-side offset crosses the
 shaped court boundary at the target depth, the adapter uses the equal 32-pixel
 offset toward the court before final validation. This restores meaningful
-spacing without claiming the original formation/play lifecycle. Eligible
-non-selected CPU actors use the exact TGMO step after TGAI direction selection;
-the selected primary remains inert. The
+spacing without claiming the original formation/play lifecycle. Supported
+selected primary and eligible non-selected CPU actors use the exact TGMO step
+after TGAI direction selection. The
 deterministic `--gameplay-movement-harness` is console/test-only and never
 enters normal play.
 
@@ -1612,9 +1612,9 @@ possession-consistent holder, an explicit opposing linked/matchup actor,
 difficulty `0..2`, and an optional validated explicit target coordinate. It
 validates the complete snapshot transactionally and prints every coordinate
 plus a domain-separated canonical FNV1a32 fingerprint. Default and explicit
-targets remain deterministic harness/native policy. The live scene supplies
-explicit formation and marking coordinates only for eligible non-selected
-actors; selected primary is excluded from ordinary movement. The resulting
+targets remain deterministic harness/native policy. The live scene composes a
+supported selected-primary source target plus explicit formation/marking
+coordinates for eligible ordinary actors. The resulting
 nonzero target delta alone consumes the exact TGAI
 octant quantizer; zero delta reports a successful keep-direction/no-write
 result.
@@ -1637,10 +1637,11 @@ initial-facing, and profile inputs are likewise caller/native policy rather
 than reconstructed CPU command behavior.
 
 For live ordinary movement, the scene takes one immutable ten-actor snapshot
-after human input, evaluates eligible non-controlled non-selected actors from
-that snapshot, and commits all candidate actor/movement/target states together.
-The selected primary is inert; ordinary actors retain their native target/link
-adapters. Shot proximity/cadence remains a separate native approximation.
+after human input, evaluates the supported automatic selected primary first,
+then eligible non-controlled non-selected actors, and commits candidates
+together. The primary command executes once before ordinary-loop exclusion;
+ordinary actors retain their native target/link adapters. Shot proximity and
+unsupported selected-primary gates/states remain approximate/fail-closed.
 
 The Bank06 common target tail has one additional, deliberately narrow live
 owner. `$92CA-$92D0` tests only `$BA & 3` before `$8FD9` advances the actor's
@@ -1650,12 +1651,13 @@ presentation, C projects only the proven zero low-two-bit condition. It does
 not mirror the `$BA` byte, derive it from a frame counter, or claim its other
 flags. All transient contexts remain `missing-ba-lifecycle`. A natural,
 non-injected PRETIP-to-CPU regression now proves the selected `$0308` primary
-is excluded from ordinary command transport: its `$0A41` cursor, retained
-action, movement/animation, and CPU decision metadata remain frozen while the
-held ball stays attached through TGBD. A nonselected actor must still advance,
-proving ordinary actor transport remains live. This establishes the Bank06
-selected-primary boundary, not a complete CPU playbook, holder policy, passing
-decision, jump/far shot lifecycle, or downstream `$92DD+` side-effect parity.
+receives its dedicated `$8374-$83F3 -> $8491` command step before the ordinary
+actor loop: its `$0A41` record advances once, while a nonselected actor also
+advances through ordinary transport. The later `$8284-$82A5` loop still skips
+the selected primary and defender, preventing a duplicate command step. This
+establishes the bounded Bank06 selected-primary order, not a complete CPU
+playbook, holder policy, passing decision, jump/far shot lifecycle, or
+downstream `$92DD+` side-effect parity.
 
 Do not use this asset to claim a complete CPU policy, shot/pass/steal choice,
 ROM actor-link ownership, or live collision/contact ownership. In particular, the

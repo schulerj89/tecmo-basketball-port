@@ -1308,11 +1308,10 @@ dependency, source-map, full-revision, reserved-byte, table, and transactional
 state validation must fail closed.
 
 The live scene uses TGBD to keep an ordinary held ball attached for both human
-and CPU holders. Human and legacy routes can advance TGBD through TGMO's
-neutral cadence. In the bound scene, Bank06 selected-primary exclusion skips
-the CPU holder's ordinary TGMO step, so its movement/animation is currently
-deferred and frozen even though the ball remains attached. Keep free-throw and
-active-shot ball paths separately owned.
+and CPU holders. Human/legacy movement and the supported automatic selected-
+primary flow can advance TGMO/TGBD cadence. Selected primary runs once through
+Bank06 `$8374->$83F3->$8491` before `$8284-$82A5` skips it in the ordinary
+loop. Keep free-throw and active-shot ball paths separately owned.
 The fixed opposing roster-slot link used for `$8F02` remains native scene
 policy, and the scene flattens the exact height into canonical visible Y before
 TGCP projection. Do not describe that projection adapter, the link assignment,
@@ -1321,16 +1320,14 @@ phase/sound vectors with
 `tools\Run-GameplayBallDribbleTests.ps1 -Build -RomPath <LOCAL_ROM.nes>`.
 
 Ordinary passes use one actor-neutral scene transport. Human NES-A passes
-carry their controller. A controller-none action-`$21` fixture exercises the
-source-proven downstream consumer, but autonomous CPU passing is not currently
-live. Canonical Rev1 Bank06 `$8FC5-$8FE7` copies `C9` into `$046E[X]` at
-`$8FCA/$8FCC`, returns at `$8FE7`, and starts rewind at `$8FE8`. Capture proves
-a `C9=$21` write to actor 9, not that actor 9 was current `$0308`.
-`$8284-$82A5` excludes `$0308/$0309` from ordinary `$057C` dispatch, and native
-LIVE mirrors that exclusion; it therefore has no proven producer, retention,
-or adoption lifecycle capable of placing `$21` on selected primary. Given an
-explicitly retained fixture value, Bank05's selected-primary pointer index
-`$21` enters `$89D7`. `$89D7` writes state
+carry their controller. For typed automatic ownership in the supported
+ordinary `$05A1=0` context, selected-primary state 4 runs once through
+`$8374->$83F3->$8491->$8B90`. Exact opcode 9 at `$8FC5-$8FE7` copies `C9=$21`
+to `$046E[X]` at `$8FCA/$8FCC`, advances the five-byte cursor, and Bank05's
+selected-primary pointer index `$21` enters `$89D7` in the same native update.
+`$8284-$82A5` then skips `$0308/$0309` in the ordinary loop, preventing a
+duplicate command step. Human selected primary remains excluded; never use raw
+`$030C/$030D` as a controller mirror. `$89D7` writes state
 `$0F`/packed `$32`; state `$0F` dispatches through `$8695`,
 and `$8999/$9C29` yields the captured `$32->$22->$12->$02->$03->$04` cadence
 before `$86A8-$86B7` jumps directly to shared `$B074`. Do not require
@@ -1342,8 +1339,9 @@ and `$B24F` stores 4 to `$0308`; `$B2FA-$B300` only clears raw `$BA` bit 2.
 CPU catch must not mutate human control. Current
 duration/interpolation remains native-approximate until `$B42F/$BB9F/$BBA0`
 and `$B1E7/$B500` are strict assets. The isolated exact `$BD6E-$BDC6` uint16
-kernel does not imply trajectory ownership. The entire live producer/policy/
-retention/adoption seam and `$B13F` interception/contact remain fail-closed.
+kernel does not imply trajectory ownership. Broader pass-selection policy,
+unsupported selected-primary gates/states, and `$B13F` interception/contact
+remain fail-closed.
 Raw `$030C/$030D` is not a
 valid zero-human/nonzero-automatic classifier; use typed controller ownership.
 
@@ -1405,10 +1403,10 @@ opposing linked/matchup actor, difficulty `0..2`, and an optional validated
 explicit target coordinate. Validate every coordinate and coherence field
 transactionally. Its printed canonical FNV1a32 snapshot must cover all ten
 coordinates and every context field, domain-separating the optional target when
-present. Default and explicit targets are deterministic harness/native policy;
-the live selected primary is excluded from ordinary movement dispatch. The
-live scene supplies explicit formation/marking coordinates only for eligible
-non-selected actors. Never describe these choices or the link assignment as
+present. Default and explicit targets are deterministic harness/native policy.
+The supported automatic selected-primary flow composes its source-produced
+target through TGMO once; ordinary actors use explicit formation/marking
+coordinates. Never describe these choices or the link assignment as
 ROM-exact. Only the
 resulting nonzero TGAI octant is exact. A
 zero delta must report keep-direction/no-write rather than inventing a prior
@@ -1432,13 +1430,14 @@ movement, zero-vector neutral, primary/secondary role coherence, clamp,
 snapshot re-evaluation, and
 malformed state/profile inputs.
 
-`TecmoGameplayScene` loads TGAI-2 and evaluates eligible non-controlled,
-non-selected actors from one immutable post-human-input ten-coordinate
-snapshot. Candidates commit together. The selected primary is inert under the
-source-backed Bank06 exclusion; ordinary eligible actors use scene-owned
-native targets and fixed opposing roster links. Keep the zero-vector neutral
-bridge, object state/flags, those targets, and shot timing explicitly
-approximate.
+`TecmoGameplayScene` loads TGAI-2 and evaluates the supported automatic
+selected primary first, then eligible non-controlled non-selected actors from
+one immutable post-human-input ten-coordinate snapshot. Candidates commit
+together. The primary command runs once before ordinary-loop exclusion and its
+source target composes through TGMO; ordinary actors use scene-owned native
+targets and fixed opposing roster links. Keep unsupported primary gates/states,
+zero-vector bridging, object state/flags, native targets, and shot timing
+explicitly approximate/fail-closed.
 The live state must retain its no-command sentinel and no pending advance until
 the original play/formation command lifecycle is reconstructed. Do not claim a
 complete CPU policy, shot/pass/steal choice, ROM actor-link ownership, or full

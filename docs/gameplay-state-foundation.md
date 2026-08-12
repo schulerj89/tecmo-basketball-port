@@ -359,9 +359,9 @@ signed attachment offsets, and the 128-byte `$B5C8` bounce-height table. Its
 ground-contact DMC condition is exactly low nibble 3 and high nibble 0.
 
 The ordinary live scene keeps the held ball attached through this resolver.
-Human and legacy neutral TGMO cadence can advance its animation. Bound selected
-CPU primary skips ordinary TGMO, so holder movement/animation is currently
-frozen while TGBD resolves attachment from the retained state. The original
+Human/legacy cadence and the supported automatic selected-primary flow can
+advance TGMO/TGBD animation. Selected primary runs through
+`$8374->$83F3->$8491` before the later ordinary loop skips duplication. The original
 height is flattened into canonical visible Y before the existing TGCP
 projection. That adapter, the fixed opposing roster-slot link supplying the
 half comparison, and complete 6502 caller scheduling remain native policy or
@@ -421,21 +421,21 @@ zero-delta harness evaluation succeeds with an explicit keep-direction/no-write
 result so no prior direction has to be fabricated.
 
 For each ordinary live update, the scene captures one immutable post-human-
-input snapshot of all ten canonical coordinates. Eligible noncontrolled,
-nonselected actors use mirrored per-slot offensive formation coordinates or
+input snapshot of all ten canonical coordinates. Supported automatic selected
+primary executes its state-4 command once first. Eligible noncontrolled,
+nonselected actors then use mirrored per-slot offensive formation coordinates or
 explicit goal-side defensive offsets from their fixed linked opponent. A
 goal-side target outside the shaped court uses an equal inward offset before
 final validation. Those target choices are native approximations; TGAI supplies
 the exact nonzero octant and TGMO supplies the converted secondary movement
 step. Candidate actor/movement/target states commit together so loop order
-cannot alter this frame's targets. Bank06 `$8286-$82A5` excludes the selected
-`$0308` primary, so the bound CPU holder is currently frozen apart from TGBD
-ball attachment; its locomotion, animation cadence, command adoption, and
-holder policy remain deferred. Fixed links, nonselected formation/defensive
+cannot alter this frame's targets. Bank06 `$8286-$82A5` skips selected `$0308`
+only in the later ordinary loop, preventing a second fetch after
+`$8374->$83F3->$8491`. Typed automatic ownership and ordinary `$05A1=0`
+admit the supported primary flow; human and unsupported primary gates/states
+remain excluded/fail-closed. Fixed links, nonselected formation/defensive
 targets, zero-vector bridging, object state/flags, and shot proximity/cadence
-remain native policy. No ROM command offset or advance is fabricated for the
-selected primary: live state preserves its retained cursor and action without
-executing the ordinary stream.
+remain native policy.
 
 TGSR-4 also has FNV1a64 `FACCE42B52382D6B` and requires exact same-pack
 TGPL-1. Its revision-fingerprinted sources are Bank05 `$91BC-$943A`,

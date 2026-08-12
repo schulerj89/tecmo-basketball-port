@@ -1581,8 +1581,8 @@ static bool scene_test_cpu_formation_regression(
 /* Exercise the production pre-tip handoff rather than injecting possession or
    any executor workspace.  The away pad remains assigned but idle, so the
    unassigned home side takes TPTI's own automatic jump route and becomes a
-   genuine CPU ball holder. This now freezes the source-proven selected-primary
-   stream exclusion while still requiring ordinary non-selected CPU motion. */
+   genuine CPU ball holder. This proves the selected-primary command runs once
+   before the ordinary loop while non-selected CPU motion remains active. */
 static bool scene_test_pretip_cpu_common_tail_handoff(
     TecmoGameplayScene *scene,
     const TecmoGameplaySceneLaunch *base_launch,
@@ -1595,10 +1595,6 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
     TecmoGameplayCpuSteeringCommand command;
     TecmoGameplayCourtCoordinate before[
         TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
-    TecmoGameplaySceneActor holder_before;
-    TecmoGameplaySceneCpuActor holder_cpu_before;
-    TecmoGameplayBallDribbleFrame attached_frame;
-    TecmoGameplayCourtCoordinateQ8 expected_ball;
     uint8_t holder = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     uint16_t stream_before = 0U;
     uint16_t last_step_before = 0U;
@@ -1677,10 +1673,6 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
         before[actor] = scene->actors[actor].position;
     }
-    holder_before = scene->actors[holder];
-    holder_cpu_before = scene->cpu_actors[holder];
-    memset(&attached_frame, 0, sizeof(attached_frame));
-    memset(&expected_ball, 0, sizeof(expected_ball));
     memset(&away, 0, sizeof(away));
     memset(&home, 0, sizeof(home));
     if (!tecmo_gameplay_scene_update(scene, &away, &home) ||
@@ -1688,10 +1680,13 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
         scene->live_foundation.deferred_reason[holder] !=
             TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE ||
         scene->live_foundation.play_state.stream_offset[holder] !=
-            stream_before ||
-        scene->live_foundation.last_step_offset[holder] != last_step_before) {
+            (uint16_t)(stream_before +
+                       TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE) ||
+        scene->live_foundation.last_step_offset[holder] !=
+            (uint16_t)(last_step_before +
+                       TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE)) {
         (void)snprintf(failure, sizeof(failure),
-                       "PRETIP CPU selected-primary stream exclusion failed "
+                       "PRETIP CPU selected-primary single step failed "
                        "before=%04X after=%04X deferred=%u reason=%s status=%s",
                        (unsigned)stream_before,
                        (unsigned)scene->live_foundation.play_state
@@ -1700,50 +1695,6 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                        tecmo_gameplay_cpu_steering_deferred_reason_name(
                            scene->live_foundation.deferred_reason[holder]),
                        scene->status);
-        goto failed;
-    }
-    /* Bank06 $8286/$8289 skips selected primary before ordinary state/TGMO
-       dispatch. The bound CPU holder is therefore frozen, but the ordinary
-       held-ball resolver must still attach TGBD geometry to that actor. */
-    if (scene->ball_holder != holder || scene_pass_active(scene) ||
-        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
-        scene->actors[holder].position.x != holder_before.position.x ||
-        scene->actors[holder].position.y != holder_before.position.y ||
-        scene->actors[holder].pose_index != holder_before.pose_index ||
-        scene->actors[holder].movement_action_state !=
-            holder_before.movement_action_state ||
-        scene->actors[holder].movement_direction !=
-            holder_before.movement_direction ||
-        scene->actors[holder].movement_fractional_accumulator !=
-            holder_before.movement_fractional_accumulator ||
-        scene->actors[holder].movement_animation_phase !=
-            holder_before.movement_animation_phase ||
-        scene->cpu_actors[holder].decision_serial !=
-            holder_cpu_before.decision_serial ||
-        scene->cpu_actors[holder].snapshot_fingerprint !=
-            holder_cpu_before.snapshot_fingerprint ||
-        scene->cpu_actors[holder].target_valid !=
-            holder_cpu_before.target_valid ||
-        scene->cpu_actors[holder].writes_direction !=
-            holder_cpu_before.writes_direction ||
-        scene->cpu_actors[holder].held_direction_bits !=
-            holder_cpu_before.held_direction_bits ||
-        !scene_live_ball_frame_for_actors(
-            scene, scene->actors, holder, &attached_frame) ||
-        !tecmo_gameplay_court_coordinate_to_q8(
-            &attached_frame.visible_position, &expected_ball) ||
-        scene->ball_position.x_q8 != expected_ball.x_q8 ||
-        scene->ball_position.y_q8 != expected_ball.y_q8) {
-        (void)snprintf(
-            failure, sizeof(failure),
-            "PRETIP CPU selected-primary freeze/attachment failed holder=%u "
-            "position=%d,%d animation=%u decision=%lu ball=%ld,%ld",
-            (unsigned)holder, (int)scene->actors[holder].position.x,
-            (int)scene->actors[holder].position.y,
-            (unsigned)scene->actors[holder].movement_animation_phase,
-            (unsigned long)scene->cpu_actors[holder].decision_serial,
-            (long)scene->ball_position.x_q8,
-            (long)scene->ball_position.y_q8);
         goto failed;
     }
     for (update = 0U; update < 12U && !actor_moved; ++update) {
@@ -1876,10 +1827,9 @@ static bool scene_test_live_foundation_regressions(
     bound.controller_team[1] = TECMO_GAMEPLAY_TEAM_HOME;
     bound.game_music_enabled = false;
 
-    /* Source-proven downstream action-$21 pass slice. The fixture decodes
-       exact Bank04 $A05F/stream-$0131, then proves selected primary cannot
-       execute it through ordinary play_step. Pass admission injects already-
-       retained $21; no live producer/retention/adoption lifecycle is claimed. */
+    /* Source-proven selected-primary action-$21 pass slice. Exact Bank04
+       $A05F/stream-$0131 executes once through $8374->$8491->$8B90 before
+       $8284's ordinary loop skips the primary, then Bank05 $89D7 gathers. */
     {
         const uint8_t passer = 2U;
         const uint8_t captured_receiver = 4U;
@@ -1986,11 +1936,10 @@ static bool scene_test_live_foundation_regressions(
         scene->live_foundation.candidate_actor_by_side[
             scene->live_foundation.offense_side] = receiver;
 
-        /* Prove the source exclusion before testing retained action $21.
-           Even if the current primary points directly at the exact opcode-9
-           fixture with wait=0, Bank06 $8286/$8289 requires LIVE to leave its
-           ordinary stream untouched; this must not manufacture a pass. */
-        before = *scene;
+        /* Typed automatic ownership models the supported raw $030C!=0,
+           ordinary $05A1=0 selected-primary gate. The exact opcode-9 record
+           must advance once, write C9=$21, and enter $89D7 in this update;
+           $8286/$8289 must prevent an ordinary-loop duplicate step. */
         pass_foundation = scene->live_foundation;
         for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
             pass_foundation.play_state.wait_counter[actor] = 1U;
@@ -2007,41 +1956,9 @@ static bool scene_test_live_foundation_regressions(
             LIVE_FAIL("LIVE CPU action-21 source foundation rejected");
         }
         scene->live_foundation = pass_foundation;
+        primary_stream_before = action21_offset;
         primary_last_step_before =
             scene->live_foundation.last_step_offset[passer];
-        memset(&no_shot, 0, sizeof(no_shot));
-        if (!scene_update_ai(scene, &no_shot) || scene_pass_active(scene) ||
-            scene->live_foundation.play_state
-                    .action_state_046e[passer] != 0U ||
-            scene->live_foundation.play_state.stream_offset[passer] !=
-                action21_offset ||
-            scene->live_foundation.last_step_offset[passer] !=
-                primary_last_step_before) {
-            LIVE_FAIL("LIVE selected primary executed an ordinary stream");
-        }
-
-        /* The bounded downstream consumer starts from explicit selected-
-           primary state already retaining exact $21. No live producer,
-           retention, or adoption lifecycle is owned; do not run a primary
-           opcode fixture to manufacture it. */
-        *scene = before;
-        pass_foundation = scene->live_foundation;
-        for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
-            pass_foundation.play_state.wait_counter[actor] = 1U;
-            pass_foundation.deferred[actor] = false;
-            pass_foundation.deferred_reason[actor] =
-                TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
-        }
-        pass_foundation.play_state.actor_state[passer] = 0U;
-        pass_foundation.play_state.action_state_046e[passer] = 0x21U;
-        if (!tecmo_gameplay_live_foundation_valid(
-                &scene->cpu_steering_assets, &pass_foundation)) {
-            LIVE_FAIL("LIVE CPU retained action-21 foundation rejected");
-        }
-        primary_stream_before =
-            pass_foundation.play_state.stream_offset[passer];
-        primary_last_step_before = pass_foundation.last_step_offset[passer];
-        scene->live_foundation = pass_foundation;
         memset(&no_shot, 0, sizeof(no_shot));
         if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
             no_shot.playback_supported || no_shot.deferred ||
@@ -2061,12 +1978,14 @@ static bool scene_test_live_foundation_regressions(
             scene->live_foundation.play_state.actor_state[passer] != 0U ||
             scene->live_foundation.play_state.actor_state[receiver] != 0x0CU ||
             scene->live_foundation.play_state.stream_offset[passer] !=
-                primary_stream_before ||
+                (uint16_t)(primary_stream_before +
+                           TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE) ||
             scene->live_foundation.last_step_offset[passer] !=
-                primary_last_step_before ||
+                (uint16_t)(primary_last_step_before +
+                           TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE) ||
             scene->controlled_actor[0U] != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
             scene->controlled_actor[1U] != opposing_controlled_actor) {
-            LIVE_FAIL("LIVE exact action-21 did not start CPU gather once");
+            LIVE_FAIL("LIVE selected-primary action-21 did not gather once");
         }
         for (pass_updates = 0U; pass_updates < 4U; ++pass_updates) {
             static const uint8_t expected_gather[4U] = {
@@ -2126,6 +2045,26 @@ static bool scene_test_live_foundation_regressions(
             LIVE_FAIL("LIVE human pass regression setup rejected");
         }
         tecmo_gameplay_scene_test_set_skip_pretip(false);
+        /* Typed human ownership takes neither automatic branch at
+           $8374-$83F3. The selected human primary must not consume the exact
+           opcode-9 cursor through either selected or ordinary dispatch. */
+        scene->live_foundation.play_state.actor_state[passer] = 0x04U;
+        scene->live_foundation.play_state.wait_counter[passer] = 0U;
+        scene->live_foundation.play_state.stream_offset[passer] =
+            action21_offset;
+        scene->live_foundation.last_step_offset[passer] = action21_offset;
+        scene->live_foundation.play_state.action_state_046e[passer] = 0U;
+        before = *scene;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) || scene_pass_active(scene) ||
+            scene->live_foundation.play_state.stream_offset[passer] !=
+                action21_offset ||
+            scene->live_foundation.last_step_offset[passer] !=
+                action21_offset ||
+            scene->live_foundation.play_state
+                    .action_state_046e[passer] != 0U) {
+            LIVE_FAIL("LIVE human selected primary consumed CPU opcode-9");
+        }
         receiver = scene->live_foundation.candidate_actor_by_side[
             scene->live_foundation.offense_side];
         if (!scene_begin_pass(scene, 0U, receiver)) {

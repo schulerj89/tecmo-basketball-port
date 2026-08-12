@@ -25,7 +25,7 @@ typedef struct LiveProofEventEvidence {
     uint8_t opcode4_target_object;
     TecmoGameplayCourtCoordinate opcode4_ball_snapshot;
     TecmoGameplayCourtCoordinate opcode4_source_target;
-    bool cpu_primary_stream_excluded;
+    bool cpu_primary_stream_stepped;
     uint16_t primary_record_offset;
     uint8_t primary_wait_frames;
     uint16_t primary_stream_before;
@@ -122,7 +122,7 @@ static bool live_proof_event_valid(const char *event)
         "defensive-switch",
         "cpu-target-deferred",
         "actor-command-assignment-deferred",
-        "cpu-primary-stream-excluded",
+        "cpu-primary-stream-step",
         "shot-path",
         "claimant-settlement",
         "defensive-foul-presentation"
@@ -977,7 +977,7 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
         evidence->opcode4_ball_target = true;
         return live_proof_live_ownership(scene, message, message_size);
     }
-    if (strcmp(event, "cpu-primary-stream-excluded") == 0) {
+    if (strcmp(event, "cpu-primary-stream-step") == 0) {
         TecmoGameplayLiveFoundation candidate;
         TecmoGameplayCourtCoordinate unused_target;
         uint16_t source_offset;
@@ -993,7 +993,7 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
                 &unused_target)) {
             return live_proof_reject(
                 message, message_size,
-                "CPU primary-exclusion fixture could not locate Bank04 ball target");
+                "CPU primary-step fixture could not locate Bank04 ball target");
         }
         candidate = scene->live_foundation;
         candidate.play_state.stream_offset[0U] = source_offset;
@@ -1013,10 +1013,10 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
         candidate.deferred[0U] = false;
         candidate.deferred_reason[0U] =
             TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
-        /* Bank06 `$8286 CPX $0308` / `$8289 BEQ $82A4` skips the selected
-           primary before ordinary `$057C` dispatch. Park a valid opcode-4
-           record on actor 0 and hold every non-primary actor so a production
-           update can prove that the primary cursor is not consumed. */
+        /* Bank06 $8374-$83F3 dispatches the automatic selected primary before
+           $8286/$8289 skips it in the ordinary loop. Park a valid opcode-4
+           record on actor 0 and hold every non-primary actor so one production
+           update proves the cursor is consumed exactly once. */
         for (size_t actor = 1U;
              actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
             candidate.play_state.wait_counter[actor] =
@@ -1030,12 +1030,12 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
                 &scene->cpu_steering_assets, &candidate)) {
             return live_proof_reject(
                 message, message_size,
-                "CPU primary-exclusion fixture foundation was rejected");
+                "CPU primary-step fixture foundation was rejected");
         }
         scene->live_foundation = candidate;
         if (!scene_attach_ball(scene)) {
             return live_proof_reject(message, message_size,
-                                     "CPU primary-exclusion ball attach failed");
+                                     "CPU primary-step ball attach failed");
         }
         evidence->primary_record_offset = source_offset;
         evidence->primary_wait_frames = source_wait;
@@ -1047,7 +1047,7 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
         if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
             return live_proof_reject(
                 message, message_size,
-                "CPU primary-exclusion production update failed");
+                "CPU primary-step production update failed");
         }
         evidence->primary_stream_after = scene->live_foundation.play_state
             .stream_offset[0U];
@@ -1058,21 +1058,23 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
         evidence->primary_action_serial_after = scene->action_serial;
         if (scene->live_foundation.primary_actor != 0U ||
             evidence->primary_stream_after !=
-                evidence->primary_stream_before ||
+                (uint16_t)(evidence->primary_stream_before +
+                           TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE) ||
             evidence->primary_last_step_after !=
-                evidence->primary_last_step_before ||
+                (uint16_t)(evidence->primary_last_step_before +
+                           TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE) ||
             evidence->primary_action_after !=
                 evidence->primary_action_before ||
             evidence->primary_action_serial_after !=
                 evidence->primary_action_serial_before ||
-            scene->live_foundation.source_target_valid[0U] ||
-            scene->cpu_actors[0U].target_valid ||
+            !scene->live_foundation.source_target_valid[0U] ||
+            !scene->cpu_actors[0U].target_valid ||
             scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
             return live_proof_reject(
                 message, message_size,
-                "selected primary executed an ordinary Bank06 stream");
+                "selected primary did not execute exactly one source step");
         }
-        evidence->cpu_primary_stream_excluded = true;
+        evidence->cpu_primary_stream_stepped = true;
         return true;
     }
     if (strcmp(event, "shot-path") == 0) {
@@ -1420,9 +1422,9 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             "\"asm_evidence\":{\"formation_refresh\":"
             "\"Bank06 C-0039 $944D-$9465\","
             "\"command_stream\":\"Bank04 $9F2E five-byte records\","
-            "\"primary_exclusion\":\"Bank06 $8286-$8289 -> $82A4\","
+            "\"primary_dispatch\":\"Bank06 $8374-$83F3 -> $8491\","
             "\"cpu_shot_gate\":\"Bank06 C-0011 $8431-$8475\"},"
-            "\"cpu_primary_stream_excluded\":{\"proved\":%s,"
+            "\"cpu_primary_stream_step\":{\"proved\":%s,"
             "\"record_offset\":\"%04X\",\"wait_frames\":%u,"
             "\"stream\":[\"%04X\",\"%04X\"],"
             "\"last_step\":[\"%04X\",\"%04X\"],"
@@ -1493,7 +1495,7 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
                                                                   "false",
             (unsigned)scene->live_foundation.last_shot_actor,
             (unsigned)target_count, (unsigned)deferred_count,
-            evidence->cpu_primary_stream_excluded ? "true" : "false",
+            evidence->cpu_primary_stream_stepped ? "true" : "false",
             (unsigned)evidence->primary_record_offset,
             (unsigned)evidence->primary_wait_frames,
             (unsigned)evidence->primary_stream_before,

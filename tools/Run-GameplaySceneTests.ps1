@@ -1308,7 +1308,7 @@ try {
         "defensive-switch",
         "cpu-target-deferred",
         "actor-command-assignment-deferred",
-        "cpu-primary-stream-excluded",
+        "cpu-primary-stream-step",
         "shot-path",
         "claimant-settlement",
         "defensive-foul-presentation"
@@ -1490,18 +1490,18 @@ try {
             } elseif ([bool]$State.claimant_settlement.emitted) {
                 throw "Non-claimant LIVE proof event unexpectedly emitted Bank05 B87C diagnostics."
             }
-            if ($Event -eq "cpu-primary-stream-excluded") {
-                $PrimaryExclusion = $State.cpu_primary_stream_excluded
+            if ($Event -eq "cpu-primary-stream-step") {
+                $PrimaryStep = $State.cpu_primary_stream_step
                 $AsmEvidence = $State.asm_evidence
-                if (![bool]$PrimaryExclusion.proved -or
-                    [string]$PrimaryExclusion.record_offset -ne "0000" -or
-                    [int]$PrimaryExclusion.wait_frames -ne 0 -or
-                    ((@($PrimaryExclusion.stream) -join ',') -ne
-                        '0000,0000') -or
-                    ((@($PrimaryExclusion.last_step) -join ',') -ne
-                        '0000,0000') -or
-                    ((@($PrimaryExclusion.action) -join ',') -ne '0,0') -or
-                    ((@($PrimaryExclusion.action_serial) -join ',') -ne
+                if (![bool]$PrimaryStep.proved -or
+                    [string]$PrimaryStep.record_offset -ne "0000" -or
+                    [int]$PrimaryStep.wait_frames -ne 0 -or
+                    ((@($PrimaryStep.stream) -join ',') -ne
+                        '0000,0005') -or
+                    ((@($PrimaryStep.last_step) -join ',') -ne
+                        '0000,0005') -or
+                    ((@($PrimaryStep.action) -join ',') -ne '0,0') -or
+                    ((@($PrimaryStep.action_serial) -join ',') -ne
                         '0,0') -or
                     [bool]$State.opcode4_ball_target.executed -or
                     [bool]$State.live.last_shot_request -or
@@ -1513,11 +1513,11 @@ try {
                         "Bank06 C-0039 `$944D-`$9465" -or
                     [string]$AsmEvidence.command_stream -ne
                         "Bank04 `$9F2E five-byte records" -or
-                    [string]$AsmEvidence.primary_exclusion -ne
-                        "Bank06 `$8286-`$8289 -> `$82A4" -or
+                    [string]$AsmEvidence.primary_dispatch -ne
+                        "Bank06 `$8374-`$83F3 -> `$8491" -or
                     [string]$AsmEvidence.cpu_shot_gate -ne
                         "Bank06 C-0011 `$8431-`$8475") {
-                    throw "LIVE proof selected-primary stream exclusion regressed."
+                    throw "LIVE proof selected-primary stream step regressed."
                 }
             }
             if ($Event -eq "defensive-foul-presentation") {
@@ -1676,7 +1676,7 @@ try {
             "defensive-switch: P1 NES A with home possession"
             "cpu-target-deferred: deterministic source-offset fixture"
             "actor-command-assignment-deferred: real PRETIP/live handoff, then no source-shaped A023 caller or mutation"
-            "cpu-primary-stream-excluded: selected `$0308` primary cannot consume ordinary Bank04 opcode-4 stream"
+            "cpu-primary-stream-step: automatic selected `$0308` primary consumes one Bank04 opcode-4 record before ordinary-loop exclusion"
             "shot-path: deterministic supported close-shot fixture"
             "claimant-settlement: native pre-tip handoff then deterministic coordinate/frame fixture, normal controller-B miss and production terminal claimant handoff (no direct claimant/phase/possession injection)"
             "defensive-foul-presentation: real PRETIP/live handoff, optional human A switch, human defensive-B, then neutral capture at TGVR visible group 1"

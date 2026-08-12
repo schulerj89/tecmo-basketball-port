@@ -690,13 +690,11 @@ bool scene_begin_cpu_pass_from_action21(TecmoGameplayScene *scene,
     }
     receiver = scene->live_foundation.candidate_actor_by_side[
         scene->live_foundation.offense_side];
-    /* Canonical Rev1 Bank06 $8FC5-$8FE7 copies C9 into $046E[X] at
-       $8FCA/$8FCC and returns at $8FE7; rewind begins at $8FE8. Capture proves
-       C9=$21 was written to actor 9, not that actor 9 was current $0308.
-       Bank06 $8284-$82A5 excludes selected primary from ordinary dispatch,
-       so this bounded downstream consumer admits only explicit already-
-       retained $21 state. No live producer/retention/adoption lifecycle is
-       claimed, no Bank04 cursor is forced, and CPU intent never uses NES A. */
+    /* Bank06 $8374-$83F3 dispatches the typed automatic selected primary
+       before the ordinary actor loop. State 4 reaches $8491->$8B90; opcode 9
+       at $8FC5-$8FE7 copies C9=$21 to $046E[X] at $8FCA/$8FCC. Bank05 then
+       consumes selected-primary index $21 at $89D7. This seam never forces a
+       Bank04 cursor or routes CPU intent through human NES A. */
     return scene_begin_actor_pass(
         scene, passer, receiver, TECMO_GAMEPLAY_SCENE_NO_ACTOR);
 }
@@ -2161,6 +2159,7 @@ bool scene_update_ai(
         TECMO_GAMEPLAY_SCENE_ACTOR_COUNT] = {
         0U, 1U, 2U, 3U, 4U, 5U, 6U, 7U, 8U, 9U
     };
+    bool selected_primary_stepped = false;
     size_t actor;
     if (scene == NULL || shot_request_out == NULL ||
         !scene->cpu_steering_assets.available ||
@@ -2200,27 +2199,42 @@ bool scene_update_ai(
             scene->controlled_actor, &candidate_foundation)) {
         return false;
     }
-    /* Bank06 $8284-$82A5 excludes selected primary ($0308) before ordinary
-       $057C->$8B90 dispatch. The native producer/retention/adoption lifecycle
-       is unowned; this fail-closed seam can consume only explicit already-
-       retained $21 state and must never manufacture it via a primary record. */
-    if (candidate_foundation.primary_actor == scene->ball_holder &&
-        candidate_foundation.play_state.action_state_046e[
-            candidate_foundation.primary_actor] == 0x21U &&
-        !scene_team_has_controller(scene, scene->state.possession)) {
-        candidate_scene = *scene;
-        candidate_scene.live_foundation = candidate_foundation;
-        if (!scene_begin_cpu_pass_from_action21(
-                &candidate_scene, candidate_foundation.primary_actor) ||
-            !scene_ownership_valid(&candidate_scene)) {
-            return false;
-        }
-        *scene = candidate_scene;
-        return true;
-    }
     if (!scene_cpu_build_play_input(
             scene, steering_snapshot, &candidate_foundation, &play_input)) {
         return false;
+    }
+
+    /* Canonical selected-primary order precedes $8284's descending ordinary
+       actor loop: $827E JSR $935D, $8281 JSR $8374, then automatic offense in
+       the supported ordinary $05A1=0 context reaches $83F3 JSR $8491. State
+       4 dispatches through $8B90 exactly once. Typed controller ownership is
+       the native admission boundary; raw $030C is not mirrored. Unsupported
+       selected-primary states/gates remain inert/fail-closed. */
+    actor = candidate_foundation.primary_actor;
+    if (actor == scene->ball_holder &&
+        !scene_team_has_controller(scene, scene->state.possession) &&
+        candidate_foundation.play_state.actor_state[actor] == 0x04U) {
+        TecmoGameplayCpuSteeringPlayResult primary_result;
+        memset(&primary_result, 0, sizeof(primary_result));
+        play_input.actor = (uint8_t)actor;
+        if (!tecmo_gameplay_live_foundation_play_step(
+                &scene->cpu_steering_assets, &play_input,
+                &candidate_foundation, &primary_result)) {
+            return false;
+        }
+        selected_primary_stepped = true;
+        if (candidate_foundation.play_state.action_state_046e[actor] ==
+                0x21U) {
+            candidate_scene = *scene;
+            candidate_scene.live_foundation = candidate_foundation;
+            if (!scene_begin_cpu_pass_from_action21(
+                    &candidate_scene, (uint8_t)actor) ||
+                !scene_ownership_valid(&candidate_scene)) {
+                return false;
+            }
+            *scene = candidate_scene;
+            return true;
+        }
     }
 
     /* Ordinary non-selected decisions consume one immutable post-human-input
@@ -2255,30 +2269,39 @@ bool scene_update_ai(
         memset(&input, 0, sizeof(input));
         play_input.actor = (uint8_t)actor;
         memset(&play_result, 0, sizeof(play_result));
-        /* Bank06 $8286/$8289 skips $0308 and $828B/$828E skips $0309 before
-           the ordinary $057C indirect dispatch. Keep the selected primary
-           inert here whether or not it carries retained action $21; its
-           Bank05 selected-primary dispatcher is a separate owner. */
+        /* After selected-primary dispatch above, Bank06 $8286/$8289 skips
+           $0308 and $828B/$828E skips $0309 in the ordinary loop. C may still
+           compose the already-produced primary target/direction through TGMO
+           below, but it must never fetch the primary command a second time. */
         if (actor == candidate_foundation.primary_actor) {
-            cpu->decision_serial = 0U;
-            cpu->snapshot_fingerprint = 0U;
-            cpu->target_position.x = 0;
-            cpu->target_position.y = 0;
-            cpu->target_kind =
-                TECMO_GAMEPLAY_CPU_STEERING_HARNESS_TARGET_KIND_COUNT;
-            cpu->direction = TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
-            cpu->held_direction_bits = TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
-            cpu->target_valid = false;
-            cpu->writes_direction = false;
-            cpu->command_offset = TECMO_GAMEPLAY_SCENE_CPU_NO_COMMAND_OFFSET;
-            cpu->linked_actor = candidate_foundation.play_state
-                .fixed_link[actor];
-            if (!scene_cpu_actor_state_valid(scene, actor, cpu)) return false;
-            continue;
+            if (selected_primary_stepped) {
+                /* Continue with source metadata and movement composition. */
+            } else {
+                cpu->decision_serial = 0U;
+                cpu->snapshot_fingerprint = 0U;
+                cpu->target_position.x = 0;
+                cpu->target_position.y = 0;
+                cpu->target_kind =
+                    TECMO_GAMEPLAY_CPU_STEERING_HARNESS_TARGET_KIND_COUNT;
+                cpu->direction = TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+                cpu->held_direction_bits =
+                    TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
+                cpu->target_valid = false;
+                cpu->writes_direction = false;
+                cpu->command_offset =
+                    TECMO_GAMEPLAY_SCENE_CPU_NO_COMMAND_OFFSET;
+                cpu->linked_actor = candidate_foundation.play_state
+                    .fixed_link[actor];
+                if (!scene_cpu_actor_state_valid(scene, actor, cpu)) {
+                    return false;
+                }
+                continue;
+            }
         }
         /* The selected-defender setup is also outside ordinary dispatch while
            Bank05 $9B27 owns its on-ball responsibility. */
-        if (!(candidate_foundation.selected_defender_handoff_active &&
+        if (actor != candidate_foundation.primary_actor &&
+            !(candidate_foundation.selected_defender_handoff_active &&
               actor == candidate_foundation.defender_actor) &&
             !tecmo_gameplay_live_foundation_play_step(
                 &scene->cpu_steering_assets, &play_input,

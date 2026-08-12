@@ -2,27 +2,28 @@
 
 ## Shared visible pass lifecycle
 
-Ordinary bound human passes and the source-proven downstream action-`$21`
-fixture share one actor-neutral transport rather than teleporting possession:
+Ordinary bound human passes and autonomous selected-primary action-`$21`
+passes share one actor-neutral transport rather than teleporting possession:
 
 - Bank06 opcode 9 is the already-owned writer of actor-local `$046E`. The
   native code does not force the Bank04 `$A05F` record or route CPU intent
   through NES A.
-- Canonical Rev1 Bank06 `$8FC5-$8FE7` copies `C9` at `$8FCA/$8FCC` and returns
-  at `$8FE7`; rewind starts at `$8FE8`. A capture proves `C9=$21` was written
-  to actor 9, but not that actor 9 was current `$0308`. Meanwhile
-  `$8284-$82A5` excludes `$0308` and `$0309` from ordinary descending `$057C`
-  actor-state dispatch. Bank05's selected-primary pointer table consumes index
+- Selected primary runs before the ordinary loop: `$8374` saves `$0308` in the
+  selected context, typed automatic offense in ordinary `$05A1=0` reaches
+  `$83F3->$8491`, and state 4 dispatches through `$8B90`. Canonical Rev1
+  Bank06 `$8FC5-$8FE7` copies `C9=$21` at `$8FCA/$8FCC` and advances the
+  cursor by five. Bank05's selected-primary pointer table consumes index
   `$21` at `$89D7`. `$89D7`
   seeds packed `$0458=$32` and changes the selected actor to state `$0F`;
   state `$0F` dispatches to `$8695`, not state `$0A`. A separate paused trace
   displayed `$24` beside `$89DB`, but FCEUX effective-value annotations can
   reflect later register/memory state; it neither disproves this bounded chain
   nor proves the absence of an intermediate write.
-- Native LIVE mirrors that ownership boundary: the selected primary never runs
-  ordinary Bank06 `play_step`. Only an already-retained exact `$21` can enter
-  the native downstream consumer. No live producer, retention, or primary-
-  adoption lifecycle is proven, so autonomous passing is not currently live.
+- Native LIVE mirrors that order with typed controller ownership: automatic
+  selected-primary state 4 executes one play step, exact `$0131` produces
+  `$21`, and gather starts in that update. `$8284-$82A5` then skips primary and
+  defender in the ordinary loop, preventing a duplicate fetch. Human selected
+  primary and unsupported automatic states/gates remain fail-closed.
 - `$8999` is not a tight loop. At bytes >=`$10` it jumps to `$9C29`, which
   subtracts `$10` from the high nibble while preserving the low nibble. The
   captured route then advances below `$10` through raw `$0385/$0391`, yielding

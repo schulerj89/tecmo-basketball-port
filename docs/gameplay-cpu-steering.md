@@ -63,21 +63,18 @@ scene resolves slot `10` from one immutable floored-Q8 ball snapshot before
 its normal TGMO composition. This is source-to-C target transport, not a claim
 to reconstruct offensive play selection.
 
-## Opcode 9 action `$21`: downstream pass consumer, producer fail-closed
+## Opcode 9 action `$21`: selected-primary autonomous pass
 
 The exact opcode-9 executor copies Bank04 command byte `C9` into actor-local
 `$046E[X]`. Canonical Rev1 Bank06 `$8FC5-$8FE7` contains that handler, with
 the `C9` load/store at `$8FCA/$8FCC` and RTS at `$8FE7`; rewind begins at
-`$8FE8`. A runtime capture proves `C9=$21` was written to actor 9, but it does
-not prove actor 9 was already current `$0308`, nor the retention/adoption
-lifecycle that could make that actor selected primary afterward.
+`$8FE8`.
 
-Bank06 `$8284-$82A5` excludes both `$0308` and `$0309` from ordinary
-descending `$057C` dispatch. Native LIVE now preserves that exclusion, so its
-ordinary `play_step` cannot produce `$21` on the selected primary. The native
-downstream consumer is therefore testable only from an already-retained typed
-`$21`; no live producer currently reaches it and autonomous CPU passing remains
-fail-closed. Bank05's selected-primary pointer table consumes index `$21` at
+Selected primary is dispatched before the ordinary actor loop: `$827E` calls
+`$935D`, `$8281` calls `$8374`, and typed automatic offense in the supported
+ordinary `$05A1=0` context reaches `$83F3 JSR $8491`. State 4 dispatches
+through `$8B90`; exact opcode 9 writes `$21`, advances the cursor by five, and
+Bank05's selected-primary pointer table consumes index `$21` at
 `$89D7`. `$89D7` writes selected-actor state `$0F` and packed `$0458=$32`;
 state `$0F` dispatches through `$8695`; `$8999/$9C29` produced the observed
 `$32->$22->$12->$02->$03->$04` cadence; `$86A8-$86B7` releases at the complete
@@ -91,12 +88,12 @@ holder remains the passer until catch. The controller-none deterministic
 fixture cannot mutate either human assignment. Human NES-A passing continues
 to use the same transport with its controller attached.
 
-This implements a source-proven downstream gather-to-catch consumer behind an
-explicit retained-action admission seam. Native LIVE does not run the current
-primary through ordinary `play_step`; without a proven producer/retention/
-adoption lifecycle, normal play cannot supply that seam. The static Bank04
-`$A05F` / stream `$0131` record is exact, but live play-selection and cursor
-reach remain unproven and are never forced by C. The
+Native LIVE implements that selected-primary-first order using typed controller
+ownership rather than raw `$030C/$030D`: state 4 executes exactly once before
+`$8284-$82A5` skips `$0308/$0309` in the ordinary loop. Exact Bank04 `$A05F` /
+stream `$0131` naturally produces `$21` and begins gather in the same update.
+Human selected primary stays excluded. Broader play selection and unsupported
+selected-primary states/gates remain fail-closed. The
 current flight duration/interpolation also remains a labeled native adapter
 until `$B42F/$BB9F/$BBA0` and `$B1E7/$B500` are imported as a strict asset.
 The standalone C `$BD6E-$BDC6` arithmetic kernel exactly preserves uint16
@@ -244,10 +241,9 @@ clamp. After a successful step, the CLI
 copies the resulting canonical coordinate into the next snapshot and
 re-evaluates the target and direction.
 
-Human and legacy holder routes feed committed TGMO direction/animation into
-strict TGBD-1 held-ball geometry. The bound selected CPU primary skips ordinary
-TGMO, so its animation is currently frozen; TGBD still resolves attachment from
-that retained state. TGBD's height/attachment tables are exact, while the
+Human/legacy holders and the supported automatic selected-primary flow feed
+committed TGMO direction/animation into strict TGBD-1 held-ball geometry. TGBD's
+height/attachment tables are exact, while the
 scene's fixed linked actor and visible-Y-before-TGCP adapter remain native
 policy.
 
@@ -276,9 +272,9 @@ normal play calls the pure API directly.
 
 ## Deliberate limits and next integration
 
-TGAI-2 does not claim a complete CPU play policy. Its downstream opcode-9
-action-`$21` consumer is covered from explicit retained fixture state, but no
-live producer/retention/adoption lifecycle reaches it. It also does
+TGAI-2 does not claim a complete CPU play policy. Its supported automatic
+selected-primary state-4 flow can naturally execute exact opcode-9 action `$21`
+and enter the downstream pass consumer. It still does
 not reconstruct every actor-link assignment,
 own live collision/contact or speed-setting policy, or treat the nearby Bank06
 `$B081-$B32E` candidate scan as ordinary movement targeting. That scan is now
@@ -289,10 +285,10 @@ names describe bounded entry behavior; they are not play names.
 
 The scene owns a fixed opposing roster-slot link, an explicit target position,
 direction/write result, immutable-snapshot fingerprint, and decision serial
-for each ordinary eligible actor. Non-controlled non-selected candidates are
-evaluated from the same post-human-input snapshot and committed together, then
-their held direction is advanced through TGMO. The selected primary is skipped
-and remains inert.
+for each eligible actor. The supported automatic selected primary executes one
+source command first; non-controlled non-selected candidates follow from the
+same post-human-input snapshot. Their movement commits together, while the
+ordinary loop skips primary to prevent duplicate dispatch.
 
 Offensive non-holders use five scene-owned formation points (`256,148`; `288,112`;
 `288,184`; `352,96`; `352,200`) and mirror X as `767-X` for the other
@@ -360,20 +356,15 @@ selected defense is active on initial possession and after pass handoff. The
 selected defender uses the source `+16/-16` orientation separation rather
 than chasing the holder's exact coordinate.
 
-The selected primary is also excluded from ordinary Bank06 actor dispatch:
-`$8286 CPX $0308` / `$8289 BEQ $82A4` bypasses its `$057C` handler and Bank04
-cursor. `--gameplay-live-foundation-proof <PACK>
-cpu-primary-stream-excluded <PNG>` parks the canonical opcode-4 ball-object
-record at `$0000` on selected actor 0 and proves one production update leaves
-its stream, last-step offset, action state, target metadata, and scene action
-serial unchanged. The scene-state suite separately runs the real
-PRETIP-to-home-CPU handoff: the holder cursor remains unchanged while at least
-one nonselected actor moves. These regressions prove selected-primary
-exclusion, not complete play-selection policy, downstream `$92DD` side
-effects, or formation-refresh parity for every ordinary actor route. The
-native close-shot `shot-path` proof remains a separately classified bounded
-shot-policy slice; it is not evidence that a selected primary executed an
-ordinary opcode-4 stream.
+The selected primary is excluded only from the later ordinary Bank06 loop:
+`$8286 CPX $0308` / `$8289 BEQ $82A4` prevents duplicate dispatch after the
+earlier `$8374->$83F3->$8491` selected flow. `--gameplay-live-foundation-proof
+<PACK> cpu-primary-stream-step <PNG>` parks canonical opcode-4 at `$0000` on
+automatic selected actor 0 and proves one production update advances exactly
+to `$0005`, retains its source target, and does not double-step. The scene-state
+suite separately proves a real PRETIP-to-home-CPU holder advances its non-pass
+opcode once while nonselected actors continue moving. These regressions do not
+claim complete play-selection policy or unsupported selected-primary gates.
 
 `tools/Invoke-CpuBallTargetOpcode4Proof.ps1 -RomPath <LOCAL_ROM.nes>` creates
 an ignored two-run production proof under `build/cpu-ball-target-opcode4-proof`.
