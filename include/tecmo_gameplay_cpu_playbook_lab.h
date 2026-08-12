@@ -41,7 +41,7 @@ typedef struct TecmoGameplayCpuPlaybookLabActorSnapshot {
     TecmoGameplayCpuSteeringCommand command;
     uint8_t wait_counter;
     uint8_t actor_state;
-    uint8_t timer;
+    uint8_t action_state_046e;
     uint8_t source_target_object;
     TecmoGameplayCourtCoordinate source_target;
     bool source_target_valid;

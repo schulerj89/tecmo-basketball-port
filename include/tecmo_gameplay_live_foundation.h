@@ -9,9 +9,10 @@
 
 /*
  * LIVE owns the adapter state around the accepted TGAI play contract.  The
- * fixed links and startup seeds are source-backed; native_matchup_actor and
- * the caller workspaces are explicitly classified below and are not claims
- * about the incomplete ROM dynamic candidate vector.
+ * fixed links and startup seeds are source-backed; fixed_link_target is a
+ * native fixed projection rather than live ownership of the incomplete ROM
+ * dynamic $037F candidate or $06CB link vectors. Caller workspaces are also
+ * explicitly classified below.
  */
 #define TECMO_GAMEPLAY_LIVE_FOUNDATION_TAG 0x4C564631U
 #define TECMO_GAMEPLAY_LIVE_CLAIMANT_SETTLEMENT_TAG 0x4C435331U
@@ -82,7 +83,7 @@ typedef struct TecmoGameplayLiveFoundation {
     bool state_valid;
     bool initialized;
     bool formation_source_pinned;
-    bool native_matchup_inferred;
+    bool fixed_link_projection_active;
     bool workspace_native_approximation;
     bool shot_request_native_approximation;
     bool first_sync_pending;

@@ -266,7 +266,7 @@ static bool live_play_state_valid(
         foundation->contract_tag != TECMO_GAMEPLAY_LIVE_FOUNDATION_TAG ||
         !foundation->state_valid || !foundation->initialized ||
         !foundation->formation_source_pinned ||
-        !foundation->native_matchup_inferred ||
+        !foundation->fixed_link_projection_active ||
         !foundation->workspace_native_approximation ||
         !foundation->shot_request_native_approximation ||
         foundation->formation_index >=
@@ -389,7 +389,7 @@ static bool live_play_state_valid(
         if (!live_target_fields_valid(foundation, actor) ||
             foundation->last_step_offset[actor] !=
                 foundation->play_state.stream_offset[actor] ||
-            foundation->play_state.native_matchup_actor[actor] !=
+            foundation->play_state.fixed_link_target[actor] !=
                 foundation->play_state.fixed_link[actor] ||
             (!foundation->source_direction_valid[actor] &&
              (foundation->source_direction[actor] !=
@@ -500,13 +500,14 @@ bool tecmo_gameplay_live_foundation_formation_index_for_coordinate(
     return true;
 }
 
-static void live_seed_native_matchup(
+static void live_seed_fixed_link_projection(
     TecmoGameplayLiveFoundation *foundation)
 {
     size_t actor;
+    /* Native adapter only: fixed_link is not live $037F/$06CB ownership. */
     for (actor = 0U;
          actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
-        foundation->play_state.native_matchup_actor[actor] =
+        foundation->play_state.fixed_link_target[actor] =
             foundation->play_state.fixed_link[actor];
     }
 }
@@ -646,7 +647,7 @@ bool tecmo_gameplay_live_foundation_initialize(
     candidate.state_valid = true;
     candidate.initialized = true;
     candidate.formation_source_pinned = true;
-    candidate.native_matchup_inferred = true;
+    candidate.fixed_link_projection_active = true;
     candidate.workspace_native_approximation = true;
     candidate.shot_request_native_approximation = true;
     candidate.formation_index = formation_index;
@@ -685,7 +686,7 @@ bool tecmo_gameplay_live_foundation_initialize(
     candidate.selected_defender_handoff_active =
         candidate.control_mode[candidate.defense_side] != 0U;
     candidate.initialization_serial = 1U;
-    live_seed_native_matchup(&candidate);
+    live_seed_fixed_link_projection(&candidate);
     if (!live_play_state_valid(assets, &candidate)) return false;
     *foundation_out = candidate;
     return true;
@@ -791,8 +792,8 @@ bool tecmo_gameplay_live_foundation_synchronize(
            continuity. This is a native-faithful safety policy. */
         live_invalidate_source_metadata(&candidate);
     }
-    live_seed_native_matchup(&candidate);
-    candidate.native_matchup_inferred = true;
+    live_seed_fixed_link_projection(&candidate);
+    candidate.fixed_link_projection_active = true;
     if (!tecmo_gameplay_live_foundation_refresh_formation(
             assets, actor_position, &candidate)) {
         return false;
@@ -834,9 +835,9 @@ bool tecmo_gameplay_live_foundation_pass_handoff(
         new_selected_actor;
     candidate.candidate_actor_by_side[candidate.offense_side] = old_selected;
     candidate.play_state.actor_state[new_selected_actor] = 0U;
-    candidate.play_state.timer[new_selected_actor] = 0U;
+    candidate.play_state.action_state_046e[new_selected_actor] = 0U;
     candidate.play_state.actor_state[old_selected] = 4U;
-    candidate.play_state.timer[old_selected] = 0U;
+    candidate.play_state.action_state_046e[old_selected] = 0U;
     candidate.play_state.stream_offset[old_selected] = 0x0B63U;
     candidate.last_step_offset[old_selected] = 0x0B63U;
 
@@ -859,13 +860,13 @@ bool tecmo_gameplay_live_foundation_pass_handoff(
         candidate.play_state.defender_actor = found;
         candidate.selected_actor_by_side[candidate.defense_side] = found;
         candidate.selected_defender_handoff_active = true;
-        candidate.play_state.timer[found] = 0U;
-        candidate.play_state.timer[old_defender] = 0U;
+        candidate.play_state.action_state_046e[found] = 0U;
+        candidate.play_state.action_state_046e[old_defender] = 0U;
     } else {
         candidate.selected_defender_handoff_active = false;
     }
     live_invalidate_source_metadata(&candidate);
-    live_seed_native_matchup(&candidate);
+    live_seed_fixed_link_projection(&candidate);
     candidate.sync_serial = live_serial_next(candidate.sync_serial);
     if (!live_play_state_valid(assets, &candidate)) return false;
     *foundation_io = candidate;

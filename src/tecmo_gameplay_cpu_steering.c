@@ -1198,7 +1198,7 @@ bool tecmo_gameplay_cpu_steering_play_state_initialize(
         state.actor_state[actor] = 0x04U;
         state.direction[actor] = TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
         state.target_object[actor] = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
-        state.native_matchup_actor[actor] =
+        state.fixed_link_target[actor] =
             TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     }
     /* Bank04 $ACE4-$ACF0 and $AD11/$AD16 startup seeds. */
@@ -1527,9 +1527,9 @@ bool tecmo_gameplay_cpu_steering_play_step(
             (state_in->target_object[actor] !=
                  TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR &&
              !play_valid_target_object(state_in->target_object[actor])) ||
-            (state_in->native_matchup_actor[actor] !=
+            (state_in->fixed_link_target[actor] !=
                  TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR &&
-             !play_valid_actor(state_in->native_matchup_actor[actor]))) {
+             !play_valid_actor(state_in->fixed_link_target[actor]))) {
             return false;
         }
     }
@@ -1681,7 +1681,7 @@ bool tecmo_gameplay_cpu_steering_play_step(
         case 10U: {
             uint8_t linked = actor == input->special_actor_07df
                 ? next_state.primary_actor
-                : next_state.native_matchup_actor[actor];
+                : next_state.fixed_link_target[actor];
             int16_t target_x;
             int16_t target_depth;
             if (!input->linked_relative_valid || !play_valid_actor(linked)) {
@@ -1759,7 +1759,8 @@ bool tecmo_gameplay_cpu_steering_play_step(
         }
         case 9U:
             next_state.actor_state[actor] = command.arguments[0U];
-            next_state.timer[actor] = command.arguments[1U];
+            /* Bank06 opcode 9 copies C9 into actor-local $046E[X]. */
+            next_state.action_state_046e[actor] = command.arguments[1U];
             next_state.action[actor] = 0x30U;
             break;
         case 14U:
@@ -3035,10 +3036,10 @@ bool tecmo_gameplay_cpu_steering_self_test(
     }
     for (size_t actor = 0U;
          actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
-        if (play_state.native_matchup_actor[actor] !=
+        if (play_state.fixed_link_target[actor] !=
                 TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR) {
             (void)snprintf(message, message_size,
-                           "TGAI-2 fixed startup seeds leaked into matchup state.");
+                           "TGAI-2 fixed startup seeds leaked into fixed-link target state.");
             tecmo_gameplay_cpu_steering_assets_destroy(&assets);
             return false;
         }
@@ -3379,7 +3380,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             return false;
         }
         play_state.stream_offset[0U] = opcode_offsets[10U];
-        play_state.native_matchup_actor[0U] = 5U;
+        play_state.fixed_link_target[0U] = 5U;
         play_input.actor = 0U;
         play_input.step_budget = 1U;
         play_input.linked_relative_valid = true;
@@ -3760,7 +3761,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     play_state.primary_actor = 4U;
     play_state.defender_actor = 9U;
     play_state.actor_state[0U] = 0x0BU;
-    play_state.timer[0U] = 0xC3U;
+    play_state.action_state_046e[0U] = 0xC3U;
     play_before = play_state;
     play_input.actor = 0U;
     play_input.step_budget = 1U;
@@ -3776,7 +3777,8 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.primary_actor != play_before.primary_actor ||
         play_out.defender_actor != play_before.defender_actor ||
         play_out.actor_state[0U] != play_before.actor_state[0U] ||
-        play_out.timer[0U] != play_before.timer[0U] ||
+        play_out.action_state_046e[0U] !=
+            play_before.action_state_046e[0U] ||
         memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
         (void)snprintf(message, message_size,
                        "TGAI-2 opcode-15 LIVE deferred boundary failed.");

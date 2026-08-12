@@ -342,7 +342,8 @@ bool tecmo_gameplay_cpu_playbook_lab_snapshot(
         view->stream_offset = foundation->play_state.stream_offset[actor];
         view->wait_counter = foundation->play_state.wait_counter[actor];
         view->actor_state = foundation->play_state.actor_state[actor];
-        view->timer = foundation->play_state.timer[actor];
+        view->action_state_046e =
+            foundation->play_state.action_state_046e[actor];
         view->source_target_object =
             foundation->play_state.target_object[actor];
         view->source_target.x = foundation->play_state.target_x[actor];
@@ -512,7 +513,7 @@ bool tecmo_gameplay_cpu_playbook_lab_write_json(
                     ? tecmo_gameplay_cpu_steering_effect_name(command->effect)
                     : "unavailable",
                 (unsigned)view->wait_counter, (unsigned)view->actor_state,
-                (unsigned)view->timer,
+                (unsigned)view->action_state_046e,
                 view->source_target_valid ? "true" : "false",
                 (unsigned)view->source_target_object,
                 (int)view->source_target.x, (int)view->source_target.y,

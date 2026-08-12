@@ -129,7 +129,7 @@ editing those files, that:
   state;
 - TGSR claimant settlement says it does not name rebound, steal, block, or
   recovery;
-- LIVE says `native_matchup_actor` and caller workspaces are not claims about
-  the incomplete ROM dynamic candidate vector;
+- LIVE says `fixed_link_target` and caller workspaces are not claims about
+  the incomplete ROM dynamic `$037F` candidate or `$06CB` link vectors;
 - CPU/state documentation keeps the `$B081-$B32E` candidate scan outside the
   existing movement/state evidence boundary.

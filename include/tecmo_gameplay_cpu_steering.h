@@ -245,8 +245,10 @@ typedef struct TecmoGameplayCpuSteeringPlayState {
     uint8_t direction[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t pose[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t action[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
-    /* Actor-local $046E values used by the source command handlers. */
-    uint8_t timer[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    /* Bank06 bounded handler projection of actor/object state $046E[X].
+       This owns only the converted command-handler seams, not a complete
+       object-lifecycle mirror. */
+    uint8_t action_state_046e[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     /* Source target-object identity. Slots 0..9 identify player
        coordinates; slot 10 is the typed ball coordinate for the exact
        opcode-4 C8 lookup. NO_ACTOR remains the no-object sentinel. */
@@ -254,10 +256,11 @@ typedef struct TecmoGameplayCpuSteeringPlayState {
     int16_t target_x[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     int16_t target_depth[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t fixed_link[TECMO_GAMEPLAY_CPU_STEERING_FIXED_LINK_COUNT];
-    /* Native candidate/matchup integration state. This is deliberately not a
-       claim that the array is the ROM's dynamic $037F vector. The exact
-       startup seeds are carried separately in matchup_seed and fixed_link. */
-    uint8_t native_matchup_actor[
+    /* Native fixed-link projection used by bounded integration. This is not
+       live ownership of the ROM's dynamic $037F candidate or $06CB link
+       vectors. Exact startup seeds remain separate in matchup_seed and
+       fixed_link. */
+    uint8_t fixed_link_target[
         TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t primary_actor;
     uint8_t defender_actor;

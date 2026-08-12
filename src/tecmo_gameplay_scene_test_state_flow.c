@@ -2222,7 +2222,7 @@ static bool scene_test_live_foundation_regressions(
         LIVE_FAIL("LIVE stream offset alignment negative was accepted");
     }
     candidate_foundation = foundation_before;
-    candidate_foundation.play_state.native_matchup_actor[0U] =
+    candidate_foundation.play_state.fixed_link_target[0U] =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     if (tecmo_gameplay_live_foundation_valid(
             &scene->cpu_steering_assets, &candidate_foundation)) {
@@ -2241,10 +2241,10 @@ static bool scene_test_live_foundation_regressions(
         LIVE_FAIL("LIVE primary adapter synchronization negative was accepted");
     }
     candidate_foundation = foundation_before;
-    candidate_foundation.native_matchup_inferred = false;
+    candidate_foundation.fixed_link_projection_active = false;
     if (tecmo_gameplay_live_foundation_valid(
             &scene->cpu_steering_assets, &candidate_foundation)) {
-        LIVE_FAIL("LIVE native matchup classification negative was accepted");
+        LIVE_FAIL("LIVE fixed-link projection classification negative was accepted");
     }
     candidate_foundation = foundation_before;
     candidate_foundation.workspace_native_approximation = false;
@@ -2562,7 +2562,7 @@ static bool scene_test_live_foundation_regressions(
         opcode15_before.play_state.stream_offset[opcode15_actor] = 0x0037U;
         opcode15_before.last_step_offset[opcode15_actor] = 0x0037U;
         opcode15_before.play_state.actor_state[opcode15_actor] = 0x0BU;
-        opcode15_before.play_state.timer[opcode15_actor] = 0xC3U;
+        opcode15_before.play_state.action_state_046e[opcode15_actor] = 0xC3U;
         if (!tecmo_gameplay_live_foundation_valid(
                 &scene->cpu_steering_assets, &opcode15_before)) {
             LIVE_FAIL("LIVE opcode-15 negative fixture was invalid");
@@ -2584,8 +2584,8 @@ static bool scene_test_live_foundation_regressions(
                 opcode15_before.play_state.stream_offset[opcode15_actor] ||
             candidate_foundation.play_state.actor_state[opcode15_actor] !=
                 opcode15_before.play_state.actor_state[opcode15_actor] ||
-            candidate_foundation.play_state.timer[opcode15_actor] !=
-                opcode15_before.play_state.timer[opcode15_actor] ||
+            candidate_foundation.play_state.action_state_046e[opcode15_actor] !=
+                opcode15_before.play_state.action_state_046e[opcode15_actor] ||
             candidate_foundation.deferred_reason[opcode15_actor] !=
                 TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE15_RAW_LIFECYCLE ||
             !candidate_foundation.opcode15_trace.observed ||

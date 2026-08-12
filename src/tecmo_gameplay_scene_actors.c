@@ -2095,8 +2095,9 @@ bool scene_update_ai(
             scene->orientation_state.current_direction;
         input.steering.ball_holder = scene->ball_holder;
         input.steering.difficulty = scene->launch.difficulty;
+        /* Native fixed projection; never expose it as live $037F/$06CB. */
         input.steering.matchup_actor = candidate_foundation.play_state
-            .native_matchup_actor[actor];
+            .fixed_link_target[actor];
         if (candidate_foundation.selected_defender_handoff_active &&
             actor == candidate_foundation.defender_actor) {
             /* Bank06 omits $0309 from ordinary command dispatch; the

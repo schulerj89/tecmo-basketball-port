@@ -91,8 +91,8 @@ effect/transport decision.
 | 22 | global timers/mask | +5 | exact C8/C9 replacement and CA OR retention |
 | 23 | alternate direction/pose | +5 | effect deferred; transport exact |
 
-The native `native_matchup_actor[10]` field is explicitly integration/candidate
-storage, not a representation of `$037F`. The accepted slice removes the
+The native `fixed_link_target[10]` field is explicitly fixed-link projection
+storage, not live ownership of `$037F` or `$06CB`. The accepted slice removes the
 caller-decided primary-switch seam; opcode 15 remains deferred. Dynamic
 candidate scan/filter behavior at `$B081-$B365` is a later CPU policy slice.
 

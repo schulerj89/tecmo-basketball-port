@@ -2018,7 +2018,7 @@ static void render_cpu_playbook_lab(const TecmoRuntime *runtime,
                            (unsigned)view->command.handler_cpu,
                            (unsigned)view->wait_counter,
                            (unsigned)view->actor_state,
-                           (unsigned)view->timer);
+                           (unsigned)view->action_state_046e);
         } else {
             (void)snprintf(line, sizeof(line),
                            "%c%02u %c CUR %04X COMMAND UNAVAILABLE W%02X S%02X T%02X",
@@ -2028,7 +2028,7 @@ static void render_cpu_playbook_lab(const TecmoRuntime *runtime,
                            (unsigned)view->stream_offset,
                            (unsigned)view->wait_counter,
                            (unsigned)view->actor_state,
-                           (unsigned)view->timer);
+                           (unsigned)view->action_state_046e);
         }
         draw_text(fb, 282, 132 + (int)actor * 15, line, color, 1);
     }
