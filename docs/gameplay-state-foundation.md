@@ -358,12 +358,14 @@ animation, the same exact `$8F02` half comparison used for walking poses,
 signed attachment offsets, and the 128-byte `$B5C8` bounce-height table. Its
 ground-contact DMC condition is exactly low nibble 3 and high nibble 0.
 
-The ordinary live scene resolves the held ball after human and CPU movement;
-because TGMO advances neutral animation, a stationary holder visibly dribbles.
-The original height is flattened into canonical visible Y before the existing
-TGCP projection. That adapter, the fixed opposing roster-slot link supplying
-the half comparison, and complete 6502 caller scheduling remain native policy
-or unproven. Free-throw and active-shot ball routes remain separate. Focused
+The ordinary live scene keeps the held ball attached through this resolver.
+Human and legacy neutral TGMO cadence can advance its animation. Bound selected
+CPU primary skips ordinary TGMO, so holder movement/animation is currently
+frozen while TGBD resolves attachment from the retained state. The original
+height is flattened into canonical visible Y before the existing TGCP
+projection. That adapter, the fixed opposing roster-slot link supplying the
+half comparison, and complete 6502 caller scheduling remain native policy or
+unproven. Free-throw and active-shot ball routes remain separate. Focused
 tests cover all strict dependencies and mutations plus high, ground-contact,
 alternate-half, malformed-state, human/CPU cadence, and sound vectors.
 

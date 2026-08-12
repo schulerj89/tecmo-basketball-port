@@ -1595,6 +1595,10 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
     TecmoGameplayCpuSteeringCommand command;
     TecmoGameplayCourtCoordinate before[
         TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplaySceneActor holder_before;
+    TecmoGameplaySceneCpuActor holder_cpu_before;
+    TecmoGameplayBallDribbleFrame attached_frame;
+    TecmoGameplayCourtCoordinateQ8 expected_ball;
     uint8_t holder = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     uint16_t stream_before = 0U;
     uint16_t last_step_before = 0U;
@@ -1673,6 +1677,10 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
         before[actor] = scene->actors[actor].position;
     }
+    holder_before = scene->actors[holder];
+    holder_cpu_before = scene->cpu_actors[holder];
+    memset(&attached_frame, 0, sizeof(attached_frame));
+    memset(&expected_ball, 0, sizeof(expected_ball));
     memset(&away, 0, sizeof(away));
     memset(&home, 0, sizeof(home));
     if (!tecmo_gameplay_scene_update(scene, &away, &home) ||
@@ -1694,10 +1702,55 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                        scene->status);
         goto failed;
     }
+    /* Bank06 $8286/$8289 skips selected primary before ordinary state/TGMO
+       dispatch. The bound CPU holder is therefore frozen, but the ordinary
+       held-ball resolver must still attach TGBD geometry to that actor. */
+    if (scene->ball_holder != holder || scene_pass_active(scene) ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        scene->actors[holder].position.x != holder_before.position.x ||
+        scene->actors[holder].position.y != holder_before.position.y ||
+        scene->actors[holder].pose_index != holder_before.pose_index ||
+        scene->actors[holder].movement_action_state !=
+            holder_before.movement_action_state ||
+        scene->actors[holder].movement_direction !=
+            holder_before.movement_direction ||
+        scene->actors[holder].movement_fractional_accumulator !=
+            holder_before.movement_fractional_accumulator ||
+        scene->actors[holder].movement_animation_phase !=
+            holder_before.movement_animation_phase ||
+        scene->cpu_actors[holder].decision_serial !=
+            holder_cpu_before.decision_serial ||
+        scene->cpu_actors[holder].snapshot_fingerprint !=
+            holder_cpu_before.snapshot_fingerprint ||
+        scene->cpu_actors[holder].target_valid !=
+            holder_cpu_before.target_valid ||
+        scene->cpu_actors[holder].writes_direction !=
+            holder_cpu_before.writes_direction ||
+        scene->cpu_actors[holder].held_direction_bits !=
+            holder_cpu_before.held_direction_bits ||
+        !scene_live_ball_frame_for_actors(
+            scene, scene->actors, holder, &attached_frame) ||
+        !tecmo_gameplay_court_coordinate_to_q8(
+            &attached_frame.visible_position, &expected_ball) ||
+        scene->ball_position.x_q8 != expected_ball.x_q8 ||
+        scene->ball_position.y_q8 != expected_ball.y_q8) {
+        (void)snprintf(
+            failure, sizeof(failure),
+            "PRETIP CPU selected-primary freeze/attachment failed holder=%u "
+            "position=%d,%d animation=%u decision=%lu ball=%ld,%ld",
+            (unsigned)holder, (int)scene->actors[holder].position.x,
+            (int)scene->actors[holder].position.y,
+            (unsigned)scene->actors[holder].movement_animation_phase,
+            (unsigned long)scene->cpu_actors[holder].decision_serial,
+            (long)scene->ball_position.x_q8,
+            (long)scene->ball_position.y_q8);
+        goto failed;
+    }
     for (update = 0U; update < 12U && !actor_moved; ++update) {
         for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
-            if (scene->actors[actor].position.x != before[actor].x ||
-                scene->actors[actor].position.y != before[actor].y) {
+            if (actor != holder &&
+                (scene->actors[actor].position.x != before[actor].x ||
+                 scene->actors[actor].position.y != before[actor].y)) {
                 actor_moved = true;
                 break;
             }

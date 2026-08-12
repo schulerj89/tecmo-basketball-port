@@ -244,11 +244,12 @@ clamp. After a successful step, the CLI
 copies the resulting canonical coordinate into the next snapshot and
 re-evaluates the target and direction.
 
-For the live ball holder, the committed TGMO direction and animation phase also
-feed strict TGBD-1 held-ball geometry. This makes CPU and human holders share
-the same ROM-derived bounce phases and ground-contact sound trigger. TGBD's
-height and attachment tables are exact; the scene's fixed linked actor and its
-visible-Y-before-TGCP adapter remain native policy.
+Human and legacy holder routes feed committed TGMO direction/animation into
+strict TGBD-1 held-ball geometry. The bound selected CPU primary skips ordinary
+TGMO, so its animation is currently frozen; TGBD still resolves attachment from
+that retained state. TGBD's height/attachment tables are exact, while the
+scene's fixed linked actor and visible-Y-before-TGCP adapter remain native
+policy.
 
 The exactness boundary has one important seam: TGAI's zero-vector guard means
 "do not write direction," while TGMO consumes held controller-direction bits.

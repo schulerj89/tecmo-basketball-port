@@ -1504,9 +1504,11 @@ descriptors, source records, alignment padding, canonical fingerprint,
 full-ROM identity, same-pack dependencies, table semantics, movement state,
 coordinate arithmetic, and output commits are strict and fail closed.
 
-During ordinary live possession, both human and CPU holders use the same TGBD
-resolver after their TGMO state advances. TGMO's neutral cadence therefore
-animates a stationary holder as well as a moving one. Active shots and free
+During ordinary live possession, both human and CPU holders use TGBD to keep
+the ball attached. Human and legacy routes can advance the resolver through
+TGMO's neutral cadence. In the bound scene, selected-primary exclusion skips
+the CPU holder's ordinary TGMO step, so its movement/animation is currently
+deferred and frozen while attachment remains active. Active shots and free
 throws retain their separately owned ball routes. `$8F02`'s signed comparison
 is exact, but the opposing actor supplying that comparison is still a fixed
 scene-owned roster link. The native scene converts the exact height to visible

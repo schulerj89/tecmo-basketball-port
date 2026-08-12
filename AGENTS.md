@@ -1307,9 +1307,12 @@ condition where the animation low nibble is 3 and high nibble is 0. Parser,
 dependency, source-map, full-revision, reserved-byte, table, and transactional
 state validation must fail closed.
 
-The live scene must use TGBD for an ordinary held ball whether the holder is
-human or CPU controlled; TGMO's neutral animation cadence keeps a stationary
-holder dribbling. Keep free-throw and active-shot ball paths separately owned.
+The live scene uses TGBD to keep an ordinary held ball attached for both human
+and CPU holders. Human and legacy routes can advance TGBD through TGMO's
+neutral cadence. In the bound scene, Bank06 selected-primary exclusion skips
+the CPU holder's ordinary TGMO step, so its movement/animation is currently
+deferred and frozen even though the ball remains attached. Keep free-throw and
+active-shot ball paths separately owned.
 The fixed opposing roster-slot link used for `$8F02` remains native scene
 policy, and the scene flattens the exact height into canonical visible Y before
 TGCP projection. Do not describe that projection adapter, the link assignment,
