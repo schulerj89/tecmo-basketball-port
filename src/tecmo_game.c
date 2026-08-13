@@ -1775,8 +1775,8 @@ static void render_debug_cpu_diagnostics(const TecmoRuntime *runtime,
     }
     scene = &runtime->gameplay_scene;
     live = &scene->live_foundation;
-    rect(fb, x - 6, y - 8, 620, 278, rgb(10, 14, 18));
-    rect(fb, x - 4, y - 6, 616, 274, rgb(28, 38, 42));
+    rect(fb, x - 6, y - 8, 620, 302, rgb(10, 14, 18));
+    rect(fb, x - 4, y - 6, 616, 298, rgb(28, 38, 42));
     draw_debug_text(fb, x, y, "CPU PASSIVE TYPED DIAGNOSTICS");
     if (!live->state_valid) {
         draw_debug_text(fb, x, y + 20, "LIVE CPU SNAPSHOT NOT RETAINED");
@@ -1897,6 +1897,15 @@ static void render_debug_cpu_diagnostics(const TecmoRuntime *runtime,
                    live->last_shot_playback_supported ? 1U : 0U,
                    live->last_shot_deferred ? 1U : 0U);
     draw_debug_text(fb, x, y + 220, line);
+    (void)snprintf(
+        line, sizeof(line),
+        "HANDOFF INBOUND %u PASSER %u RECEIVER %u CLAIMANT %u EVENT %u",
+        (unsigned)scene->inbound_state.phase,
+        (unsigned)scene->inbound_state.passer,
+        (unsigned)scene->inbound_state.receiver,
+        scene->claimant_settlement_trace.valid ? 1U : 0U,
+        (unsigned)scene->claimant_settlement_trace.event_serial);
+    draw_debug_text(fb, x, y + 240, line);
     (void)snprintf(line, sizeof(line), "DEFER %u REASON %s",
                    holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
                            live->deferred[holder]
@@ -1906,7 +1915,7 @@ static void render_debug_cpu_diagnostics(const TecmoRuntime *runtime,
                              live->deferred_reason[holder])
                        : "not-retained");
     draw_debug_text(fb, x, y + 200, line);
-    draw_debug_text(fb, x, y + 248,
+    draw_debug_text(fb, x, y + 272,
                     "F4 LAB MENU  F3 OFF LEAVES PLAY UNCHANGED");
 }
 
