@@ -1199,6 +1199,43 @@ static bool scene_handoff_miss_claimant(
     return scene_handoff_claimant_settlement(scene, possession, claimant);
 }
 
+static bool scene_shot_team_has_controller(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayTeam team)
+{
+    size_t controller;
+    if (scene == NULL || team >= TECMO_GAMEPLAY_TEAM_COUNT) return false;
+    for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
+         ++controller) {
+        if (scene->launch.controller_team[controller] == (uint8_t)team) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool scene_handoff_miss_compatibility(
+    TecmoGameplayScene *scene,
+    TecmoGameplayTeam possession,
+    uint8_t claimant)
+{
+    TecmoGameplayScene candidate;
+    if (scene == NULL) return false;
+    candidate = *scene;
+    if (!scene_handoff_possession(&candidate, possession, claimant) ||
+        !scene_sync_live_foundation(&candidate)) {
+        return false;
+    }
+    if (!scene_shot_team_has_controller(&candidate, possession) &&
+        !tecmo_gameplay_live_foundation_normalize_automatic_primary(
+            &candidate.cpu_steering_assets, claimant,
+            &candidate.live_foundation)) {
+        return false;
+    }
+    *scene = candidate;
+    return true;
+}
+
 static bool scene_close_step_for_frame(const TecmoGameplayScene *scene,
                                        uint16_t frame,
                                        uint8_t *step)
@@ -1400,8 +1437,7 @@ static bool scene_finish_shot(TecmoGameplayScene *scene,
         return true;
     }
     if (made) {
-        if (!scene_handoff_possession(
-            scene, next_team, scene_first_actor_for_team(next_team))) {
+        if (!scene_begin_scored_inbound(scene, next_team)) {
             return false;
         }
         return true;
@@ -1418,7 +1454,7 @@ static bool scene_finish_shot(TecmoGameplayScene *scene,
        object scheduler yet, so keep that unproven case playable with the
        existing generic opposing-team handoff.  This deliberately emits no
        B87C claimant settlement event and is not rebound/steal parity. */
-    return scene_handoff_possession(scene, next_team, claimant);
+    return scene_handoff_miss_compatibility(scene, next_team, claimant);
 }
 
 static bool scene_finish_jump_miss(TecmoGameplayScene *scene,
@@ -1480,7 +1516,7 @@ static bool scene_finish_jump_miss(TecmoGameplayScene *scene,
     }
     /* See scene_finish_shot(): no strict claimant means a documented generic
        compatibility handoff, not a fabricated $B87C settlement. */
-    return scene_handoff_possession(scene, next_team, claimant);
+    return scene_handoff_miss_compatibility(scene, next_team, claimant);
 }
 
 static int32_t scene_lerp_q8(int32_t start, int32_t end,
@@ -1869,8 +1905,7 @@ static bool scene_finish_jump_make(TecmoGameplayScene *scene,
         return scene_handoff_possession(
             scene, scene->state.possession, shooting_actor);
     }
-    return scene_handoff_possession(
-        scene, next_team, scene_first_actor_for_team(next_team));
+    return scene_begin_scored_inbound(scene, next_team);
 }
 
 static void scene_release_jump_make(TecmoGameplayScene *scene,
@@ -1958,8 +1993,7 @@ static bool scene_finish_approx_jump_make(
         ? scene_handoff_possession(
               scene, scene->state.possession,
               (uint8_t)(actor - scene->actors))
-        : scene_handoff_possession(
-              scene, next_team, scene_first_actor_for_team(next_team));
+        : scene_begin_scored_inbound(scene, next_team);
 }
 
 static bool scene_update_jump_make_approx(

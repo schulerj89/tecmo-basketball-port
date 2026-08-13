@@ -212,6 +212,8 @@ bool scene_inbound_state_valid(const TecmoGameplayScene *scene);
 void scene_inbound_clear(TecmoGameplayScene *scene);
 bool scene_begin_inbound(TecmoGameplayScene *scene,
                          TecmoGameplayTeam restart_team);
+bool scene_begin_scored_inbound(TecmoGameplayScene *scene,
+                                TecmoGameplayTeam restart_team);
 bool scene_update_inbound(TecmoGameplayScene *scene);
 
 /* Native policy sample retained at the shot boundary. It has no Bank/address,

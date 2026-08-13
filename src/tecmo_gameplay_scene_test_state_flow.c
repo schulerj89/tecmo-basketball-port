@@ -2721,6 +2721,93 @@ static bool scene_test_live_foundation_regressions(
         memcmp(&malformed_scene, &snapshot, sizeof(malformed_scene)) != 0) {
         LIVE_FAIL("LIVE malformed possession trace did not fail closed");
     }
+    /* Made-score $8FB9-$9042 swaps the selected pair, clears both selected
+       actor lifecycles, toggles all role bits, and resets the leading $9621
+       aggregation/global fields. A stale ordinary barrier cursor on the old
+       holder must not become the new side's selected lifecycle. */
+    candidate_foundation = foundation_before;
+    candidate_foundation.play_state.actor_state[0U] = 0x0BU;
+    candidate_foundation.play_state.stream_offset[0U] = 0x0627U;
+    candidate_foundation.last_step_offset[0U] = 0x0627U;
+    candidate_foundation.play_state.action_state_046e[0U] = 0x18U;
+    candidate_foundation.play_state.wait_counter[0U] = 0x1EU;
+    candidate_foundation.play_state.actor_state[5U] = 0x0BU;
+    candidate_foundation.play_state.aggregation_06df = 3U;
+    candidate_foundation.play_state.aggregation_06e1 = 0x21U;
+    candidate_foundation.play_state.global_0790 = 0x80U;
+    memcpy(selector_flags_before, candidate_foundation.actor_selector_flags,
+           sizeof(selector_flags_before));
+    if (!tecmo_gameplay_live_foundation_score_restart_transition(
+            &scene->cpu_steering_assets, TECMO_GAMEPLAY_TEAM_HOME,
+            &candidate_foundation) ||
+        candidate_foundation.primary_actor != 5U ||
+        candidate_foundation.defender_actor != 0U ||
+        candidate_foundation.offense_side != TECMO_GAMEPLAY_TEAM_HOME ||
+        candidate_foundation.defense_side != TECMO_GAMEPLAY_TEAM_AWAY ||
+        candidate_foundation.play_state.actor_state[0U] != 0U ||
+        candidate_foundation.play_state.actor_state[5U] != 0U ||
+        candidate_foundation.play_state.action_state_046e[0U] != 0U ||
+        candidate_foundation.play_state.action_state_046e[5U] != 0U ||
+        candidate_foundation.play_state.action[0U] != 0x30U ||
+        candidate_foundation.play_state.action[5U] != 0x30U ||
+        candidate_foundation.play_state.wait_counter[0U] != 0U ||
+        candidate_foundation.play_state.aggregation_06df != 0U ||
+        candidate_foundation.play_state.aggregation_06e1 != 0U ||
+        candidate_foundation.play_state.global_0790 != 0U ||
+        candidate_foundation.actor_selector_flags[0U] !=
+            (uint8_t)(selector_flags_before[0U] ^ 0x10U) ||
+        candidate_foundation.actor_selector_flags[9U] !=
+            (uint8_t)(selector_flags_before[9U] ^ 0x10U) ||
+        !tecmo_gameplay_live_foundation_valid(
+            &scene->cpu_steering_assets, &candidate_foundation)) {
+        LIVE_FAIL("LIVE scored restart selected-pair reset diverged");
+    }
+    candidate_foundation = foundation_before;
+    snapshot.live_foundation = candidate_foundation;
+    if (tecmo_gameplay_live_foundation_score_restart_transition(
+            &scene->cpu_steering_assets, TECMO_GAMEPLAY_TEAM_AWAY,
+            &candidate_foundation) ||
+        memcmp(&candidate_foundation, &snapshot.live_foundation,
+               sizeof(candidate_foundation)) != 0) {
+        LIVE_FAIL("LIVE scored restart rejection was not transactional");
+    }
+
+    /* A no-source miss promotion is deliberately not a claimant transaction.
+       Automatic play receives only the bounded selected-stream normalization;
+       human ownership rejects without mutation. */
+    candidate_foundation = foundation_before;
+    candidate_foundation.control_mode[TECMO_GAMEPLAY_TEAM_AWAY] = 1U;
+    candidate_foundation.play_state.actor_state[0U] = 0x0BU;
+    candidate_foundation.play_state.stream_offset[0U] = 0x0488U;
+    candidate_foundation.last_step_offset[0U] = 0x0488U;
+    candidate_foundation.play_state.wait_counter[0U] = 0x1EU;
+    candidate_foundation.play_state.target_x[0U] = 200;
+    candidate_foundation.play_state.target_depth[0U] = 144;
+    candidate_foundation.source_target_valid[0U] = true;
+    candidate_foundation.deferred[0U] = true;
+    candidate_foundation.deferred_reason[0U] =
+        TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE21_GATE_INPUTS;
+    if (!tecmo_gameplay_live_foundation_normalize_automatic_primary(
+            &scene->cpu_steering_assets, 0U, &candidate_foundation) ||
+        candidate_foundation.play_state.stream_offset[0U] != 0x007DU ||
+        candidate_foundation.last_step_offset[0U] != 0x007DU ||
+        candidate_foundation.play_state.actor_state[0U] != 0x04U ||
+        candidate_foundation.play_state.action_state_046e[0U] != 0x18U ||
+        candidate_foundation.play_state.wait_counter[0U] != 0U ||
+        candidate_foundation.source_target_valid[0U] ||
+        candidate_foundation.deferred[0U] ||
+        candidate_foundation.deferred_reason[0U] !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE) {
+        LIVE_FAIL("LIVE automatic miss-primary normalization diverged");
+    }
+    candidate_foundation = foundation_before;
+    snapshot.live_foundation = candidate_foundation;
+    if (tecmo_gameplay_live_foundation_normalize_automatic_primary(
+            &scene->cpu_steering_assets, 0U, &candidate_foundation) ||
+        memcmp(&candidate_foundation, &snapshot.live_foundation,
+               sizeof(candidate_foundation)) != 0) {
+        LIVE_FAIL("LIVE human miss-primary normalization was not rejected");
+    }
     /* Bank05 $B24F-$B32B / Bank06 $81F7-$82D: Mark Jackson slot 0
        passes to John Starks slot 1; the old holder resumes ordinary command
        state 4/$0B63 and automatic defense selects by descending eligibility

@@ -108,6 +108,16 @@ run in canonical `9..0` order, excluding the selected defender. Any role or
 formation transition that invalidates a frozen target cancels its route state
 transactionally so stale Q6 motion cannot resume later.
 
+Made-score promotion is now a distinct source-owned lifecycle boundary, not an
+opcode-barrier escape. Bank05 `$8FB9-$9042` swaps selected roles, clears both
+selected states/actions, and toggles all role bits before the Bank07/Bank06
+restart setup enters inbound transport. Consequently an actor carrying an
+ordinary `$0A55->$0627` aggregation stream cannot become the selected holder
+and execute that stale cursor before the catch assigns its selected route. The
+state-`$0B` resolver itself remains unconverted here; source excludes
+`$0308/$0309` from its release scan, so forcing a selected actor back to state
+4 would be incorrect.
+
 ## Opcode 9 action `$21`: selected-primary autonomous pass
 
 The exact opcode-9 executor copies Bank04 command byte `C9` into actor-local

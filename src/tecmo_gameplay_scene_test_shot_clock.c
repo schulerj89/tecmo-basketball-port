@@ -857,6 +857,18 @@ static bool scene_test_shot_clock_dunk_layup(
         return scene_test_shot_clock_fail(
             run, "dunk side-result mailbox was not last-write-wins");
     }
+    for (frame = 0U; frame < 80U && scene_inbound_active(scene); ++frame) {
+        memset(&p1, 0, sizeof(p1));
+        memset(&p2, 0, sizeof(p2));
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+            return scene_test_shot_clock_fail(
+                run, "dunk scored inbound did not advance");
+        }
+    }
+    if (scene_inbound_active(scene)) {
+        return scene_test_shot_clock_fail(
+            run, "dunk scored inbound did not complete");
+    }
 
     scene->actors[scene->ball_holder].position.x = 578;
     scene->actors[scene->ball_holder].position.y =
@@ -922,6 +934,26 @@ static bool scene_test_shot_clock_dunk_layup(
         return scene_test_shot_clock_fail(
             run, "layup crowd-only mailbox boundary failed");
     }
+    for (frame = 0U; frame < 80U && scene_inbound_active(scene); ++frame) {
+        memset(&p1, 0, sizeof(p1));
+        memset(&p2, 0, sizeof(p2));
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+            return scene_test_shot_clock_fail(
+                run, "layup scored inbound did not advance");
+        }
+    }
+    if (scene_inbound_active(scene)) {
+        return scene_test_shot_clock_fail(
+            run, "layup scored inbound did not complete");
+    }
+    /* Preserve the historical slot-0 identity used by the following
+       controller-owned jump-shot policy fixtures; scored-inbound ownership
+       itself is asserted above and has already completed. */
+    if (!scene_handoff_possession(
+            scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U)) {
+        return scene_test_shot_clock_fail(
+            run, "post-inbound jump fixture holder reset failed");
+    }
     run->p1 = p1;
     run->p2 = p2;
     return true;
@@ -938,6 +970,7 @@ static bool scene_test_shot_clock_jump_targeting(
     TecmoGameplayCourtCoordinateQ8 rejected_ball_before;
     uint8_t rejected_holder_before;
     uint32_t rejected_action_serial_before;
+    uint32_t policy_frame_before;
     TecmoGameplayCameraState camera_before;
 
     scene->actors[scene->ball_holder].position.x = 0x013CU;
@@ -996,6 +1029,23 @@ static bool scene_test_shot_clock_jump_targeting(
     scene->actors[scene->ball_holder].position.y = 0x0070;
     scene->action_serial = 1U;
     scene_attach_ball(scene);
+    policy_frame_before = scene->frame;
+    /* Scored inbound adds a source-owned transport interval before this
+       independent policy-rejection fixture. Select a deterministic frame
+       sample that exercises the same unsupported ordinary-make rejection
+       without coupling it to the inbound duration. */
+    for (uint32_t policy_frame = 0U; policy_frame < 256U; ++policy_frame) {
+        TecmoGameplayScene probe = *scene;
+        probe.frame = policy_frame;
+        if (!scene_start_shot_actor(&probe, 0U, probe.ball_holder)) {
+            scene->frame = policy_frame;
+            break;
+        }
+        if (policy_frame == 255U) {
+            return scene_test_shot_clock_fail(
+                run, "ordinary two-point rejection frame unavailable");
+        }
+    }
     rejected_holder_before = scene->ball_holder;
     rejected_actor_before = scene->actors[rejected_holder_before];
     rejected_ball_before = scene->ball_position;
@@ -1022,6 +1072,7 @@ static bool scene_test_shot_clock_jump_targeting(
         return scene_test_shot_clock_fail(
             run, "ordinary two-point make was accepted");
     }
+    scene->frame = policy_frame_before + 1U;
     rattle_before = *scene;
     if (!scene_handoff_possession(
             &rattle_before, TECMO_GAMEPLAY_TEAM_HOME, 5U)) {
@@ -1170,10 +1221,23 @@ static bool scene_test_shot_clock_jump_make(
         return scene_test_shot_clock_fail(
             run, "ordinary-jump make crowd-only audio failed");
     }
+    for (frame = 0U; frame < 80U && scene_inbound_active(scene); ++frame) {
+        memset(&p1, 0, sizeof(p1));
+        memset(&p2, 0, sizeof(p2));
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+            return scene_test_shot_clock_fail(
+                run, "ordinary-jump scored inbound did not advance");
+        }
+    }
+    if (scene_inbound_active(scene)) {
+        return scene_test_shot_clock_fail(
+            run, "ordinary-jump scored inbound did not complete");
+    }
     if (!tecmo_gameplay_set_score(
             &scene->state, TECMO_GAMEPLAY_TEAM_AWAY, 2U) ||
         !scene_handoff_possession(
-            scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U)) {
+            scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+        !scene_sync_live_foundation(scene)) {
         return scene_test_shot_clock_fail(
             run, "ordinary-jump early-release setup failed");
     }
@@ -1215,6 +1279,18 @@ static bool scene_test_shot_clock_jump_make(
         !tecmo_gameplay_state_valid(&scene->state)) {
         return scene_test_shot_clock_fail(
             run, "ordinary-jump early-release settlement failed");
+    }
+    for (frame = 0U; frame < 80U && scene_inbound_active(scene); ++frame) {
+        memset(&p1, 0, sizeof(p1));
+        memset(&p2, 0, sizeof(p2));
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+            return scene_test_shot_clock_fail(
+                run, "early-release scored inbound did not advance");
+        }
+    }
+    if (scene_inbound_active(scene)) {
+        return scene_test_shot_clock_fail(
+            run, "early-release scored inbound did not complete");
     }
     run->p1 = p1;
     run->p2 = p2;

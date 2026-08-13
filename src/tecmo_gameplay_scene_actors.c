@@ -1071,6 +1071,41 @@ reject:
     return false;
 }
 
+bool scene_begin_scored_inbound(TecmoGameplayScene *scene,
+                                TecmoGameplayTeam restart_team)
+{
+    TecmoGameplayScene candidate;
+    uint8_t restart_primary;
+    if (scene == NULL || restart_team >= TECMO_GAMEPLAY_TEAM_COUNT ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->live_foundation.defender_actor >=
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        return false;
+    }
+    candidate = *scene;
+    restart_primary = candidate.live_foundation.defender_actor;
+
+    /* A made-score transition is not Bank05's miss-claimant path. Canonical
+       $8FAD-$8FB9 swaps the side and selected actor pairs, $8FE8 clears both
+       selected lifecycles, and $9042 toggles all role bits before Bank07
+       reaches the $9621 restart setup. Stage the existing orientation/holder
+       handoff with the source-selected prior defender, apply that typed LIVE
+       transaction, and enter the existing inbound immediately. No ordinary
+       Bank06 AI update can consume the old primary's formation cursor between
+       the score and the eventual $B24F->$96B6 catch transaction. */
+    if (!scene_handoff_possession(
+            &candidate, restart_team, restart_primary)) return false;
+    if (!tecmo_gameplay_live_foundation_score_restart_transition(
+            &candidate.cpu_steering_assets, (uint8_t)restart_team,
+            &candidate.live_foundation)) return false;
+    if (candidate.live_foundation.primary_actor != restart_primary ||
+        candidate.ball_holder != restart_primary) return false;
+    if (!scene_begin_inbound(&candidate, restart_team)) return false;
+    if (!scene_inbound_state_valid(&candidate)) return false;
+    *scene = candidate;
+    return true;
+}
+
 bool scene_update_inbound(TecmoGameplayScene *scene)
 {
     TecmoGameplaySceneInboundState inbound;

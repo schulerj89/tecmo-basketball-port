@@ -1359,6 +1359,16 @@ fetches a record, and the retained cursor fetches on the following state-4
 update. Ordinary actors use the same handler, while a stale nonzero wait byte
 in another state does not suppress that state's dispatch. Ordinary and inbound
 catches share this endpoint.
+Made-score settlement is separate from claimant settlement. Bank05
+`$8FAD-$9042` swaps `$030A/$030B` and `$0308/$0309`, clears both selected
+`$057C/$046E` lifecycles, resets packed `$0458`, clears `$0790`, and toggles all
+`$04B0` bit-$10 mirrors before Bank07 reaches `$9621`. The scene stages that
+typed transition with immediate inbound setup; it must not expose ordinary AI
+between score and catch or preserve an ordinary aggregation cursor on the new
+primary. The full `$9621-$985C` tail remains incomplete. A no-source miss
+fallback is not `$B87C`: automatic holders use a labeled `$007D`/state-4/action-
+`$18` compatibility normalization with stale metadata cleared, while claimant
+traces remain absent and human control remains controller-owned.
 Selected state 0/action `$17` is exact Bank05 shot dispatch, not idle:
 `$81F2-$822F->$8A6D->$8ACE`. Launch admission remains a bounded native adapter
 because `$8ACE` reads unowned `$0478/$0499/$007E` gates. LIVE commits the

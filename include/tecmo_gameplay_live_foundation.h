@@ -199,6 +199,24 @@ bool tecmo_gameplay_live_foundation_synchronize(
         TECMO_GAMEPLAY_CPU_STEERING_CONTROLLER_SLOT_COUNT],
     TecmoGameplayLiveFoundation *foundation_io);
 
+/* Bounded made-score/restart projection of Bank05 $8FB9-$9042 followed by
+ * the leading Bank06 $9621 aggregation reset. This is not the miss-claimant
+ * $B87C transaction and does not choose an inbound receiver. The accepted
+ * transition swaps the selected offense/defense roles, clears both selected
+ * actor lifecycles, and toggles the exact $04B0 bit-$10 mirrors. */
+bool tecmo_gameplay_live_foundation_score_restart_transition(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t resulting_possession,
+    TecmoGameplayLiveFoundation *foundation_io);
+
+/* Playability-only normalization for a non-source miss fallback after the
+ * scene has already synchronized a promoted automatic holder. No claimant,
+ * rebound, or Bank05 $B87C identity is implied. */
+bool tecmo_gameplay_live_foundation_normalize_automatic_primary(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t selected_actor,
+    TecmoGameplayLiveFoundation *foundation_io);
+
 /* Exact bounded Bank05 $B24F-$B32B pass-selection handoff. On failure the
  * caller-owned foundation is unchanged. The raw 6502 no-match underflow is
  * rejected instead of fabricating an actor outside slots 0..9. */

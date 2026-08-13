@@ -1594,14 +1594,18 @@ static bool scene_update_free_throw(TecmoGameplayScene *scene,
         TECMO_GAMEPLAY_PHASE_FREE_THROW_SETTLEMENT_REQUIRED) {
         TecmoGameplayTeam next = scene_other_team(
             scene->state.free_throws.scoring_team);
-        if (!tecmo_gameplay_settle_free_throws(
+        /* The free-throw lineup may have changed the semantic holder without
+           an ordinary live-AI synchronization tick. Capture that selected
+           scoring side before settlement changes rules possession so the
+           source score transition can swap the actual selected pair. */
+        if (!scene_sync_live_foundation(scene) ||
+            !tecmo_gameplay_settle_free_throws(
                 &scene->state, next,
                 TECMO_GAMEPLAY_POST_FOUL_SHOT_24_DIVIDER_50)) {
             *scene = previous_scene;
             return false;
         }
-        if (!scene_handoff_possession(
-                scene, next, scene_first_actor_for_team(next))) {
+        if (!scene_begin_scored_inbound(scene, next)) {
             *scene = previous_scene;
             return false;
         }

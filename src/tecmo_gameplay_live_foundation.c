@@ -819,6 +819,129 @@ bool tecmo_gameplay_live_foundation_synchronize(
     return true;
 }
 
+bool tecmo_gameplay_live_foundation_score_restart_transition(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t resulting_possession,
+    TecmoGameplayLiveFoundation *foundation_io)
+{
+    TecmoGameplayLiveFoundation candidate;
+    uint8_t old_primary;
+    uint8_t old_defender;
+    uint8_t old_offense;
+    uint8_t old_defense;
+    size_t actor;
+    if (assets == NULL || !assets->available || foundation_io == NULL ||
+        !live_play_state_valid(assets, foundation_io) ||
+        resulting_possession >= TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT ||
+        resulting_possession == foundation_io->last_possession ||
+        resulting_possession != foundation_io->defense_side) {
+        return false;
+    }
+    candidate = *foundation_io;
+    old_primary = candidate.primary_actor;
+    old_defender = candidate.defender_actor;
+    old_offense = candidate.offense_side;
+    old_defense = candidate.defense_side;
+    if (old_primary >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        old_defender >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        old_primary == old_defender ||
+        candidate.actor_team[old_primary] != old_offense ||
+        candidate.actor_team[old_defender] != old_defense) {
+        return false;
+    }
+
+    /* Accepted $8FB9-$8FE7 swaps $030A/$030B and $0308/$0309. $8FE8-
+       $902D then clears $057C/$046E and restores packed $0458=$30 for both
+       selected actors. Route/target metadata has no independent scene owner;
+       cancel it as the typed consequence of clearing an active selected
+       lifecycle, rather than allowing a C-only state-5 route to survive a
+       native state-zero reset. */
+    live_invalidate_source_metadata_actor(&candidate, old_primary);
+    live_invalidate_source_metadata_actor(&candidate, old_defender);
+    candidate.offense_side = old_defense;
+    candidate.defense_side = old_offense;
+    candidate.primary_actor = old_defender;
+    candidate.play_state.primary_actor = old_defender;
+    candidate.defender_actor = old_primary;
+    candidate.play_state.defender_actor = old_primary;
+    candidate.last_possession = resulting_possession;
+    candidate.last_ball_holder = old_defender;
+    candidate.first_sync_pending = false;
+    candidate.prior_selected_actor = old_primary;
+    candidate.prior_defender_actor = old_defender;
+    candidate.play_state.actor_state[old_primary] = 0U;
+    candidate.play_state.actor_state[old_defender] = 0U;
+    candidate.play_state.action_state_046e[old_primary] = 0U;
+    candidate.play_state.action_state_046e[old_defender] = 0U;
+    candidate.play_state.action[old_primary] = 0x30U;
+    candidate.play_state.action[old_defender] = 0x30U;
+    candidate.play_state.wait_counter[old_primary] = 0U;
+    candidate.play_state.wait_counter[old_defender] = 0U;
+
+    /* $9042-$9053 toggles $04B0 bit $10 for all slots 9..0. The loop order
+       has no observable alias in this typed array, but the complete mask
+       result is exact. */
+    for (actor = 0U;
+         actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
+        candidate.actor_selector_flags[actor] ^= 0x10U;
+    }
+    candidate.selected_actor_by_side[candidate.offense_side] = old_defender;
+    candidate.candidate_actor_by_side[candidate.offense_side] =
+        live_b87c_candidate_remap[old_defender];
+    candidate.selected_actor_by_side[candidate.defense_side] = old_primary;
+    candidate.selected_defender_handoff_active =
+        candidate.control_mode[candidate.defense_side] != 0U;
+
+    /* Bank07's score restart reaches Bank06 $9621 before ordinary live AI.
+       Its leading exact writes clear only the aggregation count/mask; retain
+       the threshold byte until a later command replaces it. */
+    candidate.play_state.aggregation_06df = 0U;
+    candidate.play_state.aggregation_06e1 = 0U;
+    candidate.play_state.global_0790 = 0U;
+    candidate.sync_serial = live_serial_next(candidate.sync_serial);
+    live_seed_fixed_link_projection(&candidate);
+    if (!live_play_state_valid(assets, &candidate)) return false;
+    *foundation_io = candidate;
+    return true;
+}
+
+bool tecmo_gameplay_live_foundation_normalize_automatic_primary(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t selected_actor,
+    TecmoGameplayLiveFoundation *foundation_io)
+{
+    TecmoGameplayLiveFoundation candidate;
+    if (assets == NULL || !assets->available || foundation_io == NULL ||
+        !live_play_state_valid(assets, foundation_io) ||
+        foundation_io->first_sync_pending ||
+        selected_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        foundation_io->primary_actor != selected_actor ||
+        foundation_io->last_ball_holder != selected_actor ||
+        foundation_io->actor_team[selected_actor] !=
+            foundation_io->offense_side ||
+        foundation_io->control_mode[foundation_io->offense_side] == 0U) {
+        return false;
+    }
+    candidate = *foundation_io;
+    live_invalidate_source_metadata_actor(&candidate, selected_actor);
+
+    /* Static source proves that every closed automatic promotion path seeds
+       a selected command stream/state instead of retaining an ordinary
+       formation cursor. The generic no-claimant miss path is not one of
+       those closed callers. Use the source-valid $007D/state4/action18 tuple
+       solely as a bounded compatibility normalization; this is explicitly
+       not a fabricated $B87C claimant transaction. */
+    candidate.play_state.stream_offset[selected_actor] = 0x007DU;
+    candidate.last_step_offset[selected_actor] = 0x007DU;
+    candidate.play_state.actor_state[selected_actor] = 0x04U;
+    candidate.play_state.action_state_046e[selected_actor] = 0x18U;
+    candidate.play_state.wait_counter[selected_actor] = 0U;
+    candidate.sync_serial = live_serial_next(candidate.sync_serial);
+    if (!live_play_state_valid(assets, &candidate)) return false;
+    *foundation_io = candidate;
+    return true;
+}
+
 bool tecmo_gameplay_live_foundation_pass_handoff(
     const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t new_selected_actor,
