@@ -189,7 +189,7 @@ static bool reject(TecmoGameplayCpuSteeringAssets *assets,
     assets->movement_fingerprint = 0U;
     assets->available = false;
     (void)snprintf(assets->status, sizeof(assets->status), "%s",
-                   message != NULL ? message : "TGAI-2 rejected");
+                   message != NULL ? message : "TGAI-3 rejected");
     return false;
 }
 
@@ -255,9 +255,16 @@ static bool validate_header(const uint8_t *payload, size_t payload_size)
         memcmp(payload +
                    TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_DIRECTION_OFFSET,
                direction_map, sizeof(direction_map)) != 0 ||
-        read_u32(payload + 264U) != 0x00113415U ||
-        payload[268U] != 5U ||
-        !bytes_are_zero(payload + 269U, 3U) ||
+        read_u32(payload +
+                     TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_TARGET_EFFECT_MASK_OFFSET) !=
+            0x00113415U ||
+        payload[TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_DIRECT_DIRECTION_OPCODE_OFFSET] !=
+            5U ||
+        !bytes_are_zero(
+            payload +
+                TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_DIRECT_DIRECTION_OPCODE_OFFSET +
+                1U,
+            3U) ||
         read_u16(payload +
                      TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_DESCRIPTOR_OFFSET) !=
             15U ||
@@ -293,9 +300,20 @@ static bool validate_header(const uint8_t *payload, size_t payload_size)
         !bytes_are_zero(payload +
                             TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_OFFSET +
                             TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_SIZE,
-                        TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_HEADER_SIZE -
+                        TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_TARGET_EFFECT_MASK_OFFSET -
                             (TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_OFFSET +
-                             TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_SIZE))) {
+                             TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_SIZE)) ||
+        !bytes_are_zero(
+            payload +
+                TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_TARGET_EFFECT_MASK_OFFSET +
+                sizeof(uint32_t),
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_DIRECT_DIRECTION_OPCODE_OFFSET -
+                (TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_TARGET_EFFECT_MASK_OFFSET +
+                 sizeof(uint32_t))) ||
+        !bytes_are_zero(
+            payload + TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_METADATA_END_OFFSET,
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_HEADER_SIZE -
+                TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_METADATA_END_OFFSET)) {
         return false;
     }
     for (size_t index = 0U;
@@ -421,12 +439,12 @@ static const char *opcode15_contract_error(const uint8_t *payload)
     if (!range_ok(handler_offset,
                   TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_HANDLER_SIZE,
                   TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_COMMAND_HANDLERS_SIZE)) {
-        return "TGAI-2 opcode-15 handler range rejected";
+        return "TGAI-3 opcode-15 handler range rejected";
     }
     if (fnv1a32(handlers + handler_offset,
                 TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_HANDLER_SIZE) !=
             TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_HANDLER_FNV1A32) {
-        return "TGAI-2 opcode-15 full handler anchor rejected";
+        return "TGAI-3 opcode-15 full handler anchor rejected";
     }
     if (memcmp(handlers + handler_offset,
                "\xA0\x09\x84\xA4\xE4\xA4\xF0\x16"
@@ -434,20 +452,20 @@ static const char *opcode15_contract_error(const uint8_t *payload)
                "\xA9\x23\x99\x47\x05\xA9\x00"
                "\x99\x51\x05\xA9\x04\x99\x7C\x05",
                30U) != 0) {
-        return "TGAI-2 opcode-15 mark-other anchor rejected";
+        return "TGAI-3 opcode-15 mark-other anchor rejected";
     }
     if (memcmp(handlers + (0x9172U - 0x8BE1U),
                "\xAD\x99\x04\xC9\x46\xB0\x01\x60"
                "\xBD\xB0\x04\x29\x10\xD0\x41",
                15U) != 0) {
-        return "TGAI-2 opcode-15 gate anchor rejected";
+        return "TGAI-3 opcode-15 gate anchor rejected";
     }
     if (memcmp(handlers + (0x91C8U - 0x8BE1U),
                "\xAC\x09\x03\x8E\x09\x03\xA9\x04"
                "\x99\x7C\x05\xA9\x5A\x99\x47\x05"
                "\xA9\x00\x99\x51\x05\xA9\x00\x99\x6E\x04",
                26U) != 0) {
-        return "TGAI-2 opcode-15 defender-write anchor rejected";
+        return "TGAI-3 opcode-15 defender-write anchor rejected";
     }
     if (memcmp(handlers + (0x9208U - 0x8BE1U),
                "\xA9\x07\x9D\x7C\x05\x8E\x9E\x05"
@@ -455,7 +473,7 @@ static const char *opcode15_contract_error(const uint8_t *payload)
         fnv1a32(handlers + (0x9208U - 0x8BE1U),
                 TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_FINAL_TAIL_SIZE) !=
             TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_FINAL_TAIL_FNV1A32) {
-        return "TGAI-2 opcode-15 canonical Rev1 tail anchor rejected";
+        return "TGAI-3 opcode-15 canonical Rev1 tail anchor rejected";
     }
     if (memcmp(helper,
                "\xBC\x63\x04\xB9\xCA\x88\x9D\x42\x04"
@@ -464,7 +482,7 @@ static const char *opcode15_contract_error(const uint8_t *payload)
                "\x0C\x0A\x10\x0C\x0A\x0E\x0C\x0A"
                "\x04\x04\x04\x04\x04\x04\x04\x04",
                TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_RAW_SIZE) != 0) {
-        return "TGAI-2 opcode-15 $88B0 helper raw anchor rejected";
+        return "TGAI-3 opcode-15 $88B0 helper raw anchor rejected";
     }
     if (memcmp(commands +
                    TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_A_OFFSET,
@@ -480,7 +498,7 @@ static const char *opcode15_contract_error(const uint8_t *payload)
                     TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_B_OFFSET,
                 sizeof(record)) !=
             TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_FNV1A32) {
-        return "TGAI-2 canonical opcode-15 record anchor rejected";
+        return "TGAI-3 canonical opcode-15 record anchor rejected";
     }
     return NULL;
 }
@@ -601,33 +619,33 @@ bool tecmo_gameplay_cpu_steering_assets_parse(
     tecmo_gameplay_cpu_steering_assets_destroy(assets);
     if (payload == NULL || !validate_header(payload, payload_size)) {
         return reject(
-            assets, "TGAI-2 header/size/reserved contract rejected");
+            assets, "TGAI-3 header/size/reserved contract rejected");
     }
     if (fnv1a32(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_FNV1A32) {
         return reject(
-            assets, "TGAI-2 canonical payload fingerprint rejected");
+            assets, "TGAI-3 canonical payload fingerprint rejected");
     }
     if (!validate_source_records(payload, payload_size)) {
-        return reject(assets, "TGAI-2 source descriptor/raw contract rejected");
+        return reject(assets, "TGAI-3 source descriptor/raw contract rejected");
     }
     if (!validate_padding(payload)) {
-        return reject(assets, "TGAI-2 payload padding contract rejected");
+        return reject(assets, "TGAI-3 payload padding contract rejected");
     }
     if (!validate_handlers_and_commands(payload) ||
         !validate_lifecycle_command_corpus(payload)) {
-        return reject(assets, "TGAI-2 command corpus contract rejected");
+        return reject(assets, "TGAI-3 command corpus contract rejected");
     }
     if (!validate_opcode15_contract(payload)) {
         return reject(assets, opcode15_contract_error(payload));
     }
     if (!validate_dependency(movement, movement_size)) {
         return reject(
-            assets, "TGAI-2 same-pack TGMO-1 dependency rejected");
+            assets, "TGAI-3 same-pack TGMO-1 dependency rejected");
     }
 
     storage = (uint8_t *)malloc(payload_size);
-    if (storage == NULL) return reject(assets, "TGAI-2 allocation failed");
+    if (storage == NULL) return reject(assets, "TGAI-3 allocation failed");
     memcpy(storage, payload, payload_size);
     assets->storage = storage;
     assets->storage_size = payload_size;
@@ -696,14 +714,14 @@ bool tecmo_gameplay_cpu_steering_assets_parse(
     assets->formation_start_count =
         TECMO_GAMEPLAY_CPU_STEERING_FORMATION_START_COUNT;
     if (!decode_formation_native_fields(assets)) {
-        return reject(assets, "TGAI-2 formation semantic decode rejected");
+        return reject(assets, "TGAI-3 formation semantic decode rejected");
     }
     assets->movement_fingerprint =
         TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_FNV1A32;
     assets->available = true;
     (void)snprintf(
         assets->status, sizeof(assets->status),
-        "TGAI-2 CPU steering evidence assetpack (opcode-15 raw contract; LIVE integration deferred)");
+        "TGAI-3 CPU steering evidence assetpack (exact planar route kernel available; LIVE route integration deferred)");
     return true;
 }
 
@@ -730,7 +748,7 @@ bool tecmo_gameplay_cpu_steering_assets_load(
             &payload, &payload_size) != 0) {
         return reject(
             assets,
-            "TGAI-2 gameplay/cpu-steering entry missing or wrong-sized");
+            "TGAI-3 gameplay/cpu-steering entry missing or wrong-sized");
     }
     if (tecmo_asset_pack_read_entry_exact(
             asset_pack_path, TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_ID,
@@ -738,7 +756,7 @@ bool tecmo_gameplay_cpu_steering_assets_load(
             &movement, &movement_size) != 0) {
         tecmo_asset_pack_free(payload);
         return reject(
-            assets, "TGAI-2 same-pack TGMO-1 dependency missing");
+            assets, "TGAI-3 same-pack TGMO-1 dependency missing");
     }
     loaded = tecmo_gameplay_cpu_steering_assets_parse(
         assets, payload, (size_t)payload_size,
@@ -1175,6 +1193,199 @@ bool tecmo_gameplay_cpu_steering_route_select(
     return true;
 }
 
+static bool route_motion_state_valid(
+    const TecmoGameplayCpuSteeringRouteMotionState *state)
+{
+    return state != NULL &&
+           state->contract_tag ==
+               TECMO_GAMEPLAY_CPU_STEERING_ROUTE_MOTION_STATE_TAG;
+}
+
+static bool route_launch_position_valid(
+    const TecmoGameplayCourtCoordinate *position)
+{
+    /* Bank06 seeds the horizontal Q6 accumulator from the packed 10-bit
+       $0073/$00E8 position and depth from the full $00F3 byte. This route
+       has no TGCT/TGMO court clamp. */
+    return position != NULL && position->x >= 0 && position->x <= 0x03FF &&
+           position->y >= 0 && position->y <= 0x00FF;
+}
+
+/* Exact unsigned-divisor/signed-dividend behavior of Bank06 $9BD8-$9C6E.
+   The route caller uses a positive divisor in ordinary court-reachable
+   cases, but retaining the bytewise normalization keeps synthetic vectors
+   deterministic without relying on implementation-defined signed overflow. */
+static uint16_t route_divide_9bd8(uint16_t divisor, uint16_t dividend_bits)
+{
+    uint16_t dividend;
+    uint16_t quotient = 0U;
+    uint8_t divisor_shifts = 0U;
+    uint8_t quotient_bits = 0U;
+    bool negative = (dividend_bits & 0x8000U) != 0U;
+    if (divisor == 0U) return 0U;
+    while ((divisor & 0xFF00U) != 0U) {
+        divisor >>= 1U;
+        ++divisor_shifts;
+    }
+    dividend = negative
+        ? (uint16_t)(0U - dividend_bits)
+        : dividend_bits;
+    if (dividend < divisor) return 0U;
+    for (;;) {
+        uint16_t prior = divisor;
+        ++quotient_bits;
+        divisor = (uint16_t)(divisor << 1U);
+        if ((prior & 0x8000U) != 0U || dividend < divisor) {
+            divisor = prior;
+            break;
+        }
+    }
+    while (quotient_bits != 0U) {
+        bool subtract = dividend >= divisor;
+        if (subtract) dividend = (uint16_t)(dividend - divisor);
+        quotient = (uint16_t)((quotient << 1U) | (subtract ? 1U : 0U));
+        divisor >>= 1U;
+        --quotient_bits;
+    }
+    quotient >>= divisor_shifts;
+    return negative ? (uint16_t)(0U - quotient) : quotient;
+}
+
+bool tecmo_gameplay_cpu_steering_route_launch(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    const TecmoGameplayCpuSteeringRouteLaunchInput *input,
+    TecmoGameplayCpuSteeringRouteLaunchResult *result_out)
+{
+    TecmoGameplayCpuSteeringRouteLaunchResult result;
+    uint16_t horizontal_magnitude;
+    uint16_t depth_magnitude;
+    uint16_t major;
+    uint16_t minor;
+    uint16_t approximate_magnitude;
+    uint16_t duration;
+    uint8_t movement_amount;
+    uint8_t divisor;
+    uint8_t direction;
+    if (assets == NULL || !assets->available || input == NULL ||
+        result_out == NULL || (const void *)input == (const void *)result_out ||
+        input->contract_tag !=
+            TECMO_GAMEPLAY_CPU_STEERING_ROUTE_LAUNCH_INPUT_TAG ||
+        !route_launch_position_valid(&input->actor_position)) {
+        return false;
+    }
+    memset(&result, 0, sizeof(result));
+    result.contract_tag =
+        TECMO_GAMEPLAY_CPU_STEERING_ROUTE_LAUNCH_RESULT_TAG;
+    result.motion.contract_tag =
+        TECMO_GAMEPLAY_CPU_STEERING_ROUTE_MOTION_STATE_TAG;
+    result.direction = TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+    if (input->horizontal_delta == 0 && input->depth_delta == 0) {
+        *result_out = result;
+        return true;
+    }
+    if (!tecmo_gameplay_cpu_steering_direction_for_delta(
+            assets, input->horizontal_delta, input->depth_delta,
+            &direction)) {
+        return false;
+    }
+
+    /* $88DA-$8930 forms max(abs(dx),abs(dy)) + min(...)/2 before calling
+       $8A96. Every operation is wrapping 16-bit 6502 arithmetic. */
+    horizontal_magnitude = input->horizontal_delta < 0
+        ? (uint16_t)(0U - (uint16_t)input->horizontal_delta)
+        : (uint16_t)input->horizontal_delta;
+    depth_magnitude = input->depth_delta < 0
+        ? (uint16_t)(0U - (uint16_t)input->depth_delta)
+        : (uint16_t)input->depth_delta;
+    major = horizontal_magnitude >= depth_magnitude
+        ? horizontal_magnitude : depth_magnitude;
+    minor = horizontal_magnitude >= depth_magnitude
+        ? depth_magnitude : horizontal_magnitude;
+    approximate_magnitude = (uint16_t)(major + (minor >> 1U));
+
+    /* $8AB2-$8AD3 derives max(8, $06E7 + high_nibble($7C48) - 6)
+       and then adds three for the projection divisor. */
+    movement_amount = (uint8_t)(
+        input->movement_value_06e7 + (input->condition_7c48 >> 4U) - 6U);
+    if (movement_amount < 8U) movement_amount = 8U;
+    divisor = (uint8_t)(movement_amount + 3U);
+    duration = (uint16_t)(route_divide_9bd8(
+        divisor, (uint16_t)(approximate_magnitude << 4U)) + 1U);
+
+    result.motion.horizontal_accumulator_q6 =
+        (uint16_t)((uint16_t)input->actor_position.x << 6U);
+    result.motion.depth_accumulator_q6 =
+        (uint16_t)((uint16_t)input->actor_position.y << 6U);
+    result.motion.horizontal_velocity_q6 = (int16_t)route_divide_9bd8(
+        duration, (uint16_t)((uint16_t)input->horizontal_delta << 6U));
+    result.motion.depth_velocity_q6 = (int16_t)route_divide_9bd8(
+        duration, (uint16_t)((uint16_t)input->depth_delta << 6U));
+    result.motion.remaining_timer = duration;
+    result.motion.active = true;
+    result.direction = direction;
+    result.duration = duration;
+    result.launched = true;
+    *result_out = result;
+    return true;
+}
+
+bool tecmo_gameplay_cpu_steering_route_step(
+    uint8_t actor,
+    uint8_t completion_side_bit_0359,
+    const TecmoGameplayCpuSteeringRouteMotionState *state_in,
+    TecmoGameplayCpuSteeringRouteMotionState *state_out,
+    TecmoGameplayCpuSteeringRouteStepResult *result_out)
+{
+    TecmoGameplayCpuSteeringRouteMotionState next;
+    TecmoGameplayCpuSteeringRouteStepResult result;
+    if (actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        completion_side_bit_0359 > 1U ||
+        !route_motion_state_valid(state_in) || !state_in->active ||
+        state_out == NULL || result_out == NULL || state_out == state_in ||
+        (const void *)state_out == (const void *)result_out ||
+        (const void *)result_out == (const void *)state_in) {
+        return false;
+    }
+    next = *state_in;
+    memset(&result, 0, sizeof(result));
+    result.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_ROUTE_STEP_RESULT_TAG;
+    result.actor = actor;
+    result.timer_before = next.remaining_timer;
+
+    /* Bank06 $8AF4-$8B55 integrates before testing the route timer. */
+    next.horizontal_accumulator_q6 = (uint16_t)(
+        next.horizontal_accumulator_q6 +
+        (uint16_t)next.horizontal_velocity_q6);
+    next.depth_accumulator_q6 = (uint16_t)(
+        next.depth_accumulator_q6 + (uint16_t)next.depth_velocity_q6);
+    result.horizontal_position =
+        (uint16_t)(next.horizontal_accumulator_q6 >> 6U);
+    result.depth_position =
+        (uint8_t)(next.depth_accumulator_q6 >> 6U);
+
+    if (next.remaining_timer == 0U) {
+        next.active = false;
+    } else {
+        --next.remaining_timer;
+        if (next.remaining_timer == 0U) {
+            /* $8B75-$8B8F completes the low half only for side bit one and
+               the high half only for side bit zero. The opposite half keeps
+               state 5 for one extra integration with a zero timer. */
+            bool actor_low_half = actor <
+                TECMO_GAMEPLAY_CPU_STEERING_TEAM_ACTOR_COUNT;
+            if ((actor_low_half && completion_side_bit_0359 != 0U) ||
+                (!actor_low_half && completion_side_bit_0359 == 0U)) {
+                next.active = false;
+            }
+        }
+    }
+    result.timer_after = next.remaining_timer;
+    result.finished = !next.active;
+    *state_out = next;
+    *result_out = result;
+    return true;
+}
+
 bool tecmo_gameplay_cpu_steering_play_state_initialize(
     const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t formation_index,
@@ -1200,6 +1411,8 @@ bool tecmo_gameplay_cpu_steering_play_state_initialize(
         state.target_object[actor] = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
         state.fixed_link_target[actor] =
             TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+        state.route_motion[actor].contract_tag =
+            TECMO_GAMEPLAY_CPU_STEERING_ROUTE_MOTION_STATE_TAG;
     }
     /* Bank04 $ACE4-$ACF0 and $AD11/$AD16 startup seeds. */
     state.primary_actor = 4U;
@@ -1532,6 +1745,9 @@ bool tecmo_gameplay_cpu_steering_play_step(
              !play_valid_actor(state_in->fixed_link_target[actor]))) {
             return false;
         }
+        if (!route_motion_state_valid(&state_in->route_motion[actor])) {
+            return false;
+        }
     }
 
     next_state = *state_in;
@@ -1641,8 +1857,8 @@ bool tecmo_gameplay_cpu_steering_play_step(
                     &target, &input->actor_position[actor]);
                 result.target_depth_delta = play_opcode4_depth_delta(
                     &target, &input->actor_position[actor]);
-                /* $901D-$9027 ORs the full X and sign-extended depth
-                   vectors; $9025 takes the no-direction-write branch only
+                /* Canonical Bank06 $8FFA-$9031 ORs the full X and
+                   sign-extended depth vectors; its zero-vector branch only
                    when every byte is zero. */
                 result.target_vector_zero =
                     result.target_horizontal_delta == 0 &&
@@ -2366,7 +2582,7 @@ static bool movement_composition_self_test(
             result.movement.direction != direction) {
             (void)snprintf(
                 message, message_size,
-                "TGAI-2 to TGMO-1 direction composition failed.");
+                "TGAI-3 to TGMO-1 direction composition failed.");
             tecmo_gameplay_movement_assets_destroy(&movement_assets);
             return false;
         }
@@ -2409,7 +2625,7 @@ static bool movement_composition_self_test(
             TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL) {
         (void)snprintf(
             message, message_size,
-            "TGAI-2 zero-vector neutral composition failed.");
+            "TGAI-3 zero-vector neutral composition failed.");
         tecmo_gameplay_movement_assets_destroy(&movement_assets);
         return false;
     }
@@ -2465,14 +2681,14 @@ static bool movement_composition_self_test(
 
 movement_vector_failure:
     (void)snprintf(message, message_size,
-                   "TGAI-2 to TGMO-1 movement vector failed.");
+                   "TGAI-3 to TGMO-1 movement vector failed.");
     tecmo_gameplay_movement_assets_destroy(&movement_assets);
     return false;
 
 movement_transaction_failure:
     (void)snprintf(
         message, message_size,
-        "TGAI-2 to TGMO-1 transactional rejection failed.");
+        "TGAI-3 to TGMO-1 transactional rejection failed.");
     tecmo_gameplay_movement_assets_destroy(&movement_assets);
     return false;
 }
@@ -2780,6 +2996,13 @@ bool tecmo_gameplay_cpu_steering_self_test(
     TecmoGameplayCpuSteeringRouteInput route_input;
     TecmoGameplayCpuSteeringRouteResult route_result;
     TecmoGameplayCpuSteeringRouteResult route_before;
+    TecmoGameplayCpuSteeringRouteLaunchInput launch_input;
+    TecmoGameplayCpuSteeringRouteLaunchResult launch_result;
+    TecmoGameplayCpuSteeringRouteLaunchResult launch_before;
+    TecmoGameplayCpuSteeringRouteMotionState motion_out;
+    TecmoGameplayCpuSteeringRouteMotionState motion_before;
+    TecmoGameplayCpuSteeringRouteStepResult route_step_result;
+    TecmoGameplayCpuSteeringRouteStepResult route_step_before;
     TecmoGameplayCpuSteeringPlayState play_state;
     TecmoGameplayCpuSteeringPlayState play_before;
     TecmoGameplayCpuSteeringPlayState play_out;
@@ -2790,6 +3013,10 @@ bool tecmo_gameplay_cpu_steering_self_test(
     TecmoGameplayCpuSteeringShotInput shot_input;
     TecmoGameplayCpuSteeringShotResult shot_result;
     TecmoGameplayCpuSteeringShotResult shot_before;
+    static const int16_t route_octant_delta[8U][2U] = {
+        {64,0},{-64,0},{0,64},{64,64},
+        {-64,64},{0,-64},{64,-64},{-64,-64}
+    };
     uint16_t opcode_offsets[TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT];
     uint32_t baseline_fingerprint;
     uint8_t direction = 0xA5U;
@@ -2800,15 +3027,238 @@ bool tecmo_gameplay_cpu_steering_self_test(
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
+    /* Exact planar route arithmetic subset: $88DA-$8AF3 plus the
+       revision-locked $9BD8-$9C6E divider. Presentation/action side effects
+       are deliberately outside this pure contract. */
+    memset(&launch_input, 0, sizeof(launch_input));
+    launch_input.contract_tag =
+        TECMO_GAMEPLAY_CPU_STEERING_ROUTE_LAUNCH_INPUT_TAG;
+    launch_input.actor_position.x = 256;
+    launch_input.actor_position.y = 128;
+    launch_input.condition_7c48 = 100U;
+    launch_input.movement_value_06e7 = 20U;
+    launch_input.horizontal_delta = 64;
+    if (!tecmo_gameplay_cpu_steering_route_launch(
+            &assets, &launch_input, &launch_result) ||
+        !launch_result.launched || launch_result.direction != 0U ||
+        launch_result.duration != 45U ||
+        launch_result.motion.horizontal_velocity_q6 != 91 ||
+        launch_result.motion.depth_velocity_q6 != 0 ||
+        launch_result.motion.horizontal_accumulator_q6 != 0x4000U ||
+        launch_result.motion.depth_accumulator_q6 != 0x2000U ||
+        launch_result.motion.remaining_timer != 45U ||
+        !launch_result.motion.active) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 cardinal route-launch vector failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    motion_out = launch_result.motion;
+    memset(&route_step_result, 0, sizeof(route_step_result));
+    for (uint16_t route_tick = 0U; route_tick < 45U; ++route_tick) {
+        TecmoGameplayCpuSteeringRouteMotionState stepped_motion;
+        if (!tecmo_gameplay_cpu_steering_route_step(
+                0U, 1U, &motion_out, &stepped_motion,
+                &route_step_result)) {
+            (void)snprintf(message, message_size,
+                           "TGAI-3 cardinal route integration failed.");
+            tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+            return false;
+        }
+        motion_out = stepped_motion;
+    }
+    if (!route_step_result.finished ||
+        route_step_result.horizontal_position != 319U ||
+        route_step_result.depth_position != 128U) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 cardinal route final coordinate failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    launch_input.horizontal_delta = 64;
+    launch_input.depth_delta = 64;
+    if (!tecmo_gameplay_cpu_steering_route_launch(
+            &assets, &launch_input, &launch_result) ||
+        launch_result.direction != 3U || launch_result.duration != 67U ||
+        launch_result.motion.horizontal_velocity_q6 != 61 ||
+        launch_result.motion.depth_velocity_q6 != 61) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 diagonal route-launch vector failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    for (uint8_t route_octant = 0U; route_octant < 8U; ++route_octant) {
+        launch_input.horizontal_delta = route_octant_delta[route_octant][0U];
+        launch_input.depth_delta = route_octant_delta[route_octant][1U];
+        if (!tecmo_gameplay_cpu_steering_route_launch(
+                &assets, &launch_input, &launch_result) ||
+            launch_result.direction != route_octant) {
+            (void)snprintf(message, message_size,
+                           "TGAI-3 route-launch octant %u failed.",
+                           (unsigned)route_octant);
+            tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+            return false;
+        }
+    }
+    launch_input.horizontal_delta = -64;
+    launch_input.depth_delta = 0;
+    if (!tecmo_gameplay_cpu_steering_route_launch(
+            &assets, &launch_input, &launch_result) ||
+        launch_result.direction != 1U || launch_result.duration != 45U ||
+        launch_result.motion.horizontal_velocity_q6 != -91) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 signed route-launch vector failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    launch_input.horizontal_delta = 1;
+    if (!tecmo_gameplay_cpu_steering_route_launch(
+            &assets, &launch_input, &launch_result) ||
+        launch_result.duration != 1U ||
+        launch_result.motion.horizontal_velocity_q6 != 64) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 unit route-launch vector failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    launch_input.horizontal_delta = 0;
+    memset(&launch_result, 0xA5, sizeof(launch_result));
+    if (!tecmo_gameplay_cpu_steering_route_launch(
+            &assets, &launch_input, &launch_result) ||
+        launch_result.launched || launch_result.motion.active ||
+        launch_result.direction != TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 zero route-launch vector failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    memset(&launch_before, 0xA5, sizeof(launch_before));
+    launch_result = launch_before;
+    launch_input.contract_tag = 0U;
+    if (tecmo_gameplay_cpu_steering_route_launch(
+            &assets, &launch_input, &launch_result) ||
+        memcmp(&launch_result, &launch_before, sizeof(launch_result)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 route-launch transaction failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    launch_input.contract_tag =
+        TECMO_GAMEPLAY_CPU_STEERING_ROUTE_LAUNCH_INPUT_TAG;
+    launch_input.horizontal_delta = 1;
+    if (!tecmo_gameplay_cpu_steering_route_launch(
+            &assets, &launch_input, &launch_result)) {
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    memset(&route_step_before, 0xA5, sizeof(route_step_before));
+    route_step_result = route_step_before;
+    memset(&motion_before, 0x5A, sizeof(motion_before));
+    motion_out = motion_before;
+    if (tecmo_gameplay_cpu_steering_route_step(
+            0U, 2U, &launch_result.motion, &motion_out,
+            &route_step_result) ||
+        memcmp(&motion_out, &motion_before, sizeof(motion_out)) != 0 ||
+        memcmp(&route_step_result, &route_step_before,
+               sizeof(route_step_result)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 route-step transaction failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    if (!tecmo_gameplay_cpu_steering_route_step(
+            0U, 0U, &launch_result.motion, &motion_out,
+            &route_step_result) || route_step_result.finished ||
+        route_step_result.horizontal_position != 257U ||
+        route_step_result.depth_position != 128U ||
+        motion_out.remaining_timer != 0U || !motion_out.active ||
+        !tecmo_gameplay_cpu_steering_route_step(
+            0U, 0U, &motion_out, &launch_result.motion,
+            &route_step_result) || !route_step_result.finished ||
+        route_step_result.horizontal_position != 258U) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 low-half delayed completion failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    launch_input.horizontal_delta = 1;
+    if (!tecmo_gameplay_cpu_steering_route_launch(
+            &assets, &launch_input, &launch_result) ||
+        !tecmo_gameplay_cpu_steering_route_step(
+            0U, 1U, &launch_result.motion, &motion_out,
+            &route_step_result) || !route_step_result.finished ||
+        !tecmo_gameplay_cpu_steering_route_launch(
+            &assets, &launch_input, &launch_result) ||
+        !tecmo_gameplay_cpu_steering_route_step(
+            5U, 0U, &launch_result.motion, &motion_out,
+            &route_step_result) || !route_step_result.finished) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 completion-side vectors failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    /* A zero timer at state-5 entry still integrates once before the
+       completion check at $8B55. */
+    launch_result.motion.remaining_timer = 0U;
+    if (!tecmo_gameplay_cpu_steering_route_step(
+            0U, 0U, &launch_result.motion, &motion_out,
+            &route_step_result) || !route_step_result.finished ||
+        route_step_result.horizontal_position != 257U) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 zero-timer integration vector failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    /* The complementary high-half/bit-one case delays completion for one
+       zero-timer integration. */
+    if (!tecmo_gameplay_cpu_steering_route_launch(
+            &assets, &launch_input, &launch_result) ||
+        !tecmo_gameplay_cpu_steering_route_step(
+            5U, 1U, &launch_result.motion, &motion_out,
+            &route_step_result) || route_step_result.finished ||
+        !tecmo_gameplay_cpu_steering_route_step(
+            5U, 1U, &motion_out, &launch_result.motion,
+            &route_step_result) || !route_step_result.finished) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 high-half delayed completion failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    /* $8AF4-$8B55 is wrapping Q6 integration, with no TGMO/fixed clamp. */
+    memset(&motion_before, 0, sizeof(motion_before));
+    motion_before.contract_tag =
+        TECMO_GAMEPLAY_CPU_STEERING_ROUTE_MOTION_STATE_TAG;
+    motion_before.horizontal_accumulator_q6 = 0xFFC0U;
+    motion_before.horizontal_velocity_q6 = 64;
+    motion_before.remaining_timer = 1U;
+    motion_before.active = true;
+    if (!tecmo_gameplay_cpu_steering_route_step(
+            0U, 1U, &motion_before, &motion_out, &route_step_result) ||
+        route_step_result.horizontal_position != 0U) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 positive Q6 wrap vector failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    motion_before.horizontal_accumulator_q6 = 0U;
+    motion_before.horizontal_velocity_q6 = -64;
+    if (!tecmo_gameplay_cpu_steering_route_step(
+            0U, 1U, &motion_before, &motion_out, &route_step_result) ||
+        route_step_result.horizontal_position != 1023U) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 negative Q6 wrap vector failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
     if (!opcode15_raw_resolver_self_test(&assets)) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-15 raw resolver contract failed.");
+                       "TGAI-3 opcode-15 raw resolver contract failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
     if (!opcode15_parser_anchor_self_test(&assets)) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-15 parser/anchor mutations failed.");
+                       "TGAI-3 opcode-15 parser/anchor mutations failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2828,7 +3278,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         command.kind !=
             TECMO_GAMEPLAY_CPU_STEERING_COMMAND_ABSOLUTE_TARGET) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 command decode vectors failed.");
+                       "TGAI-3 command decode vectors failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2843,7 +3293,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &command) ||
         memcmp(&command, &before, sizeof(command)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 transactional decode rejection failed.");
+                       "TGAI-3 transactional decode rejection failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2862,7 +3312,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         formation_result.actor_count !=
             TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 formation lifecycle contract failed.");
+                       "TGAI-3 formation lifecycle contract failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2873,7 +3323,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         memcmp(&formation_result, &formation_before,
                sizeof(formation_result)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 formation boundary rejection failed.");
+                       "TGAI-3 formation boundary rejection failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2893,7 +3343,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         route_result.stream_offset != 0x007DU ||
         route_result.actor_state != 0x04U) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 short route selector golden failed.");
+                       "TGAI-3 short route selector golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2902,7 +3352,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &route_input, &route_result) ||
         !route_result.used_long_route || route_result.stream_offset != 0x00D7U) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 long route selector golden failed.");
+                       "TGAI-3 long route selector golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2912,7 +3362,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &route_input, &route_result) ||
         !route_result.used_long_route) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 route flag branch golden failed.");
+                       "TGAI-3 route flag branch golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2922,7 +3372,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &route_input, &route_result) ||
         !route_result.used_long_route) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 route age branch golden failed.");
+                       "TGAI-3 route age branch golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2933,7 +3383,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         route_result.wrote_route || route_result.stream_offset != 0U ||
         route_result.actor_state != 0U) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 route no-write branch golden failed.");
+                       "TGAI-3 route no-write branch golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2943,7 +3393,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &route_input, &route_result) ||
         memcmp(&route_result, &route_before, sizeof(route_result)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 route bad-tag transaction failed.");
+                       "TGAI-3 route bad-tag transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2954,7 +3404,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &route_input, &route_result) ||
         memcmp(&route_result, &route_before, sizeof(route_result)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 route bad-index transaction failed.");
+                       "TGAI-3 route bad-index transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -2993,7 +3443,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
                 TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_CONDITIONAL_FIVE_OR_TEN ||
             metadata_10->native_approximation) {
             (void)snprintf(message, message_size,
-                           "TGAI-2 lifecycle effect metadata failed.");
+                           "TGAI-3 lifecycle effect metadata failed.");
             tecmo_gameplay_cpu_steering_assets_destroy(&assets);
             return false;
         }
@@ -3011,7 +3461,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
                    TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS),
                "unimplemented-handler") != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 deferred-reason names changed.");
+                       "TGAI-3 deferred-reason names changed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3021,7 +3471,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             !find_lifecycle_opcode_offset(&assets, opcode,
                                           &opcode_offsets[opcode])) {
             (void)snprintf(message, message_size,
-                           "TGAI-2 lifecycle opcode coverage failed.");
+                           "TGAI-3 lifecycle opcode coverage failed.");
             tecmo_gameplay_cpu_steering_assets_destroy(&assets);
             return false;
         }
@@ -3030,7 +3480,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, 0U, &play_state) ||
         play_state.matchup_seed[0U] != 2U || play_state.matchup_seed[1U] != 7U) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 lifecycle startup state failed.");
+                       "TGAI-3 lifecycle startup state failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3039,7 +3489,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         if (play_state.fixed_link_target[actor] !=
                 TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR) {
             (void)snprintf(message, message_size,
-                           "TGAI-2 fixed startup seeds leaked into fixed-link target state.");
+                           "TGAI-3 fixed startup seeds leaked into fixed-link target state.");
             tecmo_gameplay_cpu_steering_assets_destroy(&assets);
             return false;
         }
@@ -3061,8 +3511,8 @@ bool tecmo_gameplay_cpu_steering_self_test(
     play_input.ball_position.x = 255;
     play_input.ball_position.y = 0;
 
-    /* The first canonical record is opcode 4 C8=$0A. Bank06
-       $8FFD-$9018 subtracts target object X as a 16-bit value and target
+    /* The first canonical record is opcode 4 C8=$0A. Canonical Bank06
+       $8FFA-$9031 subtracts target object X as a 16-bit value and target
        depth as an 8-bit value sign-extended through $A7. Choose adjacent
        low-byte boundaries so both source borrows are observable. */
     if (!tecmo_gameplay_cpu_steering_play_state_initialize(
@@ -3094,10 +3544,46 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.direction[0U] !=
             TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-4 canonical ball target borrow failed.");
+                       "TGAI-3 opcode-4 canonical ball target borrow failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
+    /* Opcode 4 captures the object coordinate once. Feed its returned
+       vector into the pure launch kernel, then mutate the caller's ball
+       snapshot. The launched Q6 route and captured play target must remain
+       frozen rather than dynamically chase the new coordinate. */
+    launch_input.actor_position = play_input.actor_position[0U];
+    launch_input.horizontal_delta = play_result.target_horizontal_delta;
+    launch_input.depth_delta = play_result.target_depth_delta;
+    launch_input.condition_7c48 = 100U;
+    launch_input.movement_value_06e7 = 20U;
+    if (!tecmo_gameplay_cpu_steering_route_launch(
+            &assets, &launch_input, &launch_result) ||
+        !launch_result.launched || launch_result.duration != 1U ||
+        launch_result.motion.horizontal_velocity_q6 != -64 ||
+        launch_result.motion.depth_velocity_q6 != -64) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-4 captured route composition failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    launch_before = launch_result;
+    play_input.ball_position.x = 700;
+    play_input.ball_position.y = 200;
+    if (play_out.target_x[0U] != 255 || play_out.target_depth[0U] != 0 ||
+        memcmp(&launch_result, &launch_before, sizeof(launch_result)) != 0 ||
+        !tecmo_gameplay_cpu_steering_route_step(
+            0U, 1U, &launch_result.motion, &motion_out,
+            &route_step_result) ||
+        route_step_result.horizontal_position != 255U ||
+        route_step_result.depth_position != 0U) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-4 frozen-target route failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.ball_position.x = 255;
+    play_input.ball_position.y = 0;
     if (!tecmo_gameplay_cpu_steering_play_state_initialize(
             &assets, 0U, &play_state)) {
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
@@ -3119,7 +3605,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.actor_state[0U] != 0x04U ||
         play_out.direction[0U] != 3U) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-4 zero-vector guard failed.");
+                       "TGAI-3 opcode-4 zero-vector guard failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3145,7 +3631,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_result.advanced || play_result.next_offset != 0x013BU ||
         memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-7 unavailable probe transaction failed.");
+                       "TGAI-3 opcode-7 unavailable probe transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3162,7 +3648,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.stream_offset[0U] != 0x0140U ||
         play_out.actor_state[0U] != 0x04U) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-7 equal-probe golden failed.");
+                       "TGAI-3 opcode-7 equal-probe golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3180,7 +3666,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_result.next_offset != 0x013BU || play_result.advanced ||
         play_out.stream_offset[0U] != 0x013BU) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-7 mismatch-probe golden failed.");
+                       "TGAI-3 opcode-7 mismatch-probe golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3199,7 +3685,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &play_state, &play_input, &play_out, &play_result) ||
         play_result.steps_executed != 1U || play_result.command.opcode != 0U) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 one-handler-per-tick golden failed.");
+                       "TGAI-3 one-handler-per-tick golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3225,7 +3711,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT ||
         play_out.stream_offset[0U] != 0x0005U) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 goto-chain two-step golden failed.");
+                       "TGAI-3 goto-chain two-step golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3244,7 +3730,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_result.next_offset != 0x0000U ||
         !play_result.budget_exhausted || play_out.stream_offset[0U] != 0x0000U) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 goto-chain budget golden failed.");
+                       "TGAI-3 goto-chain budget golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3271,7 +3757,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_result.next_offset != opcode_offsets[10U] ||
         memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-10 unavailable $07DF transaction failed.");
+                       "TGAI-3 opcode-10 unavailable $07DF transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3287,7 +3773,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_result.next_offset != opcode_offsets[10U] ||
         memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-10 unavailable link branch failed.");
+                       "TGAI-3 opcode-10 unavailable link branch failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3303,7 +3789,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_result.next_offset != opcode_offsets[10U] ||
         memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-10 unavailable helper transaction failed.");
+                       "TGAI-3 opcode-10 unavailable helper transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3320,7 +3806,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_result.next_offset != opcode_offsets[10U] ||
         memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-10 unavailable BA transaction failed.");
+                       "TGAI-3 opcode-10 unavailable BA transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3342,7 +3828,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_result.next_offset != opcode_offsets[2U] ||
         memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-2 unavailable BA transaction failed.");
+                       "TGAI-3 opcode-2 unavailable BA transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3366,7 +3852,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.stream_offset[0U] !=
             (uint16_t)(opcode_offsets[2U] + 5U)) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-2 typed-zero BA advance failed.");
+                       "TGAI-3 opcode-2 typed-zero BA advance failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3396,7 +3882,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             play_result.proximity_met != (delta >= -8 && delta <= 7) ||
             play_result.advanced != (delta >= -8 && delta <= 7)) {
             (void)snprintf(message, message_size,
-                           "TGAI-2 opcode-10 proximity boundary failed at %d.",
+                           "TGAI-3 opcode-10 proximity boundary failed at %d.",
                            delta);
             tecmo_gameplay_cpu_steering_assets_destroy(&assets);
             return false;
@@ -3424,7 +3910,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_result.next_offset != opcode_offsets[16U] ||
         memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-16 unavailable pointer transaction failed.");
+                       "TGAI-3 opcode-16 unavailable pointer transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3440,7 +3926,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_result.next_offset != opcode_offsets[16U] ||
         memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-16 unavailable BA transaction failed.");
+                       "TGAI-3 opcode-16 unavailable BA transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3471,7 +3957,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
                 (int16_t)(play_input.actor_position[9U].x +
                     ((branch & 1U) != 0U ? -16 : 16)))) {
             (void)snprintf(message, message_size,
-                           "TGAI-2 opcode-16 adjustment branch %u failed.",
+                           "TGAI-3 opcode-16 adjustment branch %u failed.",
                            (unsigned)branch);
             tecmo_gameplay_cpu_steering_assets_destroy(&assets);
             return false;
@@ -3497,7 +3983,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.actor_state[0U] != 0x04U ||
         play_out.stream_offset[0U] != play_before.stream_offset[0U]) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 wait-expiry golden failed.");
+                       "TGAI-3 wait-expiry golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3521,7 +4007,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.actor_state[0U] != 0x04U ||
         play_out.stream_offset[0U] != (uint16_t)(opcode_offsets[14U] + 5U)) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-14 $04B0 golden failed.");
+                       "TGAI-3 opcode-14 $04B0 golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3541,7 +4027,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.aggregation_06df != 1U ||
         play_out.aggregation_06e1 != 0x01U) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 aggregation barrier golden failed.");
+                       "TGAI-3 aggregation barrier golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3565,7 +4051,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_result.next_offset != opcode_offsets[21U] ||
         memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-21 unavailable gate transaction failed.");
+                       "TGAI-3 opcode-21 unavailable gate transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3586,7 +4072,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &play_state, &play_input, &play_out, &play_result) ||
         play_result.next_offset != (uint16_t)(opcode_offsets[21U] + 5U)) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-21 one-record golden failed.");
+                       "TGAI-3 opcode-21 one-record golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3604,7 +4090,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &play_state, &play_input, &play_out, &play_result) ||
         play_result.next_offset != (uint16_t)(opcode_offsets[21U] + 10U)) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-21 two-record golden failed.");
+                       "TGAI-3 opcode-21 two-record golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3625,7 +4111,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.global_0790 !=
             (uint8_t)(0x80U | play_result.command.arguments[2U])) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-22 mask retention golden failed.");
+                       "TGAI-3 opcode-22 mask retention golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3650,7 +4136,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_result.next_offset != opcode_offsets[0U] ||
         memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-0 unavailable BA transaction failed.");
+                       "TGAI-3 opcode-0 unavailable BA transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3674,7 +4160,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_result.next_offset != opcode_offsets[13U] ||
         memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-13 missing target transaction failed.");
+                       "TGAI-3 opcode-13 missing target transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3692,7 +4178,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &play_state, &play_input, &play_out, &play_result) ||
         play_result.command.opcode != 0U || !play_result.advanced) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-0 forward golden failed.");
+                       "TGAI-3 opcode-0 forward golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3715,7 +4201,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
                             play_result.command.arguments[1U])) ||
         play_before.target_x[0U] == play_out.target_x[0U]) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-0 orientation/BA golden failed.");
+                       "TGAI-3 opcode-0 orientation/BA golden failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3740,7 +4226,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             play_result.next_offset !=
                 (uint16_t)(opcode_offsets[deferred_opcode] + 5U)) {
             (void)snprintf(message, message_size,
-                           "TGAI-2 deferred transport golden failed for opcode %u.",
+                           "TGAI-3 deferred transport golden failed for opcode %u.",
                            (unsigned)deferred_opcode);
             tecmo_gameplay_cpu_steering_assets_destroy(&assets);
             return false;
@@ -3781,7 +4267,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             play_before.action_state_046e[0U] ||
         memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-15 LIVE deferred boundary failed.");
+                       "TGAI-3 opcode-15 LIVE deferred boundary failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3804,7 +4290,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         memcmp(&play_result, &play_result_before,
                sizeof(play_result)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 play state alias rejection failed.");
+                       "TGAI-3 play state alias rejection failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3817,7 +4303,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         memcmp(&play_input, &play_input_before, sizeof(play_input)) != 0 ||
         memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 play input/result alias rejection failed.");
+                       "TGAI-3 play input/result alias rejection failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3830,7 +4316,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         memcmp(&play_result, &play_result_before,
                sizeof(play_result)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 play input validation rejection failed.");
+                       "TGAI-3 play input validation rejection failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3847,7 +4333,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         memcmp(&play_result, &play_result_before,
                sizeof(play_result)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 unavailable $07DF sentinel validation failed.");
+                       "TGAI-3 unavailable $07DF sentinel validation failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3863,7 +4349,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         memcmp(&play_result, &play_result_before,
                sizeof(play_result)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-4 ball input transaction failed.");
+                       "TGAI-3 opcode-4 ball input transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3879,7 +4365,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         memcmp(&play_result, &play_result_before,
                sizeof(play_result)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 opcode-4 object-state transaction failed.");
+                       "TGAI-3 opcode-4 object-state transaction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3902,7 +4388,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             shot_result.action != 0x32U || shot_result.timer != 0x12U ||
             shot_result.handoff_code != 0x03U) {
             (void)snprintf(message, message_size,
-                           "TGAI-2 shot-request difficulty golden failed.");
+                           "TGAI-3 shot-request difficulty golden failed.");
             tecmo_gameplay_cpu_steering_assets_destroy(&assets);
             return false;
         }
@@ -3912,7 +4398,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     if (!tecmo_gameplay_cpu_steering_shot_request(
             &assets, &shot_input, &shot_result) || shot_result.request) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 shot-request distance boundary failed.");
+                       "TGAI-3 shot-request distance boundary failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3921,7 +4407,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     if (!tecmo_gameplay_cpu_steering_shot_request(
             &assets, &shot_input, &shot_result) || shot_result.request) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 shot-request high-distance boundary failed.");
+                       "TGAI-3 shot-request high-distance boundary failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3930,7 +4416,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     if (!tecmo_gameplay_cpu_steering_shot_request(
             &assets, &shot_input, &shot_result) || shot_result.request) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 shot-request timer boundary failed.");
+                       "TGAI-3 shot-request timer boundary failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3940,7 +4426,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     if (!tecmo_gameplay_cpu_steering_shot_request(
             &assets, &shot_input, &shot_result) || shot_result.request) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 shot-request rating boundary failed.");
+                       "TGAI-3 shot-request rating boundary failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3950,7 +4436,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     if (!tecmo_gameplay_cpu_steering_shot_request(
             &assets, &shot_input, &shot_result) || shot_result.request) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 shot-request state gate failed.");
+                       "TGAI-3 shot-request state gate failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3959,7 +4445,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     if (!tecmo_gameplay_cpu_steering_shot_request(
             &assets, &shot_input, &shot_result) || shot_result.request) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 shot-request BA gate failed.");
+                       "TGAI-3 shot-request BA gate failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3970,7 +4456,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &shot_input, &shot_result) ||
         memcmp(&shot_result, &shot_before, sizeof(shot_result)) != 0) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 shot-request transaction rejection failed.");
+                       "TGAI-3 shot-request transaction rejection failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -3998,7 +4484,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         tecmo_gameplay_cpu_steering_direction_for_delta(
             &assets, 0, 0, &direction) || direction != 0xA5U) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 exact octant/transaction vectors failed.");
+                       "TGAI-3 exact octant/transaction vectors failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -4033,7 +4519,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         !harness_result.writes_direction ||
         harness_result.direction != 1U) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 harness linked-actor vector failed.");
+                       "TGAI-3 harness linked-actor vector failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -4047,7 +4533,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             repeat_result.input_fingerprint == baseline_fingerprint) {
             (void)snprintf(
                 message, message_size,
-                "TGAI-2 harness ten-coordinate fingerprint failed.");
+                "TGAI-3 harness ten-coordinate fingerprint failed.");
             tecmo_gameplay_cpu_steering_assets_destroy(&assets);
             return false;
         }
@@ -4069,7 +4555,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         harness_result.direction != 1U ||
         !harness_result.writes_direction) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 harness left-hoop vector failed.");
+                       "TGAI-3 harness left-hoop vector failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -4082,7 +4568,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         harness_result.direction != 0U ||
         !harness_result.writes_direction) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 harness right-hoop vector failed.");
+                       "TGAI-3 harness right-hoop vector failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -4109,7 +4595,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         harness_result.direction != 0U ||
         !harness_result.writes_direction) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 explicit target vector failed.");
+                       "TGAI-3 explicit target vector failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -4134,7 +4620,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         harness_result.direction !=
             TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION) {
         (void)snprintf(message, message_size,
-                       "TGAI-2 harness zero-vector gate failed.");
+                       "TGAI-3 harness zero-vector gate failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -4206,12 +4692,12 @@ bool tecmo_gameplay_cpu_steering_self_test(
     tecmo_gameplay_cpu_steering_assets_destroy(&assets);
     (void)snprintf(
         message, message_size,
-        "TGAI-2 CPU steering isolated: commands=680 handlers=24 directions=8 tgmo_adapter=1 scene_adapter=1 rom_policy=0");
+        "TGAI-3 CPU steering isolated: commands=680 handlers=24 directions=8 tgmo_adapter=1 scene_adapter=1 route_kernel=1 route_live=0 rom_policy=0");
     return true;
 
 malformed_harness_failure:
     (void)snprintf(message, message_size,
-                   "TGAI-2 transactional harness rejection failed.");
+                   "TGAI-3 transactional harness rejection failed.");
     tecmo_gameplay_cpu_steering_assets_destroy(&assets);
     return false;
 }

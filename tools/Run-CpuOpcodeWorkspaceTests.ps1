@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 $ExpectedRomSha256 =
     "076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4"
 $ExpectedHarnessLine =
-    "TGAI-2 opcode workspace harness: opcode7=defer opcode10=exact-harness opcode16=exact-harness ba=external-lifecycle"
+    "TGAI-3 opcode workspace harness: opcode7=defer opcode10=exact-harness opcode16=exact-harness ba=external-lifecycle"
 
 if (!$ProjectRoot) {
     $ProjectRoot = Split-Path -Parent $PSScriptRoot

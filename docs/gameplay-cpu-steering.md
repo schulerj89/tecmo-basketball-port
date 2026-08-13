@@ -2,7 +2,7 @@
 
 Ordinary live CPU actors now use the transactional TGAI-to-TGMO adapter. This
 note describes the exact Rev 1 routines isolated behind
-`gameplay/cpu-steering` TGAI-2 and the bounded native target policy that feeds
+`gameplay/cpu-steering` TGAI-3 and the bounded native target policy that feeds
 their direction identity into the existing TGMO locomotion kernel. This is a
 live movement integration seam, not a ROM CPU command-policy claim.
 
@@ -39,9 +39,9 @@ prove every condition that selects a play or formation.
 
 Opcode 4 is the bounded exception to the ordinary ten-player coordinate
 snapshot. The state-4 caller path is Bank06 `$81F7-$82D3` to `$8B90-$8BE0`,
-then fixed `$C006/$CBE0-$CBF6`, and then dispatch-table vector `$8FFA` into
-the contiguous Bank06 `$8FF5-$9027` delta routine. Its `$8FF5-$8FF9` prelude
-loads `$C8` as the target-object index before the subtraction tail. The strict
+then fixed `$C006/$CBE0-$CBF6`, and then canonical Bank06 handler
+`$8FFA-$9031`. `$8FFA` loads `$C8` as the target-object index; the next handler
+begins at `$9032`. The strict
 TGAI corpus contains exactly two
 opcode-4 records, at stream offsets `$0000` and `$016D`; both select object
 slot `$0A`.
@@ -59,9 +59,33 @@ value (low/high bytes with borrow), then subtracts depth as an 8-bit value and
 sign-extends its borrow to a 16-bit delta. It ORs the two complete deltas; a
 zero vector skips `$88DA` and keeps the prior direction. The C result records
 these bounded opcode-4 deltas for regression coverage, while the production
-scene resolves slot `10` from one immutable floored-Q8 ball snapshot before
-its normal TGMO composition. This is source-to-C target transport, not a claim
-to reconstruct offensive play selection.
+scene captures slot `10` from the current floored-Q8 ball snapshot for that
+command transaction. The exact state-5 route kernel described below is not yet
+bound to LIVE; current production movement continues through the documented
+TGAI-to-TGMO compatibility adapter. This is source-to-C target transport, not
+a claim to reconstruct offensive play selection.
+
+## Exact planar route arithmetic subset
+
+TGAI-3 additionally exposes a pure, transactional subset of the native route
+lifecycle. Bank06 `$88DA-$8A95` supplies signed-delta magnitude and octant
+arithmetic, `$8A96-$8AF3` computes duration and signed Q6 velocity, and
+`$8AF4-$8B8F` integrates the wrapping Q6 accumulators in state 5. The signed
+division helper is independently revision-locked at `$9BD8-$9C6E` (151 bytes,
+FNV1a32 `74DD2AC6`). No TGMO or fixed `$F106` clamp is called by this route.
+
+Launch requires explicit target-minus-actor X/depth, raw `$7C48`, and raw
+`$06E7` inputs. Opcode 4 captures the target coordinate once; changing that
+object later cannot retarget an active route. State 5 integrates before testing
+the timer. On decrement to zero, `$0359` bit 0 selects which actor half finishes
+immediately; the other half performs one additional integration with timer
+zero. Both side-bit values are explicit kernel inputs.
+
+This is deliberately described as an exact *planar arithmetic subset*.
+Pose-table selection at `$932B/$933B` and selected/ordinary presentation/action
+effects through `$0458/$0479/$046E` are not modeled. LIVE also has no proven
+raw `$7C48`, `$06E7`, or `$0359` owner, so the route state is reserved but
+production binding remains fail-closed.
 
 ## Opcode 9 action `$21`: selected-primary autonomous pass
 
@@ -133,9 +157,9 @@ caller-owned output.
 
 ## Strict asset contract
 
-TGAI-2 is 7632 bytes with FNV1a32 `C8CFFDC0`. It requires exact same-pack
+TGAI-3 is 8016 bytes with FNV1a32 `D56EE070`. It requires exact same-pack
 TGMO-1 (`gameplay/movement`, 1664 bytes, `6C82A137`) so direction identities
-cannot silently diverge from the locomotion boundary. Its ten Rev 1 source
+cannot silently diverge from the locomotion boundary. Its twelve Rev 1 source
 spans are:
 
 | Source | Range | Bytes | FNV1a32 |
@@ -143,6 +167,8 @@ spans are:
 | Bank06 actor loop/state dispatch | `$81F7-$82D3` | 221 | `23BB7271` |
 | Bank06 actor-to-reference direction | `$87AE-$88AF` | 258 | `F866B06C` |
 | Bank06 target-delta direction/motion | `$88DA-$8A95` | 444 | `9616E586` |
+| Bank06 route duration/projection | `$8A96-$8AF3` | 94 | `939C6882` |
+| Bank06 state-5 Q6 integration | `$8AF4-$8B8F` | 156 | `C2E05331` |
 | Bank06 command fetch/dispatch | `$8B90-$8BE0` | 81 | `9AD2BA91` |
 | Bank06 handler cluster | `$8BE1-$9237` | 1623 | `344298FE` |
 | Bank06 target application | `$9280-$9329` | 170 | `C82E6853` |
@@ -272,7 +298,7 @@ normal play calls the pure API directly.
 
 ## Deliberate limits and next integration
 
-TGAI-2 does not claim a complete CPU play policy. Its supported automatic
+TGAI-3 does not claim a complete CPU play policy. Its supported automatic
 selected-primary state-4 flow can naturally execute exact opcode-9 action `$21`
 and enter the downstream pass consumer. It still does
 not reconstruct every actor-link assignment,

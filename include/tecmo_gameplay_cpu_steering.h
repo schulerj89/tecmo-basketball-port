@@ -8,7 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define TECMO_GAMEPLAY_CPU_STEERING_SOURCE_COUNT 10U
+#define TECMO_GAMEPLAY_CPU_STEERING_SOURCE_COUNT 12U
 #define TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT 24U
 #define TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT 8U
 #define TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE 5U
@@ -49,18 +49,24 @@
 #define TECMO_GAMEPLAY_CPU_STEERING_SHOT_RESULT_TAG 0x52534854U
 #define TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_INPUT_TAG 0x49353154U
 #define TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_RESULT_TAG 0x52353154U
+#define TECMO_GAMEPLAY_CPU_STEERING_ROUTE_LAUNCH_INPUT_TAG 0x494C5254U
+#define TECMO_GAMEPLAY_CPU_STEERING_ROUTE_LAUNCH_RESULT_TAG 0x524C5254U
+#define TECMO_GAMEPLAY_CPU_STEERING_ROUTE_MOTION_STATE_TAG 0x534D5254U
+#define TECMO_GAMEPLAY_CPU_STEERING_ROUTE_STEP_RESULT_TAG 0x52535254U
 
 typedef enum TecmoGameplayCpuSteeringSourceKind {
     TECMO_GAMEPLAY_CPU_STEERING_SOURCE_ACTOR_DISPATCH = 1,
     TECMO_GAMEPLAY_CPU_STEERING_SOURCE_REFERENCE_DIRECTION = 2,
     TECMO_GAMEPLAY_CPU_STEERING_SOURCE_TARGET_DIRECTION = 3,
-    TECMO_GAMEPLAY_CPU_STEERING_SOURCE_COMMAND_DISPATCH = 4,
-    TECMO_GAMEPLAY_CPU_STEERING_SOURCE_COMMAND_HANDLERS = 5,
-    TECMO_GAMEPLAY_CPU_STEERING_SOURCE_TARGET_APPLY = 6,
-    TECMO_GAMEPLAY_CPU_STEERING_SOURCE_FORMATION_STREAM_SELECT = 7,
-    TECMO_GAMEPLAY_CPU_STEERING_SOURCE_COMMAND_TRAMPOLINE = 8,
-    TECMO_GAMEPLAY_CPU_STEERING_SOURCE_COMMAND_READER = 9,
-    TECMO_GAMEPLAY_CPU_STEERING_SOURCE_PLAY_COMMANDS = 10
+    TECMO_GAMEPLAY_CPU_STEERING_SOURCE_ROUTE_PROJECTION = 4,
+    TECMO_GAMEPLAY_CPU_STEERING_SOURCE_ROUTE_STEP = 5,
+    TECMO_GAMEPLAY_CPU_STEERING_SOURCE_COMMAND_DISPATCH = 6,
+    TECMO_GAMEPLAY_CPU_STEERING_SOURCE_COMMAND_HANDLERS = 7,
+    TECMO_GAMEPLAY_CPU_STEERING_SOURCE_TARGET_APPLY = 8,
+    TECMO_GAMEPLAY_CPU_STEERING_SOURCE_FORMATION_STREAM_SELECT = 9,
+    TECMO_GAMEPLAY_CPU_STEERING_SOURCE_COMMAND_TRAMPOLINE = 10,
+    TECMO_GAMEPLAY_CPU_STEERING_SOURCE_COMMAND_READER = 11,
+    TECMO_GAMEPLAY_CPU_STEERING_SOURCE_PLAY_COMMANDS = 12
 } TecmoGameplayCpuSteeringSourceKind;
 
 /* This classification names only the bounded effect visible at each exact
@@ -237,6 +243,52 @@ typedef struct TecmoGameplayCpuSteeringRouteResult {
     bool used_long_route;
 } TecmoGameplayCpuSteeringRouteResult;
 
+/* Exact planar-arithmetic subset of Bank06 $88DA-$8AF3. Direction, duration,
+   Q6 velocity, accumulator seeding, and state-5 activation are reproduced;
+   the selected/ordinary pose pointers and $0458/$0479/$046E presentation and
+   action side effects remain explicitly outside this API. `condition_7c48` and
+   `movement_value_06e7` are explicit raw bytes because LIVE does not yet own
+   their complete original actor/profile projection. */
+typedef struct TecmoGameplayCpuSteeringRouteLaunchInput {
+    uint32_t contract_tag;
+    TecmoGameplayCourtCoordinate actor_position;
+    int16_t horizontal_delta;
+    int16_t depth_delta;
+    uint8_t condition_7c48;
+    uint8_t movement_value_06e7;
+} TecmoGameplayCpuSteeringRouteLaunchInput;
+
+/* Actor-local Q6 state written by Bank06 $89D6-$8A8A and consumed by state
+   5 at $8AF4-$8B8F. The accumulators and velocities deliberately retain raw
+   wrapping 16-bit representation. */
+typedef struct TecmoGameplayCpuSteeringRouteMotionState {
+    uint32_t contract_tag;
+    uint16_t horizontal_accumulator_q6;
+    uint16_t depth_accumulator_q6;
+    int16_t horizontal_velocity_q6;
+    int16_t depth_velocity_q6;
+    uint16_t remaining_timer;
+    bool active;
+} TecmoGameplayCpuSteeringRouteMotionState;
+
+typedef struct TecmoGameplayCpuSteeringRouteLaunchResult {
+    uint32_t contract_tag;
+    TecmoGameplayCpuSteeringRouteMotionState motion;
+    uint8_t direction;
+    uint16_t duration;
+    bool launched;
+} TecmoGameplayCpuSteeringRouteLaunchResult;
+
+typedef struct TecmoGameplayCpuSteeringRouteStepResult {
+    uint32_t contract_tag;
+    uint8_t actor;
+    uint16_t horizontal_position;
+    uint8_t depth_position;
+    uint16_t timer_before;
+    uint16_t timer_after;
+    bool finished;
+} TecmoGameplayCpuSteeringRouteStepResult;
+
 typedef struct TecmoGameplayCpuSteeringPlayState {
     uint32_t contract_tag;
     uint16_t stream_offset[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
@@ -274,6 +326,10 @@ typedef struct TecmoGameplayCpuSteeringPlayState {
     uint8_t aggregation_06e0;
     uint8_t aggregation_06df;
     uint8_t aggregation_06e1;
+    /* Reserved live owner for the exact Bank06 state-5 kernel. Opcode 4 is
+       not production-bound until LIVE owns the raw launch inputs above. */
+    TecmoGameplayCpuSteeringRouteMotionState
+        route_motion[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint16_t step_serial;
 } TecmoGameplayCpuSteeringPlayState;
 
@@ -648,6 +704,16 @@ bool tecmo_gameplay_cpu_steering_route_select(
     const TecmoGameplayCpuSteeringAssets *assets,
     const TecmoGameplayCpuSteeringRouteInput *input,
     TecmoGameplayCpuSteeringRouteResult *result_out);
+bool tecmo_gameplay_cpu_steering_route_launch(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    const TecmoGameplayCpuSteeringRouteLaunchInput *input,
+    TecmoGameplayCpuSteeringRouteLaunchResult *result_out);
+bool tecmo_gameplay_cpu_steering_route_step(
+    uint8_t actor,
+    uint8_t completion_side_bit_0359,
+    const TecmoGameplayCpuSteeringRouteMotionState *state_in,
+    TecmoGameplayCpuSteeringRouteMotionState *state_out,
+    TecmoGameplayCpuSteeringRouteStepResult *result_out);
 bool tecmo_gameplay_cpu_steering_play_state_initialize(
     const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t formation_index,

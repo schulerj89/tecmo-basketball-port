@@ -475,7 +475,7 @@ typedef struct TecmoGameplayScene {
 /* Initialize exactly once before load/destroy. */
 void tecmo_gameplay_scene_init(TecmoGameplayScene *scene);
 
-/* Loads TGPL-1, TGCT-1, TGCP-2, TGMO-1, TGBD-1, TGAI-2, TGFT-1, TPNL-1, TGOR-1, TGFL-1,
+/* Loads TGPL-1, TGCT-1, TGCP-2, TGMO-1, TGBD-1, TGAI-3, TGFT-1, TPNL-1, TGOR-1, TGFL-1,
    THUD-1, TGCS-1, TGDK-1, TGJS-2, TGSR-4, TGRB-1, TSFX-1, and TDMC-1 from one pack.
    `asset_pack_path` may be NULL to use the strict runtime search order.
    Runtime data is never read from decompilation/capture paths. */

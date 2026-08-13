@@ -887,7 +887,7 @@ try {
         [pscustomobject]@{ id="gameplay/movement"; size=1664; hash="6C82A137"; schema="tecmo.gameplay-movement/TGMO-1" },
         [pscustomobject]@{ id="gameplay/ball-dribble"; size=608; hash="E2CE6BFF"; schema="tecmo.gameplay-ball-dribble/TGBD-1" },
         [pscustomobject]@{ id="gameplay/fatigue"; size=512; hash="F80F170D"; schema="tecmo.gameplay-fatigue/TGFT-1" },
-        [pscustomobject]@{ id="gameplay/cpu-steering"; size=7632; hash="C8CFFDC0"; schema="tecmo.gameplay-cpu-steering/TGAI-2" },
+        [pscustomobject]@{ id="gameplay/cpu-steering"; size=8016; hash="D56EE070"; schema="tecmo.gameplay-cpu-steering/TGAI-3" },
         [pscustomobject]@{ id="gameplay/hud"; size=864; hash="3D13AA89"; schema="tecmo.gameplay-hud/THUD-1" },
         [pscustomobject]@{ id="gameplay/court-orientation"; size=640; hash="44B0C44E"; schema="tecmo.gameplay-court-orientation/TGOR-1" },
         [pscustomobject]@{ id="gameplay/backcourt"; size=512; hash="810886EF"; schema="tecmo.gameplay-backcourt/TGBC-1" },
@@ -1072,8 +1072,8 @@ try {
         throw "Production TGMO-1 movement provenance is incomplete."
     }
     if ($CpuMaps.Count -ne 1 -or
-        $CpuMaps[0].fingerprint_fnv1a32 -ne "C8CFFDC0" -or
-        @($CpuMaps[0].source_spans).Count -ne 10 -or
+        $CpuMaps[0].fingerprint_fnv1a32 -ne "D56EE070" -or
+        @($CpuMaps[0].source_spans).Count -ne 12 -or
         $LiveEvidence.rom.revision -ne "Rev1" -or
         $LiveEvidence.rom.length -ne 393232 -or
         $LiveEvidence.rom.sha256 -ne $ExpectedRomSha256 -or
@@ -1119,7 +1119,7 @@ try {
         $CpuMaps[0].live_foundation_integration.source_direction_application -notmatch
             'target-to-direction equivalence' -or
         $CpuMaps[0].live_foundation_integration.source_target_policy -notmatch
-            'immutable post-human snapshot' -or
+            'current LIVE compatibility movement.*canonical opcode 4 captures once' -or
         $CpuMaps[0].live_foundation_integration.shot_request_adapter -notmatch
             'deferred/non-launch' -or
         ![bool]$CpuMaps[0].live_foundation_integration.classifications.formation_source_pinned -or
@@ -1129,7 +1129,7 @@ try {
         $CpuMaps[0].live_foundation_integration.play_state.step_budget -ne 1 -or
         ![bool]$CpuMaps[0].live_foundation_integration.play_state.deferred_effects_explicit -or
         ![bool]$CpuMaps[0].live_foundation_integration.normal_game_flow_exposed) {
-        throw "Production TGAI-2 LIVE adapter provenance is incomplete."
+        throw "Production TGAI-3 LIVE adapter provenance is incomplete."
     }
     if ($null -eq $Opcode15Contract -or
         $Opcode15Contract.scope -ne "harness-only; LIVE opcode 15 remains deferred" -or
@@ -1158,7 +1158,7 @@ try {
         $Opcode15Contract.live_missing_raw_reason -notmatch 'deferred_missing_raw_0499' -or
         $Opcode15Contract.natural_fceux_capture -notmatch
             'synthetic.*not a natural \$91C8 capture') {
-        throw "TGAI-2 opcode-15 raw-owner provenance is incomplete."
+        throw "TGAI-3 opcode-15 raw-owner provenance is incomplete."
     }
     if ($BallDribbleMaps.Count -ne 1 -or
         $BallDribbleMaps[0].fingerprint_fnv1a32 -ne "E2CE6BFF" -or
@@ -2073,7 +2073,7 @@ try {
         [byte][char]'x'
     [IO.File]::WriteAllBytes($MissingSteeringPath, $MissingSteering)
     Assert-SceneRejected -AssetPack $MissingSteeringPath `
-        -Label "missing-cpu-steering" -ExpectedStatus "TGAI-2"
+        -Label "missing-cpu-steering" -ExpectedStatus "TGAI-3"
 
     $SteeringOffset =
         [int]$Entries["gameplay/cpu-steering"].pack_offset
@@ -2084,7 +2084,7 @@ try {
         $MalformedSteering[$SteeringOffset] -bxor 1
     [IO.File]::WriteAllBytes($MalformedSteeringPath, $MalformedSteering)
     Assert-SceneRejected -AssetPack $MalformedSteeringPath `
-        -Label "malformed-cpu-steering" -ExpectedStatus "TGAI-2"
+        -Label "malformed-cpu-steering" -ExpectedStatus "TGAI-3"
 
     $OversizedSteeringPath =
         Join-Path $Scratch "oversized-cpu-steering.assetpack"
@@ -2094,7 +2094,7 @@ try {
         [int]$Entries["gameplay/cpu-steering"].directory_offset + 92)
     [IO.File]::WriteAllBytes($OversizedSteeringPath, $OversizedSteering)
     Assert-SceneRejected -AssetPack $OversizedSteeringPath `
-        -Label "oversized-cpu-steering" -ExpectedStatus "TGAI-2"
+        -Label "oversized-cpu-steering" -ExpectedStatus "TGAI-3"
 
     $MissingOrientationPath =
         Join-Path $Scratch "missing-court-orientation.assetpack"
@@ -2677,7 +2677,7 @@ try {
 
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
-        "scene controls THUD-1 clean jersey/name HUD TGMO-1 human/CPU walking poses TGBD-1 held-ball bounce/sound TGFT-1 fatigue TPNL-1 out-of-bounds settlement TGBC-1 live backcourt settlement TGVR-1 native violation referee TGAI-2/TGMO-1 transactional ordinary CPU movement with opcode-15 raw-owner defer diagnostics TGCP-2 full-world camera fine-scroll guarded-margins actor-camera-projection/possession-slice-render/freeze TGFL-1 orientation-lineup TGOR two-basket shot ownership TGDK TGJS TGSR-4 jump entry/turn/release/flight poses jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
+        "scene controls THUD-1 clean jersey/name HUD TGMO-1 human/CPU walking poses TGBD-1 held-ball bounce/sound TGFT-1 fatigue TPNL-1 out-of-bounds settlement TGBC-1 live backcourt settlement TGVR-1 native violation referee TGAI-3/TGMO-1 transactional ordinary CPU movement with opcode-15 raw-owner defer diagnostics TGCP-2 full-world camera fine-scroll guarded-margins actor-camera-projection/possession-slice-render/freeze TGFL-1 orientation-lineup TGOR two-basket shot ownership TGDK TGJS TGSR-4 jump entry/turn/release/flight poses jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
         "halftime/final render-hashes/determinism missing malformed oversized " +
         "dependency-corrupt chr-mismatch")
     $ProofSummary = ("LIVE PROOF {0}: root={1} manifest={2} native_videos=2 frames={3} contact_sheet=1920x{4}" -f

@@ -442,7 +442,7 @@ bool tecmo_gameplay_cpu_opcode_workspace_self_test(char *message,
         return false;
     }
     (void)snprintf(message, message_size,
-                   "TGAI-2 opcode workspace harness: opcode7=defer "
+                   "TGAI-3 opcode workspace harness: opcode7=defer "
                    "opcode10=exact-harness opcode16=exact-harness "
                    "ba=external-lifecycle");
     return true;

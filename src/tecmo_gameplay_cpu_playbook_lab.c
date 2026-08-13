@@ -320,7 +320,7 @@ bool tecmo_gameplay_cpu_playbook_lab_snapshot(
         scene, &snapshot_out->formation_x_bucket,
         &snapshot_out->formation_depth_bucket);
     /* `$938B-$9620` writes formation stream offsets. The stored index is
-       shown only when the typed LIVE foundation validates against TGAI-2. */
+       shown only when the typed LIVE foundation validates against TGAI-3. */
     if (tecmo_gameplay_live_foundation_valid(&scene->cpu_steering_assets,
                                              foundation)) {
         snapshot_out->formation_available = true;

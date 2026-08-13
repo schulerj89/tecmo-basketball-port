@@ -39,7 +39,7 @@ The compound scene loads `gameplay/core` TGPL-1 (23416 bytes,
 `gameplay/camera-projection` TGCP-2 (1536 bytes, `53247856`),
 `gameplay/movement` TGMO-1 (1664 bytes, `6C82A137`),
 `gameplay/ball-dribble` TGBD-1 (608 bytes, `E2CE6BFF`),
-`gameplay/cpu-steering` TGAI-2 (7632 bytes, `C8CFFDC0`),
+`gameplay/cpu-steering` TGAI-3 (8016 bytes, `D56EE070`),
 `gameplay/fatigue` TGFT-1 (512 bytes, `F80F170D`),
 `gameplay/court-orientation` TGOR-1 (640 bytes, `44B0C44E`),
 `gameplay/hud` THUD-1 (864 bytes, `3D13AA89`),
@@ -69,7 +69,7 @@ field columns, colon `$16`, black backing, and live `$FA` binding are
 reference-verified. Three-digit score capping and the unassigned CPU-side
 holder/shooter matchup label are explicit native adapter policies.
 
-TGAI-2 is now a strict compound-scene dependency. The compatibility
+TGAI-3 is now a strict compound-scene dependency. The compatibility
 `TecmoGameplaySceneCpuActor` record owns render/movement observations and keeps
 its explicit no-command sentinel; it is not the command-stream owner. Bound
 production retains source cursors, target/direction results, and typed deferrals
@@ -380,10 +380,11 @@ feeds its condition to TGMO on the next update. Fixed scene roster slots `0..4`
 stand in for the original active-lineup/substitution selection, and exact 6502
 intra-frame caller ordering is not claimed.
 
-`gameplay/cpu-steering` TGAI-2 isolates the ROM routines used by the bounded
-live ordinary-movement slice. Its canonical 7632-byte
-payload (`C8CFFDC0`) requires exact same-pack TGMO-1 and revision-locks Bank06
-`$81F7-$82D3`, `$87AE-$88AF`, `$88DA-$8A95`, `$8B90-$8BE0`,
+`gameplay/cpu-steering` TGAI-3 isolates the ROM routines used by the bounded
+live ordinary-movement slice. Its canonical 8016-byte
+payload (`D56EE070`) requires exact same-pack TGMO-1 and revision-locks Bank06
+`$81F7-$82D3`, `$87AE-$88AF`, `$88DA-$8A95`, `$8A96-$8AF3`,
+`$8AF4-$8B8F`, `$8B90-$8BE0`,
 `$8BE1-$9237`, `$9280-$9329`, `$938B-$9620`, fixed `$C006-$C008` and
 `$CBE0-$CBF6`, and Bank04 `$9F2E-$AC75`. It additionally revision-locks the
 Bank06 opcode-15 dispatch/handler anchors and canonical records, but only

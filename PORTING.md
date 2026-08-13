@@ -913,8 +913,8 @@ rejected unchanged.
 The compound scene strictly loads TGPL-1 `gameplay/core` (23416 bytes,
 `2047CCE0`), TGCT-1 `gameplay/court` (6559 bytes, `ECAB7A93`), TGCP-2
 `gameplay/camera-projection` (1536 bytes, `53247856`), TGMO-1
-`gameplay/movement` (1664 bytes, `6C82A137`), TGAI-2
-`gameplay/cpu-steering` (7632 bytes, `C8CFFDC0`), TGOR-1
+`gameplay/movement` (1664 bytes, `6C82A137`), TGAI-3
+`gameplay/cpu-steering` (8016 bytes, `D56EE070`), TGOR-1
 `gameplay/court-orientation` (640 bytes, `44B0C44E`), THUD-1
 `gameplay/hud` (864 bytes, `3D13AA89`), TGCS-1
 `gameplay/close-shots` (3144 bytes, `DACDC976`), TGDK-1
@@ -959,7 +959,7 @@ The native scene draws this real game-information HUD during the court-visible
 suppressed for matchup cards, close-ups, black setup, and the toss cut-in so
 those authored full-screen compositions are not overwritten.
 
-The TGAI-2 production binding owns a fixed opposing roster-slot link, an
+The TGAI-3 production binding owns a fixed opposing roster-slot link, an
 explicit target coordinate, direction result, immutable-snapshot fingerprint,
 and decision serial per actor. The link remains pose/facing and defensive
 reference metadata; it is no longer treated as the non-holder's implicit target
@@ -1576,11 +1576,12 @@ direction selection where the source input is owned. The
 deterministic `--gameplay-movement-harness` is console/test-only and never
 enters normal play.
 
-TGAI-2 `gameplay/cpu-steering` is the separate strict CPU target/direction
+TGAI-3 `gameplay/cpu-steering` is the separate strict CPU target/direction
 evidence boundary and a strict production scene dependency.
-Its 7632-byte payload has FNV1a32 `C8CFFDC0`, requires exact same-pack TGMO-1,
-and retains ten Rev 1 spans: Bank06 `$81F7-$82D3` (`23BB7271`),
+Its 8016-byte payload has FNV1a32 `D56EE070`, requires exact same-pack TGMO-1,
+and retains twelve Rev 1 spans: Bank06 `$81F7-$82D3` (`23BB7271`),
 `$87AE-$88AF` (`F866B06C`), `$88DA-$8A95` (`9616E586`),
+`$8A96-$8AF3` (`939C6882`), `$8AF4-$8B8F` (`C2E05331`),
 `$8B90-$8BE0` (`9AD2BA91`), `$8BE1-$9237` (`344298FE`),
 `$9280-$9329` (`C82E6853`), `$938B-$9620` (`47818A62`), fixed
 `$C006-$C008` (`14B2472E`) and `$CBE0-$CBF6` (`41C5B5C8`), plus Bank04

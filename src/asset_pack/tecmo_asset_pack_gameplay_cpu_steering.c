@@ -39,7 +39,7 @@ static const uint8_t cpu_steering_direction_map[
     3U,6U,4U,7U,0U,1U,2U,5U
 };
 
-/* These native lifecycle consumers use bytes outside the retained TGAI-2
+/* These native lifecycle consumers use bytes outside the retained TGAI-3
    payload spans. The importer validates their canonical Rev1 source ranges;
    runtime code receives only the semantic constants derived from them. */
 static const uint8_t cpu_steering_anchor_ac76_acf0_sha256[32] = {
@@ -82,6 +82,16 @@ static const uint8_t cpu_steering_anchor_b06_candidate_sha256[32] = {
     0x61U,0x4FU,0x92U,0x5AU,0x26U,0x66U,0x74U,0x89U,
     0x3AU,0x35U,0x2BU,0xB2U,0xDBU,0x3AU,0x8FU,0x41U,
     0x58U,0xF6U,0x1CU,0x8AU,0xE8U,0x91U,0xAEU,0x36U
+};
+
+/* The planar route arithmetic uses the exact Bank06 signed 16-by-16 divide
+   helper without retaining another copy in TGAI. Keep the helper revision
+   locked independently of the caller spans. */
+static const uint8_t cpu_steering_anchor_b06_divide_sha256[32] = {
+    0xF6U,0x21U,0x6FU,0xECU,0xFCU,0x69U,0x71U,0x14U,
+    0xA2U,0xC8U,0x08U,0x3DU,0x8CU,0xECU,0xC7U,0x6BU,
+    0xBAU,0x1EU,0x5EU,0xD6U,0x08U,0xA0U,0x57U,0x83U,
+    0x69U,0x78U,0x58U,0x21U,0x53U,0x97U,0x9EU,0xD2U
 };
 
 /* Opcode-15's helper and handler are consumed only by the explicit raw
@@ -144,6 +154,16 @@ const TecmoGameplayCpuSteeringExpectedSource
          TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_TARGET_DIRECTION_SIZE,
          TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_TARGET_DIRECTION_FNV1A32,
          TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_TARGET_DIRECTION_OFFSET},
+        {TECMO_GAMEPLAY_CPU_STEERING_SOURCE_ROUTE_PROJECTION,
+         6U,0U,0x8A96U,
+         TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_ROUTE_PROJECTION_SIZE,
+         TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_ROUTE_PROJECTION_FNV1A32,
+         TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_ROUTE_PROJECTION_OFFSET},
+        {TECMO_GAMEPLAY_CPU_STEERING_SOURCE_ROUTE_STEP,
+         6U,0U,0x8AF4U,
+         TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_ROUTE_STEP_SIZE,
+         TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_ROUTE_STEP_FNV1A32,
+         TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_ROUTE_STEP_OFFSET},
         {TECMO_GAMEPLAY_CPU_STEERING_SOURCE_COMMAND_DISPATCH,
          6U,0U,0x8B90U,
          TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_COMMAND_DISPATCH_SIZE,
@@ -277,6 +297,10 @@ static int validate_lifecycle_anchors(
             0U,
             cpu_steering_anchor_b06_candidate_sha256) ||
         !validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 6U, 0x9BD8U, 0x9C6EU,
+            0x74DD2AC6U,
+            cpu_steering_anchor_b06_divide_sha256) ||
+        !validate_lifecycle_anchor(
             rom, rom_size, prg_offset, 6U, 0x88B0U, 0x88D9U,
             TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_FNV1A32,
             cpu_steering_anchor_opcode15_helper_sha256) ||
@@ -309,13 +333,13 @@ static int validate_lifecycle_anchors(
 }
 
 /* The full-ROM revision fingerprint rejects any mutated input before the
-   importer reaches the nested anchor checks. Exercise each opcode-15 source
-   or semantic anchor directly here as well, so these six checks remain an
+   importer reaches the nested anchor checks. Exercise each independent
+   functional source or semantic anchor directly here as well, so the checks remain an
    independently enforced contract rather than metadata hidden behind the
-   broader Rev1 gate. The tail intentionally overlaps the handler source and
+   broader Rev1 gate. The opcode-15 tail intentionally overlaps the handler source and
    is tested separately because it is the canonical-ROM/lifted-source
    discrepancy boundary. */
-static int validate_opcode15_anchor_mutation_rejection(
+static int validate_independent_anchor_mutation_rejection(
     const uint8_t *rom,
     uint64_t rom_size,
     uint64_t prg_offset)
@@ -324,7 +348,7 @@ static int validate_opcode15_anchor_mutation_rejection(
         uint32_t bank;
         uint16_t cpu_start;
     } anchors[] = {
-        {6U, 0x88B0U}, {6U, 0x8B90U}, {6U, 0x9146U},
+        {6U, 0x9BD8U}, {6U, 0x88B0U}, {6U, 0x8B90U}, {6U, 0x9146U},
         {6U, 0x9208U}, {4U, 0x9F65U}, {4U, 0x9F79U}
     };
     uint8_t *mutated;
@@ -409,6 +433,10 @@ static int validate_semantics(const uint8_t *payload)
         TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_REFERENCE_DIRECTION_OFFSET;
     const uint8_t *target_direction = payload +
         TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_TARGET_DIRECTION_OFFSET;
+    const uint8_t *route_projection = payload +
+        TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_ROUTE_PROJECTION_OFFSET;
+    const uint8_t *route_step = payload +
+        TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_ROUTE_STEP_OFFSET;
     const uint8_t *dispatch = payload +
         TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_COMMAND_DISPATCH_OFFSET;
     const uint8_t *handlers = payload +
@@ -480,6 +508,14 @@ static int validate_semantics(const uint8_t *payload)
            memcmp(target_direction + (0x8A8EU - 0x88DAU),
                   cpu_steering_direction_map,
                   sizeof(cpu_steering_direction_map)) == 0 &&
+           memcmp(route_projection,
+                  "\xA5\xA8\x85\x6D\xA5\xA9\x85\x6E", 8U) == 0 &&
+           memcmp(route_projection + (0x8AE4U - 0x8A96U),
+                  "\xA5\x9A\x18\x69\x01\x9D\x13\x05", 8U) == 0 &&
+           memcmp(route_step,
+                  "\xEC\x08\x03\xF0\x06\xAD\x89\x05", 8U) == 0 &&
+           memcmp(route_step + (0x8B8AU - 0x8AF4U),
+                  "\xA9\x04\x9D\x7C\x05\x60", 6U) == 0 &&
            memcmp(dispatch,
                   "\xBD\x47\x05\x18\x69\x2E\x85\xA8\xBD\x51\x05\x69\x9F",
                   13U) == 0 &&
@@ -548,7 +584,7 @@ int tecmo_asset_pack_build_gameplay_cpu_steering(
                sizeof(input_sha256)) != 0) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGAI-2 import requires the exact Rev1 ROM fingerprint.");
+            "TGAI-3 import requires the exact Rev1 ROM fingerprint.");
         return -1;
     }
 
@@ -574,7 +610,7 @@ int tecmo_asset_pack_build_gameplay_cpu_steering(
                     expected->fingerprint) {
             tecmo_asset_pack_set_messagef(
                 message, message_size,
-                "TGAI-2 %s Bank%02u $%04X-$%04X fingerprint mismatch.",
+                "TGAI-3 %s Bank%02u $%04X-$%04X fingerprint mismatch.",
                 expected->fixed_bank != 0U ? "fixed" : "switchable",
                 (unsigned)expected->bank,
                 (unsigned)expected->cpu_start, (unsigned)cpu_end);
@@ -613,7 +649,7 @@ int tecmo_asset_pack_build_gameplay_cpu_steering(
                 TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_CONTRACT_FNV1A32) {
             tecmo_asset_pack_set_message(
                 message, message_size,
-                "TGAI-2 Bank06 $88B0-$88D9 opcode-15 helper fingerprint mismatch.");
+                "TGAI-3 Bank06 $88B0-$88D9 opcode-15 helper fingerprint mismatch.");
             return -1;
         }
         tecmo_asset_pack_store_u16(descriptor, 15U);
@@ -647,7 +683,7 @@ int tecmo_asset_pack_build_gameplay_cpu_steering(
             CPU_STEERING_REV1_ROM_FNV1A32) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGAI-2 semantic or full-ROM revision contract rejected.");
+            "TGAI-3 semantic or full-ROM revision contract rejected.");
         return -1;
     }
 
@@ -718,20 +754,24 @@ int tecmo_asset_pack_build_gameplay_cpu_steering(
     }
     /* Target-producing command bits 0,2,4,10,12,13,16,20. Opcode 5 writes
        direction directly; the other entries remain control/state commands. */
-    tecmo_asset_pack_store_u32(payload + 264U, 0x00113415U);
-    payload[268U] = 5U;
+    tecmo_asset_pack_store_u32(
+        payload +
+            TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_TARGET_EFFECT_MASK_OFFSET,
+        0x00113415U);
+    payload[TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_DIRECT_DIRECTION_OPCODE_OFFSET] =
+        5U;
 
     if (tecmo_asset_pack_fnv1a32(payload, payload_size) !=
             TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_FNV1A32) {
         tecmo_asset_pack_set_messagef(
             message, message_size,
-            "TGAI-2 canonical payload fingerprint mismatch (got %08X).",
+            "TGAI-3 canonical payload fingerprint mismatch (got %08X).",
             tecmo_asset_pack_fnv1a32(payload, payload_size));
         return -1;
     }
     tecmo_asset_pack_set_message(
         message, message_size,
-        "Built strict ROM-derived TGAI-2 CPU steering evidence asset.");
+        "Built strict ROM-derived TGAI-3 CPU steering evidence asset.");
     return 0;
 }
 
@@ -756,25 +796,25 @@ int tecmo_asset_pack_gameplay_cpu_steering_source_test(
         tecmo_asset_pack_read_file(rom_path, &rom, &rom_size) != 0) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGAI-2 direct source test could not read the ROM.");
+            "TGAI-3 direct source test could not read the ROM.");
         return -1;
     }
     if (rom_size != CPU_STEERING_REV1_ROM_SIZE ||
         prg_offset + prg_size + chr_size != rom_size) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGAI-2 direct source test requires the exact Rev1 layout.");
+            "TGAI-3 direct source test requires the exact Rev1 layout.");
         free(rom);
         return -1;
     }
     result = tecmo_asset_pack_build_gameplay_cpu_steering(
         rom, rom_size, prg_offset, CPU_STEERING_PRG_BANK_COUNT, 1,
         payload, sizeof(payload), &provenance, message, message_size);
-    if (result == 0 && !validate_opcode15_anchor_mutation_rejection(
+    if (result == 0 && !validate_independent_anchor_mutation_rejection(
             rom, rom_size, prg_offset)) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGAI-2 opcode-15 independent anchor mutation rejection failed.");
+            "TGAI-3 independent functional-anchor mutation rejection failed.");
         result = -1;
     }
     free(rom);
@@ -805,11 +845,11 @@ int tecmo_asset_pack_gameplay_cpu_steering_self_test(
             NULL, 0U) == 0) {
         tecmo_asset_pack_set_message(
             message, message_size,
-            "TGAI-2 importer layout/rejection self-test failed.");
+            "TGAI-3 importer layout/rejection self-test failed.");
         return -1;
     }
     tecmo_asset_pack_set_message(
         message, message_size,
-        "TGAI-2 importer self-test passed.");
+        "TGAI-3 importer self-test passed.");
     return 0;
 }

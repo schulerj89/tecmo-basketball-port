@@ -155,7 +155,7 @@ const char *tecmo_gameplay_cpu_playbook_lab_step_status_name(
     TecmoGameplayCpuPlaybookLabStepStatus status);
 
 /* Isolated ownership/controls/JSON coverage. Asset provenance and command
- * decode are exercised by the canonical TGAI-2 suite and render checkpoint. */
+ * decode are exercised by the canonical TGAI-3 suite and render checkpoint. */
 bool tecmo_gameplay_cpu_playbook_lab_self_test(char *message,
                                                size_t message_size);
 

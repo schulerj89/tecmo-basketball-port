@@ -16,13 +16,13 @@ $ErrorActionPreference = 'Stop'
 $ExpectedRomSha256 = '076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4'
 $ExpectedFceuxSha256 = 'F89812F4E9506EF7090D9D0310D368ABD79BACA362B7BFC4A2E7E499754F2A1B'
 $ExpectedBaseSha = '6d8f9c7a99a7ce188f1a523247d3a9b9093860fb'
-$ExpectedTgaiVersion = 'TGAI-2'
-$ExpectedTgaiPayloadVersion = 2
-$ExpectedTgaiBytes = 7632
-$ExpectedTgaiFnv1a32 = 'C8CFFDC0'
-$ExpectedFocusedRomMutations = 23
+$ExpectedTgaiVersion = 'TGAI-3'
+$ExpectedTgaiPayloadVersion = 3
+$ExpectedTgaiBytes = 8016
+$ExpectedTgaiFnv1a32 = 'D56EE070'
+$ExpectedFocusedRomMutations = 26
 $ExpectedFocusedMutationSummary =
-    '23 ROM mutations \(7 lifecycle anchor/table; 6 opcode-15\)'
+    '26 ROM mutations \(8 lifecycle anchor/table; 6 opcode-15\)'
 $ReferenceFrameCount = 120
 $ReferenceScreenshotCount = 12
 $ReferenceWidth = 256
@@ -975,7 +975,7 @@ try {
         limitations = @(
             'production scene is legacy native harness/formation continuity evidence only',
             'isolated lifecycle engine is not consumed by normal scene flow; integration is R1-LIVE',
-            'TGAI-2 opcode-15 selected-defender resolver is harness-only; this proof is not a natural FCEUX $91C8 capture',
+            'TGAI-3 opcode-15 selected-defender resolver is harness-only; this proof is not a natural FCEUX $91C8 capture',
             'original trace proves source-pinned execution evidence, not inferred handler intent',
             'native frames are deterministic regression evidence, not one-to-one lifecycle parity',
             'shot request outcome/release/make/miss and dynamic candidate ownership remain deferred'

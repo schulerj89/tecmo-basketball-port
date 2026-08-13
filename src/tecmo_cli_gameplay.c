@@ -167,7 +167,7 @@ static int tecmo_cli_run_gameplay_cpu_steering_inspect(int argc,
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return 1;
     }
-    printf("TGAI-2 offset=$%04X cpu=$%04X opcode=%u args=%02X,%02X,%02X,%02X handler=$%04X kind=%s\n",
+    printf("TGAI-3 offset=$%04X cpu=$%04X opcode=%u args=%02X,%02X,%02X,%02X handler=$%04X kind=%s\n",
            (unsigned)command.stream_offset,
            (unsigned)command.cpu_address,
            (unsigned)command.opcode,
@@ -278,7 +278,7 @@ static int tecmo_cli_run_gameplay_cpu_steering_opcode15_harness(
     if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
             &assets, &input, &output, &selected)) goto rejected;
 
-    printf("{\"schema\":\"tecmo.gameplay-cpu-steering/opcode15-raw-harness/TGAI-2\","
+    printf("{\"schema\":\"tecmo.gameplay-cpu-steering/opcode15-raw-harness/TGAI-3\","
            "\"mode\":\"harness-only\","
            "\"canonical_records\":[\"0037\",\"004B\"],"
            "\"branches\":{\"gate_noop\":\"%s\","
@@ -404,7 +404,7 @@ static int tecmo_cli_run_gameplay_cpu_steering_harness(int argc,
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return 1;
     }
-    printf("TGAI-2 harness actor=%u team=%u possession=%u orientation=%u holder=%u matchup=%u difficulty=%u snapshot=%08X normal_flow=0\n",
+    printf("TGAI-3 harness actor=%u team=%u possession=%u orientation=%u holder=%u matchup=%u difficulty=%u snapshot=%08X normal_flow=0\n",
            (unsigned)result.actor, (unsigned)result.actor_team,
            (unsigned)result.possession, (unsigned)result.orientation,
            (unsigned)result.ball_holder, (unsigned)result.matchup_actor,

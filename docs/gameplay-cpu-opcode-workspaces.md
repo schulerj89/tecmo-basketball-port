@@ -34,9 +34,9 @@ does not change production rendering or gameplay.
 | `$BA` round-setup lifecycle evidence | Bank06 `$9621-$9764` | 324 | `F2543C57` |
 | Five-byte command corpus | Bank04 `$9F2E-$AC75` | 3400 | `71331A96` |
 
-The existing TGAI-2 asset already pins the broader Bank06 handler and Bank04
+The existing TGAI-3 asset already pins the broader Bank06 handler and Bank04
 command spans. The private-ROM runner adds only narrow provenance checks for
-the caller-local helper and `$BA` lifecycle that TGAI-2 does not claim to own.
+the caller-local helper and `$BA` lifecycle that TGAI-3 does not claim to own.
 
 ## What the harness proves
 

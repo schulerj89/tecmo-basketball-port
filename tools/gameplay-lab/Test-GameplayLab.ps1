@@ -698,11 +698,11 @@ Assert-Lab ($CpuRunner -match 'Get-GitState' -and
     $CpuRunner -notmatch 'accepted_core_sha' -and
     $CpuRunner -notmatch 'dea1fd7c2c2761fe08a6a27ab13a5e661e2b7094') `
     'CPU lifecycle Git cleanliness/final-SHA/pending-metadata contract is missing.'
-Assert-Lab ($CpuRunner -match '\$ExpectedTgaiVersion = ''TGAI-2''' -and
-    $CpuRunner -match '\$ExpectedTgaiPayloadVersion = 2' -and
-    $CpuRunner -match '\$ExpectedTgaiBytes = 7632' -and
-    $CpuRunner -match '\$ExpectedTgaiFnv1a32 = ''C8CFFDC0''' -and
-    $CpuRunner -match '\$ExpectedFocusedRomMutations = 23' -and
+Assert-Lab ($CpuRunner -match '\$ExpectedTgaiVersion = ''TGAI-3''' -and
+    $CpuRunner -match '\$ExpectedTgaiPayloadVersion = 3' -and
+    $CpuRunner -match '\$ExpectedTgaiBytes = 8016' -and
+    $CpuRunner -match '\$ExpectedTgaiFnv1a32 = ''D56EE070''' -and
+    $CpuRunner -match '\$ExpectedFocusedRomMutations = 26' -and
     $CpuRunner -match '\$ExpectedFocusedMutationSummary' -and
     $CpuRunner -match '\$TgaiPayloadHeaderVersion' -and
     $CpuRunner -match 'Fresh CPU proof pack failed \$ExpectedTgaiVersion identity' -and
@@ -710,7 +710,7 @@ Assert-Lab ($CpuRunner -match '\$ExpectedTgaiVersion = ''TGAI-2''' -and
     $CpuRunner -match '\$RequirePass -and \$GitState\.branch -ne \$GitState\.expected_branch' -and
     $CpuRunner -match 'formal -RequirePass remains restricted' -and
     $CpuRunner -match 'opcode-15 selected-defender resolver is harness-only; this proof is not a natural FCEUX \$91C8 capture') `
-    'CPU lifecycle TGAI-2 identity, 23-mutation, strict PASS-branch, or opcode-15 harness-only contract is missing.'
+    'CPU lifecycle TGAI-3 identity, 26-mutation, strict PASS-branch, or opcode-15 harness-only contract is missing.'
 Assert-Lab ($CpuRunner -match 'generated_utc' -and
     $CpuRunner -match 'scripts = \[ordered\]@' -and
     $CpuRunner -match 'reference_frames = \$FrameDetails' -and

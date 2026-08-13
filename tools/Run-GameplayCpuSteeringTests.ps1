@@ -19,7 +19,7 @@ if (!$RomPath -or !(Test-Path -LiteralPath $RomPath -PathType Leaf)) {
 $RomPath = (Resolve-Path -LiteralPath $RomPath).Path
 if ((Get-FileHash -LiteralPath $RomPath -Algorithm SHA256).Hash -ne
     $ExpectedRomSha256) {
-    throw "TGAI-2 tests require the exact Tecmo NBA Basketball Rev1 ROM."
+    throw "TGAI-3 tests require the exact Tecmo NBA Basketball Rev1 ROM."
 }
 
 $BuildDir = Join-Path $ProjectRoot "build"
@@ -112,14 +112,14 @@ function Invoke-SteeringTest {
     if ($ExpectSuccess) {
         if ($ExitCode -ne 0 -or
             $Text -notmatch
-                '^TGAI-2 CPU steering isolated: commands=680 handlers=24 directions=8 tgmo_adapter=1 scene_adapter=1 rom_policy=0$') {
-            throw "TGAI-2 loader/vector goldens failed.`n$(Get-ShortTail $Output)"
+                '^TGAI-3 CPU steering isolated: commands=680 handlers=24 directions=8 tgmo_adapter=1 scene_adapter=1 route_kernel=1 route_live=0 rom_policy=0$') {
+            throw "TGAI-3 loader/vector goldens failed.`n$(Get-ShortTail $Output)"
         }
     } elseif ($ExitCode -eq 0 -or
               $Text -notmatch 'Gameplay CPU steering test failed:' -or
               ($ExpectedFailure -and
                $Text -notmatch [regex]::Escape($ExpectedFailure))) {
-        throw "Malformed TGAI-2 pack was accepted or failure changed.`n$(Get-ShortTail $Output)"
+        throw "Malformed TGAI-3 pack was accepted or failure changed.`n$(Get-ShortTail $Output)"
     }
 }
 
@@ -134,7 +134,7 @@ function Invoke-Inspect {
         $PackPath $Offset $Horizontal $Depth 2>&1)
     $Text = $Output -join [Environment]::NewLine
     if ($LASTEXITCODE -ne 0 -or $Text -notmatch $Expected) {
-        throw "TGAI-2 inspect vector changed.`n$(Get-ShortTail $Output)"
+        throw "TGAI-3 inspect vector changed.`n$(Get-ShortTail $Output)"
     }
     return $Text
 }
@@ -160,7 +160,7 @@ function Invoke-Harness {
     $Text = ($Output -join [Environment]::NewLine).Trim()
     if ($ExpectSuccess) {
         if ($ExitCode -ne 0 -or
-            $Text -notmatch '^TGAI-2 harness ' -or
+            $Text -notmatch '^TGAI-3 harness ' -or
             $Text -notmatch 'target_policy=native-harness ' -or
             $Text -notmatch
                 'quantizer=rom-exact scene_adapter=1 normal_flow=0$') {
@@ -235,7 +235,7 @@ function Write-PayloadMutationAndReject {
     $Absolute = [int]$Entry.pack_offset + $PayloadOffset
     $Bytes[$Absolute] = $Bytes[$Absolute] -bxor 1
     [IO.File]::WriteAllBytes($Path, $Bytes)
-    Invoke-SteeringTest $Path $false "TGAI-2"
+    Invoke-SteeringTest $Path $false "TGAI-3"
 }
 
 try {
@@ -262,13 +262,13 @@ try {
         $RomPath 2>&1)
     if ($LASTEXITCODE -ne 0 -or
         ($SourceOutput -join [Environment]::NewLine) -notmatch
-            '^Built strict ROM-derived TGAI-2 CPU steering evidence asset') {
-        throw "Direct Rev1 TGAI-2 source gate failed.`n$(Get-ShortTail $SourceOutput)"
+            '^Built strict ROM-derived TGAI-3 CPU steering evidence asset') {
+        throw "Direct Rev1 TGAI-3 source gate failed.`n$(Get-ShortTail $SourceOutput)"
     }
     $PackOutput = @(& $Executable --build-assetpack `
         $RomPath $PackPath 2>&1)
     if ($LASTEXITCODE -ne 0) {
-        throw "Rev1 TGAI-2 asset-pack build failed.`n$(Get-ShortTail $PackOutput)"
+        throw "Rev1 TGAI-3 asset-pack build failed.`n$(Get-ShortTail $PackOutput)"
     }
 
     $PackBytes = [IO.File]::ReadAllBytes($PackPath)
@@ -276,8 +276,8 @@ try {
     $MovementEntry = Get-AssetPackEntry $PackBytes "gameplay/movement"
     $SourceMapEntry = Get-AssetPackEntry $PackBytes "system/source-map"
     $Payload = Get-EntryBytes $PackBytes $SteeringEntry
-    if ($SteeringEntry.byte_count -ne 7632 -or
-        (Get-Fnv1a32 $Payload) -ne "C8CFFDC0") {
+    if ($SteeringEntry.byte_count -ne 8016 -or
+        (Get-Fnv1a32 $Payload) -ne "D56EE070") {
         throw "gameplay/cpu-steering size or canonical fingerprint changed."
     }
     Invoke-SteeringTest $PackPath $true
@@ -289,7 +289,7 @@ try {
     }
     $Opcode15Harness = $Opcode15HarnessText | ConvertFrom-Json
     if ($Opcode15Harness.schema -ne
-            'tecmo.gameplay-cpu-steering/opcode15-raw-harness/TGAI-2' -or
+            'tecmo.gameplay-cpu-steering/opcode15-raw-harness/TGAI-3' -or
         $Opcode15Harness.mode -ne 'harness-only' -or
         (@($Opcode15Harness.canonical_records) -join ',') -ne '0037,004B' -or
         $Opcode15Harness.branches.gate_noop -ne 'gate-noop' -or
@@ -318,9 +318,9 @@ try {
         @($ListOutput | Where-Object {
             $_ -match '^gameplay/cpu-steering\s' -and
             $_ -match 'bank=6' -and $_ -match 'cpu=0x8B90' -and
-            $_ -match 'bytes=7632'
+            $_ -match 'bytes=8016'
         }).Count -ne 1) {
-        throw "Asset-pack listing omitted the exact TGAI-2 entry.`n$(Get-ShortTail $ListOutput)"
+        throw "Asset-pack listing omitted the exact TGAI-3 entry.`n$(Get-ShortTail $ListOutput)"
     }
 
     $ExpectedHandlers = @(
@@ -329,16 +329,18 @@ try {
         36997,35866,35866,35866,36914,35830,35809,36722
     )
     $ExpectedSpans = @(
-        @{ bank=6; fixed=$false; start=0x81F7; size=221;  hash="23BB7271"; payload=656 },
-        @{ bank=6; fixed=$false; start=0x87AE; size=258;  hash="F866B06C"; payload=880 },
-        @{ bank=6; fixed=$false; start=0x88DA; size=444;  hash="9616E586"; payload=1152 },
-        @{ bank=6; fixed=$false; start=0x8B90; size=81;   hash="9AD2BA91"; payload=1600 },
-        @{ bank=6; fixed=$false; start=0x8BE1; size=1623; hash="344298FE"; payload=1696 },
-        @{ bank=6; fixed=$false; start=0x9280; size=170;  hash="C82E6853"; payload=3328 },
-        @{ bank=6; fixed=$false; start=0x938B; size=662;  hash="47818A62"; payload=3504 },
-        @{ bank=7; fixed=$true;  start=0xC006; size=3;    hash="14B2472E"; payload=4176 },
-        @{ bank=7; fixed=$true;  start=0xCBE0; size=23;   hash="41C5B5C8"; payload=4192 },
-        @{ bank=4; fixed=$false; start=0x9F2E; size=3400; hash="71331A96"; payload=4224 }
+        @{ bank=6; fixed=$false; start=0x81F7; size=221;  hash="23BB7271"; payload=784 },
+        @{ bank=6; fixed=$false; start=0x87AE; size=258;  hash="F866B06C"; payload=1008 },
+        @{ bank=6; fixed=$false; start=0x88DA; size=444;  hash="9616E586"; payload=1280 },
+        @{ bank=6; fixed=$false; start=0x8A96; size=94;   hash="939C6882"; payload=1728 },
+        @{ bank=6; fixed=$false; start=0x8AF4; size=156;  hash="C2E05331"; payload=1824 },
+        @{ bank=6; fixed=$false; start=0x8B90; size=81;   hash="9AD2BA91"; payload=1984 },
+        @{ bank=6; fixed=$false; start=0x8BE1; size=1623; hash="344298FE"; payload=2080 },
+        @{ bank=6; fixed=$false; start=0x9280; size=170;  hash="C82E6853"; payload=3712 },
+        @{ bank=6; fixed=$false; start=0x938B; size=662;  hash="47818A62"; payload=3888 },
+        @{ bank=7; fixed=$true;  start=0xC006; size=3;    hash="14B2472E"; payload=4560 },
+        @{ bank=7; fixed=$true;  start=0xCBE0; size=23;   hash="41C5B5C8"; payload=4576 },
+        @{ bank=4; fixed=$false; start=0x9F2E; size=3400; hash="71331A96"; payload=4608 }
     )
     $LifecycleAnchorSpans = @(
         @{ label="Bank04 AC76-ACF0"; bank=4; fixed=$false; start=0xAC76; size=0x7B },
@@ -347,6 +349,7 @@ try {
         @{ label="Bank05 96B6-9708"; bank=5; fixed=$false; start=0x96B6; size=0x53 },
         @{ label="Bank06 8374-84B6"; bank=6; fixed=$false; start=0x8374; size=0x143 },
         @{ label="Bank06 B081-B365"; bank=6; fixed=$false; start=0xB081; size=0x2E5 },
+        @{ label="Bank06 9BD8-9C6E route divider"; bank=6; fixed=$false; start=0x9BD8; size=151 },
         @{ label="Bank05 9709-970A route table"; bank=5; fixed=$false; start=0x9709; size=2 }
     )
     # The first entry below is a separately copied raw helper. The remaining
@@ -369,9 +372,9 @@ try {
     if ($MapOk) {
         $Map = $Maps[0]
         $MapOk =
-            $Map.schema -eq "tecmo.gameplay-cpu-steering/TGAI-2" -and
-            $Map.size -eq 7632 -and
-            $Map.fingerprint_fnv1a32 -eq "C8CFFDC0" -and
+            $Map.schema -eq "tecmo.gameplay-cpu-steering/TGAI-3" -and
+            $Map.size -eq 8016 -and
+            $Map.fingerprint_fnv1a32 -eq "D56EE070" -and
             $Map.revision_sha256_identity -eq $ExpectedRomSha256 -and
             $Map.revision_full_rom_fnv1a32 -eq "0650F5B0" -and
             [bool]$Map.revision_full_rom_sha256_verified -and
@@ -381,7 +384,7 @@ try {
             $Map.dependency.size -eq 1664 -and
             $Map.dependency.fingerprint_fnv1a32 -eq "6C82A137" -and
             [bool]$Map.dependency.same_pack_required -and
-            @($Map.source_spans).Count -eq 10 -and
+            @($Map.source_spans).Count -eq 12 -and
             $Map.opcode15_source_contract.scope -eq
                 'harness-only; LIVE opcode 15 remains deferred' -and
             $Map.opcode15_source_contract.dispatch.bank -eq 6 -and
@@ -431,9 +434,9 @@ try {
             (@($Map.native_contract.opcode_dispatch.handler_cpu) -join ',') -eq
                 ($ExpectedHandlers -join ',') -and
             $Map.native_contract.opcode4_ball_target.caller_path -match
-                '\$81F7-\$82D3.*\$8B90-\$8BE0.*\$8FFA.*\$8FF5-\$8FF9.*C8' -and
+                '\$81F7-\$82D3.*\$8B90-\$8BE0.*\$8FFA' -and
             $Map.native_contract.opcode4_ball_target.handler -eq
-                'Bank06 contiguous delta routine $8FF5-$9027; dispatch vector $8FFA' -and
+                'canonical Rev1 Bank06 $8FFA-$9031; $8FFA loads C8 and the following handler begins at $9032' -and
             $Map.native_contract.opcode4_ball_target.corpus_count -eq 2 -and
             (@($Map.native_contract.opcode4_ball_target.record_offsets) -join ',') -eq
                 '0,365' -and
@@ -451,7 +454,19 @@ try {
             $Map.native_contract.opcode4_ball_target.c_contract.state -eq
                 'TecmoGameplayCpuSteeringPlayState.target_object' -and
             $Map.native_contract.opcode4_ball_target.c_contract.production_adapter -match
-                'immutable Q8 ball snapshot' -and
+                'captures the current Q8 ball snapshot.*state-5 route is not LIVE-bound' -and
+            $Map.native_contract.planar_route_kernel.scope -match
+                'exact planar arithmetic subset' -and
+            (@($Map.native_contract.planar_route_kernel.launch_sources) -join ',') -eq
+                '$88DA-$8A95,$8A96-$8AF3' -and
+            $Map.native_contract.planar_route_kernel.step_source -eq '$8AF4-$8B8F' -and
+            $Map.native_contract.planar_route_kernel.division_anchor.address -eq '$9BD8-$9C6E' -and
+            $Map.native_contract.planar_route_kernel.division_anchor.fnv1a32 -eq '74DD2AC6' -and
+            [bool]$Map.native_contract.planar_route_kernel.division_anchor.functional -and
+            [bool]$Map.native_contract.planar_route_kernel.division_anchor.mutation_rejected -and
+            $Map.native_contract.planar_route_kernel.motion -match 'no TGMO/fixed clamp' -and
+            $Map.native_contract.planar_route_kernel.capture -match 'frozen.*no dynamic chase' -and
+            ![bool]$Map.native_contract.planar_route_kernel.production_bound -and
             $Map.native_contract.direction_quantizer.cpu -eq
                 '$92D4-$92DD; $92FE -> $88DA-$899D' -and
             $Map.native_contract.direction_quantizer.dominant_axis_ratio -match
@@ -552,7 +567,7 @@ try {
         }
     }
     if (!$MapOk) {
-        throw "TGAI-2 source-map provenance is incomplete or malformed."
+        throw "TGAI-3 source-map provenance is incomplete or malformed."
     }
 
     $First = Invoke-Inspect '0' '20' '10' `
@@ -605,7 +620,7 @@ try {
         $CourtCoordinates
     if ($Linked -cne $LinkedRepeat -or
         $Linked -notmatch
-            '^TGAI-2 harness actor=5 team=1 possession=0 orientation=0 holder=0 matchup=0 difficulty=2 snapshot=15AEBE1B normal_flow=0' -or
+            '^TGAI-3 harness actor=5 team=1 possession=0 orientation=0 holder=0 matchup=0 difficulty=2 snapshot=15AEBE1B normal_flow=0' -or
         $Linked -notmatch
             'court=0:\(384,148\);1:\(420,120\);2:\(440,180\);3:\(360,100\);4:\(400,200\);5:\(500,160\);6:\(520,110\);7:\(540,190\);8:\(460,90\);9:\(480,210\)' -or
         $Linked -notmatch
@@ -865,7 +880,7 @@ try {
             $MutatedRom 2>&1)
         if ($LASTEXITCODE -eq 0 -or
             ($Output -join [Environment]::NewLine) -notmatch
-                'TGAI-2 import requires the exact Rev1 ROM fingerprint') {
+                'TGAI-3 import requires the exact Rev1 ROM fingerprint') {
             throw ("Rev1 source mutation at Bank$($Span.bank) " +
                 "$($Span.start) was accepted.`n$(Get-ShortTail $Output)")
         }
@@ -884,7 +899,7 @@ try {
             $MutatedRom 2>&1)
         if ($LASTEXITCODE -eq 0 -or
             ($Output -join [Environment]::NewLine) -notmatch
-                'TGAI-2 import requires the exact Rev1 ROM fingerprint') {
+                'TGAI-3 import requires the exact Rev1 ROM fingerprint') {
             throw ("Rev1 lifecycle-anchor mutation at $($Span.label) was " +
                 "accepted.`n$(Get-ShortTail $Output)")
         }
@@ -905,7 +920,7 @@ try {
             $MutatedRom 2>&1)
         if ($LASTEXITCODE -eq 0 -or
             ($Output -join [Environment]::NewLine) -notmatch
-                'TGAI-2 import requires the exact Rev1 ROM fingerprint') {
+                'TGAI-3 import requires the exact Rev1 ROM fingerprint') {
             throw ("Rev1 opcode-15 source/anchor mutation at $($Span.label) " +
                 "was accepted.`n$(Get-ShortTail $Output)")
         }
@@ -913,8 +928,8 @@ try {
         ++$Opcode15RomMutationCount
     }
 
-    Write-Host ("TGAI-2 focused tests passed: exact Rev1 importer and ten " +
-        "source spans plus seven lifecycle anchor/table spans and six opcode-15 " +
+    Write-Host ("TGAI-3 focused tests passed: exact Rev1 importer and twelve " +
+        "source spans plus eight lifecycle anchor/table spans and six opcode-15 " +
         "source/semantic-anchor spans, 680 aligned " +
         "commands, 24 handlers, eight exact " +
         "direction codes, deterministic ten-coordinate/context harness, " +

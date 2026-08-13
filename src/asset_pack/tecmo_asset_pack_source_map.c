@@ -2411,7 +2411,9 @@ static int append_gameplay_cpu_steering_source_map_entry(
         TECMO_GAMEPLAY_CPU_STEERING_SOURCE_COUNT] = {
         "cpu-actor-loop-and-state-dispatch-$81F7-$82D3",
         "actor-to-reference-octant-direction-$87AE-$88AF",
-        "target-delta-octant-direction-and-motion-$88DA-$8A95",
+        "target-delta-octant-and-planar-launch-prefix-$88DA-$8A95",
+        "route-duration-projection-$8A96-$8AF3",
+        "route-state5-q6-integration-$8AF4-$8B8F",
         "bank04-command-fetch-and-24-way-dispatch-$8B90-$8BE0",
         "command-handler-cluster-$8BE1-$9237",
         "target-store-delta-zero-guard-and-direction-tail-$9280-$9329",
@@ -2427,7 +2429,7 @@ static int append_gameplay_cpu_steering_source_map_entry(
             buffer, capacity, length,
             "%s"
             "    {\"id\":\"%s\",\"kind\":\"gameplay-cpu-steering-evidence\","
-            "\"schema\":\"tecmo.gameplay-cpu-steering/TGAI-2\",\"size\":%u,"
+            "\"schema\":\"tecmo.gameplay-cpu-steering/TGAI-3\",\"size\":%u,"
             "\"fingerprint_fnv1a32\":\"%08X\","
             "\"revision_sha256_identity\":\"076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4\","
             "\"revision_full_rom_fnv1a32\":\"0650F5B0\","
@@ -2505,8 +2507,8 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "37190,37234,36997,35866,35866,35866,36914,35830,"
         "35809,36722]},"
         "\"opcode4_ball_target\":{"
-        "\"caller_path\":\"Bank06 $81F7-$82D3 state 4 -> $8B90-$8BE0 -> fixed $C006/$CBE0-$CBF6 -> dispatch vector $8FFA; contiguous $8FF5-$8FF9 prelude loads C8\","
-        "\"handler\":\"Bank06 contiguous delta routine $8FF5-$9027; dispatch vector $8FFA\","
+        "\"caller_path\":\"Bank06 $81F7-$82D3 state 4 -> $8B90-$8BE0 -> fixed $C006/$CBE0-$CBF6 -> dispatch vector $8FFA\","
+        "\"handler\":\"canonical Rev1 Bank06 $8FFA-$9031; $8FFA loads C8 and the following handler begins at $9032\","
         "\"corpus_count\":2,\"record_offsets\":[0,365],"
         "\"object_slot\":10,"
         "\"object_kind\":\"Bank04 separately initialized ball object; never an actor stream\","
@@ -2515,7 +2517,19 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "\"zero_vector\":\"OR $A4-$A7 skips $88DA and preserves prior direction\","
         "\"c_contract\":{\"input\":\"TecmoGameplayCpuSteeringPlayInput.ball_position\","
         "\"state\":\"TecmoGameplayCpuSteeringPlayState.target_object\","
-        "\"production_adapter\":\"scene_cpu_build_play_input/scene_cpu_source_target immutable Q8 ball snapshot\"}},"
+        "\"production_adapter\":\"scene_cpu_build_play_input captures the current Q8 ball snapshot for this command transaction; the exact state-5 route is not LIVE-bound\"}},"
+        "\"planar_route_kernel\":{"
+        "\"scope\":\"pure exact planar arithmetic subset; presentation/action side effects deferred\","
+        "\"launch_sources\":[\"$88DA-$8A95\",\"$8A96-$8AF3\"],"
+        "\"step_source\":\"$8AF4-$8B8F\","
+        "\"division_anchor\":{\"address\":\"$9BD8-$9C6E\",\"size\":151,\"fnv1a32\":\"74DD2AC6\",\"functional\":true,\"mutation_rejected\":true},"
+        "\"launch_inputs\":[\"captured signed target-minus-actor X/depth\",\"raw $7C48 condition byte\",\"raw $06E7 actor movement value\"],"
+        "\"motion\":\"wrapping signed Q6 velocities and accumulators; no TGMO/fixed clamp\","
+        "\"completion\":\"integrate before timer test; decrement-to-zero side selection is explicit $0359 bit 0 and actor half\","
+        "\"capture\":\"opcode 4 target coordinate is frozen at command execution; no dynamic chase during state 5\","
+        "\"deferred_side_effects\":[\"pose tables $932B/$933B\",\"selected/ordinary $0458/$0479/$046E presentation and action writes\"],"
+        "\"production_bound\":false,"
+        "\"production_blockers\":[\"live raw $7C48 ownership\",\"live $06E7 projection\",\"live $0359 completion-side ownership\"]},"
         "\"direction_quantizer\":{\"cpu\":\"$92D4-$92DD; $92FE -> $88DA-$899D\","
         "\"dominant_axis_ratio\":\"2:1 inclusive for court-reachable deltas; exact 16-bit doubling wrap retained\","
         "\"octant_map\":[3,6,4,7,0,1,2,5],"
@@ -2581,7 +2595,7 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "\"transactional\":true},"
         "\"normal_game_flow_exposed\":false},"
         "\"live_foundation_integration\":{"
-        "\"scope\":\"bound production LIVE scene launch and normal game flow; this additive adapter does not rewrite the accepted TGAI-2 harness contract\","
+        "\"scope\":\"bound production LIVE scene launch and normal game flow; this compatibility adapter remains TGAI-to-TGMO while the TGAI-3 planar route kernel is deliberately unbound\","
         "\"normal_game_flow_exposed\":true,\"live_wired\":true,"
         "\"evidence\":{"
         "\"rom\":{\"revision\":\"Rev1\",\"length\":393232,"
@@ -2613,14 +2627,14 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "\"step_budget\":1,\"actor_order\":[0,1,2,3,4,5,6,7,8,9],"
         "\"source_command_advance\":true,\"deferred_effects_explicit\":true},"
         "\"immutable_ten_actor_snapshot\":true,\"transactional\":true,"
-        "\"source_target_policy\":\"valid source actor references require a valid recorded coordinate; the native adapter follows the current referenced actor on every immutable post-human snapshot/tick; original Bank05 dynamic retarget/matchup semantics remain incomplete/unproven\","
+        "\"source_target_policy\":\"valid source actor references require a valid recorded coordinate; current LIVE compatibility movement may re-evaluate ordinary source targets each post-human snapshot, but canonical opcode 4 captures once and the unbound state-5 kernel never retargets\","
         "\"source_direction_application\":\"validated source direction is composed into TGMO input; target-to-direction equivalence is tested where direct source direction is unavailable\","
         "\"fixed_opposing_link_use\":\"exact Bank04 fixed links; native matchup is inferred metadata and is not claimed as ROM dynamic assignment\","
         "\"classifications\":{\"formation_source_pinned\":true,\"native_matchup_inferred\":true,"
         "\"workspace_native_approximation\":true,\"shot_request_native_approximation\":true},"
         "\"shot_request_adapter\":\"accepted deterministic predicate with native random/workspace approximation; unsupported shots.c playback is explicit deferred/non-launch\","
         "\"serial_contract\":\"adapter observation counters wrap modulo 2^32; accepted CPU step_serial wraps modulo 2^16\"},"
-        "\"runtime_inputs\":\"TGAI-2 plus same-pack TGMO-1; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
+        "\"runtime_inputs\":\"TGAI-3 plus same-pack TGMO-1; route kernel uses explicit caller-owned raw inputs and LIVE continues the TGAI-to-TGMO adapter; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
 }
 
 static int append_gameplay_close_shot_source_map_entry(
