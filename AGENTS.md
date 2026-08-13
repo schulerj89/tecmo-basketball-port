@@ -1345,6 +1345,22 @@ and `$B1E7/$B500` are strict assets. The isolated exact `$BD6E-$BDC6` uint16
 kernel does not imply trajectory ownership. Broader pass-selection policy,
 unsupported selected-primary gates/states, and `$B13F` interception/contact
 remain fail-closed.
+The same Bank05 invocation continues through
+`$B2EC->$B2FA->$96B6-$9708`: human offense retains state 0, while automatic
+offense writes action `$18`, chooses `$007D/$00D7`, and returns in state 4.
+LIVE uses typed ownership and source-valid long route `$00D7` as an explicit native
+approximation because raw `$0373/$0095/$0094` are not owned. Its exact
+opcode-2 target keeps the selected holder moving. Opcode 21 uses exact typed
+shot/game clocks and an explicit clear-bit approximation for unowned `$007E`
+bit 1, so `$00DC` advances. Selected-primary state 6 decrements once per update, returns to state
+4 at zero without fetching, and fetches on the following update. Ordinary and
+inbound catches share this endpoint.
+Selected state 0/action `$17` is exact Bank05 shot dispatch, not idle:
+`$81F2-$822F->$8A6D->$8ACE`. Launch admission remains a bounded native adapter
+because `$8ACE` reads unowned gates; LIVE commits the existing source-backed close playback seam
+transactionally. Unsupported autonomous far/jump playback discards its
+candidate and applies a labeled state-4/action-clear recovery; do not describe
+that recovery as exact original shot behavior.
 Raw `$030C/$030D` is not a
 valid zero-human/nonzero-automatic classifier; use typed controller ownership.
 

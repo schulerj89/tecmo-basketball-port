@@ -841,6 +841,13 @@ bool tecmo_gameplay_live_foundation_pass_handoff(
     old_defender = candidate.defender_actor;
     opposing_team = (uint8_t)(candidate.last_possession ^ 1U);
 
+    /* The catch changes selected roles, so no pre-catch source target or
+       active state-5 route may survive it.  Do this before installing the
+       exact catch states below: source invalidation normalizes an active
+       route to state 4, while Bank05 $B24F explicitly clears the receiver to
+       state 0 before its same-call continuation. */
+    live_invalidate_source_metadata(&candidate);
+
     /* $B24F selects/initializes the receiver. $B27B restores the former
        selected actor to Bank06 state 4 at command $9F2E+$0B63=$AA91. */
     candidate.prior_selected_actor = old_selected;
@@ -851,11 +858,31 @@ bool tecmo_gameplay_live_foundation_pass_handoff(
         new_selected_actor;
     candidate.candidate_actor_by_side[candidate.offense_side] = old_selected;
     candidate.play_state.actor_state[new_selected_actor] = 0U;
+    candidate.play_state.wait_counter[new_selected_actor] = 0U;
+    candidate.play_state.action[new_selected_actor] = 0U;
     candidate.play_state.action_state_046e[new_selected_actor] = 0U;
     candidate.play_state.actor_state[old_selected] = 4U;
     candidate.play_state.action_state_046e[old_selected] = 0U;
     candidate.play_state.stream_offset[old_selected] = 0x0B63U;
     candidate.last_step_offset[old_selected] = 0x0B63U;
+
+    /* Bank05 $B2EC jumps directly to $96B6 after the catch work above.
+       Nonzero raw $030C[$030A] (automatic offense) must leave $96B6-$9708
+       with the new holder in state 4 and one of the two source-pinned streams
+       $007D/$00D7. LIVE owns that automatic-vs-human distinction through
+       typed control_mode, but it does not own the same-call $0373/$0095/$0094
+       inputs that select between those streams. Choose the source-valid long
+       route as a justified native approximation: unlike the short route's
+       wait/gate sequence, its first command supplies the exact absolute
+       movement target without fabricating missing gate workspaces. Human
+       catches correctly retain the exact state-0 endpoint above. */
+    if (candidate.control_mode[candidate.offense_side] != 0U) {
+        candidate.play_state.stream_offset[new_selected_actor] = 0x00D7U;
+        candidate.last_step_offset[new_selected_actor] = 0x00D7U;
+        candidate.play_state.actor_state[new_selected_actor] = 0x04U;
+        /* $96B6 writes selected action $18 before the route branch. */
+        candidate.play_state.action_state_046e[new_selected_actor] = 0x18U;
+    }
 
     if (candidate.control_mode[opposing_team] != 0U) {
         uint8_t found = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
@@ -881,7 +908,6 @@ bool tecmo_gameplay_live_foundation_pass_handoff(
     } else {
         candidate.selected_defender_handoff_active = false;
     }
-    live_invalidate_source_metadata(&candidate);
     live_seed_fixed_link_projection(&candidate);
     candidate.sync_serial = live_serial_next(candidate.sync_serial);
     if (!live_play_state_valid(assets, &candidate)) return false;

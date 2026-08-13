@@ -1846,7 +1846,9 @@ static bool scene_test_live_foundation_regressions(
         uint8_t opposing_controlled_actor;
         uint16_t primary_stream_before;
         uint16_t primary_last_step_before;
+        int16_t expected_catch_target_x;
         size_t pass_updates;
+        size_t wait_updates;
 
         /* Bank05 $BD6E-$BDC6 exact uint16 accumulation/Q10.6 extraction.
            Include captured-shape values, carry, wrap, and a high-byte $FF
@@ -1959,6 +1961,9 @@ static bool scene_test_live_foundation_regressions(
         primary_stream_before = action21_offset;
         primary_last_step_before =
             scene->live_foundation.last_step_offset[passer];
+        expected_catch_target_x =
+            scene->orientation_state.attack_direction == 0U
+                ? 0x00B4 : 0x024C;
         memset(&no_shot, 0, sizeof(no_shot));
         if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
             no_shot.playback_supported || no_shot.deferred ||
@@ -2026,8 +2031,110 @@ static bool scene_test_live_foundation_regressions(
             scene->live_foundation.primary_actor != receiver ||
             scene->live_foundation.play_state
                     .action_state_046e[passer] != 0U ||
-            scene->live_foundation.play_state.actor_state[receiver] != 0U) {
+            /* $B24F clears the receiver to state/action 0, then its same-call
+               $B2EC->$96B6 automatic tail writes action $18 and returns the
+               selected holder in state 4. LIVE lacks the raw route-choice
+               workspaces and projects source-valid long route $00D7 so the first
+               command owns an exact target instead of fabricated gates. */
+            scene->live_foundation.play_state.actor_state[receiver] != 4U ||
+            scene->live_foundation.play_state
+                    .action_state_046e[receiver] != 0x18U ||
+            scene->live_foundation.play_state.stream_offset[receiver] !=
+                0x00D7U ||
+            scene->live_foundation.last_step_offset[receiver] != 0x00D7U) {
             LIVE_FAIL("LIVE CPU pass catch/control handoff failed");
+        }
+        /* The chosen source-valid long route $00D7 begins with exact opcode 2 and absolute target
+           ($00B4,$0096) for orientation 0. The catch tail makes the holder
+           immediately eligible; prove that selected-primary dispatch owns
+           that target and TGMO begins moving toward it rather than leaving
+           the receiver inert. */
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) || scene_pass_active(scene) ||
+            scene->live_foundation.play_state.actor_state[receiver] != 4U ||
+            scene->live_foundation.play_state.wait_counter[receiver] != 0U ||
+            scene->live_foundation.play_state.stream_offset[receiver] !=
+                0x00DCU ||
+            scene->live_foundation.last_step_offset[receiver] != 0x00DCU ||
+            !scene->live_foundation.source_target_valid[receiver] ||
+            scene->live_foundation.play_state.target_x[receiver] !=
+                expected_catch_target_x ||
+            scene->live_foundation.play_state.target_depth[receiver] != 0x0096 ||
+            !scene->cpu_actors[receiver].target_valid ||
+            scene->cpu_actors[receiver].target_position.x !=
+                expected_catch_target_x ||
+            scene->cpu_actors[receiver].target_position.y != 0x0096) {
+            char failure[512];
+            (void)snprintf(
+                failure, sizeof(failure),
+                "LIVE CPU catch route target failed: holder=%u receiver=%u primary=%u poss=%u controllers=(%u,%u) legacy=%u orient=%u state=%u wait=%u stream=%04X last=%04X source=%u target=(%d,%d) cpu=%u cpu_target=(%d,%d) expected_x=%d defer=%u reason=%u",
+                (unsigned)scene->ball_holder, (unsigned)receiver,
+                (unsigned)scene->live_foundation.primary_actor,
+                (unsigned)scene->state.possession,
+                (unsigned)scene->launch.controller_team[0U],
+                (unsigned)scene->launch.controller_team[1U],
+                scene->legacy_direct_launch ? 1U : 0U,
+                (unsigned)scene->orientation_state.attack_direction,
+                (unsigned)scene->live_foundation.play_state.actor_state[receiver],
+                (unsigned)scene->live_foundation.play_state.wait_counter[receiver],
+                (unsigned)scene->live_foundation.play_state.stream_offset[receiver],
+                (unsigned)scene->live_foundation.last_step_offset[receiver],
+                scene->live_foundation.source_target_valid[receiver] ? 1U : 0U,
+                (int)scene->live_foundation.play_state.target_x[receiver],
+                (int)scene->live_foundation.play_state.target_depth[receiver],
+                scene->cpu_actors[receiver].target_valid ? 1U : 0U,
+                (int)scene->cpu_actors[receiver].target_position.x,
+                (int)scene->cpu_actors[receiver].target_position.y,
+                (int)expected_catch_target_x,
+                scene->live_foundation.deferred[receiver] ? 1U : 0U,
+                (unsigned)scene->live_foundation.deferred_reason[receiver]);
+            LIVE_FAIL(failure);
+        }
+        primary_stream_before = (uint16_t)scene->actors[receiver].position.x;
+        /* $00DC opcode 21 owns exact typed shot/game clocks. Select its +5
+           branch here so the natural long route reaches $00E1 action $17;
+           raw $007E bit 1 remains the labeled clear-bit approximation. */
+        scene->state.shot_clock = 3U;
+        scene->state.clock_minutes = 1U;
+        scene->state.clock_seconds = 30U;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) ||
+            scene->live_foundation.play_state.stream_offset[receiver] !=
+                0x00E1U ||
+            scene->live_foundation.last_step_offset[receiver] != 0x00E1U ||
+            scene->live_foundation.deferred[receiver] ||
+            !scene->live_foundation.source_target_valid[receiver] ||
+            !scene->cpu_actors[receiver].target_valid) {
+            LIVE_FAIL("LIVE CPU catch opcode-21 +5 branch failed");
+        }
+        if (scene->actors[receiver].position.x ==
+                (int16_t)primary_stream_before ||
+            !scene->live_foundation.source_target_valid[receiver]) {
+            LIVE_FAIL("LIVE CPU catch holder remained inert");
+        }
+        /* $00E1 opcode 9 writes state 0/action $17. This receiver is far
+           from the hoop, so unsupported autonomous jump playback must be
+           discarded and the labeled state-4 recovery committed. */
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
+            !no_shot.deferred || no_shot.playback_supported ||
+            scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+            scene->ball_holder != receiver ||
+            scene->live_foundation.play_state.actor_state[receiver] != 4U ||
+            scene->live_foundation.play_state
+                    .action_state_046e[receiver] != 0U ||
+            scene->live_foundation.play_state.stream_offset[receiver] !=
+                0x00E6U) {
+            LIVE_FAIL("LIVE CPU catch natural action-17 recovery failed");
+        }
+        /* The following exact goto returns to alternate $007D; it does not
+           leave the recovered selected holder at an inert endpoint. */
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) ||
+            scene->live_foundation.play_state.stream_offset[receiver] !=
+                0x007DU ||
+            scene->live_foundation.play_state.actor_state[receiver] != 4U) {
+            LIVE_FAIL("LIVE CPU catch post-shot route loop failed");
         }
         before = *scene;
         if (scene_begin_cpu_pass_from_action21(scene, passer) ||
@@ -2078,8 +2185,233 @@ static bool scene_test_live_foundation_regressions(
             }
         }
         if (scene_pass_active(scene) || scene->ball_holder != receiver ||
-            scene->controlled_actor[0U] != receiver) {
+            scene->controlled_actor[0U] != receiver ||
+            scene->live_foundation.play_state.actor_state[receiver] != 0U ||
+            scene->live_foundation.play_state
+                    .action_state_046e[receiver] != 0U) {
             LIVE_FAIL("LIVE human pass regression catch/control failed");
+        }
+
+        /* The nonlegacy Bank07 restart transport reaches the same typed
+           $B24F catch transaction as an ordinary pass. Prove an automatic
+           inbound receiver exits through $96B6 in state 4/$00D7 instead of
+           remaining the selected, ordinary-loop-skipped state-0 holder. */
+        tecmo_gameplay_scene_test_set_skip_pretip(true);
+        if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
+            !scene_handoff_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, passer) ||
+            !scene_sync_live_foundation(scene) ||
+            !scene_begin_inbound(scene, TECMO_GAMEPLAY_TEAM_AWAY)) {
+            LIVE_FAIL("LIVE automatic inbound fixture rejected");
+        }
+        tecmo_gameplay_scene_test_set_skip_pretip(false);
+        receiver = scene->inbound_state.receiver;
+        for (pass_updates = 0U; scene_inbound_active(scene) &&
+             pass_updates < 80U; ++pass_updates) {
+            if (!scene_update_inbound(scene)) {
+                LIVE_FAIL("LIVE automatic inbound transport rejected");
+            }
+        }
+        if (scene_inbound_active(scene) || scene->ball_holder != receiver ||
+            scene->live_foundation.primary_actor != receiver ||
+            scene->live_foundation.play_state.actor_state[receiver] != 4U ||
+            scene->live_foundation.play_state
+                    .action_state_046e[receiver] != 0x18U ||
+            scene->live_foundation.play_state.stream_offset[receiver] !=
+                0x00D7U ||
+            scene->live_foundation.last_step_offset[receiver] != 0x00D7U) {
+            LIVE_FAIL("LIVE automatic inbound catch lifecycle failed");
+        }
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) ||
+            scene->live_foundation.play_state.stream_offset[receiver] !=
+                0x00DCU ||
+            !scene->live_foundation.source_target_valid[receiver] ||
+            !scene->cpu_actors[receiver].target_valid) {
+            LIVE_FAIL("LIVE automatic inbound holder remained inert");
+        }
+
+        /* State 6 is a selected-primary source lifecycle, not an ordinary
+           movement state. Exercise it independently of the chosen $00D7
+           catch projection: decrement once per update, do not fetch on the
+           zero transition, and fetch exactly once on the following update. */
+        tecmo_gameplay_scene_test_set_skip_pretip(true);
+        if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
+            !scene_handoff_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, passer) ||
+            !scene_sync_live_foundation(scene)) {
+            LIVE_FAIL("LIVE selected-primary state-6 fixture rejected");
+        }
+        tecmo_gameplay_scene_test_set_skip_pretip(false);
+        for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            scene->live_foundation.play_state.actor_state[actor] = 6U;
+            scene->live_foundation.play_state.wait_counter[actor] = 10U;
+        }
+        scene->live_foundation.play_state.wait_counter[passer] = 2U;
+        /* $007D opcode 3 has already advanced to $0082 when it installs the
+           exact eight-count state-6 wait. Seed that coherent continuation. */
+        primary_stream_before = 0x0082U;
+        scene->live_foundation.play_state.stream_offset[passer] =
+            primary_stream_before;
+        scene->live_foundation.last_step_offset[passer] =
+            primary_stream_before;
+        if (!tecmo_gameplay_live_foundation_valid(
+                &scene->cpu_steering_assets, &scene->live_foundation)) {
+            LIVE_FAIL("LIVE selected-primary state-6 foundation invalid");
+        }
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) ||
+            scene->live_foundation.play_state.actor_state[passer] != 6U ||
+            scene->live_foundation.play_state.wait_counter[passer] != 1U ||
+            scene->live_foundation.play_state.stream_offset[passer] !=
+                primary_stream_before ||
+            scene->live_foundation.last_step_offset[passer] !=
+                primary_stream_before) {
+            LIVE_FAIL("LIVE selected-primary state-6 first decrement failed");
+        }
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) ||
+            scene->live_foundation.play_state.actor_state[passer] != 4U ||
+            scene->live_foundation.play_state.wait_counter[passer] != 0U ||
+            scene->live_foundation.play_state.stream_offset[passer] !=
+                primary_stream_before ||
+            scene->live_foundation.last_step_offset[passer] !=
+                primary_stream_before) {
+            LIVE_FAIL("LIVE selected-primary state-6 zero transition fetched");
+        }
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) ||
+            scene->live_foundation.play_state.stream_offset[passer] !=
+                0x0087U ||
+            scene->live_foundation.last_step_offset[passer] !=
+                scene->live_foundation.play_state.stream_offset[passer]) {
+            LIVE_FAIL("LIVE selected-primary post-wait fetch failed");
+        }
+
+        /* Discriminate opcode 21's exact +10 clock branch. The accepted
+           typed clocks satisfy $058A>=4,$0357=0,$0358>=4; only raw $007E
+           bit 1 is supplied by the documented clear-bit approximation. */
+        scene->state.shot_clock = 4U;
+        scene->state.clock_minutes = 0U;
+        scene->state.clock_seconds = 4U;
+        scene->live_foundation.play_state.actor_state[passer] = 4U;
+        scene->live_foundation.play_state.wait_counter[passer] = 0U;
+        scene->live_foundation.play_state.stream_offset[passer] = 0x00DCU;
+        scene->live_foundation.last_step_offset[passer] = 0x00DCU;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) ||
+            scene->live_foundation.play_state.stream_offset[passer] !=
+                0x00E6U ||
+            scene->live_foundation.last_step_offset[passer] != 0x00E6U ||
+            scene->live_foundation.deferred[passer]) {
+            LIVE_FAIL("LIVE selected-primary opcode-21 +10 branch failed");
+        }
+
+        /* Bank05 action $17 is a selected shot dispatcher, not an idle state.
+           A source opcode-9 record that writes state 0/action $17 reaches the
+           bounded native close-shot admission adapter in the same update;
+           the accepted phase-table assets remain source-exact. */
+        tecmo_gameplay_scene_test_set_skip_pretip(true);
+        if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
+            !scene_handoff_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, passer) ||
+            !scene_sync_live_foundation(scene)) {
+            LIVE_FAIL("LIVE action-17 close-shot fixture rejected");
+        }
+        tecmo_gameplay_scene_test_set_skip_pretip(false);
+        scene->actors[passer].position.x = (int16_t)(
+            scene->orientation_state.offensive_hoop.x + 8);
+        scene->actors[passer].position.y = TECMO_GAMEPLAY_SHOT_TARGET_Y;
+        scene->actors[passer].anchor = scene->actors[passer].position;
+        scene->live_foundation.play_state.actor_state[passer] = 4U;
+        scene->live_foundation.play_state.action_state_046e[passer] = 0U;
+        scene->live_foundation.play_state.stream_offset[passer] = 0x008CU;
+        scene->live_foundation.last_step_offset[passer] = 0x008CU;
+        if (!scene_attach_ball(scene) ||
+            !tecmo_gameplay_live_foundation_valid(
+                &scene->cpu_steering_assets, &scene->live_foundation)) {
+            LIVE_FAIL("LIVE action-17 close-shot setup invalid");
+        }
+        before = *scene;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) || !no_shot.requested ||
+            no_shot.actor_index != passer ||
+            !no_shot.playback_supported || no_shot.deferred ||
+            scene->action_serial != before.action_serial + 1U ||
+            memcmp(scene->cpu_actors, before.cpu_actors,
+                   sizeof(scene->cpu_actors)) != 0 ||
+            !scene_shot_is_close(scene->shot_kind) ||
+            scene->shot_actor != passer ||
+            scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+            !scene->live_foundation.last_shot_request ||
+            !scene->live_foundation.last_shot_playback_supported ||
+            scene->live_foundation.last_shot_deferred) {
+            LIVE_FAIL("LIVE action-17 close-shot dispatch failed");
+        }
+
+        /* A non-$17 state-0 action remains outside this shot seam. */
+        tecmo_gameplay_scene_test_set_skip_pretip(true);
+        if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
+            !scene_handoff_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, passer) ||
+            !scene_sync_live_foundation(scene)) {
+            LIVE_FAIL("LIVE action-17 nontrigger fixture rejected");
+        }
+        tecmo_gameplay_scene_test_set_skip_pretip(false);
+        scene->live_foundation.play_state.actor_state[passer] = 0U;
+        scene->live_foundation.play_state.action_state_046e[passer] = 0x18U;
+        primary_stream_before = (uint16_t)scene->action_serial;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
+            no_shot.deferred || scene->shot_kind !=
+                TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+            scene->action_serial != primary_stream_before ||
+            scene->live_foundation.play_state.actor_state[passer] != 0U ||
+            scene->live_foundation.play_state
+                    .action_state_046e[passer] != 0x18U) {
+            LIVE_FAIL("LIVE non-action-17 state changed shot ownership");
+        }
+
+        /* Far/jump playback still lacks autonomous controller ownership.
+           Prove its shallow shot candidate is discarded transactionally and
+           the labeled state-4 recovery prevents a second frozen endpoint. */
+        tecmo_gameplay_scene_test_set_skip_pretip(true);
+        if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
+            !scene_handoff_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, passer) ||
+            !scene_sync_live_foundation(scene)) {
+            LIVE_FAIL("LIVE action-17 fallback fixture rejected");
+        }
+        tecmo_gameplay_scene_test_set_skip_pretip(false);
+        scene->actors[passer].position.x = 320;
+        scene->actors[passer].position.y = 144;
+        scene->actors[passer].anchor = scene->actors[passer].position;
+        scene->live_foundation.play_state.actor_state[passer] = 4U;
+        scene->live_foundation.play_state.action_state_046e[passer] = 0U;
+        scene->live_foundation.play_state.stream_offset[passer] = 0x008CU;
+        scene->live_foundation.last_step_offset[passer] = 0x008CU;
+        if (!scene_attach_ball(scene)) {
+            LIVE_FAIL("LIVE action-17 fallback attachment rejected");
+        }
+        before = *scene;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
+            !no_shot.deferred || no_shot.playback_supported ||
+            no_shot.actor_index != passer ||
+            scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+            scene->shot_actor != before.shot_actor ||
+            scene->ball_holder != passer ||
+            scene->action_serial != before.action_serial ||
+            memcmp(scene->actors, before.actors, sizeof(scene->actors)) != 0 ||
+            memcmp(&scene->ball_position, &before.ball_position,
+                   sizeof(scene->ball_position)) != 0 ||
+            scene->live_foundation.play_state.actor_state[passer] != 4U ||
+            scene->live_foundation.play_state
+                    .action_state_046e[passer] != 0U ||
+            !scene->live_foundation.last_shot_request ||
+            !scene->live_foundation.last_shot_deferred ||
+            scene->live_foundation.last_shot_playback_supported) {
+            LIVE_FAIL("LIVE action-17 fallback was not transactional");
         }
     }
 

@@ -49,6 +49,20 @@ passes share one actor-neutral transport rather than teleporting possession:
 - `$B24F` clears the receiver action/animation/actor-state workspaces before
   calling `$B2FA`; `$B2FA-$B300` clears only raw `$BA` bit 2. No broader name
   or semantic meaning for that bit is asserted.
+- The catch does not return after `$B2FA`: `$B2EC` jumps directly to Bank05
+  `$96B6-$9708`. A human offense returns with the receiver's cleared state 0.
+  An automatic offense instead writes action `$18`, chooses source stream
+  `$007D` or `$00D7`, and returns with the receiver in state 4. LIVE owns the
+  automatic-versus-human distinction but not the same-call raw
+  `$0373/$0095/$0094` route selector, so it chooses source-valid long route `$00D7` as a
+  justified native approximation. Its first record publishes the exact
+  absolute target (orientation-adjusted X `$00B4`, depth `$0096`). Opcode 21
+  then consumes exact typed shot/game clocks; raw `$007E` bit 1 is projected
+  clear as a justified approximation so `$00DC` advances.
+  The selected-primary state-6 countdown reached by alternate `$007D` also
+  decrements once per update, returns to state 4 at zero without fetching,
+  and fetches on the following update. Ordinary and inbound catches share
+  this atomic endpoint.
 
 The current Q8 flight duration and linear interpolation are explicitly native
 adapters because `$B42F`, the Bank05 `$BB9F/$BBA0` trajectory lookup, and the
@@ -57,6 +71,16 @@ gather order, launch-time receiver lock/role swap, multi-update ball ownership,
 and catch-only handoff are preserved. Upstream CPU play selection/cursor reach,
 general pass desirability, `$B13F` interception/contact semantics, and the
 complete Bank06 inbound formation route remain deferred/fail-closed.
+The exact `$96B6` automatic lifecycle invariant is closed, while its route
+branch remains approximate. Opcode 21 now owns `$058A/$0357/$0358` through
+typed scene clocks but approximates unowned `$007E` bit 1 as clear.
+If a later source opcode-9 record writes selected state 0/action `$17`, Bank05
+dispatches it through `$81F2-$822F->$8A6D->$8ACE` into shot initialization.
+The pointer dispatch is exact, while launch admission is a bounded native
+adapter because `$8ACE` reads unowned gates. LIVE reuses the existing
+source-backed close playback seam and exact phase-table assets. Unsupported autonomous far/jump
+playback recovers to state 4 and clears `$17` as a justified native adapter;
+it does not claim the original skips the shot lifecycle.
 
 This change is bounded to Bank05 `$B24F-$B32B` and the selected-actor skip
 contract at Bank06 `$81F7-$82D3`.

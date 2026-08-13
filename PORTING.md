@@ -1550,6 +1550,27 @@ deferred. See
 `docs/pass-defender-handoff-evidence.md` for the separately bounded defender
 handoff and dynamic-link limitations.
 
+The genuine catch call continues through
+`$B2EC->$B2FA->$96B6-$9708`. Human offense retains the receiver's temporary
+state-0 endpoint; automatic offense writes action `$18`, selects `$007D` or
+`$00D7`, and returns in state 4. The scene owns typed automatic control but not
+the raw same-call `$0373/$0095/$0094` route chooser, so it chooses source-valid
+long route `$00D7` as a labeled native approximation. Its first exact opcode-2
+target drives TGMO. Opcode 21 receives exact typed shot/game clocks and the
+unowned raw `$007E` bit-1 clear branch as a labeled approximation, allowing
+the stream to advance. The alternate
+selected-primary state-6 wait also advances once per update and does not fetch
+again until the update after its zero transition. Ordinary passes and inbound
+catches share this atomic endpoint.
+Selected state 0/action `$17` then has a distinct Bank05 owner:
+`$81F2-$822F->$8A6D->$8ACE` enters shot initialization. The pointer dispatch
+is exact; launch admission remains a bounded adapter because `$8ACE` consumes
+unowned gates. The existing source-backed automatic close playback seam is
+wired transactionally.
+Far/jump playback still depends on
+unowned controller-team state, so LIVE explicitly recovers that rejected
+candidate to state 4 with `$17` cleared rather than freezing the holder.
+
 TGFT-1 `gameplay/fatigue` is the strict fatigue-evolution boundary. Its
 512-byte payload has FNV1a32 `F80F170D`, requires exact same-pack TTDT-1
 (`812628F0`), and imports Bank02 `$B4E6-$B5C7` (`F61DFFF7`) plus fixed

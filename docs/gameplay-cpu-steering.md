@@ -146,6 +146,32 @@ wrap/carry and six logical shifts, but is not wired into flight until its
 solver/table inputs are owned. Bank05 `$B13F` interception/contact remains
 fail-closed.
 
+At genuine catch, Bank05 `$B24F` first clears the new selected holder to state
+0, then continues in the same invocation through
+`$B2EC->$B2FA->$96B6-$9708`. Human offense retains state 0. Automatic offense
+writes action `$18` and returns in state 4 on either source-pinned `$007D` or
+`$00D7`; stopping before this tail froze the selected ball handler because
+Bank06 excludes it from ordinary dispatch. LIVE lacks the raw
+`$0373/$0095/$0094` branch inputs, so it chooses source-valid long route `$00D7` as a
+justified native approximation. Its first opcode-2 record owns the exact
+orientation-adjusted absolute target. The following opcode-21 gate receives
+exact typed shot/game clocks; raw `$007E` bit 1 remains unowned, so LIVE uses
+its clear branch as a justified approximation and advances past `$00DC`.
+Exact 6502 intra-frame ordering between clock evolution and Bank06 is not claimed.
+Selected-primary state 6 is also
+scheduled exactly for alternate `$007D`: one decrement per update, no fetch
+on the zero transition, then a fetch on the following update.
+
+Selected-primary state 0/action `$17` is not neutral. Bank05
+`$81F2-$822F` dispatches action index `$17` through `$8351/$8378` to
+`$8A6D->$8ACE`, the shot initializer. That pointer dispatch is exact, while
+launch admission is a bounded native adapter because `$8ACE` also consumes
+unowned `$0478/$0499/$007E`. LIVE transactionally reuses the existing
+source-backed close playback seam and exact phase-table assets. Autonomous far/jump playback still
+lacks controller-team ownership; that candidate is discarded and state 4 is
+restored with action `$17` cleared as an explicitly labeled native recovery
+adapter, preventing another inert selected-holder endpoint.
+
 ## Exact direction selection
 
 Two bounded paths write the same actor direction field `$0463`:
@@ -378,7 +404,7 @@ in deterministic LIVE proof JSON.
 | `$8F11` opcode 7, `$046E,C8` | None; the state-table lifecycle is not retained | `missing-actor-046e-probe`. |
 | `$8CD0/$8D59/$92CA` opcode 10, `$07DF`, `$0478/$06CB/$0308` branch context, linked-relative workspace, and `$BA` | No owner for the special-actor/branch/relative workspaces; the final `$BA` low-two gate may use the narrow ordinary-LIVE zero below | The first unavailable owner is reported: `missing-special-actor-07df`, `missing-linked-actor-branch-context`, `missing-linked-relative-workspace`, or `missing-ba-lifecycle`. |
 | `$9085/$90AC` opcode 16, `$036E/$0370` | None | `missing-pointer-workspace`. |
-| `$8BF6-$8C17` opcode 21, `$058A/$0357/$0358/$007E` | None | `missing-opcode21-gates`. |
+| `$8BF6-$8C17` opcode 21, `$058A/$0357/$0358/$007E` | Exact typed `shot_clock/clock_minutes/clock_seconds` own `$058A/$0357/$0358`; raw `$007E` bit 1 is unowned and explicitly approximated clear for ordinary LIVE | Executes the source +5/+10 branch from the typed clocks; whole-gate parity is not claimed. |
 | `$92CA` common target tail, `$BA` | `scene_cpu_common_tail_has_ordinary_live_zero`: exact `LIVE`, no result/abort, violation, free throw, shot, pass, lineup, or dunk lifecycle | Supplies only typed `flags_ba=0`, so Bank06 `$92CA-$92D0` takes its five-byte `$8FD9` increment. Every other path remains `missing-ba-lifecycle`. |
 | `$9125` opcode 13, `$038D-$0390` global target | None | `unimplemented-handler`; its later `$92CA` tail does not make it live. |
 | `$9172-$9216` opcode 15 raw lifecycle | None; harness-only capture contract | `missing-opcode15-raw-lifecycle`. |

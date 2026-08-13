@@ -2060,11 +2060,21 @@ static bool scene_cpu_build_play_input(
     input->common_tail_ba_available =
         scene_cpu_common_tail_has_ordinary_live_zero(scene);
     input->flags_ba = 0U;
+    /* Opcode 21 reads $058A/$0357/$0358 as shot-clock/game-clock values.
+       Their typed scene owners are exact. Raw $007E bit 1 is not retained;
+       use its clear branch as a justified ordinary-LIVE approximation so
+       the source stream can select its exact +5/+10 outcome without a
+       permanent false missing-input stall. This does not claim whole-gate
+       parity with the original raw flags plane or exact 6502 intra-frame
+       ordering between the clock update and Bank06 dispatch. */
+    input->opcode21_gate_inputs_available = true;
+    input->state_058a = scene->state.shot_clock;
+    input->state_0357 = scene->state.clock_minutes;
+    input->state_0358 = scene->state.clock_seconds;
+    input->flags_007e = 0U;
     /* The remaining Bank06 inputs have no faithful typed LIVE owner. Keep
-       their availability false rather than inventing $046E, $07DF, or the
-       opcode-21 gate plane. */
+       their availability false rather than inventing $046E or $07DF. */
     input->actor_046e_probe_available = false;
-    input->opcode21_gate_inputs_available = false;
     input->special_actor_07df_available = false;
     input->special_actor_07df = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     memcpy(input->actor_position, actor_position,
@@ -2432,7 +2442,11 @@ bool scene_update_ai(
        actor loop: $827E JSR $935D, $8281 JSR $8374, then automatic offense in
        the supported ordinary $05A1=0 context reaches $83F3 JSR $8491. State
        4 dispatches through $8B90 exactly once. Typed controller ownership is
-       the native admission boundary; raw $030C is not mirrored. Unsupported
+       the native admission boundary; raw $030C is not mirrored. State 6 is
+       the exact independent wait/countdown lifecycle (including the
+       alternate catch stream $007D); it must decrement once per update and
+       return to state 4 without fetching another record on the zero
+       transition. Other
        selected-primary states/gates remain inert/fail-closed. */
     actor = candidate_foundation.primary_actor;
     if (actor == scene->ball_holder &&
@@ -2445,6 +2459,22 @@ bool scene_update_ai(
             return false;
         }
         selected_primary_route_owned = true;
+    } else if (actor == scene->ball_holder &&
+        !scene_team_has_controller(scene, scene->state.possession) &&
+        candidate_foundation.play_state.actor_state[actor] == 0x06U &&
+        candidate_foundation.play_state.wait_counter[actor] != 0U) {
+        TecmoGameplayCpuSteeringPlayResult primary_result;
+        memset(&primary_result, 0, sizeof(primary_result));
+        play_input.actor = (uint8_t)actor;
+        if (!tecmo_gameplay_live_foundation_play_step(
+                &scene->cpu_steering_assets, &play_input,
+                &candidate_foundation, &primary_result) ||
+            primary_result.fetched || primary_result.advanced ||
+            primary_result.next_offset !=
+                candidate_foundation.play_state.stream_offset[actor]) {
+            return false;
+        }
+        selected_primary_stepped = true;
     } else if (actor == scene->ball_holder &&
         !scene_team_has_controller(scene, scene->state.possession) &&
         candidate_foundation.play_state.actor_state[actor] == 0x04U) {
@@ -2471,6 +2501,62 @@ bool scene_update_ai(
                 return false;
             }
             *scene = candidate_scene;
+            return true;
+        }
+        /* Bank06 opcode 9 may leave the selected holder in actor state 0
+           with action $17. That pair is not an idle/reset endpoint: Bank05
+           $81F2-$822F dispatches action index $17 through $8351/$8378 to
+           $8A6D, which restores the selected registers and jumps to the
+           shot initializer at $8ACE. The pointer dispatch is exact; launch
+           admission remains a bounded native adapter because $8ACE consumes
+           unowned $0478/$0499/$007E. Stage the existing source-backed close
+           playback seam on the complete candidate so acceptance is atomic. */
+        if (candidate_foundation.play_state.actor_state[actor] == 0U &&
+            candidate_foundation.play_state.action_state_046e[actor] ==
+                0x17U) {
+            bool shot_started;
+            candidate_foundation.last_shot_request = true;
+            candidate_foundation.last_shot_actor = (uint8_t)actor;
+            candidate_foundation.last_shot_deferred = false;
+            candidate_foundation.last_shot_playback_supported = false;
+            candidate_scene = *scene;
+            candidate_scene.live_foundation = candidate_foundation;
+            shot_started = scene_start_shot_actor(
+                &candidate_scene, 0U, (uint8_t)actor);
+            if (shot_started &&
+                scene_shot_is_close(candidate_scene.shot_kind) &&
+                candidate_scene.shot_actor == actor) {
+                candidate_scene.live_foundation.last_shot_request = true;
+                candidate_scene.live_foundation.last_shot_actor =
+                    (uint8_t)actor;
+                candidate_scene.live_foundation.last_shot_deferred = false;
+                candidate_scene.live_foundation
+                    .last_shot_playback_supported = true;
+                if (!scene_ownership_valid(&candidate_scene)) return false;
+                *scene = candidate_scene;
+                shot_request_out->requested = true;
+                shot_request_out->actor_index = (uint8_t)actor;
+                shot_request_out->playback_supported = true;
+                shot_request_out->deferred = false;
+                return true;
+            }
+            /* shots.c currently requires controller-team state for the
+               ordinary far/jump playback reached from $8ACE. Discard any
+               shallow unsupported candidate and recover the selected holder
+               to Bank06 state 4 instead of preserving the inert state-0/$17
+               pair. This state-4 recovery is a justified native adapter,
+               not a claim that the original skips Bank05 shot playback. */
+            candidate_foundation.play_state.actor_state[actor] = 0x04U;
+            candidate_foundation.play_state.action_state_046e[actor] = 0U;
+            candidate_foundation.last_shot_deferred = true;
+            candidate_scene = *scene;
+            candidate_scene.live_foundation = candidate_foundation;
+            if (!scene_ownership_valid(&candidate_scene)) return false;
+            *scene = candidate_scene;
+            shot_request_out->requested = false;
+            shot_request_out->actor_index = (uint8_t)actor;
+            shot_request_out->playback_supported = false;
+            shot_request_out->deferred = true;
             return true;
         }
         if (primary_result.fetched && primary_result.command.opcode == 4U) {
