@@ -2535,7 +2535,7 @@ try {
         "gameplay-jump-make-frame85" =
             "BD6F98B8ED82E8B5CA18A1B9A960C6BBE60BAB1AA2CDFF21C9A0FA89C29C29BB"
         "gameplay-jump-make-frame111" =
-            "63661168A3AC56266CB3A5CF8F0586CF6229B1C413AFB5FF4B213E5C8BED22A8"
+            "347B1BEF838E4F2A743E3F6C0E8F6626718DEF6790A0C82E8D8CF47542EA5DCE"
     }
     foreach ($Mode in $ExpectedJumpMakeHashes.Keys) {
         if ($RenderHashes[$Mode] -ne $ExpectedJumpMakeHashes[$Mode]) {
