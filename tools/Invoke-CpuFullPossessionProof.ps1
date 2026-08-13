@@ -81,14 +81,25 @@ foreach ($Repeat in 1, 2) {
     if (!(Test-Path -LiteralPath $TracePath -PathType Leaf) -or
         !(Test-Path -LiteralPath $SecondPossessionPath -PathType Leaf) -or
         !(Test-Path -LiteralPath $TerminalPath -PathType Leaf) -or
-        $Summary.schema -ne "tecmo.cpu-possession-proof/TGPH-2" -or
+        $Summary.schema -ne "tecmo.cpu-possession-proof/TGPH-3" -or
         ![bool]$Summary.structured_state_authority -or
         [int]$Summary.outer_update_limit -ne 20000 -or
         [string]$Summary.fixture -ne
             'deterministic controllerless setup feeding production inbound; native clocks 24/50' -or
-        [string]$Summary.first_outcome_classification -ne
-            'jump-miss-generic-compatibility-handoff' -or
-        [bool]$Summary.first_outcome_claimant_trace_valid -or
+        ![bool]$Summary.first_shot.captured -or
+        [int]$Summary.first_shot.kind -ne 1 -or
+        [string]$Summary.first_shot.kind_name -ne 'jump' -or
+        [int]$Summary.first_shot.outcome -ne 2 -or
+        [string]$Summary.first_shot.outcome_name -ne 'miss' -or
+        ![bool]$Summary.first_settlement.captured -or
+        ![bool]$Summary.first_settlement.scores_unchanged -or
+        ([string]::Join(',', $Summary.first_shot.score_before) -ne
+            [string]::Join(',', $Summary.first_settlement.score_after)) -or
+        [bool]$Summary.first_shot.claimant_valid_before -or
+        [bool]$Summary.first_settlement.claimant_valid_after -or
+        ![bool]$Summary.first_settlement.claimant_unchanged_invalid -or
+        [uint32]$Summary.first_shot.claimant_serial_before -ne
+            [uint32]$Summary.first_settlement.claimant_serial_after -or
         ![bool]$Summary.inbound_promotion_0627.adversarial_fixture_valid -or
         ![bool]$Summary.inbound_promotion_0627.inbound_started -or
         ![bool]$Summary.inbound_promotion_0627.stale_suppressed_before_ai -or
@@ -101,13 +112,30 @@ foreach ($Repeat in 1, 2) {
         throw "CPU full-possession run $Repeat violated its evidence contract."
     }
     if ($ExpectBaselineFailure) {
+        $ExpectedOldStateFailure =
+            [bool]$Summary.selected_state0b_observed -and
+            [string]$Summary.outcome -eq 'selected-primary-state0b'
+        $ExpectedNormalizationFailure =
+            [string]$Summary.outcome -eq 'first-outcome-contract-failed' -and
+            [string]$Summary.first_outcome_classification -eq
+                'jump-miss-handoff-not-normalized'
         if ($ExitCode -eq 0 -or [bool]$Summary.passed -or
-            ![bool]$Summary.selected_state0b_observed -or
-            [string]$Summary.outcome -ne "selected-primary-state0b" -or
+            (!$ExpectedOldStateFailure -and !$ExpectedNormalizationFailure) -or
             [int]$Summary.violation_code -ne 0) {
             throw "Run $Repeat did not reproduce the bounded baseline failure."
         }
     } elseif ($ExitCode -ne 0 -or ![bool]$Summary.passed -or
+             [string]$Summary.first_outcome_classification -ne
+                'jump-miss-generic-compatibility-handoff' -or
+             ![bool]$Summary.first_settlement.automatic_new_holder -or
+             [int]$Summary.first_settlement.cursor -ne 125 -or
+             [int]$Summary.first_settlement.state -ne 4 -or
+             [int]$Summary.first_settlement.action -ne 24 -or
+             [int]$Summary.first_settlement.wait -ne 0 -or
+             ![bool]$Summary.first_settlement.route_cleared -or
+             ![bool]$Summary.first_settlement.target_cleared -or
+             ![bool]$Summary.first_settlement.defer_cleared -or
+             ![bool]$Summary.first_settlement.normalized -or
              [int]$Summary.possession_outcomes -lt 2 -or
              [int]$Summary.shot_launches -lt 2 -or
              [bool]$Summary.selected_state0b_observed -or
@@ -138,7 +166,7 @@ foreach ($Field in 'trace_sha256','second_possession_png_sha256',
 
 $ManifestPath = Join-Path $OutputDirectory "manifest.json"
 ([pscustomobject]@{
-    schema = "tecmo.cpu-possession-proof-run/TGPH-2"
+    schema = "tecmo.cpu-possession-proof-run/TGPH-3"
     status = if ($ExpectBaselineFailure) {
         "EXPECTED_BASELINE_FAILURE"
     } else { "PASS" }

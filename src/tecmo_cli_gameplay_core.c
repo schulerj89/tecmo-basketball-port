@@ -294,7 +294,7 @@ int tecmo_cli_run_gameplay_core_commands(const TecmoCliContext *context)
         const char *trace_path = index < argc ? argv[index++] : NULL;
         const char *second_possession_path = index < argc ? argv[index++] : NULL;
         const char *terminal_path = index < argc ? argv[index] : NULL;
-        char message[2048];
+        char message[4096];
         if (!tecmo_gameplay_cpu_possession_proof(
                 root, pack_path, trace_path, second_possession_path,
                 terminal_path,
