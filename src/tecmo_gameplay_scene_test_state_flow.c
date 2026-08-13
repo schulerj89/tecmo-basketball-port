@@ -1848,7 +1848,6 @@ static bool scene_test_live_foundation_regressions(
         uint16_t primary_last_step_before;
         int16_t expected_catch_target_x;
         size_t pass_updates;
-        size_t wait_updates;
 
         /* Bank05 $BD6E-$BDC6 exact uint16 accumulation/Q10.6 extraction.
            Include captured-shape values, carry, wrap, and a high-byte $FF
