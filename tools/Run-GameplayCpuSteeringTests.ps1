@@ -112,7 +112,7 @@ function Invoke-SteeringTest {
     if ($ExpectSuccess) {
         if ($ExitCode -ne 0 -or
             $Text -notmatch
-                '^TGAI-3 CPU steering isolated: commands=680 handlers=24 directions=8 tgmo_adapter=1 scene_adapter=1 route_kernel=1 route_live=0 rom_policy=0$') {
+                '^TGAI-3 CPU steering isolated: commands=680 handlers=24 directions=8 tgmo_adapter=1 scene_adapter=1 route_kernel=1 route_live=1 rom_policy=0$') {
             throw "TGAI-3 loader/vector goldens failed.`n$(Get-ShortTail $Output)"
         }
     } elseif ($ExitCode -eq 0 -or
@@ -454,7 +454,7 @@ try {
             $Map.native_contract.opcode4_ball_target.c_contract.state -eq
                 'TecmoGameplayCpuSteeringPlayState.target_object' -and
             $Map.native_contract.opcode4_ball_target.c_contract.production_adapter -match
-                'captures the current Q8 ball snapshot.*state-5 route is not LIVE-bound' -and
+                'captures the current Q8 ball snapshot.*launches LIVE state 5' -and
             $Map.native_contract.planar_route_kernel.scope -match
                 'exact planar arithmetic subset' -and
             (@($Map.native_contract.planar_route_kernel.launch_sources) -join ',') -eq
@@ -466,7 +466,9 @@ try {
             [bool]$Map.native_contract.planar_route_kernel.division_anchor.mutation_rejected -and
             $Map.native_contract.planar_route_kernel.motion -match 'no TGMO/fixed clamp' -and
             $Map.native_contract.planar_route_kernel.capture -match 'frozen.*no dynamic chase' -and
-            ![bool]$Map.native_contract.planar_route_kernel.production_bound -and
+            [bool]$Map.native_contract.planar_route_kernel.production_bound -and
+            $Map.native_contract.planar_route_kernel.production_profile -match
+                'exact.*native approximation' -and
             $Map.native_contract.direction_quantizer.cpu -eq
                 '$92D4-$92DD; $92FE -> $88DA-$899D' -and
             $Map.native_contract.direction_quantizer.dominant_axis_ratio -match
@@ -474,10 +476,10 @@ try {
             (@($Map.native_contract.direction_quantizer.octant_map) -join ',') -eq
                 '3,6,4,7,0,1,2,5' -and
             [bool]$Map.native_contract.direction_quantizer.zero_vector_keeps_prior_direction -and
-            ![bool]$Map.native_contract.live_wired -and
+            [bool]$Map.native_contract.live_wired -and
             [bool]$Map.native_contract.transactional -and
             $Map.evidence_limits.next_integration -match
-                'replace bounded native targets' -and
+                'pose/action side effects' -and
             (@($Map.evidence_limits.not_claimed) -join '|') -match
                 'candidate scan \$B081-\$B32E' -and
             [bool]$Map.live_scene_adapter.enabled -and

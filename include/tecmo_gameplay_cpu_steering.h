@@ -326,8 +326,9 @@ typedef struct TecmoGameplayCpuSteeringPlayState {
     uint8_t aggregation_06e0;
     uint8_t aggregation_06df;
     uint8_t aggregation_06e1;
-    /* Reserved live owner for the exact Bank06 state-5 kernel. Opcode 4 is
-       not production-bound until LIVE owns the raw launch inputs above. */
+    /* LIVE owner for the exact Bank06 state-5 planar route kernel. Opcode 4
+       captures its target once; lifecycle transitions cancel the route
+       transaction instead of retaining stale target/Q6 state. */
     TecmoGameplayCpuSteeringRouteMotionState
         route_motion[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint16_t step_serial;

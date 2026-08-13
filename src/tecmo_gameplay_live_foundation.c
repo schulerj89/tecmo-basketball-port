@@ -386,7 +386,11 @@ static bool live_play_state_valid(
                 TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT) {
             return false;
         }
-        if (!live_target_fields_valid(foundation, actor) ||
+        if ((foundation->play_state.actor_state[actor] == 0x05U) !=
+                foundation->play_state.route_motion[actor].active ||
+            (foundation->play_state.route_motion[actor].active &&
+             !foundation->source_target_valid[actor]) ||
+            !live_target_fields_valid(foundation, actor) ||
             foundation->last_step_offset[actor] !=
                 foundation->play_state.stream_offset[actor] ||
             foundation->play_state.fixed_link_target[actor] !=
@@ -519,6 +523,18 @@ static void live_invalidate_source_metadata_actor(
     if (foundation == NULL || actor >=
             TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT) {
         return;
+    }
+    /* A state-5 route owns a frozen source target. Any lifecycle transition
+       that invalidates that target must cancel the route transaction too;
+       retaining its Q6 state would either resume stale motion later or make
+       the next route tick fail after integrating against a missing target. */
+    if (foundation->play_state.route_motion[actor].active ||
+        foundation->play_state.actor_state[actor] == 0x05U) {
+        memset(&foundation->play_state.route_motion[actor], 0,
+               sizeof(foundation->play_state.route_motion[actor]));
+        foundation->play_state.route_motion[actor].contract_tag =
+            TECMO_GAMEPLAY_CPU_STEERING_ROUTE_MOTION_STATE_TAG;
+        foundation->play_state.actor_state[actor] = 0x04U;
     }
     foundation->play_state.target_object[actor] =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;

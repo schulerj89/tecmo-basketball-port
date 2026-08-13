@@ -1369,13 +1369,18 @@ exact same-pack TGMO-1 (`6C82A137`), and retains Bank06 `$81F7-$82D3`
 zero padding/reserved bytes, handler table, command opcodes, canonical payload,
 provenance, and dependency fail-closed.
 
-The pure TGAI-3 route API is only the exact planar arithmetic subset of
+The TGAI-3 route API is the exact planar arithmetic subset of
 Bank06 `$88DA-$8B8F`, with the functional signed-divider anchor
 `$9BD8-$9C6E` (151 bytes, `74DD2AC6`). It consumes explicit captured deltas,
 raw `$7C48`, raw `$06E7`, and `$0359` completion-side bit inputs; it performs
-wrapping Q6 integration with no TGMO/fixed clamp. Do not production-bind it
-until LIVE owns those raw inputs. Do not claim the omitted pose tables or
-selected/ordinary `$0458/$0479/$046E` presentation/action side effects.
+wrapping Q6 integration with no TGMO/fixed clamp. LIVE binds opcode 4 through
+the typed actor profile/condition projections and the scene clock-divider
+lifecycle, freezes the target once, processes selected primary before ordinary
+`9..0`, excludes the selected defender, and cancels routes whenever a role or
+formation transition invalidates their target. The optional `$A908` admission
+remains a labeled no-controller native approximation, not raw `$030C/$030D`
+parity. Do not claim the omitted pose tables or selected/ordinary
+`$0458/$0479/$046E` presentation/action side effects.
 
 Opcode 15 is a separate, harness-only raw selected-defender contract. Its
 canonical Bank04 records `$0037/$004B` dispatch through Bank06 `$9172`; the

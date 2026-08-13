@@ -58,12 +58,13 @@ The handler subtracts the selected actor from the target object as a 16-bit X
 value (low/high bytes with borrow), then subtracts depth as an 8-bit value and
 sign-extends its borrow to a 16-bit delta. It ORs the two complete deltas; a
 zero vector skips `$88DA` and keeps the prior direction. The C result records
-these bounded opcode-4 deltas for regression coverage, while the production
-scene captures slot `10` from the current floored-Q8 ball snapshot for that
-command transaction. The exact state-5 route kernel described below is not yet
-bound to LIVE; current production movement continues through the documented
-TGAI-to-TGMO compatibility adapter. This is source-to-C target transport, not
-a claim to reconstruct offensive play selection.
+these bounded opcode-4 deltas for regression coverage. The production scene
+captures slot `10` from the current floored-Q8 ball snapshot once, advances the
+command once, and launches the exact state-5 planar route. Active route ticks
+bypass TGMO and never retarget from the moving ball. Ordinary non-route targets
+continue through the documented TGAI-to-TGMO compatibility adapter. This is
+source-to-C target transport, not a claim to reconstruct offensive play
+selection.
 
 ## Exact planar route arithmetic subset
 
@@ -84,11 +85,11 @@ zero. Both side-bit values are explicit kernel inputs.
 This is deliberately described as an exact *planar arithmetic subset*.
 Pose-table selection at `$932B/$933B` and selected/ordinary presentation/action
 effects through `$0458/$0479/$046E` are not modeled. The route kernel itself
-does not own `$7C48`, `$06E7`, or `$0359`; production must supply those through
-separately typed and classified projections.
+consumes separately typed and classified projections for `$7C48`, `$06E7`,
+and `$0359`.
 
-The bounded CPU-route profile projection now closes the two actor-local launch
-inputs without binding the route itself. Fixed `$C045->$CC00-$CC11`, retained
+The bounded CPU-route profile projection closes the two actor-local launch
+inputs used by LIVE. Fixed `$C045->$CC00-$CC11`, retained
 by strict TGRB-1 `$CC00-$CC2F`, maps the actor's `$05A9` lineup slot to the
 24-row `$7C48` plane using side offsets `{0,12}`. The caller supplies the live
 condition for that resolved roster slot. Strict TGMO-1's Bank02
@@ -97,10 +98,15 @@ condition for that resolved roster slot. Strict TGMO-1's Bank02
 
 Raw `$030C/$030D` are still not controller mirrors. The projection therefore
 requires an explicit typed `extra_adjust_admission_available` input and fails
-transactionally when it is absent. A LIVE caller may separately label a
-controller-derived admission as native approximation, but that policy is not
-made source-exact by this arithmetic API. `$0359` lifecycle ownership remains
-outside this projection and must be supplied by a separate lifecycle slice.
+transactionally when it is absent. LIVE supplies the controller-derived
+admission as a labeled native approximation; that policy is not made
+source-exact by this arithmetic API. The scene clock divider is the typed
+`$0359` decrement/reload lifecycle and supplies bit 0 after the normal pre-AI
+state update; this typed order does not claim complete original cross-bank
+intra-frame parity. Selected-primary state 5 runs first; ordinary state-5 actors then
+run in canonical `9..0` order, excluding the selected defender. Any role or
+formation transition that invalidates a frozen target cancels its route state
+transactionally so stale Q6 motion cannot resume later.
 
 ## Opcode 9 action `$21`: selected-primary autonomous pass
 

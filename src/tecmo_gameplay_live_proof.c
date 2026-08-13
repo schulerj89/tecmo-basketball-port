@@ -834,6 +834,10 @@ static bool live_proof_route_parity_case(
     candidate = (TecmoGameplayScene *)malloc(sizeof(*candidate));
     if (candidate == NULL) return false;
     *candidate = *source;
+    /* This fixture isolates Bank06 route completion; a prior proof event's
+       shot actor must not suppress the chosen high-half ordinary actor. */
+    candidate->shot_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    candidate->pretip_jump_active = false;
     candidate->state.clock_divider = completion_side_bit != 0U ? 1U : 2U;
     for (index = 0U; index < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++index) {
         candidate->live_foundation.play_state.route_motion[index].active =
@@ -855,6 +859,36 @@ static bool live_proof_route_parity_case(
     motion->active = true;
     candidate->live_foundation.play_state.actor_state[actor] = 0x05U;
     candidate->live_foundation.play_state.wait_counter[actor] = 0U;
+    candidate->live_foundation.play_state.target_object[actor] =
+        TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT;
+    candidate->live_foundation.play_state.target_x[actor] =
+        candidate->actors[actor].position.x;
+    candidate->live_foundation.play_state.target_depth[actor] =
+        candidate->actors[actor].position.y;
+    candidate->live_foundation.source_target_valid[actor] = true;
+    candidate->live_foundation.source_direction_valid[actor] = false;
+    candidate->live_foundation.source_direction[actor] =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+    candidate->live_foundation.deferred[actor] = false;
+    candidate->live_foundation.deferred_reason[actor] =
+        TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+    candidate->cpu_actors[actor].decision_serial = 1U;
+    candidate->cpu_actors[actor].snapshot_fingerprint = 0U;
+    candidate->cpu_actors[actor].target_position =
+        candidate->actors[actor].position;
+    candidate->cpu_actors[actor].command_offset =
+        TECMO_GAMEPLAY_SCENE_CPU_NO_COMMAND_OFFSET;
+    candidate->cpu_actors[actor].linked_actor =
+        candidate->live_foundation.play_state.fixed_link[actor];
+    candidate->cpu_actors[actor].target_kind =
+        TECMO_GAMEPLAY_CPU_STEERING_HARNESS_BALL_OBJECT_TARGET;
+    candidate->cpu_actors[actor].direction =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+    candidate->cpu_actors[actor].held_direction_bits =
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
+    candidate->cpu_actors[actor].command_advance_pending = false;
+    candidate->cpu_actors[actor].target_valid = true;
+    candidate->cpu_actors[actor].writes_direction = false;
     memset(&shot_request, 0, sizeof(shot_request));
     if (!scene_update_ai(candidate, &shot_request) ||
         shot_request.requested ||
@@ -998,7 +1032,7 @@ static bool live_proof_cpu_route_state5(
         !live_proof_route_actor_tgmo_equal(
             &scene->actors[actor], &tgmo_before) ||
         scene->cpu_actors[actor].decision_serial !=
-            evidence->route_decision_serial_before) {
+            evidence->route_decision_serial_before + 1U) {
         return live_proof_reject(
             message, message_size,
             "CPU route launch/cursor/no-TGMO contract failed");
@@ -1032,7 +1066,7 @@ static bool live_proof_cpu_route_state5(
             !live_proof_route_actor_tgmo_equal(
                 &scene->actors[actor], &tgmo_before) ||
             scene->cpu_actors[actor].decision_serial !=
-                evidence->route_decision_serial_before ||
+                evidence->route_decision_serial_before + 1U ||
             scene->live_foundation.play_state.stream_offset[actor] !=
                 evidence->route_stream_after ||
             scene->live_foundation.play_state.target_x[actor] != target.x ||
@@ -1065,14 +1099,35 @@ static bool live_proof_cpu_route_state5(
         live_proof_route_parity_case(scene, 6U, 0U, true);
     evidence->route_high_bit1_extra_tick =
         live_proof_route_parity_case(scene, 6U, 1U, false);
-    if (!evidence->route_low_bit1_finished ||
-        !evidence->route_low_bit0_extra_tick ||
-        !evidence->route_high_bit0_finished ||
-        !evidence->route_high_bit1_extra_tick) {
-        return live_proof_reject(message, message_size,
-                                 "CPU route completion parity failed");
+    if (!evidence->route_low_bit1_finished) {
+        return live_proof_reject(
+            message, message_size,
+            "CPU route low-actor bit-1 completion parity failed");
+    }
+    if (!evidence->route_low_bit0_extra_tick) {
+        return live_proof_reject(
+            message, message_size,
+            "CPU route low-actor bit-0 extra-tick parity failed");
+    }
+    if (!evidence->route_high_bit0_finished) {
+        return live_proof_reject(
+            message, message_size,
+            "CPU route high-actor bit-0 completion parity failed");
+    }
+    if (!evidence->route_high_bit1_extra_tick) {
+        return live_proof_reject(
+            message, message_size,
+            "CPU route high-actor bit-1 extra-tick parity failed");
     }
     evidence->cpu_route_state5_proved = true;
+    /* scene_update_ai stages movement against the immutable pre-AI snapshot;
+       the normal scene update publishes the post-movement foundation sync.
+       Mirror that final seam before asking the whole-scene ownership checker. */
+    if (!scene_sync_live_foundation(scene)) {
+        return live_proof_reject(
+            message, message_size,
+            "CPU route post-movement foundation sync failed");
+    }
     return live_proof_live_ownership(scene, message, message_size);
 }
 

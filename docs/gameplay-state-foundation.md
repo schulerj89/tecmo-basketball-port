@@ -151,9 +151,10 @@ consumer gate for the already-selected defender's later movement adapter. The
 transaction derives it from the exact nonzero `$030C[$030B]` scan condition;
 that downstream movement policy is not an additional `$B87C` claim.
 
-The following observed writes remain intentionally unsupported because this
-native scene has no faithful typed owner or caller proof: `$0588/$05B6` masks,
-`$0359`, `$0478`, `$06DF/$06E1`, `$0743`, `$0790`, `$07E2`, `$046E/$0479`,
+The following claimant-transaction writes remain intentionally unsupported
+because this native scene has no faithful typed owner or caller proof:
+`$0588/$05B6` masks, claimant-side `$0359` mutation, `$0478`, `$06DF/$06E1`,
+`$0743`, `$0790`, `$07E2`, `$046E/$0479`,
 `$06D5`, the `$035A->$035B; EOR #1->$035A` mutation, and helper/action calls
 `$B1D1`, `$BFA8`, `$88B6`, and `$C711`.  The transaction records the `$035A`
 save/toggle branch as an observation only.  It emits no steals, fouls,

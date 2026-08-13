@@ -1652,6 +1652,7 @@ static bool scene_cpu_route_publish_metadata(
     size_t actor,
     uint8_t direction,
     bool writes_direction,
+    bool advance_decision_serial,
     TecmoGameplaySceneCpuActor *cpu)
 {
     TecmoGameplayCourtCoordinate target;
@@ -1659,14 +1660,17 @@ static bool scene_cpu_route_publish_metadata(
     uint8_t direction_bits = TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
     if (scene == NULL || foundation == NULL || cpu == NULL ||
         actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
-        cpu->decision_serial == UINT32_MAX ||
+        (advance_decision_serial && cpu->decision_serial == UINT32_MAX) ||
         !scene_cpu_route_target_metadata(
             &foundation->play_state, actor, &target, &target_kind) ||
         (writes_direction && !scene_cpu_route_direction_bits(
             scene, direction, &direction_bits))) {
         return false;
     }
-    ++cpu->decision_serial;
+    /* decision_serial counts source-command decisions at the C integration
+       seam. Bank06 state-5 ticks continue the frozen opcode-4 decision and
+       therefore must not look like new TGMO steering decisions. */
+    if (advance_decision_serial) ++cpu->decision_serial;
     cpu->snapshot_fingerprint = 0U;
     cpu->target_position = target;
     cpu->target_kind = (uint8_t)target_kind;
@@ -1712,7 +1716,7 @@ static bool scene_cpu_route_launch(
         foundation->play_state.actor_state[actor] = 0x04U;
         return scene_cpu_route_publish_metadata(
             scene, foundation, actor,
-            TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION, false, cpu);
+            TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION, false, true, cpu);
     }
 
     /* Bank02 $A89E-$A90D owns the raw $06E7 profile byte. The speed-mode
@@ -1757,7 +1761,7 @@ static bool scene_cpu_route_launch(
     foundation->play_state.route_motion[actor] = result.motion;
     foundation->play_state.actor_state[actor] = 0x05U;
     if (!scene_cpu_route_publish_metadata(
-            scene, foundation, actor, result.direction, true, cpu)) {
+            scene, foundation, actor, result.direction, true, true, cpu)) {
         return false;
     }
     return true;
@@ -1801,7 +1805,7 @@ static bool scene_cpu_route_step(
     }
     return scene_cpu_route_publish_metadata(
         scene, foundation, actor, cpu->direction,
-        cpu->writes_direction, cpu);
+        cpu->writes_direction, false, cpu);
 }
 
 /* Bank05's state-$17 claim changes possession, not the center objects. Until
@@ -2499,6 +2503,7 @@ bool scene_update_ai(
         bool source_direction;
         bool source_direction_target = false;
         bool movement_target = false;
+        bool selected_defender;
         actor = scene_bank06_ordinary_actor_at(source_index);
         if (scene_actor_is_controlled(scene, actor) ||
             scene_actor_in_pretip_recovery(scene, actor) ||
@@ -2513,6 +2518,9 @@ bool scene_update_ai(
         memset(&input, 0, sizeof(input));
         play_input.actor = (uint8_t)actor;
         memset(&play_result, 0, sizeof(play_result));
+        selected_defender =
+            candidate_foundation.selected_defender_handoff_active &&
+            actor == candidate_foundation.defender_actor;
         /* After selected-primary dispatch above, Bank06 $8286/$8289 skips
            $0308 and $828B/$828E skips $0309 in the ordinary loop. A non-route
            primary effect may still compose through TGMO below. Opcode 4/state
@@ -2548,7 +2556,37 @@ bool scene_update_ai(
                 continue;
             }
         }
-        if (candidate_foundation.play_state.actor_state[actor] == 0x05U) {
+        /* Bank06 $828B/$828E excludes $0309 from ordinary dispatch. If an
+           actor becomes the selected defender while carrying an older
+           offense route, the bounded selected-defender adapter takes
+           exclusive ownership and discards that stale state-5 continuation.
+           This reset is a native safety policy until Bank05's complete
+           selected-defender state transition is converted. */
+        if (selected_defender &&
+            (candidate_foundation.play_state.actor_state[actor] == 0x05U ||
+             candidate_foundation.play_state.route_motion[actor].active)) {
+            memset(&candidate_foundation.play_state.route_motion[actor], 0,
+                   sizeof(candidate_foundation.play_state
+                              .route_motion[actor]));
+            candidate_foundation.play_state.route_motion[actor].contract_tag =
+                TECMO_GAMEPLAY_CPU_STEERING_ROUTE_MOTION_STATE_TAG;
+            candidate_foundation.play_state.actor_state[actor] = 0x04U;
+            candidate_foundation.play_state.target_object[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+            candidate_foundation.play_state.target_x[actor] = 0;
+            candidate_foundation.play_state.target_depth[actor] = 0;
+            candidate_foundation.play_state.direction[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+            candidate_foundation.source_target_valid[actor] = false;
+            candidate_foundation.source_direction_valid[actor] = false;
+            candidate_foundation.source_direction[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+            candidate_foundation.deferred[actor] = false;
+            candidate_foundation.deferred_reason[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+        }
+        if (!selected_defender &&
+            candidate_foundation.play_state.actor_state[actor] == 0x05U) {
             if (!scene_cpu_route_step(
                     scene, actor,
                     (uint8_t)(scene->state.clock_divider & 1U),
@@ -2560,8 +2598,7 @@ bool scene_update_ai(
         /* The selected-defender setup is also outside ordinary dispatch while
            Bank05 $9B27 owns its on-ball responsibility. */
         if (actor != candidate_foundation.primary_actor &&
-            !(candidate_foundation.selected_defender_handoff_active &&
-              actor == candidate_foundation.defender_actor) &&
+            !selected_defender &&
             !tecmo_gameplay_live_foundation_play_step(
                 &scene->cpu_steering_assets, &play_input,
                 &candidate_foundation, &play_result)) {
@@ -2593,8 +2630,7 @@ bool scene_update_ai(
         /* Native fixed projection; never expose it as live $037F/$06CB. */
         input.steering.matchup_actor = candidate_foundation.play_state
             .fixed_link_target[actor];
-        if (candidate_foundation.selected_defender_handoff_active &&
-            actor == candidate_foundation.defender_actor) {
+        if (selected_defender) {
             /* Bank06 omits $0309 from ordinary command dispatch; the
                selected-defender setup at Bank05 $9B27 owns its on-ball
                responsibility until released by the next handoff. */

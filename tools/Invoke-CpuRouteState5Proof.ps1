@@ -87,7 +87,8 @@ foreach ($Repeat in 1, 2) {
             [int]$Proof.actor_launch[1] -eq [int]$Proof.actor_mid[1] -or
         [int]$Proof.horizontal_q6[0] -eq [int]$Proof.horizontal_q6[1] -and
             [int]$Proof.depth_q6[0] -eq [int]$Proof.depth_q6[1] -or
-        [int]$Proof.decision_serial[0] -ne [int]$Proof.decision_serial[1] -or
+        [int]$Proof.decision_serial[1] -ne
+            ([int]$Proof.decision_serial[0] + 1) -or
         ![bool]$Proof.no_tgmo_double_step -or
         ![bool]$Proof.parity.low_bit1_finish -or
         ![bool]$Proof.parity.low_bit0_extra_tick -or

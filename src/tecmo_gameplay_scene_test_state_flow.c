@@ -3241,6 +3241,177 @@ static bool scene_test_live_foundation_regressions(
             LIVE_FAIL("LIVE opcode-4 state-5 route step/frozen target regressed");
         }
 
+        /* The outer scene frame decrements/reloads the typed $0359 clock
+           divider before Bank06 AI. Starting at 2 must therefore feed bit 1
+           to a low actor's decrement-to-zero completion, not stale bit 0. */
+        if (!scene_sync_live_foundation(scene)) {
+            LIVE_FAIL("LIVE route clock-order fixture sync rejected");
+        }
+        broken = *scene;
+        broken.state.clock_divider = 2U;
+        broken.live_foundation.play_state.route_motion[target_actor]
+            .remaining_timer = 1U;
+        if (!tecmo_gameplay_scene_update(
+                &broken, &neutral_one, &neutral_two) ||
+            broken.state.clock_divider != 1U ||
+            broken.live_foundation.play_state.route_motion[target_actor]
+                .active ||
+            broken.live_foundation.play_state.actor_state[target_actor] !=
+                0x04U) {
+            LIVE_FAIL("LIVE $0359 pre-AI completion order regressed");
+        }
+
+        /* Raw state-5 publishes with no clamp. A Q6 step beyond the accepted
+           court must reject the complete AI transaction without exposing the
+           integrated actor, route timer, metadata, or stream changes. */
+        broken = *scene;
+        broken.actors[target_actor].position.x =
+            TECMO_GAMEPLAY_COURT_WORLD_MAX_X;
+        scene_clamp_actor_world(&broken.actors[target_actor]);
+        if (!scene_actor_world_position_valid(
+                &broken.actors[target_actor])) {
+            LIVE_FAIL("LIVE route edge fixture was not initially valid");
+        }
+        broken.live_foundation.actor_position[target_actor] =
+            broken.actors[target_actor].position;
+        broken.live_foundation.play_state.route_motion[target_actor]
+            .horizontal_accumulator_q6 = (uint16_t)(
+                (uint16_t)broken.actors[target_actor].position.x << 6U);
+        broken.live_foundation.play_state.route_motion[target_actor]
+            .horizontal_velocity_q6 = 64;
+        broken.live_foundation.play_state.route_motion[target_actor]
+            .depth_accumulator_q6 = (uint16_t)(
+                (uint16_t)broken.actors[target_actor].position.y << 6U);
+        broken.live_foundation.play_state.route_motion[target_actor]
+            .depth_velocity_q6 = 0;
+        broken.live_foundation.play_state.route_motion[target_actor]
+            .remaining_timer = 2U;
+        snapshot = broken;
+        memset(&shot_request, 0, sizeof(shot_request));
+        if (scene_update_ai(&broken, &shot_request) ||
+            memcmp(&broken, &snapshot, sizeof(broken)) != 0) {
+            LIVE_FAIL("LIVE out-of-court route rejection was not transactional");
+        }
+
+        /* Holder/orientation/controller/formation changes invalidate a
+           command-derived target. The state-5/Q6 transaction must be
+           cancelled with that frozen target so it cannot resume later. */
+        candidate_foundation = scene->live_foundation;
+        for (actor = 0U; actor < 10U; ++actor) {
+            positions[actor] = scene->actors[actor].position;
+            actor_team[actor] = scene->actors[actor].team;
+        }
+        if (!tecmo_gameplay_live_foundation_synchronize(
+                &scene->cpu_steering_assets, positions,
+                (uint8_t)(scene->orientation_state.attack_direction ^ 1U),
+                (uint8_t)scene->state.possession, scene->ball_holder,
+                actor_team, scene->launch.controller_team,
+                scene->controlled_actor, &candidate_foundation) ||
+            candidate_foundation.play_state.route_motion[target_actor]
+                .active ||
+            candidate_foundation.play_state.actor_state[target_actor] !=
+                0x04U ||
+            candidate_foundation.source_target_valid[target_actor] ||
+            candidate_foundation.play_state.target_object[target_actor] !=
+                TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
+            candidate_foundation.play_state.target_x[target_actor] != 0 ||
+            candidate_foundation.play_state.target_depth[target_actor] != 0 ||
+            !tecmo_gameplay_live_foundation_valid(
+                &scene->cpu_steering_assets, &candidate_foundation)) {
+            LIVE_FAIL("LIVE role transition retained stale route state");
+        }
+
+        /* A route-owning actor can become $0309 through a handoff. Bank06's
+           ordinary loop excludes that selected defender, so LIVE must cancel
+           the stale route and let the holder +/-16 adapter own this tick. */
+        {
+            uint8_t defender = scene->live_foundation.defender_actor;
+            TecmoGameplayCourtCoordinate defender_before;
+            TecmoGameplayCourtCoordinate defender_target;
+            if (defender < TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT ||
+                defender >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+                !scene->live_foundation.selected_defender_handoff_active) {
+                LIVE_FAIL("LIVE selected-defender route fixture lacked ownership");
+            }
+            candidate_foundation = scene->live_foundation;
+            for (actor = 0U; actor < 10U; ++actor) {
+                memset(&candidate_foundation.play_state.route_motion[actor],
+                       0, sizeof(candidate_foundation.play_state
+                                     .route_motion[actor]));
+                candidate_foundation.play_state.route_motion[actor]
+                    .contract_tag =
+                        TECMO_GAMEPLAY_CPU_STEERING_ROUTE_MOTION_STATE_TAG;
+                candidate_foundation.play_state.actor_state[actor] = 0x06U;
+                candidate_foundation.play_state.wait_counter[actor] = 0xFFU;
+                candidate_foundation.play_state.target_object[actor] =
+                    TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+                candidate_foundation.play_state.target_x[actor] = 0;
+                candidate_foundation.play_state.target_depth[actor] = 0;
+                candidate_foundation.play_state.direction[actor] =
+                    TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+                candidate_foundation.source_target_valid[actor] = false;
+                candidate_foundation.source_direction_valid[actor] = false;
+                candidate_foundation.source_direction[actor] =
+                    TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+                candidate_foundation.deferred[actor] = false;
+                candidate_foundation.deferred_reason[actor] =
+                    TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+            }
+            defender_before = scene->actors[defender].position;
+            defender_target = scene->actors[scene->ball_holder].position;
+            defender_target.x = (int16_t)(defender_target.x +
+                (scene->orientation_state.attack_direction == 0U
+                    ? 16 : -16));
+            candidate_foundation.play_state.actor_state[defender] = 0x05U;
+            candidate_foundation.play_state.wait_counter[defender] = 0U;
+            candidate_foundation.play_state.target_object[defender] =
+                TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT;
+            candidate_foundation.play_state.target_x[defender] =
+                expected_ball.x;
+            candidate_foundation.play_state.target_depth[defender] =
+                expected_ball.y;
+            candidate_foundation.source_target_valid[defender] = true;
+            candidate_foundation.play_state.route_motion[defender]
+                .horizontal_accumulator_q6 = (uint16_t)(
+                    (uint16_t)defender_before.x << 6U);
+            candidate_foundation.play_state.route_motion[defender]
+                .depth_accumulator_q6 = (uint16_t)(
+                    (uint16_t)defender_before.y << 6U);
+            candidate_foundation.play_state.route_motion[defender]
+                .horizontal_velocity_q6 = 4096;
+            candidate_foundation.play_state.route_motion[defender]
+                .remaining_timer = 3U;
+            candidate_foundation.play_state.route_motion[defender].active =
+                true;
+            if (!tecmo_gameplay_live_foundation_valid(
+                    &scene->cpu_steering_assets, &candidate_foundation)) {
+                LIVE_FAIL("LIVE selected-defender stale-route fixture rejected");
+            }
+            scene->live_foundation = candidate_foundation;
+            memset(&shot_request, 0, sizeof(shot_request));
+            if (!scene_update_ai(scene, &shot_request) ||
+                scene->live_foundation.play_state.route_motion[defender]
+                    .active ||
+                scene->live_foundation.play_state.actor_state[defender] !=
+                    0x04U ||
+                scene->live_foundation.source_target_valid[defender] ||
+                scene->live_foundation.play_state.target_object[defender] !=
+                    TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
+                scene->live_foundation.play_state.target_x[defender] != 0 ||
+                scene->live_foundation.play_state.target_depth[defender] != 0 ||
+                scene->actors[defender].position.x ==
+                    (int16_t)(defender_before.x + 64) ||
+                !scene->cpu_actors[defender].target_valid ||
+                scene->cpu_actors[defender].target_position.x !=
+                    defender_target.x ||
+                scene->cpu_actors[defender].target_position.y !=
+                    defender_target.y ||
+                !tecmo_gameplay_live_foundation_valid(
+                    &scene->cpu_steering_assets, &scene->live_foundation)) {
+                LIVE_FAIL("LIVE selected defender resumed stale state-5 route");
+            }
+        }
+
         /* Ordinary LIVE owns only Bank06 $92CA's zero branch: Bank05
            $86DD-$8798 reserves nonzero low bits for transient shot/recovery,
            while $8FAD requires ($BA & 3)==0 for ordinary handoff. Install an

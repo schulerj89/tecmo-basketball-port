@@ -4692,7 +4692,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     tecmo_gameplay_cpu_steering_assets_destroy(&assets);
     (void)snprintf(
         message, message_size,
-        "TGAI-3 CPU steering isolated: commands=680 handlers=24 directions=8 tgmo_adapter=1 scene_adapter=1 route_kernel=1 route_live=0 rom_policy=0");
+        "TGAI-3 CPU steering isolated: commands=680 handlers=24 directions=8 tgmo_adapter=1 scene_adapter=1 route_kernel=1 route_live=1 rom_policy=0");
     return true;
 
 malformed_harness_failure:

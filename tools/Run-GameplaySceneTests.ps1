@@ -1119,7 +1119,15 @@ try {
         $CpuMaps[0].live_foundation_integration.source_direction_application -notmatch
             'target-to-direction equivalence' -or
         $CpuMaps[0].live_foundation_integration.source_target_policy -notmatch
-            'current LIVE compatibility movement.*canonical opcode 4 captures once' -or
+            'current LIVE compatibility movement.*canonical opcode 4 captures once.*bound state-5 kernel' -or
+        ![bool]$CpuMaps[0].live_foundation_integration.state5_route.live_wired -or
+        ![bool]$CpuMaps[0].live_foundation_integration.state5_route.selected_primary_first -or
+        (@($CpuMaps[0].live_foundation_integration.state5_route.ordinary_order) -join ',') -ne
+            '9,8,7,6,5,4,3,2,1,0' -or
+        ![bool]$CpuMaps[0].live_foundation_integration.state5_route.selected_defender_excluded -or
+        ![bool]$CpuMaps[0].live_foundation_integration.state5_route.tgmo_bypassed -or
+        ![bool]$CpuMaps[0].live_foundation_integration.state5_route.target_frozen -or
+        ![bool]$CpuMaps[0].live_foundation_integration.state5_route.transactional_lifecycle_cancel -or
         $CpuMaps[0].live_foundation_integration.shot_request_adapter -notmatch
             'deferred/non-launch' -or
         ![bool]$CpuMaps[0].live_foundation_integration.classifications.formation_source_pinned -or
