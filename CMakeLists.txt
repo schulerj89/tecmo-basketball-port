@@ -87,6 +87,7 @@ set(TECMO_PORT_SOURCES
     src/tecmo_gameplay_cpu_route_profile.c
     src/tecmo_gameplay_live_foundation.c
     src/tecmo_gameplay_live_proof.c
+    src/tecmo_gameplay_cpu_possession_proof.c
     src/tecmo_gameplay_hud.c
     src/tecmo_gameplay_close_shots.c
     src/tecmo_gameplay_dunk_cutaway.c

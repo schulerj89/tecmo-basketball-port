@@ -15,6 +15,7 @@
 #include "tecmo_gameplay_free_throw_lineup.h"
 #include "tecmo_gameplay_movement.h"
 #include "tecmo_gameplay_live_proof.h"
+#include "tecmo_gameplay_cpu_possession_proof.h"
 #include "tecmo_gameplay_penalties.h"
 #include "tecmo_gameplay_state.h"
 #include "tecmo_gameplay_cpu_playbook_lab.h"
@@ -282,6 +283,22 @@ int tecmo_cli_run_gameplay_core_commands(const TecmoCliContext *context)
                 root, pack_path, event, output_path,
                 message, sizeof(message))) {
             printf("LIVE proof failed: %s\n", message);
+            return 1;
+        }
+        printf("%s\n", message);
+        return 0;
+    }
+
+    if (strcmp(command, "--gameplay-cpu-possession-proof") == 0) {
+        const char *pack_path = index < argc ? argv[index++] : NULL;
+        const char *trace_path = index < argc ? argv[index++] : NULL;
+        const char *mid_path = index < argc ? argv[index++] : NULL;
+        const char *terminal_path = index < argc ? argv[index] : NULL;
+        char message[2048];
+        if (!tecmo_gameplay_cpu_possession_proof(
+                root, pack_path, trace_path, mid_path, terminal_path,
+                message, sizeof(message))) {
+            printf("CPU possession proof failed: %s\n", message);
             return 1;
         }
         printf("%s\n", message);
