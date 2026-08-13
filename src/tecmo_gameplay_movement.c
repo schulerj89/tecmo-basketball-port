@@ -69,6 +69,8 @@ static bool reject(TecmoGameplayMovementAssets *assets,
     memset(assets->sources, 0, sizeof(assets->sources));
     memset(assets->speed_adjustment, 0,
            sizeof(assets->speed_adjustment));
+    memset(assets->route_extra_adjustment, 0,
+           sizeof(assets->route_extra_adjustment));
     memset(assets->direction_map, 0, sizeof(assets->direction_map));
     assets->available = false;
     assets->gameplay_core_fingerprint = 0U;
@@ -102,6 +104,7 @@ void tecmo_gameplay_movement_assets_destroy(
 static bool validate_header(const uint8_t *payload, size_t payload_size)
 {
     static const uint8_t speed_adjustments[3] = {0x05U,0xFFU,0xFAU};
+    static const uint8_t route_extra_adjustments[3] = {0xFDU,0xFEU,0xFFU};
     static const uint8_t direction_map[16] = {
         0U,0U,1U,0U,2U,3U,4U,0U,5U,6U,7U,0U,1U,2U,4U,5U
     };
@@ -135,6 +138,10 @@ static bool validate_header(const uint8_t *payload, size_t payload_size)
         memcmp(payload +
                    TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_SPEEDS_OFFSET,
                speed_adjustments, sizeof(speed_adjustments)) != 0 ||
+        memcmp(payload + TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_PROFILE_OFFSET +
+                   (0xA908U - 0xA89EU),
+               route_extra_adjustments,
+               sizeof(route_extra_adjustments)) != 0 ||
         payload[179U] != 6U || payload[180U] != 8U ||
         payload[181U] != 8U || payload[182U] != 3U ||
         payload[183U] != 5U || payload[184U] != 0x4AU ||
@@ -351,6 +358,8 @@ bool tecmo_gameplay_movement_assets_parse(
          index < TECMO_GAMEPLAY_MOVEMENT_SPEED_COUNT; ++index) {
         assets->speed_adjustment[index] = (int8_t)storage[
             TECMO_ASSET_PACK_GAMEPLAY_MOVEMENT_SPEEDS_OFFSET + index];
+        assets->route_extra_adjustment[index] = (int8_t)
+            assets->sources[0U].bytes[(0xA908U - 0xA89EU) + index];
     }
     memcpy(assets->direction_map,
            storage +

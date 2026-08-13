@@ -55,6 +55,10 @@ typedef struct TecmoGameplayMovementAssets {
     TecmoGameplayMovementSourceSpan
         sources[TECMO_GAMEPLAY_MOVEMENT_SOURCE_COUNT];
     int8_t speed_adjustment[TECMO_GAMEPLAY_MOVEMENT_SPEED_COUNT];
+    /* Exact Bank02 $A908-$A90A bytes inside the strict $A89E-$A90D
+       PROFILE_AND_SPEED source span. Admission to this adjustment remains a
+       caller-owned typed decision; these are only the three source deltas. */
+    int8_t route_extra_adjustment[TECMO_GAMEPLAY_MOVEMENT_SPEED_COUNT];
     uint8_t direction_map[TECMO_GAMEPLAY_MOVEMENT_DIRECTION_TABLE_COUNT];
     uint8_t condition_fresh_high_nibble;
     uint8_t minimum_movement_amount;

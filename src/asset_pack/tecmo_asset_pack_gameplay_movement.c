@@ -90,6 +90,7 @@ static uint64_t source_offset(
 static int validate_semantics(const uint8_t *payload)
 {
     static const uint8_t speed_adjustments[3] = {0x05U,0xFFU,0xFAU};
+    static const uint8_t route_extra_adjustments[3] = {0xFDU,0xFEU,0xFFU};
     static const uint8_t animation_setup[10] = {
         0xA9U,0x08U,0x8DU,0x85U,0x03U,
         0xA9U,0x03U,0x8DU,0x91U,0x03U
@@ -123,6 +124,8 @@ static int validate_semantics(const uint8_t *payload)
 
     return memcmp(profile + (0xA90BU - 0xA89EU), speed_adjustments,
                   sizeof(speed_adjustments)) == 0 &&
+           memcmp(profile + (0xA908U - 0xA89EU), route_extra_adjustments,
+                  sizeof(route_extra_adjustments)) == 0 &&
            memcmp(config + (0xAD1CU - 0xACE4U), animation_setup,
                   sizeof(animation_setup)) == 0 &&
            memcmp(delta, "\x20\x45\xC0", 3U) == 0 &&

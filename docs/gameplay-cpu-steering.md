@@ -83,9 +83,24 @@ zero. Both side-bit values are explicit kernel inputs.
 
 This is deliberately described as an exact *planar arithmetic subset*.
 Pose-table selection at `$932B/$933B` and selected/ordinary presentation/action
-effects through `$0458/$0479/$046E` are not modeled. LIVE also has no proven
-raw `$7C48`, `$06E7`, or `$0359` owner, so the route state is reserved but
-production binding remains fail-closed.
+effects through `$0458/$0479/$046E` are not modeled. The route kernel itself
+does not own `$7C48`, `$06E7`, or `$0359`; production must supply those through
+separately typed and classified projections.
+
+The bounded CPU-route profile projection now closes the two actor-local launch
+inputs without binding the route itself. Fixed `$C045->$CC00-$CC11`, retained
+by strict TGRB-1 `$CC00-$CC2F`, maps the actor's `$05A9` lineup slot to the
+24-row `$7C48` plane using side offsets `{0,12}`. The caller supplies the live
+condition for that resolved roster slot. Strict TGMO-1's Bank02
+`$A89E-$A90D` span supplies both `$A90B={+5,-1,-6}` and
+`$A908={-3,-2,-1}`; projection performs wrapping byte additions exactly.
+
+Raw `$030C/$030D` are still not controller mirrors. The projection therefore
+requires an explicit typed `extra_adjust_admission_available` input and fails
+transactionally when it is absent. A LIVE caller may separately label a
+controller-derived admission as native approximation, but that policy is not
+made source-exact by this arithmetic API. `$0359` lifecycle ownership remains
+outside this projection and must be supplied by a separate lifecycle slice.
 
 ## Opcode 9 action `$21`: selected-primary autonomous pass
 

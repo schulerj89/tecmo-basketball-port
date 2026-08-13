@@ -10,6 +10,7 @@
 #include "tecmo_gameplay_camera.h"
 #include "tecmo_gameplay_candidate_selection.h"
 #include "tecmo_gameplay_court_orientation.h"
+#include "tecmo_gameplay_cpu_route_profile.h"
 #include "tecmo_gameplay_fatigue.h"
 #include "tecmo_gameplay_free_throw_lineup.h"
 #include "tecmo_gameplay_movement.h"
@@ -190,9 +191,15 @@ int tecmo_cli_run_gameplay_core_commands(const TecmoCliContext *context)
     if (strcmp(command, "--gameplay-movement-test") == 0) {
         const char *pack_path = index < argc ? argv[index] : NULL;
         char message[256];
+        char profile_message[256];
         if (!tecmo_gameplay_movement_self_test(
                 pack_path, message, sizeof(message))) {
             printf("Gameplay movement test failed: %s\n", message);
+            return 1;
+        }
+        if (!tecmo_gameplay_cpu_route_profile_self_test(
+                pack_path, profile_message, sizeof(profile_message))) {
+            printf("Gameplay movement test failed: %s\n", profile_message);
             return 1;
         }
         printf("%s\n", message);

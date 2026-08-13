@@ -84,6 +84,7 @@ set(TECMO_PORT_SOURCES
     src/tecmo_gameplay_ball_dribble.c
     src/tecmo_gameplay_fatigue.c
     src/tecmo_gameplay_cpu_steering.c
+    src/tecmo_gameplay_cpu_route_profile.c
     src/tecmo_gameplay_live_foundation.c
     src/tecmo_gameplay_live_proof.c
     src/tecmo_gameplay_hud.c
