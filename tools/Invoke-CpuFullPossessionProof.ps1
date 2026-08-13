@@ -84,18 +84,23 @@ foreach ($Repeat in 1, 2) {
         $Summary.schema -ne "tecmo.cpu-possession-proof/TGPH-1" -or
         ![bool]$Summary.structured_state_authority -or
         [int]$Summary.outer_update_limit -ne 1085 -or
+        [string]$Summary.fixture -ne
+            'deterministic controllerless setup feeding production inbound; native clocks 24/50' -or
         [bool]$Summary.anchor_oob) {
         throw "CPU full-possession run $Repeat violated its evidence contract."
     }
     if ($ExpectBaselineFailure) {
         if ($ExitCode -eq 0 -or [bool]$Summary.passed -or
             [bool]$Summary.legitimate_outcome -or
-            [string]$Summary.outcome -ne "shot-clock-violation") {
+            [string]$Summary.outcome -ne "shot-clock-violation" -or
+            [int]$Summary.violation_code -ne 5 -or
+            [string]$Summary.violation_name -ne "SHOT CLOCK VIOLATION") {
             throw "Run $Repeat did not reproduce the bounded baseline failure."
         }
     } elseif ($ExitCode -ne 0 -or ![bool]$Summary.passed -or
              ![bool]$Summary.legitimate_outcome -or
-             [string]$Summary.outcome -eq "shot-clock-violation") {
+             [int]$Summary.violation_code -ne 0 -or
+             [string]$Summary.violation_name -ne "NONE") {
         throw "CPU full-possession run $Repeat did not resolve legitimately."
     }
     $SummaryPath = Join-Path $RunDirectory "summary.json"

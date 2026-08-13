@@ -409,8 +409,10 @@ bool tecmo_gameplay_cpu_possession_proof(
             outcome = "anchor-oob";
             break;
         }
-        if (scene->state.violation == TECMO_GAMEPLAY_VIOLATION_SHOT_CLOCK) {
-            outcome = "shot-clock-violation";
+        if (scene->state.violation != TECMO_GAMEPLAY_VIOLATION_NONE) {
+            outcome = scene->state.violation ==
+                    TECMO_GAMEPLAY_VIOLATION_SHOT_CLOCK
+                ? "shot-clock-violation" : "other-violation";
             break;
         }
         if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
@@ -448,18 +450,26 @@ bool tecmo_gameplay_cpu_possession_proof(
         "{\"schema\":\"tecmo.cpu-possession-proof/TGPH-1\","
         "\"passed\":%s,\"structured_state_authority\":true,"
         "\"screenshot_scope\":\"presentation-only\","
-        "\"fixture\":\"production automatic inbound; native clocks 24/50\","
+        "\"fixture\":\"deterministic controllerless setup feeding production inbound; native clocks 24/50\","
         "\"outer_update_limit\":1085,\"updates_observed\":%u,"
         "\"outcome\":\"%s\",\"legitimate_outcome\":%s,"
+        "\"violation_code\":%u,\"violation_name\":\"%s\","
         "\"anchor_oob\":%s,\"max_idle_frames\":%u,"
         "\"pass_active_frame_count\":%u,\"max_pose_overhang\":%d,"
         "\"mid_frame_fnv1a32\":\"%08X\","
         "\"terminal_frame_fnv1a32\":\"%08X\"}",
-        legitimate_outcome && !anchor_oob ? "true" : "false",
+        legitimate_outcome && !anchor_oob &&
+                runtime.gameplay_scene.state.violation ==
+                    TECMO_GAMEPLAY_VIOLATION_NONE
+            ? "true" : "false",
         update, outcome, legitimate_outcome ? "true" : "false",
+        (unsigned)runtime.gameplay_scene.state.violation,
+        tecmo_gameplay_violation_name(runtime.gameplay_scene.state.violation),
         anchor_oob ? "true" : "false", max_idle_frames, pass_events,
         max_overhang, (unsigned)mid_hash, (unsigned)terminal_hash);
-    result = legitimate_outcome && !anchor_oob;
+    result = legitimate_outcome && !anchor_oob &&
+        runtime.gameplay_scene.state.violation ==
+            TECMO_GAMEPLAY_VIOLATION_NONE;
 done:
     if (trace != NULL) fclose(trace);
     if (message != NULL && message_size != 0U && message[0] == '\0') {
