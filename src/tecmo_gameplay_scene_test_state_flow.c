@@ -1833,6 +1833,7 @@ static bool scene_test_live_foundation_regressions(
     {
         const uint8_t passer = 2U;
         const uint8_t captured_receiver = 4U;
+        const uint8_t ordinary_wait_actor = 4U;
         const uint16_t action21_offset = 0x0131U;
         TecmoGameplayCpuSteeringCommand action21;
         TecmoGameplayLiveFoundation pass_foundation;
@@ -1845,6 +1846,7 @@ static bool scene_test_live_foundation_regressions(
         uint8_t receiver;
         uint8_t opposing_controlled_actor;
         uint16_t primary_stream_before;
+        uint16_t ordinary_stream_before;
         uint16_t primary_last_step_before;
         int16_t expected_catch_target_x;
         size_t pass_updates;
@@ -2230,10 +2232,11 @@ static bool scene_test_live_foundation_regressions(
             LIVE_FAIL("LIVE automatic inbound holder remained inert");
         }
 
-        /* State 6 is a selected-primary source lifecycle, not an ordinary
-           movement state. Exercise it independently of the chosen $00D7
-           catch projection: decrement once per update, do not fetch on the
-           zero transition, and fetch exactly once on the following update. */
+        /* Bank06 state index 6 dispatches through $82B6/$82C4 to
+           $9053-$905D for selected and ordinary actors alike. Exercise it
+           independently of the chosen $00D7 catch projection: decrement once
+           per update, do not fetch on the zero transition, and fetch exactly
+           once on the following update. */
         tecmo_gameplay_scene_test_set_skip_pretip(true);
         if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
             !scene_handoff_possession(
@@ -2254,6 +2257,8 @@ static bool scene_test_live_foundation_regressions(
             primary_stream_before;
         scene->live_foundation.last_step_offset[passer] =
             primary_stream_before;
+        ordinary_stream_before = scene->live_foundation.play_state
+            .stream_offset[ordinary_wait_actor];
         if (!tecmo_gameplay_live_foundation_valid(
                 &scene->cpu_steering_assets, &scene->live_foundation)) {
             LIVE_FAIL("LIVE selected-primary state-6 foundation invalid");
@@ -2265,7 +2270,16 @@ static bool scene_test_live_foundation_regressions(
             scene->live_foundation.play_state.stream_offset[passer] !=
                 primary_stream_before ||
             scene->live_foundation.last_step_offset[passer] !=
-                primary_stream_before) {
+                primary_stream_before ||
+            scene->live_foundation.play_state
+                    .actor_state[ordinary_wait_actor] != 6U ||
+            scene->live_foundation.play_state
+                    .wait_counter[ordinary_wait_actor] != 9U ||
+            scene->live_foundation.play_state
+                    .stream_offset[ordinary_wait_actor] !=
+                ordinary_stream_before ||
+            scene->live_foundation.last_step_offset[ordinary_wait_actor] !=
+                ordinary_stream_before) {
             LIVE_FAIL("LIVE selected-primary state-6 first decrement failed");
         }
         memset(&no_shot, 0, sizeof(no_shot));
@@ -2285,6 +2299,115 @@ static bool scene_test_live_foundation_regressions(
             scene->live_foundation.last_step_offset[passer] !=
                 scene->live_foundation.play_state.stream_offset[passer]) {
             LIVE_FAIL("LIVE selected-primary post-wait fetch failed");
+        }
+
+        /* Canonical DEC wraps a zero $04E7 entry to $FF. Selected-primary
+           admission must therefore key on state 6 rather than a nonzero wait
+           byte; this tick retains the next command without fetching it. */
+        tecmo_gameplay_scene_test_set_skip_pretip(true);
+        if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
+            !scene_handoff_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, passer) ||
+            !scene_sync_live_foundation(scene)) {
+            LIVE_FAIL("LIVE selected-primary state-6 wrap fixture rejected");
+        }
+        tecmo_gameplay_scene_test_set_skip_pretip(false);
+        for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            scene->live_foundation.play_state.actor_state[actor] = 6U;
+            scene->live_foundation.play_state.wait_counter[actor] = 10U;
+        }
+        scene->live_foundation.play_state.wait_counter[passer] = 0U;
+        scene->live_foundation.play_state.stream_offset[passer] = 0x009BU;
+        scene->live_foundation.last_step_offset[passer] = 0x009BU;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) ||
+            scene->live_foundation.play_state.actor_state[passer] != 6U ||
+            scene->live_foundation.play_state.wait_counter[passer] != 0xFFU ||
+            scene->live_foundation.play_state.stream_offset[passer] != 0x009BU ||
+            scene->live_foundation.last_step_offset[passer] != 0x009BU) {
+            LIVE_FAIL("LIVE selected-primary state-6 zero wrap failed");
+        }
+
+        /* A stale nonzero wait byte in state 4 cannot suppress command
+           dispatch. Exact opcode 3 at $0096 seeds 10/state 6 and advances to
+           $009B; the following state-6 update decrements without fetching. */
+        tecmo_gameplay_scene_test_set_skip_pretip(true);
+        if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
+            !scene_handoff_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, passer) ||
+            !scene_sync_live_foundation(scene)) {
+            LIVE_FAIL("LIVE selected-primary opcode-3 fixture rejected");
+        }
+        tecmo_gameplay_scene_test_set_skip_pretip(false);
+        for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            scene->live_foundation.play_state.actor_state[actor] = 6U;
+            scene->live_foundation.play_state.wait_counter[actor] = 10U;
+        }
+        scene->live_foundation.play_state.actor_state[passer] = 4U;
+        scene->live_foundation.play_state.wait_counter[passer] = 0xA5U;
+        scene->live_foundation.play_state.stream_offset[passer] = 0x0096U;
+        scene->live_foundation.last_step_offset[passer] = 0x0096U;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) ||
+            scene->live_foundation.play_state.actor_state[passer] != 6U ||
+            scene->live_foundation.play_state.wait_counter[passer] != 10U ||
+            scene->live_foundation.play_state.stream_offset[passer] != 0x009BU ||
+            scene->live_foundation.last_step_offset[passer] != 0x009BU) {
+            LIVE_FAIL("LIVE selected-primary opcode-3 wait seed failed");
+        }
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) ||
+            scene->live_foundation.play_state.actor_state[passer] != 6U ||
+            scene->live_foundation.play_state.wait_counter[passer] != 9U ||
+            scene->live_foundation.play_state.stream_offset[passer] != 0x009BU ||
+            scene->live_foundation.last_step_offset[passer] != 0x009BU) {
+            LIVE_FAIL("LIVE selected-primary opcode-3 retained wait failed");
+        }
+
+        /* Ordinary actors use the same state table after the selected-primary
+           call. Exact opcode 3 at $062C seeds 30 and advances to $0631; its
+           next ordinary state-6 dispatch decrements and retains that cursor. */
+        tecmo_gameplay_scene_test_set_skip_pretip(true);
+        if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
+            !scene_handoff_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, passer) ||
+            !scene_sync_live_foundation(scene)) {
+            LIVE_FAIL("LIVE ordinary opcode-3 fixture rejected");
+        }
+        tecmo_gameplay_scene_test_set_skip_pretip(false);
+        for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            scene->live_foundation.play_state.actor_state[actor] = 6U;
+            scene->live_foundation.play_state.wait_counter[actor] = 10U;
+        }
+        scene->live_foundation.play_state.actor_state[ordinary_wait_actor] = 4U;
+        scene->live_foundation.play_state
+            .wait_counter[ordinary_wait_actor] = 0xA5U;
+        scene->live_foundation.play_state
+            .stream_offset[ordinary_wait_actor] = 0x062CU;
+        scene->live_foundation.last_step_offset[ordinary_wait_actor] = 0x062CU;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) ||
+            scene->live_foundation.play_state
+                    .actor_state[ordinary_wait_actor] != 6U ||
+            scene->live_foundation.play_state
+                    .wait_counter[ordinary_wait_actor] != 30U ||
+            scene->live_foundation.play_state
+                    .stream_offset[ordinary_wait_actor] != 0x0631U ||
+            scene->live_foundation.last_step_offset[ordinary_wait_actor] !=
+                0x0631U) {
+            LIVE_FAIL("LIVE ordinary opcode-3 wait seed failed");
+        }
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) ||
+            scene->live_foundation.play_state
+                    .actor_state[ordinary_wait_actor] != 6U ||
+            scene->live_foundation.play_state
+                    .wait_counter[ordinary_wait_actor] != 29U ||
+            scene->live_foundation.play_state
+                    .stream_offset[ordinary_wait_actor] != 0x0631U ||
+            scene->live_foundation.last_step_offset[ordinary_wait_actor] !=
+                0x0631U) {
+            LIVE_FAIL("LIVE ordinary opcode-3 retained wait failed");
         }
 
         /* Discriminate opcode 21's exact +10 clock branch. The accepted

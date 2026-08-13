@@ -1559,9 +1559,13 @@ long route `$00D7` as a labeled native approximation. Its first exact opcode-2
 target drives TGMO. Opcode 21 receives exact typed shot/game clocks and the
 unowned raw `$007E` bit-1 clear branch as a labeled approximation, allowing
 the stream to advance. The alternate
-selected-primary state-6 wait also advances once per update and does not fetch
-again until the update after its zero transition. Ordinary passes and inbound
-catches share this atomic endpoint.
+selected-primary state-6 wait also dispatches once per update through exact
+`$9053-$905D`: byte decrement wraps `0->$FF`, and only a decrement result of
+zero returns to state 4. It never fetches on the decrement tick; the retained
+cursor fetches on the following state-4 update. Ordinary actors use the same
+handler, and a stale nonzero wait byte outside state 6 cannot suppress another
+state's dispatch. Ordinary passes and inbound catches share this atomic
+endpoint.
 Selected state 0/action `$17` then has a distinct Bank05 owner:
 `$81F2-$822F->$8A6D->$8ACE` enters shot initialization. The pointer dispatch
 is exact; launch admission remains a bounded adapter because `$8ACE` consumes

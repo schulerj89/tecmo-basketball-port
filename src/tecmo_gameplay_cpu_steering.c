@@ -1763,8 +1763,15 @@ bool tecmo_gameplay_cpu_steering_play_step(
         uint16_t current_offset = next_state.stream_offset[actor];
         uint16_t following_offset = current_offset;
         bool command_advanced = false;
-        if (next_state.wait_counter[actor] != 0U) {
-            --next_state.wait_counter[actor];
+        /* Bank06 state index 6 dispatches through $82B6/$82C4 to
+           $9053-$905D.  That handler always performs the wrapping byte DEC
+           on $04E7,X: an entry value of zero becomes $FF and remains in state
+           6, while only a decrement result of zero returns $057C,X to state
+           4.  The state owns this lifecycle; a stale nonzero $04E7 byte in a
+           different actor state must not suppress that state's dispatch. */
+        if (next_state.actor_state[actor] == 0x06U) {
+            next_state.wait_counter[actor] =
+                (uint8_t)(next_state.wait_counter[actor] - 1U);
             if (next_state.wait_counter[actor] == 0U) {
                 next_state.actor_state[actor] = 0x04U;
             }
@@ -3966,26 +3973,104 @@ bool tecmo_gameplay_cpu_steering_self_test(
     play_input.pointer_workspace_valid = false;
     play_input.orientation_035a = 0U;
 
-    /* Existing wait state expires to state 4 without fetching a record. */
-    if (!tecmo_gameplay_cpu_steering_play_state_initialize(
-            &assets, 0U, &play_state)) {
-        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
-        return false;
+    /* State index 6 dispatches through $82B6/$82C4 to canonical
+       $9053-$905D.  DEC $04E7,X wraps 0->$FF, and only a decrement result of
+       zero writes state 4.  Every state-6 tick returns without fetching or
+       advancing the already-retained command cursor. */
+    {
+        static const uint8_t wait_before[] = {0U, 2U, 1U};
+        static const uint8_t wait_after[] = {0xFFU, 1U, 0U};
+        static const uint8_t state_after[] = {0x06U, 0x06U, 0x04U};
+        for (size_t vector = 0U;
+             vector < sizeof(wait_before) / sizeof(wait_before[0]); ++vector) {
+            if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+                    &assets, 0U, &play_state)) {
+                tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+                return false;
+            }
+            play_state.stream_offset[0U] = 0x009BU;
+            play_state.wait_counter[0U] = wait_before[vector];
+            play_state.actor_state[0U] = 0x06U;
+            play_before = play_state;
+            play_input.actor = 0U;
+            play_input.step_budget = 4U;
+            if (!tecmo_gameplay_cpu_steering_play_step(
+                    &assets, &play_state, &play_input, &play_out,
+                    &play_result) ||
+                play_result.fetched || play_result.advanced ||
+                play_result.steps_executed != 1U ||
+                play_result.waiting != (wait_after[vector] != 0U) ||
+                play_result.previous_offset != 0x009BU ||
+                play_result.next_offset != 0x009BU ||
+                play_out.wait_counter[0U] != wait_after[vector] ||
+                play_out.actor_state[0U] != state_after[vector] ||
+                play_out.stream_offset[0U] !=
+                    play_before.stream_offset[0U]) {
+                (void)snprintf(
+                    message, message_size,
+                    "TGAI-3 state-6 DEC vector %u failed.",
+                    (unsigned)vector);
+                tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+                return false;
+            }
+        }
     }
-    play_state.wait_counter[0U] = 1U;
-    play_state.actor_state[0U] = 0x06U;
-    play_before = play_state;
-    play_input.step_budget = 4U;
-    if (!tecmo_gameplay_cpu_steering_play_step(
-            &assets, &play_state, &play_input, &play_out, &play_result) ||
-        play_result.fetched || play_result.waiting ||
-        play_out.wait_counter[0U] != 0U ||
-        play_out.actor_state[0U] != 0x04U ||
-        play_out.stream_offset[0U] != play_before.stream_offset[0U]) {
-        (void)snprintf(message, message_size,
-                       "TGAI-3 wait-expiry golden failed.");
-        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
-        return false;
+
+    /* A stale nonzero $04E7 byte outside state 6 is ignored.  Exercise that
+       rule on two exact opcode-3 records: the handler seeds its new wait byte,
+       writes state 6, and advances the cursor once before later $9053 ticks
+       retain the following record. */
+    {
+        static const uint16_t wait_record[] = {0x0096U, 0x062CU};
+        static const uint16_t next_record[] = {0x009BU, 0x0631U};
+        static const uint8_t seeded_wait[] = {10U, 30U};
+        for (size_t vector = 0U;
+             vector < sizeof(wait_record) / sizeof(wait_record[0]); ++vector) {
+            if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+                    &assets, 0U, &play_state)) {
+                tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+                return false;
+            }
+            play_state.stream_offset[0U] = wait_record[vector];
+            play_state.actor_state[0U] = 0x04U;
+            play_state.wait_counter[0U] = 0xA5U;
+            play_input.actor = 0U;
+            play_input.step_budget = 1U;
+            if (!tecmo_gameplay_cpu_steering_play_step(
+                    &assets, &play_state, &play_input, &play_out,
+                    &play_result) ||
+                !play_result.fetched || !play_result.advanced ||
+                play_result.command.opcode != 3U ||
+                play_result.command.stream_offset != wait_record[vector] ||
+                play_result.next_offset != next_record[vector] ||
+                play_out.stream_offset[0U] != next_record[vector] ||
+                play_out.actor_state[0U] != 0x06U ||
+                play_out.wait_counter[0U] != seeded_wait[vector]) {
+                (void)snprintf(
+                    message, message_size,
+                    "TGAI-3 opcode-3 wait seed vector %u failed.",
+                    (unsigned)vector);
+                tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+                return false;
+            }
+            play_state = play_out;
+            if (!tecmo_gameplay_cpu_steering_play_step(
+                    &assets, &play_state, &play_input, &play_out,
+                    &play_result) ||
+                play_result.fetched || play_result.advanced ||
+                play_result.next_offset != next_record[vector] ||
+                play_out.stream_offset[0U] != next_record[vector] ||
+                play_out.actor_state[0U] != 0x06U ||
+                play_out.wait_counter[0U] !=
+                    (uint8_t)(seeded_wait[vector] - 1U)) {
+                (void)snprintf(
+                    message, message_size,
+                    "TGAI-3 opcode-3 retained wait vector %u failed.",
+                    (unsigned)vector);
+                tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+                return false;
+            }
+        }
     }
 
     /* Opcode 14 uses exact $04B0 bit $10 and seeds other actors at $0023. */

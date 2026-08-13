@@ -1352,9 +1352,13 @@ LIVE uses typed ownership and source-valid long route `$00D7` as an explicit nat
 approximation because raw `$0373/$0095/$0094` are not owned. Its exact
 opcode-2 target keeps the selected holder moving. Opcode 21 uses exact typed
 shot/game clocks and an explicit clear-bit approximation for unowned `$007E`
-bit 1, so `$00DC` advances. Selected-primary state 6 decrements once per update, returns to state
-4 at zero without fetching, and fetches on the following update. Ordinary and
-inbound catches share this endpoint.
+bit 1, so `$00DC` advances. Selected-primary state 6 dispatches through
+`$82B6/$82C4->$9053-$905D` once per update. Its byte decrement wraps
+`0->$FF`; only a decrement result of zero returns to state 4. No state-6 tick
+fetches a record, and the retained cursor fetches on the following state-4
+update. Ordinary actors use the same handler, while a stale nonzero wait byte
+in another state does not suppress that state's dispatch. Ordinary and inbound
+catches share this endpoint.
 Selected state 0/action `$17` is exact Bank05 shot dispatch, not idle:
 `$81F2-$822F->$8A6D->$8ACE`. Launch admission remains a bounded native adapter
 because `$8ACE` reads unowned gates; LIVE commits the existing source-backed close playback seam

@@ -158,9 +158,12 @@ orientation-adjusted absolute target. The following opcode-21 gate receives
 exact typed shot/game clocks; raw `$007E` bit 1 remains unowned, so LIVE uses
 its clear branch as a justified approximation and advances past `$00DC`.
 Exact 6502 intra-frame ordering between clock evolution and Bank06 is not claimed.
-Selected-primary state 6 is also
-scheduled exactly for alternate `$007D`: one decrement per update, no fetch
-on the zero transition, then a fetch on the following update.
+Selected-primary state 6 is also scheduled exactly for alternate `$007D` via
+`$82B6/$82C4->$9053-$905D`: one wrapping byte decrement per update (`0->$FF`),
+with only a decrement result of zero returning to state 4. No state-6 update
+fetches; the retained cursor fetches on the following state-4 update. Ordinary
+actors use the same handler, and non-state-6 dispatch ignores a stale nonzero
+wait byte.
 
 Selected-primary state 0/action `$17` is not neutral. Bank05
 `$81F2-$822F` dispatches action index `$17` through `$8351/$8378` to

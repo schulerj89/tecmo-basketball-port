@@ -2444,9 +2444,9 @@ bool scene_update_ai(
        4 dispatches through $8B90 exactly once. Typed controller ownership is
        the native admission boundary; raw $030C is not mirrored. State 6 is
        the exact independent wait/countdown lifecycle (including the
-       alternate catch stream $007D); it must decrement once per update and
-       return to state 4 without fetching another record on the zero
-       transition. Other
+       alternate catch stream $007D); $9053-$905D performs a wrapping byte
+       decrement once per update, returns to state 4 only when that decrement
+       produces zero, and never fetches another record on a state-6 tick. Other
        selected-primary states/gates remain inert/fail-closed. */
     actor = candidate_foundation.primary_actor;
     if (actor == scene->ball_holder &&
@@ -2461,8 +2461,7 @@ bool scene_update_ai(
         selected_primary_route_owned = true;
     } else if (actor == scene->ball_holder &&
         !scene_team_has_controller(scene, scene->state.possession) &&
-        candidate_foundation.play_state.actor_state[actor] == 0x06U &&
-        candidate_foundation.play_state.wait_counter[actor] != 0U) {
+        candidate_foundation.play_state.actor_state[actor] == 0x06U) {
         TecmoGameplayCpuSteeringPlayResult primary_result;
         memset(&primary_result, 0, sizeof(primary_result));
         play_input.actor = (uint8_t)actor;
