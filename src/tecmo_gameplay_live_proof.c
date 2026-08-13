@@ -15,6 +15,8 @@
 #define LIVE_PROOF_MEMORY_SIZE (16U * 1024U * 1024U)
 #define LIVE_PROOF_MAX_PRETIP_UPDATES 2048U
 #define LIVE_PROOF_PRIMARY_STREAM_HOLD_UPDATES 96U
+#define LIVE_PROOF_CATCH_ROUTE_OFFSET 0x00D7U
+#define LIVE_PROOF_CATCH_MAX_UPDATES 64U
 #define LIVE_PROOF_FOUL_VISIBLE_FRAME \
     TECMO_GAMEPLAY_VIOLATION_REFEREE_SEQUENCE_START_FRAME
 
@@ -59,6 +61,60 @@ typedef struct LiveProofEventEvidence {
     bool route_low_bit0_extra_tick;
     bool route_high_bit0_finished;
     bool route_high_bit1_extra_tick;
+    bool cpu_catch_state0_proved;
+    bool cpu_catch_pass_proved;
+    bool cpu_catch_inbound_proved;
+    bool human_catch_state0_proved;
+    bool selected_wait_state6_proved;
+    bool action17_close_shot_proved;
+    bool action17_far_recovery_proved;
+    bool action17_nonmatch_unaffected;
+    uint16_t action17_updates_to_reach;
+    uint16_t action17_serial_before;
+    uint16_t action17_serial_after;
+    uint8_t action17_shot_kind;
+    uint8_t action17_shot_actor;
+    uint8_t action17_ball_holder;
+    uint8_t action17_far_state;
+    uint8_t action17_far_action;
+    uint8_t catch_pass_receiver;
+    uint8_t catch_inbound_receiver;
+    uint8_t catch_human_receiver;
+    uint8_t catch_source_state0;
+    uint8_t catch_automatic_state;
+    uint8_t catch_human_state;
+    uint8_t catch_automatic_action;
+    uint8_t catch_human_action;
+    uint16_t catch_automatic_stream;
+    uint16_t catch_stream_after_fetch;
+    uint16_t catch_last_step_after_fetch;
+    uint16_t catch_step_serial_before;
+    uint16_t catch_step_serial_after_fetch;
+    uint16_t catch_step_serial_after_move;
+    uint16_t catch_stream_after_gate_plus5;
+    uint16_t catch_stream_after_gate_plus10;
+    uint8_t catch_gate_plus5_shot_clock;
+    uint8_t catch_gate_plus5_clock_minutes;
+    uint8_t catch_gate_plus5_clock_seconds;
+    uint8_t catch_gate_plus10_shot_clock;
+    uint8_t catch_gate_plus10_clock_minutes;
+    uint8_t catch_gate_plus10_clock_seconds;
+    bool catch_gate_exact_time_inputs;
+    bool catch_gate_007e_clear_approximation;
+    uint32_t catch_decision_serial_before;
+    uint32_t catch_decision_serial_after_fetch;
+    uint32_t catch_decision_serial_after_move;
+    TecmoGameplayCourtCoordinate catch_position_at_transfer;
+    TecmoGameplayCourtCoordinate catch_position_after_fetch;
+    TecmoGameplayCourtCoordinate catch_position_after_move;
+    TecmoGameplayCourtCoordinate catch_source_target;
+    uint8_t catch_controlled_before[TECMO_GAMEPLAY_CONTROLLER_COUNT];
+    uint8_t catch_controlled_after[TECMO_GAMEPLAY_CONTROLLER_COUNT];
+    uint8_t catch_controller_team_before[TECMO_GAMEPLAY_CONTROLLER_COUNT];
+    uint8_t catch_controller_team_after[TECMO_GAMEPLAY_CONTROLLER_COUNT];
+    uint8_t catch_wait_sequence[8U];
+    uint16_t catch_wait_stream_before;
+    uint16_t catch_wait_stream_after;
     uint8_t foul_referee_group;
     uint16_t foul_visible_phase_frame;
     bool foul_overlay_retained;
@@ -147,6 +203,7 @@ static bool live_proof_event_valid(const char *event)
         "actor-command-assignment-deferred",
         "cpu-primary-stream-step",
         "cpu-route-state5",
+        "cpu-catch-state0",
         "shot-path",
         "claimant-settlement",
         "defensive-foul-presentation"
@@ -1131,6 +1188,550 @@ static bool live_proof_cpu_route_state5(
     return live_proof_live_ownership(scene, message, message_size);
 }
 
+static bool live_proof_make_away_automatic(TecmoGameplayScene *scene)
+{
+    if (scene == NULL) return false;
+    scene->launch.controller_team[0U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    scene->controlled_actor[0U] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    /* Controller mutation is explicit fixture input after launch. The normal
+       production launch derives this typed mode once from the same mapping. */
+    scene->live_foundation.control_mode[TECMO_GAMEPLAY_TEAM_AWAY] = 1U;
+    return true;
+}
+
+static bool live_proof_finish_pass_transport(TecmoGameplayScene *scene)
+{
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    size_t update;
+    if (scene == NULL || !scene_pass_active(scene)) return false;
+    live_proof_controls_neutral(&p1);
+    live_proof_controls_neutral(&p2);
+    for (update = 0U; scene_pass_active(scene) &&
+         update < LIVE_PROOF_CATCH_MAX_UPDATES; ++update) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) return false;
+    }
+    return !scene_pass_active(scene);
+}
+
+static bool live_proof_finish_inbound_transport(TecmoGameplayScene *scene)
+{
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    size_t update;
+    if (scene == NULL || !scene_inbound_active(scene)) return false;
+    live_proof_controls_neutral(&p1);
+    live_proof_controls_neutral(&p2);
+    for (update = 0U; scene_inbound_active(scene) &&
+         update < LIVE_PROOF_CATCH_MAX_UPDATES; ++update) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) return false;
+    }
+    return !scene_inbound_active(scene);
+}
+
+static bool live_proof_cpu_catch_progression(
+    TecmoGameplayScene *scene,
+    uint8_t receiver,
+    LiveProofEventEvidence *evidence,
+    char *message,
+    size_t message_size)
+{
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    TecmoGameplayCpuSteeringCommand catch_command;
+    TecmoGameplaySceneCpuShotRequest gate_shot_request;
+    TecmoGameplayScene *gate_skip = NULL;
+    TecmoGameplayScene *natural_action17 = NULL;
+    uint16_t cursor_at_transfer;
+    uint32_t decision_at_transfer;
+    bool ok = false;
+    if (scene == NULL || evidence == NULL ||
+        receiver >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->ball_holder != receiver ||
+        scene->live_foundation.primary_actor != receiver ||
+        scene->live_foundation.control_mode[scene->state.possession] == 0U ||
+        !tecmo_gameplay_cpu_steering_decode_command(
+            &scene->cpu_steering_assets, LIVE_PROOF_CATCH_ROUTE_OFFSET,
+            &catch_command) || catch_command.opcode != 2U) {
+        return live_proof_reject(message, message_size,
+                                 "automatic catch route was not installed");
+    }
+    gate_skip = (TecmoGameplayScene *)malloc(sizeof(*gate_skip));
+    natural_action17 =
+        (TecmoGameplayScene *)malloc(sizeof(*natural_action17));
+    if (gate_skip == NULL || natural_action17 == NULL) {
+        live_proof_error(message, message_size,
+                         "automatic catch proof allocation failed");
+        goto done;
+    }
+    cursor_at_transfer = scene->live_foundation.play_state
+        .stream_offset[receiver];
+    decision_at_transfer = scene->cpu_actors[receiver].decision_serial;
+    evidence->catch_source_state0 = 0U;
+    evidence->catch_automatic_state = scene->live_foundation.play_state
+        .actor_state[receiver];
+    evidence->catch_automatic_action = scene->live_foundation.play_state
+        .action_state_046e[receiver];
+    evidence->catch_automatic_stream = cursor_at_transfer;
+    evidence->catch_position_at_transfer = scene->actors[receiver].position;
+    evidence->catch_step_serial_before = scene->live_foundation.play_state
+        .step_serial;
+    evidence->catch_decision_serial_before = decision_at_transfer;
+    if (evidence->catch_automatic_state != 0x04U ||
+        evidence->catch_automatic_action != 0x18U ||
+        cursor_at_transfer != LIVE_PROOF_CATCH_ROUTE_OFFSET ||
+        scene->live_foundation.last_step_offset[receiver] !=
+            LIVE_PROOF_CATCH_ROUTE_OFFSET) {
+        live_proof_error(message, message_size,
+                         "automatic B24F catch did not enter long route");
+        goto done;
+    }
+
+    live_proof_controls_neutral(&p1);
+    live_proof_controls_neutral(&p2);
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+        live_proof_error(message, message_size,
+                         "automatic catch first LIVE update rejected");
+        goto done;
+    }
+    evidence->catch_stream_after_fetch = scene->live_foundation.play_state
+        .stream_offset[receiver];
+    evidence->catch_last_step_after_fetch = scene->live_foundation
+        .last_step_offset[receiver];
+    evidence->catch_step_serial_after_fetch = scene->live_foundation
+        .play_state.step_serial;
+    evidence->catch_decision_serial_after_fetch =
+        scene->cpu_actors[receiver].decision_serial;
+    evidence->catch_position_after_fetch = scene->actors[receiver].position;
+    evidence->catch_source_target.x = scene->live_foundation.play_state
+        .target_x[receiver];
+    evidence->catch_source_target.y = scene->live_foundation.play_state
+        .target_depth[receiver];
+    if (evidence->catch_stream_after_fetch !=
+            (uint16_t)(LIVE_PROOF_CATCH_ROUTE_OFFSET +
+                       TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE) ||
+        evidence->catch_last_step_after_fetch !=
+            evidence->catch_stream_after_fetch ||
+        !scene->live_foundation.source_target_valid[receiver] ||
+        scene->live_foundation.deferred[receiver] ||
+        evidence->catch_decision_serial_after_fetch !=
+            decision_at_transfer + 1U ||
+        evidence->catch_position_after_fetch.x !=
+            evidence->catch_position_at_transfer.x ||
+        evidence->catch_position_after_fetch.y !=
+            evidence->catch_position_at_transfer.y) {
+        live_proof_error(message, message_size,
+                         "automatic catch first fetch/TGMO latency failed");
+        goto done;
+    }
+
+    *gate_skip = *scene;
+    gate_skip->state.shot_clock = 4U;
+    gate_skip->state.clock_minutes = 0U;
+    gate_skip->state.clock_seconds = 4U;
+    memset(&gate_shot_request, 0, sizeof(gate_shot_request));
+    if (!scene_update_ai(gate_skip, &gate_shot_request) ||
+        gate_shot_request.requested ||
+        gate_skip->live_foundation.play_state.stream_offset[receiver] !=
+            0x00E6U || gate_skip->live_foundation.deferred[receiver]) {
+        if (message != NULL && message_size != 0U) {
+            (void)snprintf(message, message_size,
+                           "automatic catch opcode-21 +10 failed stream=%04X last=%04X defer=%u reason=%u requested=%u state=%u action=%u holder=%u primary=%u poss=%u controllers=%u/%u",
+                           (unsigned)gate_skip->live_foundation.play_state
+                               .stream_offset[receiver],
+                           (unsigned)gate_skip->live_foundation
+                               .last_step_offset[receiver],
+                           gate_skip->live_foundation.deferred[receiver]
+                               ? 1U : 0U,
+                           (unsigned)gate_skip->live_foundation
+                               .deferred_reason[receiver],
+                           gate_shot_request.requested ? 1U : 0U,
+                           (unsigned)gate_skip->live_foundation.play_state
+                               .actor_state[receiver],
+                           (unsigned)gate_skip->live_foundation.play_state
+                               .action_state_046e[receiver],
+                           (unsigned)gate_skip->ball_holder,
+                           (unsigned)gate_skip->live_foundation.primary_actor,
+                           (unsigned)gate_skip->state.possession,
+                           (unsigned)gate_skip->launch.controller_team[0U],
+                           (unsigned)gate_skip->launch.controller_team[1U]);
+        }
+        goto done;
+    }
+    evidence->catch_stream_after_gate_plus10 = 0x00E6U;
+    evidence->catch_gate_plus10_shot_clock = gate_skip->state.shot_clock;
+    evidence->catch_gate_plus10_clock_minutes = gate_skip->state.clock_minutes;
+    evidence->catch_gate_plus10_clock_seconds = gate_skip->state.clock_seconds;
+    evidence->catch_gate_exact_time_inputs = true;
+    evidence->catch_gate_007e_clear_approximation = true;
+    scene->state.shot_clock = 3U;
+    scene->state.clock_minutes = 1U;
+    scene->state.clock_seconds = 30U;
+    evidence->catch_gate_plus5_shot_clock = scene->state.shot_clock;
+    evidence->catch_gate_plus5_clock_minutes = scene->state.clock_minutes;
+    evidence->catch_gate_plus5_clock_seconds = scene->state.clock_seconds;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+        live_proof_error(message, message_size,
+                         "automatic catch movement update rejected");
+        goto done;
+    }
+    evidence->catch_step_serial_after_move = scene->live_foundation.play_state
+        .step_serial;
+    evidence->catch_decision_serial_after_move =
+        scene->cpu_actors[receiver].decision_serial;
+    evidence->catch_position_after_move = scene->actors[receiver].position;
+    if (scene->live_foundation.play_state.stream_offset[receiver] != 0x00E1U ||
+        !scene->live_foundation.source_target_valid[receiver] ||
+        scene->live_foundation.play_state.target_x[receiver] !=
+            evidence->catch_source_target.x ||
+        scene->live_foundation.play_state.target_depth[receiver] !=
+            evidence->catch_source_target.y ||
+        scene->live_foundation.deferred[receiver] ||
+        evidence->catch_decision_serial_after_move !=
+            evidence->catch_decision_serial_after_fetch + 1U ||
+        (evidence->catch_position_after_move.x ==
+             evidence->catch_position_after_fetch.x &&
+         evidence->catch_position_after_move.y ==
+             evidence->catch_position_after_fetch.y)) {
+        live_proof_error(message, message_size,
+                         "automatic catch opcode-21 +5/movement failed");
+        goto done;
+    }
+    evidence->catch_stream_after_gate_plus5 = 0x00E1U;
+
+    *natural_action17 = *scene;
+    if (!tecmo_gameplay_scene_update(natural_action17, &p1, &p2) ||
+        natural_action17->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        natural_action17->ball_holder != receiver ||
+        !natural_action17->live_foundation.last_shot_request ||
+        natural_action17->live_foundation.last_shot_playback_supported ||
+        !natural_action17->live_foundation.last_shot_deferred ||
+        natural_action17->live_foundation.play_state.actor_state[receiver] !=
+            0x04U ||
+        natural_action17->live_foundation.play_state
+                .action_state_046e[receiver] != 0U ||
+        natural_action17->live_foundation.play_state.stream_offset[receiver] !=
+            0x00E6U ||
+        !tecmo_gameplay_scene_update(natural_action17, &p1, &p2) ||
+        natural_action17->live_foundation.play_state.stream_offset[receiver] !=
+            0x007DU) {
+        live_proof_error(message, message_size,
+                         "natural catch action-17 recovery/loop failed");
+        goto done;
+    }
+    evidence->action17_updates_to_reach = 2U;
+    ok = true;
+done:
+    free(gate_skip);
+    free(natural_action17);
+    return ok;
+}
+
+static bool live_proof_selected_wait_state6(
+    const TecmoGameplayScene *source,
+    uint8_t receiver,
+    LiveProofEventEvidence *evidence,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplayScene *candidate;
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    size_t update;
+    bool ok = false;
+    if (source == NULL || evidence == NULL ||
+        receiver >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) return false;
+    candidate = (TecmoGameplayScene *)malloc(sizeof(*candidate));
+    if (candidate == NULL) return false;
+    *candidate = *source;
+    candidate->live_foundation.play_state.actor_state[receiver] = 0x06U;
+    candidate->live_foundation.play_state.wait_counter[receiver] = 8U;
+    /* Explicit injected post-opcode-3 fixture: exact $007D advances to
+       $0082 as it installs state 6/wait 8. This starts at that coherent
+       endpoint and is independent of the chosen $00D7 catch approximation. */
+    candidate->live_foundation.play_state.stream_offset[receiver] = 0x0082U;
+    candidate->live_foundation.last_step_offset[receiver] = 0x0082U;
+    evidence->catch_wait_stream_before = 0x0082U;
+    live_proof_controls_neutral(&p1);
+    live_proof_controls_neutral(&p2);
+    for (update = 0U; update < 8U; ++update) {
+        if (!tecmo_gameplay_scene_update(candidate, &p1, &p2)) goto done;
+        evidence->catch_wait_sequence[update] = candidate->live_foundation
+            .play_state.wait_counter[receiver];
+        if (candidate->live_foundation.play_state.stream_offset[receiver] !=
+                0x0082U ||
+            evidence->catch_wait_sequence[update] != (uint8_t)(7U - update) ||
+            candidate->live_foundation.play_state.actor_state[receiver] !=
+                (update == 7U ? 0x04U : 0x06U)) {
+            goto done;
+        }
+    }
+    if (!tecmo_gameplay_scene_update(candidate, &p1, &p2) ||
+        candidate->live_foundation.play_state.stream_offset[receiver] !=
+            (uint16_t)(0x0082U +
+                       TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE)) {
+        goto done;
+    }
+    evidence->catch_wait_stream_after = candidate->live_foundation.play_state
+        .stream_offset[receiver];
+    evidence->selected_wait_state6_proved = true;
+    ok = true;
+done:
+    free(candidate);
+    if (!ok) {
+        live_proof_error(message, message_size,
+                         "selected-primary state-6 wait lifecycle failed");
+    }
+    return ok;
+}
+
+static bool live_proof_action17_boundaries(
+    const TecmoGameplayScene *source,
+    uint8_t actor,
+    LiveProofEventEvidence *evidence,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplayScene *close = NULL;
+    TecmoGameplayScene *far = NULL;
+    TecmoGameplayScene *nonmatch = NULL;
+    TecmoGameplaySceneCpuShotRequest shot_request;
+    TecmoGameplayCourtCoordinate close_position;
+    uint16_t serial_before;
+    bool ok = false;
+    if (source == NULL || evidence == NULL ||
+        actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) return false;
+    close = (TecmoGameplayScene *)malloc(sizeof(*close));
+    far = (TecmoGameplayScene *)malloc(sizeof(*far));
+    nonmatch = (TecmoGameplayScene *)malloc(sizeof(*nonmatch));
+    if (close == NULL || far == NULL || nonmatch == NULL) goto done;
+
+    /* Exact opcode 9 at $008C installs state 0/action $17. Bank05 selected
+       dispatch then reaches $8A6D->$8ACE; the supported close route must
+       transfer ownership to shots.c in the same AI transaction. */
+    *close = *source;
+    close_position.x = (int16_t)(
+        close->orientation_state.offensive_hoop.x < 384 ?
+            close->orientation_state.offensive_hoop.x + 8 :
+            close->orientation_state.offensive_hoop.x - 8);
+    close_position.y = TECMO_GAMEPLAY_SHOT_TARGET_Y;
+    close->actors[actor].position = close_position;
+    close->actors[actor].anchor = close_position;
+    close->live_foundation.play_state.actor_state[actor] = 0x04U;
+    close->live_foundation.play_state.action_state_046e[actor] = 0U;
+    close->live_foundation.play_state.stream_offset[actor] = 0x008CU;
+    close->live_foundation.last_step_offset[actor] = 0x008CU;
+    if (!scene_attach_ball(close)) goto done;
+    serial_before = close->action_serial;
+    memset(&shot_request, 0, sizeof(shot_request));
+    if (!scene_update_ai(close, &shot_request) || !shot_request.requested ||
+        !shot_request.playback_supported || shot_request.deferred ||
+        !scene_shot_is_close(close->shot_kind) || close->shot_actor != actor ||
+        close->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+        close->action_serial != (uint16_t)(serial_before + 1U) ||
+        !close->live_foundation.last_shot_request ||
+        !close->live_foundation.last_shot_playback_supported ||
+        close->live_foundation.last_shot_deferred) goto done;
+    evidence->action17_serial_before = serial_before;
+    evidence->action17_serial_after = close->action_serial;
+    evidence->action17_shot_kind = (uint8_t)close->shot_kind;
+    evidence->action17_shot_actor = close->shot_actor;
+    evidence->action17_ball_holder = close->ball_holder;
+    evidence->action17_close_shot_proved = true;
+
+    /* A different state-0 action is outside this seam and stays untouched. */
+    *nonmatch = *source;
+    nonmatch->live_foundation.play_state.actor_state[actor] = 0U;
+    nonmatch->live_foundation.play_state.action_state_046e[actor] = 0x18U;
+    serial_before = nonmatch->action_serial;
+    memset(&shot_request, 0, sizeof(shot_request));
+    if (!scene_update_ai(nonmatch, &shot_request) || shot_request.requested ||
+        shot_request.deferred || nonmatch->shot_kind !=
+            TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        nonmatch->action_serial != serial_before ||
+        nonmatch->live_foundation.play_state.actor_state[actor] != 0U ||
+        nonmatch->live_foundation.play_state.action_state_046e[actor] !=
+            0x18U) goto done;
+    evidence->action17_nonmatch_unaffected = true;
+
+    /* Autonomous far/jump playback is not owned. The shallow shots.c
+       candidate must be discarded and the explicitly approximate state-4
+       recovery must clear action $17 without moving ownership or actors. */
+    *far = *source;
+    far->actors[actor].position.x = 320;
+    far->actors[actor].position.y = 144;
+    far->actors[actor].anchor = far->actors[actor].position;
+    far->live_foundation.play_state.actor_state[actor] = 0x04U;
+    far->live_foundation.play_state.action_state_046e[actor] = 0U;
+    far->live_foundation.play_state.stream_offset[actor] = 0x008CU;
+    far->live_foundation.last_step_offset[actor] = 0x008CU;
+    if (!scene_attach_ball(far)) goto done;
+    serial_before = far->action_serial;
+    memset(&shot_request, 0, sizeof(shot_request));
+    if (!scene_update_ai(far, &shot_request) || shot_request.requested ||
+        !shot_request.deferred || shot_request.playback_supported ||
+        far->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        far->ball_holder != actor || far->action_serial != serial_before ||
+        far->live_foundation.play_state.actor_state[actor] != 0x04U ||
+        far->live_foundation.play_state.action_state_046e[actor] != 0U ||
+        !far->live_foundation.last_shot_request ||
+        !far->live_foundation.last_shot_deferred ||
+        far->live_foundation.last_shot_playback_supported) goto done;
+    evidence->action17_far_state = far->live_foundation.play_state
+        .actor_state[actor];
+    evidence->action17_far_action = far->live_foundation.play_state
+        .action_state_046e[actor];
+    evidence->action17_far_recovery_proved = true;
+    ok = true;
+done:
+    free(close);
+    free(far);
+    free(nonmatch);
+    if (!ok) {
+        live_proof_error(message, message_size,
+                         "selected action-17 shot/recovery boundary failed");
+    }
+    return ok;
+}
+
+static bool live_proof_cpu_catch_state0(
+    TecmoGameplayScene *scene,
+    LiveProofEventEvidence *evidence,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplayScene *base = NULL;
+    TecmoGameplayScene *inbound = NULL;
+    TecmoGameplayScene *human = NULL;
+    uint8_t receiver;
+    bool ok = false;
+    if (scene == NULL || evidence == NULL ||
+        !live_proof_live_ownership(scene, message, message_size)) return false;
+    base = (TecmoGameplayScene *)malloc(sizeof(*base));
+    inbound = (TecmoGameplayScene *)malloc(sizeof(*inbound));
+    human = (TecmoGameplayScene *)malloc(sizeof(*human));
+    if (base == NULL || inbound == NULL || human == NULL) goto done;
+    *base = *scene;
+
+    /* Automatic ordinary pass: the unrelated Home human remains assigned to
+       the same actor throughout the controller-none B24F handoff. */
+    if (!live_proof_make_away_automatic(scene) ||
+        !live_proof_force_possession(scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+        scene->live_foundation.control_mode[TECMO_GAMEPLAY_TEAM_AWAY] == 0U) {
+        live_proof_error(message, message_size,
+                         "automatic pass fixture ownership failed");
+        goto done;
+    }
+    receiver = 1U;
+    scene->live_foundation.candidate_actor_by_side[
+        scene->live_foundation.offense_side] = receiver;
+    scene->live_foundation.play_state.action_state_046e[0U] = 0x21U;
+    memcpy(evidence->catch_controlled_before, scene->controlled_actor,
+           sizeof(evidence->catch_controlled_before));
+    memcpy(evidence->catch_controller_team_before,
+           scene->launch.controller_team,
+           sizeof(evidence->catch_controller_team_before));
+    if (!scene_begin_cpu_pass_from_action21(scene, 0U) ||
+        !live_proof_finish_pass_transport(scene)) {
+        live_proof_error(message, message_size,
+                         "automatic pass did not reach B24F catch");
+        goto done;
+    }
+    evidence->catch_pass_receiver = receiver;
+    memcpy(evidence->catch_controlled_after, scene->controlled_actor,
+           sizeof(evidence->catch_controlled_after));
+    memcpy(evidence->catch_controller_team_after,
+           scene->launch.controller_team,
+           sizeof(evidence->catch_controller_team_after));
+    if (memcmp(evidence->catch_controlled_before,
+               evidence->catch_controlled_after,
+               sizeof(evidence->catch_controlled_before)) != 0 ||
+        memcmp(evidence->catch_controller_team_before,
+               evidence->catch_controller_team_after,
+               sizeof(evidence->catch_controller_team_before)) != 0 ||
+        !live_proof_cpu_catch_progression(
+            scene, receiver, evidence, message, message_size)) goto done;
+    evidence->cpu_catch_pass_proved = true;
+
+    /* The state-6 branch is a separate source lifecycle guard. It proves a
+       selected automatic holder cannot become inert merely because an opcode
+       installed a wait; it is not attributed to the $00D7 catch route. */
+    if (!live_proof_selected_wait_state6(
+            scene, receiver, evidence, message, message_size)) goto done;
+    if (!live_proof_action17_boundaries(
+            scene, receiver, evidence, message, message_size)) goto done;
+
+    /* Inbound uses the same shared typed catch helper. Its formation setup is
+       fixture-shaped, while the final B24F->$96B6 continuation is the same
+       production transaction proved above. */
+    *inbound = *base;
+    if (!live_proof_make_away_automatic(inbound) ||
+        !live_proof_force_possession(
+            inbound, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+        inbound->live_foundation.control_mode[
+            TECMO_GAMEPLAY_TEAM_AWAY] == 0U ||
+        !scene_begin_inbound(inbound, TECMO_GAMEPLAY_TEAM_AWAY)) {
+        live_proof_error(message, message_size,
+                         "automatic inbound fixture setup failed");
+        goto done;
+    }
+    receiver = inbound->inbound_state.receiver;
+    if (!live_proof_finish_inbound_transport(inbound) ||
+        inbound->ball_holder != receiver ||
+        inbound->live_foundation.primary_actor != receiver ||
+        inbound->live_foundation.play_state.actor_state[receiver] != 0x04U ||
+        inbound->live_foundation.play_state.stream_offset[receiver] !=
+            LIVE_PROOF_CATCH_ROUTE_OFFSET ||
+        inbound->live_foundation.play_state.action_state_046e[receiver] !=
+            0x18U) {
+        live_proof_error(message, message_size,
+                         "automatic inbound catch continuation failed");
+        goto done;
+    }
+    evidence->catch_inbound_receiver = receiver;
+    evidence->cpu_catch_inbound_proved = true;
+
+    /* Human catch intentionally stops at B24F state 0/action 0. This guards
+       against broad normalization that would route a controlled holder
+       through the automatic $96B6 continuation. */
+    *human = *base;
+    if (!live_proof_force_possession(
+            human, TECMO_GAMEPLAY_TEAM_AWAY, 0U)) {
+        live_proof_error(message, message_size,
+                         "human catch fixture ownership failed");
+        goto done;
+    }
+    receiver = human->live_foundation.candidate_actor_by_side[
+        human->live_foundation.offense_side];
+    if (!scene_begin_pass(human, 0U, receiver) ||
+        !live_proof_finish_pass_transport(human) ||
+        human->ball_holder != receiver ||
+        human->controlled_actor[0U] != receiver ||
+        human->live_foundation.play_state.actor_state[receiver] != 0U ||
+        human->live_foundation.play_state.action_state_046e[receiver] != 0U) {
+        live_proof_error(message, message_size,
+                         "human B24F state-0 endpoint was not preserved");
+        goto done;
+    }
+    evidence->catch_human_receiver = receiver;
+    evidence->catch_human_state = human->live_foundation.play_state
+        .actor_state[receiver];
+    evidence->catch_human_action = human->live_foundation.play_state
+        .action_state_046e[receiver];
+    evidence->human_catch_state0_proved = true;
+    evidence->cpu_catch_state0_proved = true;
+    ok = live_proof_live_ownership(scene, message, message_size);
+done:
+    free(base);
+    free(inbound);
+    free(human);
+    if (!ok && message != NULL && message[0] == '\0') {
+        live_proof_error(message, message_size,
+                         "CPU catch state-0 proof rejected");
+    }
+    return ok;
+}
+
 static bool live_proof_apply_event(TecmoGameplayScene *scene,
                                    const char *event,
                                    LiveProofEventEvidence *evidence,
@@ -1188,6 +1789,10 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
     }
     if (strcmp(event, "cpu-route-state5") == 0) {
         return live_proof_cpu_route_state5(
+            scene, evidence, message, message_size);
+    }
+    if (strcmp(event, "cpu-catch-state0") == 0) {
+        return live_proof_cpu_catch_state0(
             scene, evidence, message, message_size);
     }
     if (strcmp(event, "human-movement") == 0) {
@@ -1801,6 +2406,44 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             "\"no_tgmo_double_step\":%s,\"parity\":{"
             "\"low_bit1_finish\":%s,\"low_bit0_extra_tick\":%s,"
             "\"high_bit0_finish\":%s,\"high_bit1_extra_tick\":%s}},"
+            "\"cpu_catch_state0\":{\"proved\":%s,"
+            "\"scope\":\"typed production handoff; screenshot presentation-only\","
+            "\"source\":\"Bank05 $B24F->$B2EC->$96B6-$9708\","
+            "\"route_choice\":\"chosen source-valid $00D7 long-route approximation; raw $0373/$0095/$0094 unavailable\","
+            "\"state0_intermediate_runtime_observable\":false,"
+            "\"automatic_pass\":%s,\"automatic_inbound\":%s,"
+            "\"human_state0_endpoint\":%s,\"selected_wait_state6\":%s,"
+            "\"receivers\":{\"pass\":%u,\"inbound\":%u,\"human\":%u},"
+            "\"catch\":{\"source_state0\":%u,\"automatic_state\":%u,"
+            "\"human_state\":%u,\"automatic_action_046e\":%u,"
+            "\"human_action_046e\":%u,\"stream\":\"%04X\"},"
+            "\"progression\":{\"stream_after_fetch\":\"%04X\","
+            "\"last_step_after_fetch\":\"%04X\","
+            "\"step_serial\":[%u,%u,%u],"
+            "\"decision_serial\":[%u,%u,%u],"
+            "\"position\":[[%d,%d],[%d,%d],[%d,%d]],"
+            "\"source_target\":[%d,%d],"
+            "\"opcode21\":{\"exact_typed_time_inputs\":%s,"
+            "\"plus5_input\":[%u,%u,%u],"
+            "\"plus10_input\":[%u,%u,%u],"
+            "\"raw_007e_bit1_clear_approximation\":%s,"
+            "\"whole_gate_exact\":false,\"plus5_stream\":\"%04X\","
+            "\"plus10_stream\":\"%04X\"}},"
+            "\"controller_assignment\":{\"controlled_before\":[%u,%u],"
+            "\"controlled_after\":[%u,%u],"
+            "\"team_before\":[%u,%u],\"team_after\":[%u,%u],"
+            "\"automatic_handoff_unchanged\":true},"
+            "\"wait_state6\":{\"sequence\":[%u,%u,%u,%u,%u,%u,%u,%u],"
+            "\"stream\":[\"%04X\",\"%04X\"]},"
+            "\"action17\":{\"close_shot\":%s,\"far_recovery\":%s,"
+            "\"nonmatch_unaffected\":%s,"
+            "\"source\":\"Bank05 $81F2-$822F; action $17 -> $8A6D->$8ACE\","
+            "\"fixture_record\":\"$008C exact opcode 9 state0/action17\","
+            "\"close_admission\":\"native adapter; $8ACE raw $0478/$0499/$007E gates unavailable\","
+            "\"close\":{\"action_serial\":[%u,%u],\"shot_kind\":%u,"
+            "\"shot_actor\":%u,\"ball_holder\":%u},"
+            "\"far\":{\"state\":%u,\"action_046e\":%u,"
+            "\"classification\":\"state4/action0 native approximation; autonomous far/jump playback unavailable\"}}},"
             "\"opcode4_ball_target\":{\"executed\":%s,"
             "\"record_offset\":\"%04X\",\"argument_c8\":%u,"
             "\"target_object\":%u,\"snapshot_ball\":[%d,%d],"
@@ -1905,6 +2548,74 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             evidence->route_low_bit0_extra_tick ? "true" : "false",
             evidence->route_high_bit0_finished ? "true" : "false",
             evidence->route_high_bit1_extra_tick ? "true" : "false",
+            evidence->cpu_catch_state0_proved ? "true" : "false",
+            evidence->cpu_catch_pass_proved ? "true" : "false",
+            evidence->cpu_catch_inbound_proved ? "true" : "false",
+            evidence->human_catch_state0_proved ? "true" : "false",
+            evidence->selected_wait_state6_proved ? "true" : "false",
+            (unsigned)evidence->catch_pass_receiver,
+            (unsigned)evidence->catch_inbound_receiver,
+            (unsigned)evidence->catch_human_receiver,
+            (unsigned)evidence->catch_source_state0,
+            (unsigned)evidence->catch_automatic_state,
+            (unsigned)evidence->catch_human_state,
+            (unsigned)evidence->catch_automatic_action,
+            (unsigned)evidence->catch_human_action,
+            (unsigned)evidence->catch_automatic_stream,
+            (unsigned)evidence->catch_stream_after_fetch,
+            (unsigned)evidence->catch_last_step_after_fetch,
+            (unsigned)evidence->catch_step_serial_before,
+            (unsigned)evidence->catch_step_serial_after_fetch,
+            (unsigned)evidence->catch_step_serial_after_move,
+            (unsigned)evidence->catch_decision_serial_before,
+            (unsigned)evidence->catch_decision_serial_after_fetch,
+            (unsigned)evidence->catch_decision_serial_after_move,
+            (int)evidence->catch_position_at_transfer.x,
+            (int)evidence->catch_position_at_transfer.y,
+            (int)evidence->catch_position_after_fetch.x,
+            (int)evidence->catch_position_after_fetch.y,
+            (int)evidence->catch_position_after_move.x,
+            (int)evidence->catch_position_after_move.y,
+            (int)evidence->catch_source_target.x,
+            (int)evidence->catch_source_target.y,
+            evidence->catch_gate_exact_time_inputs ? "true" : "false",
+            (unsigned)evidence->catch_gate_plus5_shot_clock,
+            (unsigned)evidence->catch_gate_plus5_clock_minutes,
+            (unsigned)evidence->catch_gate_plus5_clock_seconds,
+            (unsigned)evidence->catch_gate_plus10_shot_clock,
+            (unsigned)evidence->catch_gate_plus10_clock_minutes,
+            (unsigned)evidence->catch_gate_plus10_clock_seconds,
+            evidence->catch_gate_007e_clear_approximation ? "true" : "false",
+            (unsigned)evidence->catch_stream_after_gate_plus5,
+            (unsigned)evidence->catch_stream_after_gate_plus10,
+            (unsigned)evidence->catch_controlled_before[0U],
+            (unsigned)evidence->catch_controlled_before[1U],
+            (unsigned)evidence->catch_controlled_after[0U],
+            (unsigned)evidence->catch_controlled_after[1U],
+            (unsigned)evidence->catch_controller_team_before[0U],
+            (unsigned)evidence->catch_controller_team_before[1U],
+            (unsigned)evidence->catch_controller_team_after[0U],
+            (unsigned)evidence->catch_controller_team_after[1U],
+            (unsigned)evidence->catch_wait_sequence[0U],
+            (unsigned)evidence->catch_wait_sequence[1U],
+            (unsigned)evidence->catch_wait_sequence[2U],
+            (unsigned)evidence->catch_wait_sequence[3U],
+            (unsigned)evidence->catch_wait_sequence[4U],
+            (unsigned)evidence->catch_wait_sequence[5U],
+            (unsigned)evidence->catch_wait_sequence[6U],
+            (unsigned)evidence->catch_wait_sequence[7U],
+            (unsigned)evidence->catch_wait_stream_before,
+            (unsigned)evidence->catch_wait_stream_after,
+            evidence->action17_close_shot_proved ? "true" : "false",
+            evidence->action17_far_recovery_proved ? "true" : "false",
+            evidence->action17_nonmatch_unaffected ? "true" : "false",
+            (unsigned)evidence->action17_serial_before,
+            (unsigned)evidence->action17_serial_after,
+            (unsigned)evidence->action17_shot_kind,
+            (unsigned)evidence->action17_shot_actor,
+            (unsigned)evidence->action17_ball_holder,
+            (unsigned)evidence->action17_far_state,
+            (unsigned)evidence->action17_far_action,
             evidence->opcode4_ball_target ? "true" : "false",
             (unsigned)evidence->opcode4_record_offset,
             (unsigned)evidence->opcode4_argument_c8,

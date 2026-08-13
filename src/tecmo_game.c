@@ -30,6 +30,10 @@
 #define DEVELOPER_LAB_SHOOTING 1U
 #define DEVELOPER_LAB_CPU_PLAYBOOK 2U
 #define DEVELOPER_LAB_COUNT 3U
+/* Diagnostic bases used by the conditional $F106-$F1B0 selected-actor clamp.
+ * Do not present these as a universal legal movement envelope. */
+#define DEBUG_CPU_LEFT_BOUNDARY_BASE 0x00DF
+#define DEBUG_CPU_RIGHT_BOUNDARY_BASE 0x0220
 #define INTRO_PRESENTS_SCREEN_ID 0x00U
 #define INTRO_PRESENTS_RECORD_CPU 0xDC85U
 #define INTRO_PRESENTS_STREAM_BANK 0x00U
@@ -1737,8 +1741,11 @@ static void render_debug_cpu_diagnostics(const TecmoRuntime *runtime,
     char defender_label[16];
     char shot_actor_label[16];
     uint8_t holder;
+    int holder_left_edge = 0;
+    int holder_right_edge = 0;
+    bool holder_inside_edges = false;
     const int x = 10;
-    const int y = 146;
+    const int y = 106;
 
     if (runtime == NULL || fb == NULL || runtime->mode != TECMO_MODE_COURT ||
         !runtime->gameplay_scene.active) {
@@ -1746,8 +1753,8 @@ static void render_debug_cpu_diagnostics(const TecmoRuntime *runtime,
     }
     scene = &runtime->gameplay_scene;
     live = &scene->live_foundation;
-    rect(fb, x - 6, y - 8, 470, 150, rgb(10, 14, 18));
-    rect(fb, x - 4, y - 6, 466, 146, rgb(28, 38, 42));
+    rect(fb, x - 6, y - 8, 470, 190, rgb(10, 14, 18));
+    rect(fb, x - 4, y - 6, 466, 186, rgb(28, 38, 42));
     draw_debug_text(fb, x, y, "CPU PASSIVE TYPED DIAGNOSTICS");
     if (!live->state_valid) {
         draw_debug_text(fb, x, y + 20, "LIVE CPU SNAPSHOT NOT RETAINED");
@@ -1766,6 +1773,34 @@ static void render_debug_cpu_diagnostics(const TecmoRuntime *runtime,
                                          sizeof(defender_label)));
     draw_debug_text(fb, x, y + 20, line);
 
+    if (holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        const TecmoGameplayCpuSteeringRouteMotionState *route =
+            &live->play_state.route_motion[holder];
+        holder_left_edge = DEBUG_CPU_LEFT_BOUNDARY_BASE -
+            scene->actors[holder].position.y / 2;
+        holder_right_edge = DEBUG_CPU_RIGHT_BOUNDARY_BASE +
+            scene->actors[holder].position.y / 2;
+        holder_inside_edges = scene->actors[holder].position.x >=
+                holder_left_edge &&
+            scene->actors[holder].position.x <= holder_right_edge;
+        (void)snprintf(line, sizeof(line),
+                       "STATE %02X ROUTE %u TIMER %u",
+                       (unsigned)live->play_state.actor_state[holder],
+                       route->active ? 1U : 0U,
+                       (unsigned)route->remaining_timer);
+        draw_debug_text(fb, x, y + 40, line);
+        (void)snprintf(line, sizeof(line),
+                       "WORLD %d,%d PRIMARY X BOUNDS %d..%d WITHIN %u",
+                       (int)scene->actors[holder].position.x,
+                       (int)scene->actors[holder].position.y,
+                       holder_left_edge, holder_right_edge,
+                       holder_inside_edges ? 1U : 0U);
+    } else {
+        (void)snprintf(line, sizeof(line),
+                       "STATE/ROUTE/WORLD NOT RETAINED");
+    }
+    draw_debug_text(fb, x, y + 60, line);
+
     if (holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
         tecmo_gameplay_cpu_steering_decode_command(
             &scene->cpu_steering_assets, live->last_step_offset[holder],
@@ -1781,7 +1816,7 @@ static void render_debug_cpu_diagnostics(const TecmoRuntime *runtime,
                        debug_cpu_actor_label(holder, holder_label,
                                              sizeof(holder_label)));
     }
-    draw_debug_text(fb, x, y + 40, line);
+    draw_debug_text(fb, x, y + 80, line);
 
     if (holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
         cpu = &scene->cpu_actors[holder];
@@ -1794,7 +1829,7 @@ static void render_debug_cpu_diagnostics(const TecmoRuntime *runtime,
     } else {
         (void)snprintf(line, sizeof(line), "TARGET NOT RETAINED");
     }
-    draw_debug_text(fb, x, y + 60, line);
+    draw_debug_text(fb, x, y + 100, line);
 
     (void)snprintf(line, sizeof(line),
                    "SHOT ACTOR %s REQUEST %u SUPPORTED %u DEFER %u",
@@ -1804,14 +1839,14 @@ static void render_debug_cpu_diagnostics(const TecmoRuntime *runtime,
                    live->last_shot_request ? 1U : 0U,
                    live->last_shot_playback_supported ? 1U : 0U,
                    live->last_shot_deferred ? 1U : 0U);
-    draw_debug_text(fb, x, y + 80, line);
+    draw_debug_text(fb, x, y + 120, line);
     (void)snprintf(line, sizeof(line), "DEFER REASON %s",
                    holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT
                        ? tecmo_gameplay_cpu_steering_deferred_reason_name(
                              live->deferred_reason[holder])
                        : "not-retained");
-    draw_debug_text(fb, x, y + 100, line);
-    draw_debug_text(fb, x, y + 124,
+    draw_debug_text(fb, x, y + 140, line);
+    draw_debug_text(fb, x, y + 164,
                     "F4 LAB MENU  F3 OFF LEAVES PLAY UNCHANGED");
 }
 
