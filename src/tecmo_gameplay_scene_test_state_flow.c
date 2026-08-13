@@ -2502,14 +2502,16 @@ static bool scene_test_live_foundation_regressions(
         scene->live_foundation.play_state.action_state_046e[passer] = 0U;
         scene->live_foundation.play_state.stream_offset[passer] = 0x008CU;
         scene->live_foundation.last_step_offset[passer] = 0x008CU;
-        if (!scene_attach_ball(scene)) {
+        if (!scene_attach_ball(scene) || !scene_sync_live_foundation(scene)) {
             LIVE_FAIL("LIVE action-17 automatic jump attachment rejected");
         }
         before = *scene;
-        memset(&no_shot, 0, sizeof(no_shot));
-        if (!scene_update_ai(scene, &no_shot) || !no_shot.requested ||
-            no_shot.deferred || !no_shot.playback_supported ||
-            no_shot.actor_index != passer ||
+        memset(&neutral_one, 0, sizeof(neutral_one));
+        memset(&neutral_two, 0, sizeof(neutral_two));
+        /* Exercise the complete outer update so its supported-playback
+           classification cannot regress to accepting close shots only. */
+        if (!tecmo_gameplay_scene_update(
+                scene, &neutral_one, &neutral_two) ||
             scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
             scene->shot_actor != passer ||
             scene->shot_controller != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||

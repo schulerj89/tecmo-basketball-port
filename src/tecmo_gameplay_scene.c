@@ -2020,7 +2020,8 @@ static bool scene_update_live_action_ordered(
                explicit nonfatal deferred classification. */
             if (cpu_shot_request->playback_supported) {
                 if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
-                    !scene_shot_is_close(scene->shot_kind) ||
+                    (!scene_shot_is_close(scene->shot_kind) &&
+                     scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP) ||
                     scene->shot_actor != cpu_shot_request->actor_index) {
                     scene_set_status(
                         scene, "CPU shot request playback classification rejected");
