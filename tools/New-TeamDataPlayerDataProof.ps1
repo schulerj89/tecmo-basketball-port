@@ -43,7 +43,25 @@ try {
         ConvertFrom-Json
     if ($Provenance.schema -ne
             "tecmo.team-data.player-detail-provenance/1" -or
+        $Provenance.cursor.profile.generic_input_config -ne "0C" -or
+        $Provenance.cursor.profile.emitter_base[0] -ne 135 -or
         $Provenance.cursor.generic_record_delta[1] -ne -4 -or
+        $Provenance.cursor.profile.emitter_base[1] -ne 84 -or
+        $Provenance.cursor.profile.resolved_oam_anchor[0] -ne 135 -or
+        $Provenance.cursor.profile.resolved_oam_anchor[1] -ne 80 -or
+        $Provenance.cursor.profile.visible_anchor[0] -ne 135 -or
+        $Provenance.cursor.profile.visible_anchor[1] -ne 81 -or
+        $Provenance.cursor.roster.generic_input_config -ne "10" -or
+        $Provenance.cursor.roster.emitter_base[0] -ne 40 -or
+        $Provenance.cursor.roster.emitter_base[1] -ne 147 -or
+        $Provenance.cursor.roster.resolved_oam_anchor[0] -ne 40 -or
+        $Provenance.cursor.roster.resolved_oam_anchor[1] -ne 143 -or
+        $Provenance.cursor.roster.visible_anchor[0] -ne 40 -or
+        $Provenance.cursor.roster.visible_anchor[1] -ne 144 -or
+        $Provenance.cursor.row_stride -ne 8 -or
+        $Provenance.cursor.generic_record_delta[0] -ne 0 -or
+        $Provenance.cursor.coordinate_contract -ne
+            "emitter base + generic record delta = resolved OAM; visible Y = OAM Y + 1" -or
         $Provenance.statistics_ownership.native_source -ne
             "TecmoSeasonSession.player_stats_totals") {
         throw "TEAM DATA player-detail provenance contract was malformed."
@@ -68,28 +86,47 @@ try {
         [ordered]@{
             mode = "team-data-profile"
             file = "team-data-profile-cursor.png"
-            purpose = "Bank01 `$8031 generic cursor at the profile OAM anchor"
+            purpose = "Bank01 `$8031 generic cursor at resolved profile OAM (135,80), visible (135,81)"
+            expected_status = "cursor-drawn=1 cursor-oam=135,80 cursor-visible=135,81"
+        },
+        [ordered]@{
+            mode = "team-data-profile-row2"
+            file = "team-data-profile-row2-cursor.png"
+            purpose = "profile row 2 resolves to OAM (135,96), visible (135,97)"
+            expected_status = "cursor-drawn=1 cursor-oam=135,96 cursor-visible=135,97"
         },
         [ordered]@{
             mode = "team-data-roster-page1"
             file = "team-data-roster-cursor.png"
-            purpose = "Bank01 `$8031 generic cursor at the roster OAM anchor"
+            purpose = "Bank01 `$8031 generic cursor at resolved roster OAM (40,143), visible (40,144)"
+            expected_status = "cursor-drawn=1 cursor-oam=40,143 cursor-visible=40,144"
+        },
+        [ordered]@{
+            mode = "team-data-roster-row5"
+            file = "team-data-roster-row5-cursor.png"
+            purpose = "roster row 5 resolves to OAM (40,183), visible (40,184)"
+            expected_status = "cursor-drawn=1 cursor-oam=40,183 cursor-visible=40,184"
         },
         [ordered]@{
             mode = "team-data-player-detail"
             file = "team-data-player-detail-fresh.png"
             purpose = "fresh-season player-detail row is known zero"
+            expected_status = "cursor-drawn=0 cursor-oam=-1,-1 cursor-visible=-1,-1"
         },
         [ordered]@{
             mode = "team-data-player-detail-populated"
             file = "team-data-player-detail-populated.png"
             purpose = "ledger-seeded row is .600/.875/.500 and 21.0; unsupported counters are ---"
+            expected_status = "cursor-drawn=0 cursor-oam=-1,-1 cursor-visible=-1,-1"
         }
     )
     $Frames = @()
     foreach ($Mode in $Modes) {
         $Png = Join-Path $OutputRoot $Mode.file
         $Status = Invoke-Tecmo @("--render-test-mode", $Mode.mode, $Png)
+        if ($Status -notlike ("*" + $Mode.expected_status + "*")) {
+            throw "TEAM DATA proof renderer status mismatch for $($Mode.mode)."
+        }
         if (!(Test-Path -LiteralPath $Png -PathType Leaf)) {
             throw "TEAM DATA proof renderer did not create $($Mode.file)."
         }
@@ -105,6 +142,7 @@ try {
         schema = "tecmo.team-data.player-data-proof/1"
         provenance = "docs/team-data-player-detail-provenance.json"
         source = "ROM-derived native asset pack; no decompilation or capture input is read by the renderer"
+        cursor_coordinate_contract = $Provenance.cursor
         frames = $Frames
     }
     $ManifestPath = Join-Path $OutputRoot "team-data-player-data-proof.json"

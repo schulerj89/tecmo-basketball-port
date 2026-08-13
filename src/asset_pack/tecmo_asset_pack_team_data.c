@@ -11,14 +11,14 @@
 #define TEAM_DATA_ROSTER_BANK 2U
 #define TEAM_DATA_ART_BANK 6U
 
-/* These are renderer emitter/OAM anchors for the Bank01 $8031 generic cursor,
- * not opaque-pixel bounds.  The payload retains them so the runtime can keep
- * its coordinate mapping audited against the imported source. */
-#define TTDT_PROFILE_CURSOR_OAM_X 135U
-#define TTDT_PROFILE_CURSOR_OAM_Y 80U
+/* Bank03's generic-input configurations first apply the Bank01 $8031 cursor's
+ * dx/dy.  TTDT-1 retains the resulting top-sprite OAM anchors, not the earlier
+ * emitter bases or opaque-pixel bounds. */
+#define TTDT_PROFILE_CURSOR_RESOLVED_OAM_X 135U
+#define TTDT_PROFILE_CURSOR_RESOLVED_OAM_Y 80U
 #define TTDT_PROFILE_CURSOR_STRIDE 8U
-#define TTDT_ROSTER_CURSOR_OAM_X 40U
-#define TTDT_ROSTER_CURSOR_OAM_Y 143U
+#define TTDT_ROSTER_CURSOR_RESOLVED_OAM_X 40U
+#define TTDT_ROSTER_CURSOR_RESOLVED_OAM_Y 143U
 #define TTDT_ROSTER_CURSOR_STRIDE 8U
 
 typedef struct TeamDataSpan {
@@ -477,11 +477,11 @@ int tecmo_asset_pack_build_team_data(const uint8_t *rom,
     payload[71U] = 8U;
     payload[72U] = 32U;
     payload[73U] = 8U;
-    payload[74U] = TTDT_PROFILE_CURSOR_OAM_X;
-    payload[75U] = TTDT_PROFILE_CURSOR_OAM_Y;
+    payload[74U] = TTDT_PROFILE_CURSOR_RESOLVED_OAM_X;
+    payload[75U] = TTDT_PROFILE_CURSOR_RESOLVED_OAM_Y;
     payload[76U] = TTDT_PROFILE_CURSOR_STRIDE;
-    payload[77U] = TTDT_ROSTER_CURSOR_OAM_X;
-    payload[78U] = TTDT_ROSTER_CURSOR_OAM_Y;
+    payload[77U] = TTDT_ROSTER_CURSOR_RESOLVED_OAM_X;
+    payload[78U] = TTDT_ROSTER_CURSOR_RESOLVED_OAM_Y;
     payload[79U] = TTDT_ROSTER_CURSOR_STRIDE;
     payload[80U] = 0xFAU;
     payload[81U] = 0xFAU;

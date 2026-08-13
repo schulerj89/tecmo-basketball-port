@@ -163,7 +163,39 @@ void tecmo_cli_print_render_diagnostics(
                            &runtime->all_star_asset, &runtime->all_star_state, 2U));
             }
             if (strncmp(mode_name, "team-data", 9) == 0) {
-                printf("team-data-state phase=%s selector=%u team=%u profile=%u page=%u row=%u player=%u slide=%u/%u direction=%d cooldown=%u transition=%u transition-frame=%u palette=%u render=%u\n",
+                int cursor_oam_x = -1;
+                int cursor_oam_y = -1;
+                bool cursor_drawn =
+                    runtime->team_data_state.transition ==
+                        TECMO_TEAM_DATA_TRANSITION_NONE &&
+                    runtime->team_data_state.cursor_delay > 0U;
+                if (runtime->team_data_state.phase ==
+                    TECMO_TEAM_DATA_TEAM_SELECT && cursor_drawn) {
+                    const TecmoTeamDataSelector *selector =
+                        &runtime->team_data_asset.selectors[
+                            runtime->team_data_state.selector_index];
+                    cursor_oam_x = selector->x +
+                        runtime->team_data_asset.cursors[0].dx;
+                    cursor_oam_y = selector->y +
+                        runtime->team_data_asset.cursors[0].dy;
+                } else if (runtime->team_data_state.phase ==
+                           TECMO_TEAM_DATA_PROFILE && cursor_drawn) {
+                    cursor_oam_x = runtime->team_data_asset.profile_cursor_oam_x;
+                    cursor_oam_y = runtime->team_data_asset.profile_cursor_oam_y +
+                        runtime->team_data_state.profile_selection *
+                            runtime->team_data_asset.profile_cursor_stride;
+                } else if (runtime->team_data_state.phase ==
+                               TECMO_TEAM_DATA_ROSTER &&
+                           runtime->team_data_state.slide_direction == 0 &&
+                           cursor_drawn) {
+                    cursor_oam_x = runtime->team_data_asset.roster_cursor_oam_x;
+                    cursor_oam_y = runtime->team_data_asset.roster_cursor_oam_y +
+                        runtime->team_data_state.roster_row *
+                            runtime->team_data_asset.roster_cursor_stride;
+                } else {
+                    cursor_drawn = false;
+                }
+                printf("team-data-state phase=%s selector=%u team=%u profile=%u page=%u row=%u player=%u slide=%u/%u direction=%d cooldown=%u transition=%u transition-frame=%u palette=%u render=%u cursor-drawn=%u cursor-oam=%d,%d cursor-visible=%d,%d\n",
                        tecmo_team_data_phase_name(runtime->team_data_state.phase),
                        (unsigned)runtime->team_data_state.selector_index,
                        (unsigned)runtime->team_data_state.team_id,
@@ -182,7 +214,11 @@ void tecmo_cli_print_render_diagnostics(
                            &runtime->team_data_state),
                        tecmo_team_data_transition_render_enabled(
                            &runtime->team_data_asset,
-                           &runtime->team_data_state) ? 1U : 0U);
+                           &runtime->team_data_state) ? 1U : 0U,
+                       cursor_drawn ? 1U : 0U,
+                       cursor_oam_x, cursor_oam_y,
+                       cursor_oam_x,
+                       cursor_oam_y >= 0 ? cursor_oam_y + 1 : -1);
             }
             if (strncmp(mode_name, "season-", 7) == 0) {
                 printf("season-state phase=%s type=%s schedule=%u team=%u popup=%u popup-rows=%u playoff-scroll=%u page=%u panel=%u editor-team=%u leader=%u leader-result=%u game-results=%u/%u game-pending=%u launch-blocked=%u save=%u\n",

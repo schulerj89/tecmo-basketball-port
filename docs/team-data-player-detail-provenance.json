@@ -58,10 +58,21 @@
     }
   },
   "cursor": {
-    "profile_anchor_oam": [135, 80],
-    "roster_anchor_oam": [40, 143],
+    "profile": {
+      "generic_input_config": "0C",
+      "emitter_base": [135, 84],
+      "resolved_oam_anchor": [135, 80],
+      "visible_anchor": [135, 81]
+    },
+    "roster": {
+      "generic_input_config": "10",
+      "emitter_base": [40, 147],
+      "resolved_oam_anchor": [40, 143],
+      "visible_anchor": [40, 144]
+    },
     "row_stride": 8,
     "generic_record_delta": [0, -4],
+    "coordinate_contract": "emitter base + generic record delta = resolved OAM; visible Y = OAM Y + 1",
     "visible_after_commit": "transition == NONE && cursor_delay > 0"
   },
   "statistics_ownership": {

@@ -133,9 +133,11 @@ try {
     }
 
     $Checkpoints = @(
-        @{ mode = "team-data-select"; hash = "C04A940E9BD78DC9D330AC9E41C2B6F03906A040CE52D442EB08BCE7FE4C7EB8"; status = "palette=3 render=1" },
-        @{ mode = "team-data-profile"; hash = "E8BA35AC6C2FF05F882CC6D374BC3D4578992A1304D7018A2FE2D21F25F8D575"; status = "phase=TEAM PROFILE" },
-        @{ mode = "team-data-roster-page1"; hash = "73A7D7502C020348C38D8844599CF215A02B7591FC42CEABB38CD6A41EB89A8C"; status = "phase=PLAYERS DATA" },
+        @{ mode = "team-data-select"; hash = "C04A940E9BD78DC9D330AC9E41C2B6F03906A040CE52D442EB08BCE7FE4C7EB8"; status = "cursor-drawn=1 cursor-oam=15,32 cursor-visible=15,33" },
+        @{ mode = "team-data-profile"; hash = "68282C16A45F58477598FC650D40650A0D2F1FFBC37F899A0C62EA54F895E406"; status = "cursor-drawn=1 cursor-oam=135,80 cursor-visible=135,81" },
+        @{ mode = "team-data-profile-row2"; hash = "D39688787B5DD89354A293CFCD04983FEF774A47316DEDE759C76249B825E2C3"; status = "cursor-drawn=1 cursor-oam=135,96 cursor-visible=135,97" },
+        @{ mode = "team-data-roster-page1"; hash = "E760133A6C88C9A1B7C25F75AB935F5EB77F88459BA20C71A0BF5445BED53B25"; status = "cursor-drawn=1 cursor-oam=40,143 cursor-visible=40,144" },
+        @{ mode = "team-data-roster-row5"; hash = "424F3342D6044F8856B58415D9936876FD927BC00BCAD6F652AE45B45F6D4D99"; status = "cursor-drawn=1 cursor-oam=40,183 cursor-visible=40,184" },
         @{ mode = "team-data-player-detail"; hash = "BC717CC2C62A1BAD485BA6307F8F250198476AFBD816162D6311D4A960635174"; status = "phase=PLAYER DETAIL" },
         @{ mode = "team-data-player-detail-populated"; hash = "60828F2C55C47A97087027950BCC810B06120F316F2FB4A328FB7BC8336909C2"; status = "phase=PLAYER DETAIL" },
         @{ mode = "team-data-entry-transition-frame0"; hash = "2377B0FF24274E21F5963CC35E43D0F666B7626E890A23C01A7621B842055F9A"; status = "transition-frame=0 palette=4 render=0" },
@@ -180,7 +182,7 @@ try {
     }
 
     $global:LASTEXITCODE = 0
-    Write-Host "TEAM DATA TEST PASS: ROM-only TTDT parser, ledger-backed player detail, all-star mapping, input/state transitions, malformed rejection, and 17 pixel checkpoints"
+    Write-Host "TEAM DATA TEST PASS: ROM-only TTDT parser, ledger-backed player detail, all-star mapping, input/state transitions, malformed rejection, and 19 pixel checkpoints"
 } finally {
     $env:TECMO_SKIP_SHORTCUT = $PreviousSkipShortcut
     $env:TECMO_ASSETPACK = $PreviousAssetPack

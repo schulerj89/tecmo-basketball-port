@@ -593,11 +593,14 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
                 *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
                 runtime->team_data_state.cursor_delay = 1U;
-            } else if (strcmp(mode_name, "team-data-profile") == 0) {
+            } else if (strcmp(mode_name, "team-data-profile") == 0 ||
+                       strcmp(mode_name, "team-data-profile-row2") == 0) {
                 *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
                 runtime->team_data_state.phase = TECMO_TEAM_DATA_PROFILE;
                 runtime->team_data_state.team_id = 0U;
+                runtime->team_data_state.profile_selection =
+                    strcmp(mode_name, "team-data-profile-row2") == 0 ? 2U : 0U;
                 runtime->team_data_state.cursor_delay = 1U;
             } else if (strcmp(mode_name, "team-data-starters") == 0 ||
                        strcmp(mode_name, "team-data-starters-reset") == 0 ||
@@ -650,13 +653,16 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
                     }
                 }
             } else if (strcmp(mode_name, "team-data-roster-page1") == 0 ||
-                       strcmp(mode_name, "team-data-roster-page2") == 0) {
+                       strcmp(mode_name, "team-data-roster-page2") == 0 ||
+                       strcmp(mode_name, "team-data-roster-row5") == 0) {
                 *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
                 runtime->team_data_state.phase = TECMO_TEAM_DATA_ROSTER;
                 runtime->team_data_state.team_id = 0U;
                 runtime->team_data_state.roster_page =
                     strcmp(mode_name, "team-data-roster-page2") == 0 ? 1U : 0U;
+                runtime->team_data_state.roster_row =
+                    strcmp(mode_name, "team-data-roster-row5") == 0 ? 5U : 0U;
                 runtime->team_data_state.cursor_delay = 1U;
             } else if (strncmp(mode_name, "team-data-roster-slide-frame", 28) == 0) {
                 *handled_out = true;

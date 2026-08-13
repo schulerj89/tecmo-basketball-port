@@ -146,11 +146,11 @@ typedef struct TecmoTeamDataAsset {
     uint8_t generic_repeat_frames;
     uint8_t slide_frames;
     uint8_t slide_pixels_per_frame;
-    uint8_t profile_cursor_x;
-    uint8_t profile_cursor_y;
+    uint8_t profile_cursor_oam_x;
+    uint8_t profile_cursor_oam_y;
     uint8_t profile_cursor_stride;
-    uint8_t roster_cursor_x;
-    uint8_t roster_cursor_y;
+    uint8_t roster_cursor_oam_x;
+    uint8_t roster_cursor_oam_y;
     uint8_t roster_cursor_stride;
     uint8_t logo_y;
     uint8_t selector_transition_black_frame;

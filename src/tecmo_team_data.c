@@ -28,15 +28,19 @@
 #define TEAM_DATA_PLAYER_PORTRAIT_OFFSET 40U
 #define TEAM_DATA_PROFILE_PALETTES_OFFSET 128U
 
-/* Bank01 $8031 is the generic two-tile cursor.  Its dy=-4 is an OAM-space
- * delta, so the visible top row is OAM Y + 1 on the NES PPU.  These anchors
- * are the source emitter coordinates, not the opaque-pixel bounding boxes. */
-#define TEAM_DATA_PROFILE_CURSOR_OAM_X 135U
-#define TEAM_DATA_PROFILE_CURSOR_OAM_Y 80U
+/* Bank03 generic-input configurations $0C/$10 apply Bank01 $8031's dy=-4
+ * before TTDT-1's stored profile/roster coordinates.  These are therefore
+ * resolved top-sprite OAM anchors.  NES display begins at OAM Y + 1. */
+#define TEAM_DATA_PROFILE_CURSOR_RESOLVED_OAM_X 135U
+#define TEAM_DATA_PROFILE_CURSOR_RESOLVED_OAM_Y 80U
 #define TEAM_DATA_PROFILE_CURSOR_STRIDE 8U
-#define TEAM_DATA_ROSTER_CURSOR_OAM_X 40U
-#define TEAM_DATA_ROSTER_CURSOR_OAM_Y 143U
+#define TEAM_DATA_PROFILE_CURSOR_EMITTER_X 135U
+#define TEAM_DATA_PROFILE_CURSOR_EMITTER_Y 84U
+#define TEAM_DATA_ROSTER_CURSOR_RESOLVED_OAM_X 40U
+#define TEAM_DATA_ROSTER_CURSOR_RESOLVED_OAM_Y 143U
 #define TEAM_DATA_ROSTER_CURSOR_STRIDE 8U
+#define TEAM_DATA_ROSTER_CURSOR_EMITTER_X 40U
+#define TEAM_DATA_ROSTER_CURSOR_EMITTER_Y 147U
 #define TEAM_DATA_NES_OAM_SCREEN_Y_BIAS 1
 
 /* Fixed $DC19-$DC35, indexed by the selected home-team ID. */
@@ -242,11 +246,11 @@ static bool parse_payload(TecmoTeamDataAsset *asset,
         bytes[68U] != 16U || bytes[69U] != 5U ||
         bytes[70U] != 5U || bytes[71U] != 8U ||
         bytes[72U] != 32U || bytes[73U] != 8U ||
-        bytes[74U] != TEAM_DATA_PROFILE_CURSOR_OAM_X ||
-        bytes[75U] != TEAM_DATA_PROFILE_CURSOR_OAM_Y ||
+        bytes[74U] != TEAM_DATA_PROFILE_CURSOR_RESOLVED_OAM_X ||
+        bytes[75U] != TEAM_DATA_PROFILE_CURSOR_RESOLVED_OAM_Y ||
         bytes[76U] != TEAM_DATA_PROFILE_CURSOR_STRIDE ||
-        bytes[77U] != TEAM_DATA_ROSTER_CURSOR_OAM_X ||
-        bytes[78U] != TEAM_DATA_ROSTER_CURSOR_OAM_Y ||
+        bytes[77U] != TEAM_DATA_ROSTER_CURSOR_RESOLVED_OAM_X ||
+        bytes[78U] != TEAM_DATA_ROSTER_CURSOR_RESOLVED_OAM_Y ||
         bytes[79U] != TEAM_DATA_ROSTER_CURSOR_STRIDE ||
         memcmp(bytes + 80U, "\xFA\xFA\xCC\xFA\xFA\xFA", 6U) != 0 ||
         bytes[86U] != 0x0CU || bytes[87U] != 0x0DU || bytes[88U] != 0x0EU ||
@@ -476,11 +480,11 @@ static bool parse_payload(TecmoTeamDataAsset *asset,
     asset->generic_repeat_frames = bytes[71U];
     asset->slide_frames = bytes[72U];
     asset->slide_pixels_per_frame = bytes[73U];
-    asset->profile_cursor_x = bytes[74U];
-    asset->profile_cursor_y = bytes[75U];
+    asset->profile_cursor_oam_x = bytes[74U];
+    asset->profile_cursor_oam_y = bytes[75U];
     asset->profile_cursor_stride = bytes[76U];
-    asset->roster_cursor_x = bytes[77U];
-    asset->roster_cursor_y = bytes[78U];
+    asset->roster_cursor_oam_x = bytes[77U];
+    asset->roster_cursor_oam_y = bytes[78U];
     asset->roster_cursor_stride = bytes[79U];
     asset->logo_y = bytes[101U];
     asset->selector_transition_black_frame = bytes[102U];
@@ -1514,18 +1518,18 @@ typedef struct TeamDataCursorCoordinates {
 
 static TeamDataCursorCoordinates cursor_coordinates(
     const TecmoTeamDataCursor *cursor, int anchor_x, int anchor_y);
+static TeamDataCursorCoordinates cursor_coordinates_from_resolved_oam(
+    int oam_x, int top_oam_y);
 
-static void draw_cursor(TecmoFramebuffer *view,
-                        const TecmoTeamDataCursor *cursor,
-                        const uint8_t sprite_palette[16],
-                        const uint8_t *chr_bytes,
-                        uint64_t chr_byte_count,
-                        int x,
-                        int y,
-                        int scale)
+static void draw_cursor_coordinates(
+    TecmoFramebuffer *view,
+    const TecmoTeamDataCursor *cursor,
+    const uint8_t sprite_palette[16],
+    const uint8_t *chr_bytes,
+    uint64_t chr_byte_count,
+    TeamDataCursorCoordinates coordinates,
+    int scale)
 {
-    TeamDataCursorCoordinates coordinates =
-        cursor_coordinates(cursor, x, y);
     uint32_t rgba[4] = {0U, 0U, 0U, 0U};
     for (size_t i = 1U; i < 4U; ++i)
         rgba[i] = tecmo_nes_2c02_rgba(sprite_palette[i]);
@@ -1537,6 +1541,37 @@ static void draw_cursor(TecmoFramebuffer *view,
         view, chr_bytes, chr_byte_count, cursor->bottom_chr_offset,
         coordinates.visible_x * scale, coordinates.bottom_visible_y * scale,
         scale, rgba, false, false);
+}
+
+static void draw_cursor(TecmoFramebuffer *view,
+                        const TecmoTeamDataCursor *cursor,
+                        const uint8_t sprite_palette[16],
+                        const uint8_t *chr_bytes,
+                        uint64_t chr_byte_count,
+                        int x,
+                        int y,
+                        int scale)
+{
+    draw_cursor_coordinates(
+        view, cursor, sprite_palette, chr_bytes, chr_byte_count,
+        cursor_coordinates(cursor, x, y), scale);
+}
+
+static void draw_cursor_from_resolved_oam(
+    TecmoFramebuffer *view,
+    const TecmoTeamDataCursor *cursor,
+    const uint8_t sprite_palette[16],
+    const uint8_t *chr_bytes,
+    uint64_t chr_byte_count,
+    int oam_x,
+    int top_oam_y,
+    int scale)
+{
+    TeamDataCursorCoordinates coordinates =
+        cursor_coordinates_from_resolved_oam(oam_x, top_oam_y);
+    draw_cursor_coordinates(
+        view, cursor, sprite_palette, chr_bytes, chr_byte_count, coordinates,
+        scale);
 }
 
 static uint8_t palette_at(const TecmoTeamDataAsset *asset,
@@ -2022,6 +2057,21 @@ static TeamDataCursorCoordinates cursor_coordinates(
     return coordinates;
 }
 
+static TeamDataCursorCoordinates cursor_coordinates_from_resolved_oam(
+    int oam_x, int top_oam_y)
+{
+    TeamDataCursorCoordinates coordinates = {0};
+    coordinates.oam_x = oam_x;
+    coordinates.top_oam_y = top_oam_y;
+    coordinates.bottom_oam_y = top_oam_y + 8;
+    coordinates.visible_x = oam_x;
+    coordinates.top_visible_y = top_oam_y +
+                                TEAM_DATA_NES_OAM_SCREEN_Y_BIAS;
+    coordinates.bottom_visible_y = coordinates.bottom_oam_y +
+                                   TEAM_DATA_NES_OAM_SCREEN_Y_BIAS;
+    return coordinates;
+}
+
 static bool generic_cursor_visible(const TecmoTeamDataState *state)
 {
     return state != NULL &&
@@ -2042,8 +2092,8 @@ static bool player_data_presentation_self_test(void)
     TecmoTeamDataPlayerStatsSource source;
     TeamDataPlayerDetailStats stats;
     TecmoTeamDataCursor generic_cursor;
-    TeamDataCursorCoordinates profile_coordinates;
-    TeamDataCursorCoordinates roster_coordinates;
+    TeamDataCursorCoordinates emitter_coordinates;
+    TeamDataCursorCoordinates resolved_coordinates;
     TecmoTeamDataState cursor_state;
     char percentage[6];
     char points[5];
@@ -2116,29 +2166,45 @@ static bool player_data_presentation_self_test(void)
         stats.points_per_game_hundredths != 0U)
         return false;
 
-    /* Bank01 $8031 is dx=0, dy=-4.  PPU OAM's Y byte is one pixel above the
-     * first visible scanline, which is why the visible coordinate is +1. */
+    /* Bank03 generic-input config $0C emits profile (135,84), while $10 emits
+     * roster (40,147).  Bank01 $8031 is dx=0, dy=-4, producing TTDT's stored
+     * top-sprite OAM anchors.  The NES displays each at OAM Y + 1. */
     memset(&generic_cursor, 0, sizeof(generic_cursor));
     generic_cursor.dy = -4;
-    profile_coordinates = cursor_coordinates(
-        &generic_cursor, TEAM_DATA_PROFILE_CURSOR_OAM_X,
-        TEAM_DATA_PROFILE_CURSOR_OAM_Y);
-    roster_coordinates = cursor_coordinates(
-        &generic_cursor, TEAM_DATA_ROSTER_CURSOR_OAM_X,
-        TEAM_DATA_ROSTER_CURSOR_OAM_Y);
-    if (profile_coordinates.oam_x != 135 ||
-        profile_coordinates.top_oam_y != 76 ||
-        profile_coordinates.bottom_oam_y != 84 ||
-        profile_coordinates.visible_x != 135 ||
-        profile_coordinates.top_visible_y != 77 ||
-        profile_coordinates.bottom_visible_y != 85 ||
-        roster_coordinates.oam_x != 40 ||
-        roster_coordinates.top_oam_y != 139 ||
-        roster_coordinates.bottom_oam_y != 147 ||
-        roster_coordinates.visible_x != 40 ||
-        roster_coordinates.top_visible_y != 140 ||
-        roster_coordinates.bottom_visible_y != 148)
-        return false;
+    for (int row = 0; row < 3; ++row) {
+        int emitter_y = TEAM_DATA_PROFILE_CURSOR_EMITTER_Y +
+                        row * TEAM_DATA_PROFILE_CURSOR_STRIDE;
+        int resolved_oam_y =
+            TEAM_DATA_PROFILE_CURSOR_RESOLVED_OAM_Y +
+            row * TEAM_DATA_PROFILE_CURSOR_STRIDE;
+        emitter_coordinates = cursor_coordinates(
+            &generic_cursor, TEAM_DATA_PROFILE_CURSOR_EMITTER_X, emitter_y);
+        resolved_coordinates = cursor_coordinates_from_resolved_oam(
+            TEAM_DATA_PROFILE_CURSOR_RESOLVED_OAM_X, resolved_oam_y);
+        if (emitter_coordinates.oam_x != 135 ||
+            emitter_coordinates.top_oam_y != 80 + row * 8 ||
+            emitter_coordinates.top_visible_y != 81 + row * 8 ||
+            memcmp(&emitter_coordinates, &resolved_coordinates,
+                   sizeof(emitter_coordinates)) != 0)
+            return false;
+    }
+    for (int row = 0; row < 6; ++row) {
+        int emitter_y = TEAM_DATA_ROSTER_CURSOR_EMITTER_Y +
+                        row * TEAM_DATA_ROSTER_CURSOR_STRIDE;
+        int resolved_oam_y =
+            TEAM_DATA_ROSTER_CURSOR_RESOLVED_OAM_Y +
+            row * TEAM_DATA_ROSTER_CURSOR_STRIDE;
+        emitter_coordinates = cursor_coordinates(
+            &generic_cursor, TEAM_DATA_ROSTER_CURSOR_EMITTER_X, emitter_y);
+        resolved_coordinates = cursor_coordinates_from_resolved_oam(
+            TEAM_DATA_ROSTER_CURSOR_RESOLVED_OAM_X, resolved_oam_y);
+        if (emitter_coordinates.oam_x != 40 ||
+            emitter_coordinates.top_oam_y != 143 + row * 8 ||
+            emitter_coordinates.top_visible_y != 144 + row * 8 ||
+            memcmp(&emitter_coordinates, &resolved_coordinates,
+                   sizeof(emitter_coordinates)) != 0)
+            return false;
+    }
 
     memset(&cursor_state, 0, sizeof(cursor_state));
     cursor_state.transition = TECMO_TEAM_DATA_TRANSITION_NONE;
@@ -2457,11 +2523,12 @@ bool tecmo_team_data_draw(TecmoFramebuffer *framebuffer,
         draw_roster_page(&view, asset, &display_state, palette, 0U, 0, chr_bytes,
                          chr_byte_count, scale);
         if (generic_cursor_visible(state))
-            draw_cursor(&view, &asset->cursors[1], sprite_palette, chr_bytes,
-                        chr_byte_count, asset->profile_cursor_x,
-                        asset->profile_cursor_y +
-                            state->profile_selection * asset->profile_cursor_stride,
-                        scale);
+            draw_cursor_from_resolved_oam(
+                &view, &asset->cursors[1], sprite_palette, chr_bytes,
+                chr_byte_count, asset->profile_cursor_oam_x,
+                asset->profile_cursor_oam_y +
+                    state->profile_selection * asset->profile_cursor_stride,
+                scale);
         return true;
     }
     if (state->slide_direction == 0) {
@@ -2469,11 +2536,12 @@ bool tecmo_team_data_draw(TecmoFramebuffer *framebuffer,
                          state->roster_page, 0,
                          chr_bytes, chr_byte_count, scale);
         if (generic_cursor_visible(state))
-            draw_cursor(&view, &asset->cursors[1], sprite_palette, chr_bytes,
-                        chr_byte_count, asset->roster_cursor_x,
-                        asset->roster_cursor_y +
-                            state->roster_row * asset->roster_cursor_stride,
-                        scale);
+            draw_cursor_from_resolved_oam(
+                &view, &asset->cursors[1], sprite_palette, chr_bytes,
+                chr_byte_count, asset->roster_cursor_oam_x,
+                asset->roster_cursor_oam_y +
+                    state->roster_row * asset->roster_cursor_stride,
+                scale);
     } else {
         int distance = (int)state->slide_frame * asset->slide_pixels_per_frame;
         int outgoing = state->slide_direction > 0 ? -distance : distance;
