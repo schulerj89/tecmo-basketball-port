@@ -3102,7 +3102,8 @@ static bool scene_test_live_foundation_regressions(
     /* Production path proof for the strict Bank04 $9F2E canonical opcode-4
        record. The fixture only chooses an already imported record for an
        ordinary CPU player; scene_update_ai still builds its immutable player
-       and Q8 ball snapshot, executes LIVE, and composes TGMO normally. */
+       and Q8 ball snapshot, launches TGAI-3 state 5 without a TGMO move on
+       the launch tick, then advances the frozen target on the next tick. */
     {
         const uint8_t target_actor = 1U;
         uint16_t opcode4_offset = 0U;
@@ -3110,6 +3111,9 @@ static bool scene_test_live_foundation_regressions(
         bool found_opcode4 = false;
         bool found_opcode0 = false;
         TecmoGameplayCourtCoordinate expected_ball;
+        TecmoGameplaySceneActor route_start_actor;
+        TecmoGameplayCpuSteeringRouteMotionState expected_route_state;
+        TecmoGameplayCpuSteeringRouteStepResult expected_route_step;
         for (offset = 0U;
              offset < scene->cpu_steering_assets.command_record_count * 5U;
              offset = (uint16_t)(offset + 5U)) {
@@ -3157,7 +3161,7 @@ static bool scene_test_live_foundation_regressions(
             candidate_foundation.deferred_reason[actor] =
                 TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
             if (actor != target_actor) {
-                candidate_foundation.play_state.wait_counter[actor] = 1U;
+                candidate_foundation.play_state.wait_counter[actor] = 0xFFU;
                 candidate_foundation.play_state.actor_state[actor] = 0x06U;
             }
         }
@@ -3171,6 +3175,7 @@ static bool scene_test_live_foundation_regressions(
             LIVE_FAIL("LIVE opcode-4 ball target foundation rejected");
         }
         scene->live_foundation = candidate_foundation;
+        route_start_actor = scene->actors[target_actor];
         memset(&shot_request, 0, sizeof(shot_request));
         if (!scene_update_ai(scene, &shot_request) ||
             shot_request.requested || shot_request.playback_supported ||
@@ -3187,6 +3192,20 @@ static bool scene_test_live_foundation_regressions(
                 TECMO_GAMEPLAY_CPU_STEERING_EFFECT_ACTOR_TARGET ||
             scene->live_foundation.last_step_offset[target_actor] !=
                 (uint16_t)(opcode4_offset + 5U) ||
+            scene->live_foundation.play_state.actor_state[target_actor] !=
+                0x05U ||
+            !scene->live_foundation.play_state.route_motion[target_actor]
+                .active ||
+            scene->live_foundation.play_state.route_motion[target_actor]
+                .remaining_timer == 0U ||
+            scene->actors[target_actor].position.x !=
+                route_start_actor.position.x ||
+            scene->actors[target_actor].position.y !=
+                route_start_actor.position.y ||
+            scene->actors[target_actor].movement_action_state !=
+                route_start_actor.movement_action_state ||
+            scene->actors[target_actor].movement_direction !=
+                route_start_actor.movement_direction ||
             !scene->cpu_actors[target_actor].target_valid ||
             scene->cpu_actors[target_actor].target_kind !=
                 TECMO_GAMEPLAY_CPU_STEERING_HARNESS_BALL_OBJECT_TARGET ||
@@ -3196,7 +3215,30 @@ static bool scene_test_live_foundation_regressions(
                 expected_ball.y ||
             !tecmo_gameplay_live_foundation_valid(
                 &scene->cpu_steering_assets, &scene->live_foundation)) {
-            LIVE_FAIL("LIVE canonical opcode-4 C8 ball target was not applied");
+            LIVE_FAIL("LIVE canonical opcode-4 C8 route was not launched");
+        }
+        if (!tecmo_gameplay_cpu_steering_route_step(
+                target_actor,
+                (uint8_t)(scene->state.clock_divider & 1U),
+                &scene->live_foundation.play_state.route_motion[target_actor],
+                &expected_route_state, &expected_route_step) ||
+            !scene_update_ai(scene, &shot_request) ||
+            scene->actors[target_actor].position.x !=
+                (int16_t)expected_route_step.horizontal_position ||
+            scene->actors[target_actor].position.y !=
+                (int16_t)expected_route_step.depth_position ||
+            memcmp(&scene->live_foundation.play_state
+                        .route_motion[target_actor],
+                   &expected_route_state, sizeof(expected_route_state)) != 0 ||
+            scene->live_foundation.play_state.target_x[target_actor] !=
+                expected_ball.x ||
+            scene->live_foundation.play_state.target_depth[target_actor] !=
+                expected_ball.y ||
+            scene->cpu_actors[target_actor].target_position.x !=
+                expected_ball.x ||
+            scene->cpu_actors[target_actor].target_position.y !=
+                expected_ball.y) {
+            LIVE_FAIL("LIVE opcode-4 state-5 route step/frozen target regressed");
         }
 
         /* Ordinary LIVE owns only Bank06 $92CA's zero branch: Bank05
@@ -3205,6 +3247,9 @@ static bool scene_test_live_foundation_regressions(
            imported opcode-0 record and prove the typed zero advances it;
            this is not a raw-$BA or frame-counter substitute. */
         candidate_foundation = scene->live_foundation;
+        candidate_foundation.play_state.route_motion[target_actor].active =
+            false;
+        candidate_foundation.play_state.actor_state[target_actor] = 0x04U;
         for (actor = 0U; actor < 10U; ++actor) {
             candidate_foundation.play_state.wait_counter[actor] =
                 actor == target_actor ? 0U : 1U;
