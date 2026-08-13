@@ -135,6 +135,12 @@ typedef struct TecmoRuntime {
     uint8_t start_menu_return_period_index;
     bool quit_requested;
     bool debug_overlay;
+    /* Passive F3 telemetry captured around the most recent court update.
+       These fields never feed gameplay or coordinate clamping. */
+    bool debug_cpu_frame_delta_valid;
+    uint8_t debug_cpu_frame_delta_actor;
+    int16_t debug_cpu_frame_delta_x;
+    int16_t debug_cpu_frame_delta_y;
     bool title_probe_available;
     unsigned frame_counter;
     unsigned mode_frame_counter;
