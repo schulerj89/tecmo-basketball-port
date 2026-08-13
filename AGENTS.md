@@ -1359,8 +1359,10 @@ fetches a record, and the retained cursor fetches on the following state-4
 update. Ordinary actors use the same handler, while a stale nonzero wait byte
 in another state does not suppress that state's dispatch. Ordinary and inbound
 catches share this endpoint.
-Made-score settlement is separate from claimant settlement. Bank05
-`$8FAD-$9042` swaps `$030A/$030B` and `$0308/$0309`, clears both selected
+Made-score settlement is separate from claimant settlement. LIVE receives a
+typed scored-settlement boundary and projects the accepted Bank05
+`$8FB9-$9042` writes; it does not infer `$8FAD`'s raw
+`$05A1==0 && ($BA&3)==0` admission. The accepted path swaps `$030A/$030B` and `$0308/$0309`, clears both selected
 `$057C/$046E` lifecycles, resets packed `$0458`, clears `$0790`, and toggles all
 `$04B0` bit-$10 mirrors before Bank07 reaches `$9621`. The scene stages that
 typed transition with immediate inbound setup; it must not expose ordinary AI

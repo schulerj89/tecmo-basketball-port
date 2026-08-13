@@ -108,8 +108,10 @@ run in canonical `9..0` order, excluding the selected defender. Any role or
 formation transition that invalidates a frozen target cancels its route state
 transactionally so stale Q6 motion cannot resume later.
 
-Made-score promotion is now a distinct source-owned lifecycle boundary, not an
-opcode-barrier escape. Bank05 `$8FB9-$9042` swaps selected roles, clears both
+Made-score promotion is now a distinct typed lifecycle boundary, not an
+opcode-barrier escape. It projects the accepted Bank05 `$8FB9-$9042` writes;
+the preceding `$8FAD` raw `$05A1==0 && ($BA&3)==0` admission is not owned.
+The accepted path swaps selected roles, clears both
 selected states/actions, and toggles all role bits before the Bank07/Bank06
 restart setup enters inbound transport. Consequently an actor carrying an
 ordinary `$0A55->$0627` aggregation stream cannot become the selected holder

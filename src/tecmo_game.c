@@ -1899,7 +1899,7 @@ static void render_debug_cpu_diagnostics(const TecmoRuntime *runtime,
     draw_debug_text(fb, x, y + 220, line);
     (void)snprintf(
         line, sizeof(line),
-        "HANDOFF INBOUND %u PASSER %u RECEIVER %u CLAIMANT %u EVENT %u",
+        "HANDOFF INBOUND %u PASSER %u RECEIVER %u LAST CLAIMANT TRACE %u/%u",
         (unsigned)scene->inbound_state.phase,
         (unsigned)scene->inbound_state.passer,
         (unsigned)scene->inbound_state.receiver,

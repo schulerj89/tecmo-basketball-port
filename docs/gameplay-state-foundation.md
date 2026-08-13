@@ -100,8 +100,11 @@ save-before-toggle evidence. Direct `$035A` stores are limited to `$8FC4` and
 
 ### Made-score restart and non-source miss boundary
 
-A made basket does not use the claimant bridge. Bank05 `$8FAD-$8FB9` accepts
-the possession transition and swaps `$030A/$030B` plus `$0308/$0309`;
+A made basket does not use the claimant bridge. Bank05 `$8FAD` admits the
+transition only when `$05A1==0 && ($BA&3)==0`; LIVE does not own those raw
+gate workspaces and instead receives a typed scored-settlement boundary from
+the already accepted shot lifecycle. The accepted `$8FB9` path swaps
+`$030A/$030B` plus `$0308/$0309`;
 `$8FE8-$902D` clears `$057C/$046E` for both selected actors, restores packed
 `$0458=$30`, clears `$0790`, and refreshes selected/candidate mirrors through
 the exact `$B98B` remap. `$9042-$9053` toggles `$04B0` bit `$10` for all ten
@@ -109,9 +112,10 @@ actors. Bank07 then reaches Bank06 `$9621`; the typed scene enters its existing
 inbound transaction immediately, so ordinary Bank06 AI cannot consume a stale
 formation cursor between the score and the final `$B24F->$96B6` catch.
 
-The typed score transition owns the selected-pair/side swap, actor-state and
+The typed score transition owns the accepted selected-pair/side swap, actor-state and
 action-state clears, packed-action reset, role-bit toggle, `$0790` clear, and
-leading `$9621` aggregation count/mask clears exactly. Cancelling C route/source
+leading `$9621` aggregation count/mask writes exactly. It does not claim raw
+`$8FAD` admission parity. Cancelling C route/source
 metadata follows from that exact lifecycle reset but remains a typed adapter;
 the unmodeled `$8FE8` pose helpers and the rest of `$9621-$985C` presentation
 tail are not claimed. Close makes, supported jump makes, and final free throws

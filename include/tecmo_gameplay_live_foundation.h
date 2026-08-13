@@ -199,9 +199,11 @@ bool tecmo_gameplay_live_foundation_synchronize(
         TECMO_GAMEPLAY_CPU_STEERING_CONTROLLER_SLOT_COUNT],
     TecmoGameplayLiveFoundation *foundation_io);
 
-/* Bounded made-score/restart projection of Bank05 $8FB9-$9042 followed by
+/* Bounded typed made-score/restart projection of the accepted Bank05
+ * $8FB9-$9042 writes followed by
  * the leading Bank06 $9621 aggregation reset. This is not the miss-claimant
- * $B87C transaction and does not choose an inbound receiver. The accepted
+ * $B87C transaction, does not infer the preceding $8FAD raw $05A1/$BA
+ * admission gates, and does not choose an inbound receiver. The accepted
  * transition swaps the selected offense/defense roles, clears both selected
  * actor lifecycles, and toggles the exact $04B0 bit-$10 mirrors. */
 bool tecmo_gameplay_live_foundation_score_restart_transition(
