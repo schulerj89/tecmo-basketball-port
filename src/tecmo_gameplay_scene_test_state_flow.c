@@ -2113,29 +2113,20 @@ static bool scene_test_live_foundation_regressions(
             !scene->live_foundation.source_target_valid[receiver]) {
             LIVE_FAIL("LIVE CPU catch holder remained inert");
         }
-        /* $00E1 opcode 9 writes state 0/action $17. This receiver is far
-           from the hoop, so unsupported autonomous jump playback must be
-           discarded and the labeled state-4 recovery committed. */
+        /* $00E1 opcode 9 writes state 0/action $17. Bank05 dispatches it to
+           $8ACE without a human pad; the typed autonomous seam must launch
+           real far/jump playback and end held-ball ownership. */
         memset(&no_shot, 0, sizeof(no_shot));
-        if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
-            !no_shot.deferred || no_shot.playback_supported ||
-            scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
-            scene->ball_holder != receiver ||
-            scene->live_foundation.play_state.actor_state[receiver] != 4U ||
-            scene->live_foundation.play_state
-                    .action_state_046e[receiver] != 0U ||
+        if (!scene_update_ai(scene, &no_shot) || !no_shot.requested ||
+            no_shot.deferred || !no_shot.playback_supported ||
+            scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+            scene->shot_actor != receiver ||
+            scene->shot_controller != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+            scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+            !scene->jump_playback_active ||
             scene->live_foundation.play_state.stream_offset[receiver] !=
                 0x00E6U) {
-            LIVE_FAIL("LIVE CPU catch natural action-17 recovery failed");
-        }
-        /* The following exact goto returns to alternate $007D; it does not
-           leave the recovered selected holder at an inert endpoint. */
-        memset(&no_shot, 0, sizeof(no_shot));
-        if (!scene_update_ai(scene, &no_shot) ||
-            scene->live_foundation.play_state.stream_offset[receiver] !=
-                0x007DU ||
-            scene->live_foundation.play_state.actor_state[receiver] != 4U) {
-            LIVE_FAIL("LIVE CPU catch post-shot route loop failed");
+            LIVE_FAIL("LIVE CPU catch natural action-17 shot launch failed");
         }
         before = *scene;
         if (scene_begin_cpu_pass_from_action21(scene, passer) ||
@@ -2432,7 +2423,7 @@ static bool scene_test_live_foundation_regressions(
         /* Bank05 action $17 is a selected shot dispatcher, not an idle state.
            A source opcode-9 record that writes state 0/action $17 reaches the
            bounded native close-shot admission adapter in the same update;
-           the accepted phase-table assets remain source-exact. */
+           the accepted phase-table assets remain source-backed. */
         tecmo_gameplay_scene_test_set_skip_pretip(true);
         if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
             !scene_handoff_possession(
@@ -2494,15 +2485,14 @@ static bool scene_test_live_foundation_regressions(
             LIVE_FAIL("LIVE non-action-17 state changed shot ownership");
         }
 
-        /* Far/jump playback still lacks autonomous controller ownership.
-           Prove its shallow shot candidate is discarded transactionally and
-           the labeled state-4 recovery prevents a second frozen endpoint. */
+        /* A far selected-primary action $17 uses the same source-backed jump
+           geometry/profile/playback without borrowing Home's controller. */
         tecmo_gameplay_scene_test_set_skip_pretip(true);
         if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
             !scene_handoff_possession(
                 scene, TECMO_GAMEPLAY_TEAM_AWAY, passer) ||
             !scene_sync_live_foundation(scene)) {
-            LIVE_FAIL("LIVE action-17 fallback fixture rejected");
+            LIVE_FAIL("LIVE action-17 automatic jump fixture rejected");
         }
         tecmo_gameplay_scene_test_set_skip_pretip(false);
         scene->actors[passer].position.x = 320;
@@ -2513,27 +2503,83 @@ static bool scene_test_live_foundation_regressions(
         scene->live_foundation.play_state.stream_offset[passer] = 0x008CU;
         scene->live_foundation.last_step_offset[passer] = 0x008CU;
         if (!scene_attach_ball(scene)) {
-            LIVE_FAIL("LIVE action-17 fallback attachment rejected");
+            LIVE_FAIL("LIVE action-17 automatic jump attachment rejected");
         }
         before = *scene;
         memset(&no_shot, 0, sizeof(no_shot));
-        if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
-            !no_shot.deferred || no_shot.playback_supported ||
+        if (!scene_update_ai(scene, &no_shot) || !no_shot.requested ||
+            no_shot.deferred || !no_shot.playback_supported ||
             no_shot.actor_index != passer ||
-            scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
-            scene->shot_actor != before.shot_actor ||
-            scene->ball_holder != passer ||
-            scene->action_serial != before.action_serial ||
-            memcmp(scene->actors, before.actors, sizeof(scene->actors)) != 0 ||
-            memcmp(&scene->ball_position, &before.ball_position,
-                   sizeof(scene->ball_position)) != 0 ||
-            scene->live_foundation.play_state.actor_state[passer] != 4U ||
-            scene->live_foundation.play_state
-                    .action_state_046e[passer] != 0U ||
+            scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+            scene->shot_actor != passer ||
+            scene->shot_controller != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+            scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+            scene->action_serial != before.action_serial + 1U ||
+            !scene->jump_playback_active ||
             !scene->live_foundation.last_shot_request ||
-            !scene->live_foundation.last_shot_deferred ||
-            scene->live_foundation.last_shot_playback_supported) {
-            LIVE_FAIL("LIVE action-17 fallback was not transactional");
+            scene->live_foundation.last_shot_deferred ||
+            !scene->live_foundation.last_shot_playback_supported ||
+            !scene_ownership_valid(scene)) {
+            LIVE_FAIL("LIVE action-17 automatic jump dispatch failed");
+        }
+        /* A controllerless jump consumes no human B state. NULL playback
+           advances the same owned lifecycle and keeps the ball released. */
+        primary_stream_before = scene->shot_frame;
+        if (!scene_update_shot(scene, NULL) ||
+            scene->shot_frame != primary_stream_before + 1U ||
+            scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+            !scene_ownership_valid(scene)) {
+            LIVE_FAIL("LIVE action-17 automatic jump playback failed");
+        }
+        pass_updates = 1U;
+        while (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+               pass_updates < 160U) {
+            if (!scene_update_shot(scene, NULL)) {
+                LIVE_FAIL("LIVE action-17 automatic jump lifecycle rejected");
+            }
+            ++pass_updates;
+        }
+        if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+            scene->shot_actor != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+            scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
+            scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+            scene->actors[scene->ball_holder].team !=
+                TECMO_GAMEPLAY_TEAM_HOME ||
+            !scene_ownership_valid(scene)) {
+            LIVE_FAIL("LIVE action-17 automatic jump did not terminate possession");
+        }
+
+        /* The typed automatic entry rejects a human-owned offense without
+           mutating even one scene byte; public controller admission remains
+           the only human far/jump entry. */
+        tecmo_gameplay_scene_test_set_skip_pretip(true);
+        if (!tecmo_gameplay_scene_launch(scene, &bound) ||
+            !scene_handoff_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, passer) ||
+            !scene_attach_ball(scene)) {
+            LIVE_FAIL("LIVE action-17 human ownership fixture rejected");
+        }
+        tecmo_gameplay_scene_test_set_skip_pretip(false);
+        scene->actors[passer].position.x = 320;
+        scene->actors[passer].position.y = 144;
+        scene->actors[passer].anchor = scene->actors[passer].position;
+        if (!scene_attach_ball(scene)) {
+            LIVE_FAIL("LIVE action-17 human attachment rejected");
+        }
+        before = *scene;
+        if (scene_start_automatic_cpu_shot_actor(scene, passer) ||
+            memcmp(scene, &before, sizeof(before)) != 0) {
+            LIVE_FAIL("LIVE automatic shot weakened human admission");
+        }
+        if (scene_start_automatic_cpu_shot_actor(scene, captured_receiver) ||
+            memcmp(scene, &before, sizeof(before)) != 0) {
+            LIVE_FAIL("LIVE automatic nonholder shot was not transactional");
+        }
+        if (!scene_start_shot_actor(scene, 0U, passer) ||
+            scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+            scene->shot_controller != 0U ||
+            scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR) {
+            LIVE_FAIL("LIVE human jump admission changed");
         }
     }
 

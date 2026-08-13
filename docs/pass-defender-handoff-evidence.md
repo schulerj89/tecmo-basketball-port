@@ -77,10 +77,11 @@ typed scene clocks but approximates unowned `$007E` bit 1 as clear.
 If a later source opcode-9 record writes selected state 0/action `$17`, Bank05
 dispatches it through `$81F2-$822F->$8A6D->$8ACE` into shot initialization.
 The pointer dispatch is exact, while launch admission is a bounded native
-adapter because `$8ACE` reads unowned gates. LIVE reuses the existing
-source-backed close playback seam and exact phase-table assets. Unsupported autonomous far/jump
-playback recovers to state 4 and clears `$17` as a justified native adapter;
-it does not claim the original skips the shot lifecycle.
+adapter because `$8ACE` reads unowned `$0478/$0499/$007E` gates. LIVE reuses
+the existing source-backed close and TGJS/TGSR jump playback seams. A typed
+autonomous owner uses no human pad and carries far/jump playback through ball
+release and terminal possession. This does not claim exact admission,
+variant/outcome policy, or complete caller ordering.
 
 This change is bounded to Bank05 `$B24F-$B32B` and the selected-actor skip
 contract at Bank06 `$81F7-$82D3`.

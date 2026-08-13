@@ -296,6 +296,13 @@ uint8_t scene_shot_family_for_context(
 bool scene_start_shot_actor(TecmoGameplayScene *scene,
                             size_t controller,
                             uint8_t actor_index);
+/* Typed automatic-offense counterpart to the controller-owned entry above.
+   The caller must supply the current automatic possession holder; human-team
+   admission remains exclusively owned by scene_start_shot_actor. */
+bool scene_start_automatic_cpu_shot_actor(TecmoGameplayScene *scene,
+                                          uint8_t actor_index);
+bool scene_shot_controller_binding_valid(
+    const TecmoGameplayScene *scene);
 bool scene_start_shot(TecmoGameplayScene *scene, size_t controller);
 bool scene_handoff_possession(TecmoGameplayScene *scene,
                               TecmoGameplayTeam possession,

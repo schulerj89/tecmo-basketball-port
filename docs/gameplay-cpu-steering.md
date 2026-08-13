@@ -170,10 +170,11 @@ Selected-primary state 0/action `$17` is not neutral. Bank05
 `$8A6D->$8ACE`, the shot initializer. That pointer dispatch is exact, while
 launch admission is a bounded native adapter because `$8ACE` also consumes
 unowned `$0478/$0499/$007E`. LIVE transactionally reuses the existing
-source-backed close playback seam and exact phase-table assets. Autonomous far/jump playback still
-lacks controller-team ownership; that candidate is discarded and state 4 is
-restored with action `$17` cleared as an explicitly labeled native recovery
-adapter, preventing another inert selected-holder endpoint.
+source-backed close and TGJS/TGSR jump playback seams. A typed autonomous owner
+uses `NO_ACTOR` instead of borrowing a human pad; the public human entry retains
+its controller-team gate. This closes the far/jump ball-release and terminal-
+possession lifecycle without claiming exact `$8ACE` admission, variant policy,
+outcome policy, or complete 6502 caller ordering.
 
 ## Exact direction selection
 

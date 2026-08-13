@@ -1343,9 +1343,7 @@ bool scene_shot_state_valid(const TecmoGameplayScene *scene)
                  TECMO_GAMEPLAY_SHOT_SCHEDULE_NATIVE_APPROXIMATION &&
              scene->shot_schedule !=
                  TECMO_GAMEPLAY_SHOT_SCHEDULE_EXACT_THREE_POINT) ||
-            scene->shot_controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
-            scene->launch.controller_team[scene->shot_controller] !=
-                scene->actors[scene->shot_actor].team ||
+            !scene_shot_controller_binding_valid(scene) ||
             scene->predicted_make_route !=
                 (scene->shot_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE) ||
             (!scene->predicted_make_route && scene->shot_outcome !=

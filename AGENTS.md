@@ -1361,10 +1361,12 @@ in another state does not suppress that state's dispatch. Ordinary and inbound
 catches share this endpoint.
 Selected state 0/action `$17` is exact Bank05 shot dispatch, not idle:
 `$81F2-$822F->$8A6D->$8ACE`. Launch admission remains a bounded native adapter
-because `$8ACE` reads unowned gates; LIVE commits the existing source-backed close playback seam
-transactionally. Unsupported autonomous far/jump playback discards its
-candidate and applies a labeled state-4/action-clear recovery; do not describe
-that recovery as exact original shot behavior.
+because `$8ACE` reads unowned `$0478/$0499/$007E` gates. LIVE commits the
+existing source-backed close or TGJS/TGSR jump playback transactionally through
+a typed automatic owner; it never fabricates a human controller. Human launch
+admission remains controller-gated. The geometry/profile/phase assets are
+source-backed, but the automatic admission and complete shot policy are not
+exact original behavior.
 Raw `$030C/$030D` is not a
 valid zero-human/nonzero-automatic classifier; use typed controller ownership.
 

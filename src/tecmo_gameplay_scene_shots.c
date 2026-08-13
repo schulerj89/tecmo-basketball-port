@@ -105,6 +105,22 @@ static bool scene_shot_boundary_valid(const TecmoGameplayScene *scene)
         : scene_ownership_valid(scene);
 }
 
+bool scene_shot_controller_binding_valid(const TecmoGameplayScene *scene)
+{
+    TecmoGameplayTeam team;
+    if (scene == NULL || scene->shot_actor >=
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        return false;
+    }
+    team = (TecmoGameplayTeam)scene->actors[scene->shot_actor].team;
+    if (scene->shot_controller < TECMO_GAMEPLAY_CONTROLLER_COUNT) {
+        return scene->launch.controller_team[scene->shot_controller] == team;
+    }
+    return scene->shot_controller == TECMO_GAMEPLAY_SCENE_NO_ACTOR &&
+        scene_controller_for_team(scene, team) ==
+            TECMO_GAMEPLAY_CONTROLLER_COUNT;
+}
+
 void scene_shot_clear_jump_playback(TecmoGameplayScene *scene)
 {
     if (scene == NULL) return;
@@ -514,9 +530,15 @@ uint8_t scene_shot_family_for_context(
     return TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0;
 }
 
+typedef enum SceneShotLaunchOwner {
+    SCENE_SHOT_LAUNCH_HUMAN = 0,
+    SCENE_SHOT_LAUNCH_AUTOMATIC_CPU
+} SceneShotLaunchOwner;
+
 static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
                                             size_t controller,
-                                            uint8_t actor_index)
+                                            uint8_t actor_index,
+                                            SceneShotLaunchOwner owner)
 {
     TecmoGameplaySceneActor *actor;
     TecmoGameplayCourtCoordinate offensive_hoop;
@@ -548,7 +570,11 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
     uint16_t entry_pose;
     uint16_t initial_pose = 0U;
     bool predicted_make;
-    if (scene == NULL || controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
+    if (scene == NULL ||
+        (owner != SCENE_SHOT_LAUNCH_HUMAN &&
+         owner != SCENE_SHOT_LAUNCH_AUTOMATIC_CPU) ||
+        (owner == SCENE_SHOT_LAUNCH_HUMAN &&
+         controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT) ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
         actor_index >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         scene->actors[actor_index].team != scene->state.possession) {
@@ -749,12 +775,27 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
             return false;
         }
     } else {
-        if (scene->launch.controller_team[controller] != actor->team) {
-            return false;
+        if (owner == SCENE_SHOT_LAUNCH_HUMAN) {
+            if (scene->launch.controller_team[controller] != actor->team) {
+                return false;
+            }
+            scene->shot_controller = (uint8_t)controller;
+        } else {
+            /* Bank05 $81F2-$822F -> $8A6D -> $8ACE proves that selected
+               action $17 enters the same initializer without a human-pad
+               owner.  Admission is still a bounded native adapter because
+               raw $0478/$0499/$007E are not retained.  Reuse the existing
+               source-backed TGJS/TGSR playback with an explicit autonomous
+               owner instead of fabricating a controller assignment. */
+            if (scene_controller_for_team(
+                    scene, (TecmoGameplayTeam)actor->team) !=
+                TECMO_GAMEPLAY_CONTROLLER_COUNT) {
+                return false;
+            }
+            scene->shot_controller = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
         }
         scene->shot_kind = TECMO_GAMEPLAY_SCENE_SHOT_JUMP;
         memset(&close_info, 0, sizeof(close_info));
-        scene->shot_controller = (uint8_t)controller;
         scene->jump_family =
             (TecmoGameplayJumpShotFamily)jump_family;
         scene->jump_profile =
@@ -863,11 +904,38 @@ bool scene_start_shot_actor(TecmoGameplayScene *scene,
     if (scene == NULL) return false;
     candidate = *scene;
     if (!scene_shot_boundary_valid(&candidate)) return false;
-    if (!scene_start_shot_actor_mutating(&candidate, controller,
-                                         actor_index)) {
+    if (!scene_start_shot_actor_mutating(
+            &candidate, controller, actor_index,
+            SCENE_SHOT_LAUNCH_HUMAN)) {
         return false;
     }
     if (!scene_shot_boundary_valid(&candidate)) return false;
+    *scene = candidate;
+    return true;
+}
+
+bool scene_start_automatic_cpu_shot_actor(TecmoGameplayScene *scene,
+                                          uint8_t actor_index)
+{
+    TecmoGameplayScene candidate;
+    if (scene == NULL) return false;
+    candidate = *scene;
+    if (!scene_shot_boundary_valid(&candidate) ||
+        actor_index >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        candidate.ball_holder != actor_index ||
+        candidate.actors[actor_index].team != candidate.state.possession ||
+        scene_controller_for_team(
+            &candidate,
+            (TecmoGameplayTeam)candidate.actors[actor_index].team) !=
+            TECMO_GAMEPLAY_CONTROLLER_COUNT) {
+        return false;
+    }
+    if (!scene_start_shot_actor_mutating(
+            &candidate, TECMO_GAMEPLAY_CONTROLLER_COUNT, actor_index,
+            SCENE_SHOT_LAUNCH_AUTOMATIC_CPU) ||
+        !scene_shot_boundary_valid(&candidate)) {
+        return false;
+    }
     *scene = candidate;
     return true;
 }
@@ -1908,9 +1976,7 @@ static bool scene_update_jump_make_approx(
         scene->shot_duration != TECMO_GAMEPLAY_JUMP_APPROX_MAKE_DURATION ||
         scene->shot_frame == 0U || scene->shot_frame > scene->shot_duration ||
         scene->shot_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
-        scene->shot_controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
-        scene->launch.controller_team[scene->shot_controller] !=
-            scene->actors[scene->shot_actor].team) {
+        !scene_shot_controller_binding_valid(scene)) {
         return false;
     }
     actor = &scene->actors[scene->shot_actor];
@@ -2073,9 +2139,7 @@ static bool scene_update_jump_make(
             scene->jump_shots.constants.made_update_count) ||
         scene->shot_frame == 0U ||
         scene->shot_frame > scene->shot_duration ||
-        scene->shot_controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
-        scene->launch.controller_team[scene->shot_controller] !=
-            scene->actors[scene->shot_actor].team) {
+        !scene_shot_controller_binding_valid(scene)) {
         return false;
     }
     actor = &scene->actors[scene->shot_actor];
@@ -2250,9 +2314,7 @@ static bool scene_update_jump_miss_mutating(
                  : TECMO_GAMEPLAY_JUMP_SLOT0_DURATION) ||
         scene->shot_frame == 0U ||
         scene->shot_frame > scene->shot_duration ||
-        scene->shot_controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
-        scene->launch.controller_team[scene->shot_controller] !=
-            scene->actors[scene->shot_actor].team ||
+        !scene_shot_controller_binding_valid(scene) ||
         (!scene->jump_b_released &&
          scene->jump_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN) ||
         (scene->jump_b_released &&

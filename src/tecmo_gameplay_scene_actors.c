@@ -2508,8 +2508,9 @@ bool scene_update_ai(
            $8A6D, which restores the selected registers and jumps to the
            shot initializer at $8ACE. The pointer dispatch is exact; launch
            admission remains a bounded native adapter because $8ACE consumes
-           unowned $0478/$0499/$007E. Stage the existing source-backed close
-           playback seam on the complete candidate so acceptance is atomic. */
+           unowned $0478/$0499/$007E. Stage the typed automatic-shot seam on
+           the complete candidate so either close or jump playback commits
+           atomically without manufacturing a human controller. */
         if (candidate_foundation.play_state.actor_state[actor] == 0U &&
             candidate_foundation.play_state.action_state_046e[actor] ==
                 0x17U) {
@@ -2520,11 +2521,9 @@ bool scene_update_ai(
             candidate_foundation.last_shot_playback_supported = false;
             candidate_scene = *scene;
             candidate_scene.live_foundation = candidate_foundation;
-            shot_started = scene_start_shot_actor(
-                &candidate_scene, 0U, (uint8_t)actor);
-            if (shot_started &&
-                scene_shot_is_close(candidate_scene.shot_kind) &&
-                candidate_scene.shot_actor == actor) {
+            shot_started = scene_start_automatic_cpu_shot_actor(
+                &candidate_scene, (uint8_t)actor);
+            if (shot_started && candidate_scene.shot_actor == actor) {
                 candidate_scene.live_foundation.last_shot_request = true;
                 candidate_scene.live_foundation.last_shot_actor =
                     (uint8_t)actor;
@@ -2539,12 +2538,10 @@ bool scene_update_ai(
                 shot_request_out->deferred = false;
                 return true;
             }
-            /* shots.c currently requires controller-team state for the
-               ordinary far/jump playback reached from $8ACE. Discard any
-               shallow unsupported candidate and recover the selected holder
-               to Bank06 state 4 instead of preserving the inert state-0/$17
-               pair. This state-4 recovery is a justified native adapter,
-               not a claim that the original skips Bank05 shot playback. */
+            /* A malformed/unavailable shot dependency still fails closed.
+               Recover state 4 only after the complete automatic candidate is
+               rejected; this remains a justified native adapter rather than
+               a claim about the unowned $8ACE admission gates. */
             candidate_foundation.play_state.actor_state[actor] = 0x04U;
             candidate_foundation.play_state.action_state_046e[actor] = 0U;
             candidate_foundation.last_shot_deferred = true;

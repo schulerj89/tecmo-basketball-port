@@ -447,6 +447,8 @@ typedef struct TecmoGameplayScene {
     uint8_t jump_ball_state;
     uint8_t jump_phase_counter;
     uint8_t jump_pose_frame;
+    /* Human pad for controller-owned jumps, or NO_ACTOR for typed automatic
+       CPU playback. Close shots retain NO_ACTOR under both ownership modes. */
     uint8_t shot_controller;
     TecmoGameplayJumpShotFamily jump_family;
     TecmoGameplayJumpShotProfile jump_profile;
