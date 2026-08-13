@@ -292,11 +292,12 @@ int tecmo_cli_run_gameplay_core_commands(const TecmoCliContext *context)
     if (strcmp(command, "--gameplay-cpu-possession-proof") == 0) {
         const char *pack_path = index < argc ? argv[index++] : NULL;
         const char *trace_path = index < argc ? argv[index++] : NULL;
-        const char *mid_path = index < argc ? argv[index++] : NULL;
+        const char *second_possession_path = index < argc ? argv[index++] : NULL;
         const char *terminal_path = index < argc ? argv[index] : NULL;
         char message[2048];
         if (!tecmo_gameplay_cpu_possession_proof(
-                root, pack_path, trace_path, mid_path, terminal_path,
+                root, pack_path, trace_path, second_possession_path,
+                terminal_path,
                 message, sizeof(message))) {
             printf("CPU possession proof failed: %s\n", message);
             return 1;
