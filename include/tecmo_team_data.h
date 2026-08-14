@@ -114,16 +114,28 @@ typedef struct TecmoTeamDataPlayer {
     TecmoStartGameMenuCell portrait[TECMO_TEAM_DATA_PORTRAIT_CELL_COUNT];
 } TecmoTeamDataPlayer;
 
-/* A non-owning view of the native season accumulator.  TEAM DATA owns no
- * mutable statistics and must never infer them from the ROM-backed TTDT
- * player records.  The renderer only reads counters whose coverage bit is
- * present; callers may pass NULL for a truthful fresh-season zero row. */
+/* A non-owning view of the native season accumulator.  The renderer uses it
+ * only for mutable STL/BLK/REB/PTS fields.  Bank02's player-detail FG/FT/3PT
+ * values are static TTDT player attributes and do not read this source.
+ * Callers may pass NULL for a truthful fresh-season mutable zero row. */
 typedef struct TecmoTeamDataPlayerStatsSource {
     const TecmoPlayerStatsSeasonTotals *totals;
     const uint8_t *wins;
     const uint8_t *losses;
     uint16_t coverage;
 } TecmoTeamDataPlayerStatsSource;
+
+/* Fully formatted values used by both the renderer and structured CLI proof.
+ * No raw ROM-backed attribute byte is exposed through this boundary. */
+typedef struct TecmoTeamDataPlayerDetailPresentation {
+    char field_goals[6];
+    char free_throws[6];
+    char three_points[6];
+    char steals[4];
+    char blocks[4];
+    char rebounds[4];
+    char points[5];
+} TecmoTeamDataPlayerDetailPresentation;
 
 typedef struct TecmoTeamDataAsset {
     bool available;
@@ -271,6 +283,12 @@ bool tecmo_team_data_rank_leaders(
     TecmoTeamDataLeaderEntry *results,
     size_t result_capacity,
     size_t *result_count);
+bool tecmo_team_data_player_detail_presentation(
+    const TecmoTeamDataAsset *asset,
+    uint8_t team_id,
+    uint8_t player_index,
+    const TecmoTeamDataPlayerStatsSource *player_stats,
+    TecmoTeamDataPlayerDetailPresentation *presentation);
 bool tecmo_team_data_self_test(char *message, size_t message_size);
 
 /* Resolves fixed $DEAB-$DEDF's exact away/home gameplay uniform colors.

@@ -219,6 +219,42 @@ void tecmo_cli_print_render_diagnostics(
                        cursor_oam_x, cursor_oam_y,
                        cursor_oam_x,
                        cursor_oam_y >= 0 ? cursor_oam_y + 1 : -1);
+                if (runtime->team_data_state.phase ==
+                        TECMO_TEAM_DATA_PLAYER_DETAIL) {
+                    TecmoTeamDataPlayerStatsSource stats_source;
+                    TecmoTeamDataPlayerDetailPresentation presentation;
+                    memset(&stats_source, 0, sizeof(stats_source));
+                    stats_source.totals =
+                        &runtime->season_session.player_stats_totals;
+                    stats_source.wins = runtime->season_session.wins;
+                    stats_source.losses = runtime->season_session.losses;
+                    stats_source.coverage =
+                        runtime->season_session.player_stats_coverage;
+                    if (tecmo_team_data_player_detail_presentation(
+                            &runtime->team_data_asset,
+                            runtime->team_data_state.team_id,
+                            runtime->team_data_state.player_index,
+                            &stats_source, &presentation)) {
+                        const TecmoTeamDataTeam *team =
+                            &runtime->team_data_asset.teams[
+                                runtime->team_data_state.team_id];
+                        const TecmoTeamDataPlayer *player =
+                            &runtime->team_data_asset.players[
+                                runtime->team_data_state.team_id]
+                                [runtime->team_data_state.player_index];
+                        printf("team-data-detail team=%u player=%u city=\"%s\" nickname=\"%s\" name=\"%s\" fg=%s ft=%s three=%s stl=%s blk=%s reb=%s pts=%s\n",
+                               (unsigned)runtime->team_data_state.team_id,
+                               (unsigned)runtime->team_data_state.player_index,
+                               team->city, team->nickname, player->name,
+                               presentation.field_goals,
+                               presentation.free_throws,
+                               presentation.three_points,
+                               presentation.steals,
+                               presentation.blocks,
+                               presentation.rebounds,
+                               presentation.points);
+                    }
+                }
             }
             if (strncmp(mode_name, "season-", 7) == 0) {
                 printf("season-state phase=%s type=%s schedule=%u team=%u popup=%u popup-rows=%u playoff-scroll=%u page=%u panel=%u editor-team=%u leader=%u leader-result=%u game-results=%u/%u game-pending=%u launch-blocked=%u save=%u\n",

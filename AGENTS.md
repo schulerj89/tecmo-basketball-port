@@ -1595,9 +1595,34 @@ Escape and Tab are deliberately unbound. Player 2 retains numpad
 
 Roster rows follow Bank02 `$AE4C-$AE9C`: jersey numbers begin at nametable
 column 6 and names at column 9. Keep the native origins at x=48 and x=72.
-Static roster rating bytes are not season statistics; player detail therefore
-shows the fresh-season `.000/.000/.000` percentage row and zero totals until a
-strict mutable per-player stat source is ported.
+Bank02 `$AB83-$AB8F->$AE9D-$AECA` gives player detail hybrid ownership.
+FG/FT/3PT are static TTDT player attributes 4/5/6: each byte is multiplied by
+four as a 16-bit value, `$B07C` formats five decimal digits, and the original
+emits only the last three digits over the authored decimal point. They remain
+visible in a fresh season and do not read mutable shot counters. STL/BLK/REB
+and PTS retain the native per-player accumulator ownership and availability
+rules. All-Star detail uses the selected TTDT record for static shooting, while
+its canonical source-team/source-player mapping applies only to mutable totals.
+The authored decimal-point cells are `$21E0/$21E4/$21E8` (logical tile origins
+x=0/32/64, y=120); Bank02 writes digit cells `$21E1/$21E5/$21E9`, so native C
+draws only the three digits at x=8/40/72, y=120. `$AB91-$ABBE` then streams
+STL/BLK/REB through `$21EE-$21F9`; their blank-elided C strings right-align to
+x=144/176/208. PTS occupies `$21FA-$21FE` and right-aligns to x=248. All seven
+statistic values therefore share logical y=120.
+Bank02 updates only `$2006/$2007` for these values; the Bank00 `$877D`
+player-detail background continues to own their attribute-table palette. Native
+C must resolve each dynamic value cell through screen 2, producing the same
+orange as the authored decimal points while leaving the statistic labels white.
+`$AC32-$AC3C` writes tile `$81` at `$21FD`; the imported live font's `.` is
+that exact `$FA/$FA`-mapped tile, so a composite `draw_text` string remains
+source-exact. Diagnostics remain composite (`21.0`). Canonical screen-2
+attributes also give palette index 3 to player name, height, weight, position,
+and condition, so those dynamic fields use the same per-cell resolution.
+Height begins at `$20D6` (x=176,y=48) in `$AB4A-$AB7F`. Weight is the
+three-cell X=0 stream `$20F6-$20F8`; blank-elided native strings right-align to
+exclusive x=200 at y=56. Do not use the former fixed x=192 for either field.
+Position is independently fixed-left at `$2116` (x=176,y=64) by
+`$AB17-$AB31`; it shares the corrected physical left edge.
 
 TSAV-1 persists only season type, team control, team wins/losses, and schedule
 index. Entering GAME START may prepare the next ROM schedule matchup but must

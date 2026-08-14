@@ -21,7 +21,9 @@
     {
       "bank": 2,
       "cpu_address": "AA89",
-      "role": "player-detail/profile flow"
+      "role": "player-detail/profile flow",
+      "bounded_path": "AB83-AB8F -> AE9D-AECA",
+      "static_shooting": "attributes 4/5/6; unsigned 16-bit value * 4; display final three decimal digits"
     },
     {
       "bank": 3,
@@ -46,15 +48,57 @@
   ],
   "native_layout": {
     "renderer": "src/tecmo_team_data.c:draw_player_detail",
-    "value_y": 112,
+    "value_palette": {
+      "ownership": "Bank00 $877D player-detail screen attribute table",
+      "native_rule": "Bank02 updates $2006/$2007 nametable cells without replacing attribute bytes",
+      "renderer_rule": "resolve palette_index from screen 2 for every dynamic value cell",
+      "decoded_indices": {"value_row_15": 3, "label_row_13": 2},
+      "visual_contract": "all seven dynamic statistic values match the authored orange decimal points; statistic labels remain white"
+    },
+    "static_shooting": {
+      "digit_runs": [
+        {"field": "FG%", "ppu_cell": "21E1", "logical_origin": [8, 120]},
+        {"field": "FT%", "ppu_cell": "21E5", "logical_origin": [40, 120]},
+        {"field": "3PT%", "ppu_cell": "21E9", "logical_origin": [72, 120]}
+      ],
+      "authored_decimal_points": [
+        {"ppu_cell": "21E0", "tile_origin": [0, 120], "ink_x": 5},
+        {"ppu_cell": "21E4", "tile_origin": [32, 120], "ink_x": 37},
+        {"ppu_cell": "21E8", "tile_origin": [64, 120], "ink_x": 69}
+      ]
+    },
+    "mutable_statistics": {
+      "value_y": 120,
+      "integer_fields": [
+        {"field": "STL", "ppu_cells": "21EE-21F1", "logical_span": [112, 136], "string_right_edge": 144},
+        {"field": "BLK", "ppu_cells": "21F2-21F5", "logical_span": [144, 168], "string_right_edge": 176},
+        {"field": "REB", "ppu_cells": "21F6-21F9", "logical_span": [176, 200], "string_right_edge": 208}
+      ],
+      "points": {
+        "predecimal_ppu_cells": "21FA-21FC",
+        "decimal_point_ppu_cell": "21FD",
+        "decimal_point_tile": "81",
+        "fraction_ppu_cell": "21FE",
+        "logical_span": [208, 240],
+        "string_right_edge": 248
+      }
+    },
+    "other_dynamic_profile_text": {
+      "scope": "src/tecmo_team_data.c:draw_player_detail only; team profile and roster renderers unchanged",
+      "fields": ["player name", "height", "weight", "position", "condition"],
+      "disposition": "resolve per-cell palette from screen 2; canonical decoded destinations are palette index 3",
+      "height": {"source_path": "Bank02 $AB4A-$AB7F", "ppu_start": "20D6", "logical_origin": [176, 48], "alignment": "fixed left"},
+      "weight": {"source_path": "Bank02 $AB83->$AE9D X=0", "ppu_cells": "20F6-20F8", "logical_y": 56, "string_right_edge": 200},
+      "position": {"source_path": "Bank02 $AB17-$AB31", "ppu_start": "2116", "logical_origin": [176, 64], "alignment": "fixed left"}
+    },
     "columns": {
-      "fg_percent": 8,
-      "ft_percent": 48,
-      "three_point_percent": 88,
-      "steals": 136,
-      "blocks": 168,
-      "rebounds": 200,
-      "points_right_edge": 256
+      "fg_digit_start": 8,
+      "ft_digit_start": 40,
+      "three_point_digit_start": 72,
+      "steals_right_edge": 144,
+      "blocks_right_edge": 176,
+      "rebounds_right_edge": 208,
+      "points_right_edge": 248
     }
   },
   "cursor": {
@@ -76,20 +120,31 @@
     "visible_after_commit": "transition == NONE && cursor_delay > 0"
   },
   "statistics_ownership": {
-    "native_source": "TecmoSeasonSession.player_stats_totals",
-    "season_denominator": "TecmoSeasonSession.wins + losses for player.source_team",
-    "counter_order": ["FTA", "FGA", "THREE_PA", "FTM", "FGM", "THREE_PM"],
-    "supported_display_fields": ["FG%", "FT%", "3PT%", "PTS"],
-    "fresh_season": "all fields are known zero",
+    "static_shooting": {
+      "native_source": "selected TTDT TecmoTeamDataPlayer.attributes[4..6]",
+      "fields": ["FG%", "FT%", "3PT%"],
+      "encoding": "unsigned byte * 4 as a 16-bit value",
+      "formatting": "original emits the final three of five decimal digits to $21E1/$21E5/$21E9 after authored dot cells $21E0/$21E4/$21E8; native composite string is .xxx",
+      "fresh_season": "unchanged from the selected roster record",
+      "all_star": "uses the selected All-Star TTDT record"
+    },
+    "mutable_statistics": {
+      "native_source": "TecmoSeasonSession.player_stats_totals",
+      "identity": "player.source_team/player.source_player",
+      "season_denominator": "TecmoSeasonSession.wins + losses for player.source_team",
+      "counter_order": ["FTA", "FGA", "THREE_PA", "FTM", "FGM", "THREE_PM"],
+      "supported_display_fields": ["PTS"],
+      "fresh_season": "STL/BLK/REB/PTS are known zero"
+    },
     "after_play_without_live_counter": {
       "fields": ["STL", "BLK", "REB"],
       "display": "---"
     },
-    "forbidden_source": "ROM-backed TTDT player ratings/profile bytes are not mutable season statistics"
+    "forbidden_source": "mutable shot makes/attempts must not replace static FG/FT/3PT"
   },
-  "verification": {
+      "verification": {
     "numeric": "tecmo_team_data_self_test -> player_data_presentation_self_test",
     "visual": "tools/New-TeamDataPlayerDataProof.ps1",
-    "fixture": "team-data-player-detail-populated uses TecmoPlayerStatsGameLedger emitters plus tecmo_player_stats_merge_game"
+    "fixture": "fresh and conflicting-ledger modes prove static FG/FT/3PT identity while PTS remains mutable; Chicago team 3 zero-based roster index 1 (Michael Jordan) is an end-to-end second-player checkpoint"
   }
 }

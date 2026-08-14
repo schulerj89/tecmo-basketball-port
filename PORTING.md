@@ -1811,11 +1811,37 @@ For every area migrated to ROM-only native C:
 ## Roster and Season Cleanup Boundary
 
 Bank02 `$AE4C-$AE9C` writes each roster number at nametable column 6 and starts
-the name three columns later at `$2249/$2649`; native roster rows now use x=48
-and x=72. Player-detail percentages previously multiplied static rating bytes
-and presented them as statistics. That was not a valid ROM statistic source.
-Fresh TSAV state now renders ROM-style `.000` percentages and zero totals until
-the mutable per-player accumulator is ported.
+the name three columns later at `$2249/$2649`; native roster rows use x=48 and
+x=72. Player detail has a deliberate hybrid source contract. The small loop at
+`$AB83-$AB8F` passes TTDT player attributes 4/5/6 to `$AE9D-$AECA`; each byte
+is multiplied by four as a 16-bit value, `$B07C` formats five decimal digits,
+and only `$03AC-$03AE` are emitted over the authored decimal point. Native
+FG/FT/3PT therefore use those static TTDT fields even in a fresh season and
+retain the original final-three-digit rollover. Mutable STL/BLK/REB and PTS
+continue to use the per-player accumulator and its explicit availability.
+All-Star detail reads static shooting from the selected TTDT record; direct
+source-team/source-player mapping is used only for mutable totals.
+The screen descriptor authors decimal points in `$21E0/$21E4/$21E8` (logical
+tile origins x=0/32/64, y=120), while Bank02 sends the three digit runs to
+`$21E1/$21E5/$21E9` (x=8/40/72, y=120). Native rendering must not composite a
+second dot. `$AB91-$ABBE` continuously writes STL/BLK/REB at `$21EE-$21F9`;
+because native strings omit the source formatter's leading blanks, they
+right-align to exclusive x edges 144/176/208. PTS uses `$21FA-$21FC`, authored
+dot `$21FD`, and fractional digit `$21FE`, so its composite right edge is 248.
+All seven statistic values share y=120.
+Those Bank02 paths write nametable cells through `$2006/$2007` without writing
+attribute bytes. The imported Bank00 `$877D` player-detail screen therefore
+owns the palette: dynamic values use screen-2 per-cell palette resolution,
+matching the authored orange decimal points; the labels remain white.
+The imported live font maps `.` to the exact `$FA/$FA` tile `$81` written by
+`$AC32-$AC3C` at `$21FD`, so composite screen-owned text preserves PTS while
+structured diagnostics expose strings such as `21.0`. Canonical screen-2
+attributes also assign palette index 3 to the dynamic name, height, weight,
+position, and condition destinations; those fields use per-cell palette lookup.
+Height is a fixed-left stream from `$20D6` (x=176,y=48) in `$AB4A-$AB7F`.
+Weight uses the three cells `$20F6-$20F8`; since C omits formatter leading
+blanks, it right-aligns to exclusive x=200 at y=56.
+Position begins at `$2116` (x=176,y=64) in `$AB17-$AB31`, not x=192.
 
 GAME START now has an explicit two-step boundary. Preparing the next matchup
 resolves only the ROM schedule ordinal and teams and sets a pending result; it
