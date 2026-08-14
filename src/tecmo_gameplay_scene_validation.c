@@ -1628,6 +1628,7 @@ bool scene_ownership_valid(const TecmoGameplayScene *scene)
              : scene->free_throw_lineup_active) ||
         !scene_pass_state_valid(scene) ||
         !scene_inbound_state_valid(scene) ||
+        !scene_loose_ball_state_valid(scene) ||
         !tecmo_gameplay_scene_court_coordinates(
             scene, &coordinates)) {
         return false;
@@ -1636,6 +1637,7 @@ bool scene_ownership_valid(const TecmoGameplayScene *scene)
         !scene->legacy_direct_launch &&
         scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
         scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+        !scene->loose_ball_state.active &&
         !scene->live_foundation.first_sync_pending;
     memset(seen_starter, 0, sizeof(seen_starter));
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
@@ -1707,12 +1709,14 @@ bool scene_ownership_valid(const TecmoGameplayScene *scene)
     }
     if (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
         scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+        !scene->loose_ball_state.active &&
         (scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
          scene->actors[scene->ball_holder].team != scene->state.possession)) {
         return false;
     }
     if (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
-        scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
+        scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+        !scene->loose_ball_state.active) {
         for (controller = 0U;
              controller < TECMO_GAMEPLAY_CONTROLLER_COUNT; ++controller) {
             if (scene->launch.controller_team[controller] ==

@@ -940,6 +940,7 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
     scene->shot_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     scene_pass_clear(scene);
     scene_inbound_clear(scene);
+    scene_loose_ball_clear(scene);
     scene->close_shot_step = 0U;
     scene->close_shot_profile = TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0;
     scene->close_shot_direction = TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0;
@@ -1945,6 +1946,11 @@ static bool scene_update_live_action_ordered(
         }
         *jump_miss_settled_out = terminal_jump_miss &&
             scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE;
+    } else if (scene->loose_ball_state.active) {
+        if (!scene_update_loose_ball(scene, controls)) {
+            scene_set_status(scene, "loose-ball claimant update rejected");
+            return false;
+        }
     } else if (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE) {
         for (controller = 0U;
              controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
@@ -2199,7 +2205,8 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
     scene_pad_from_controls(&input.controllers[0], player_one);
     scene_pad_from_controls(&input.controllers[1], player_two);
     tecmo_gameplay_live_context_default(&live_context);
-    if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
+    if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        scene->loose_ball_state.active) {
         live_context.period_expiry =
             TECMO_GAMEPLAY_EXPIRY_ALLOWED_LIVE_ACTION;
         live_context.shot_clock_violation_exempt = true;
@@ -2368,6 +2375,7 @@ void tecmo_gameplay_scene_end(TecmoGameplayScene *scene)
     scene->result_ready = false;
     scene->shot_kind = TECMO_GAMEPLAY_SCENE_SHOT_NONE;
     scene->shot_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    scene_loose_ball_clear(scene);
     scene->close_shot_step = 0U;
     scene->free_throw_frame = 0U;
     memset(&scene->foul_presentation, 0,

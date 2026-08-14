@@ -1109,6 +1109,7 @@ static bool scene_handoff_possession_impl(TecmoGameplayScene *scene,
     }
     scene->ball_position = candidate_ball;
     scene->backcourt_state = backcourt_reset;
+    scene_loose_ball_clear(scene);
     return true;
 }
 
@@ -1199,39 +1200,89 @@ static bool scene_handoff_miss_claimant(
     return scene_handoff_claimant_settlement(scene, possession, claimant);
 }
 
-static bool scene_shot_team_has_controller(
-    const TecmoGameplayScene *scene,
-    TecmoGameplayTeam team)
+void scene_loose_ball_clear(TecmoGameplayScene *scene)
 {
-    size_t controller;
-    if (scene == NULL || team >= TECMO_GAMEPLAY_TEAM_COUNT) return false;
-    for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
-         ++controller) {
-        if (scene->launch.controller_team[controller] == (uint8_t)team) {
-            return true;
-        }
-    }
-    return false;
+    if (scene == NULL) return;
+    memset(&scene->loose_ball_state, 0, sizeof(scene->loose_ball_state));
+    scene->loose_ball_state.shooting_team = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    scene->loose_ball_state.chase_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
 }
 
-static bool scene_handoff_miss_compatibility(
-    TecmoGameplayScene *scene,
-    TecmoGameplayTeam possession,
-    uint8_t claimant)
+bool scene_loose_ball_state_valid(const TecmoGameplayScene *scene)
+{
+    size_t controller;
+    if (scene == NULL) return false;
+    if (!scene->loose_ball_state.active) {
+        return scene->loose_ball_state.shooting_team ==
+                   TECMO_GAMEPLAY_SCENE_NO_TEAM &&
+               scene->loose_ball_state.chase_actor ==
+                   TECMO_GAMEPLAY_SCENE_NO_ACTOR &&
+               scene->loose_ball_state.reserved == 0U;
+    }
+    if ((scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE &&
+         scene->state.phase !=
+             TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE) ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+        scene->loose_ball_state.shooting_team >=
+            TECMO_GAMEPLAY_TEAM_COUNT ||
+        scene->state.possession !=
+            (TecmoGameplayTeam)scene->loose_ball_state.shooting_team ||
+        scene->loose_ball_state.chase_actor >=
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        !scene->actors[scene->loose_ball_state.chase_actor].active ||
+        scene->jump_ball_altitude_q8 != 0U ||
+        scene->loose_ball_state.reserved != 0U ||
+        scene_pass_active(scene) || scene_inbound_active(scene) ||
+        !tecmo_gameplay_court_coordinate_q8_valid(&scene->ball_position)) {
+        return false;
+    }
+    for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
+         ++controller) {
+        if (scene->controlled_actor[controller] ==
+            scene->loose_ball_state.chase_actor) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool scene_begin_loose_ball(
+    TecmoGameplayScene *scene, TecmoGameplayTeam shooting_team)
 {
     TecmoGameplayScene candidate;
-    if (scene == NULL) return false;
+    uint8_t actor;
+    size_t controller;
+    bool controlled;
+    if (scene == NULL || shooting_team >= TECMO_GAMEPLAY_TEAM_COUNT ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.possession != shooting_team ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+        scene->jump_ball_altitude_q8 != 0U ||
+        !tecmo_gameplay_court_coordinate_q8_valid(&scene->ball_position)) {
+        return false;
+    }
     candidate = *scene;
-    if (!scene_handoff_possession(&candidate, possession, claimant) ||
-        !scene_sync_live_foundation(&candidate)) {
-        return false;
+    scene_loose_ball_clear(&candidate);
+    candidate.loose_ball_state.active = true;
+    candidate.loose_ball_state.shooting_team = (uint8_t)shooting_team;
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        if (!candidate.actors[actor].active) continue;
+        controlled = false;
+        for (controller = 0U;
+             controller < TECMO_GAMEPLAY_CONTROLLER_COUNT; ++controller) {
+            if (candidate.controlled_actor[controller] == actor) {
+                controlled = true;
+                break;
+            }
+        }
+        if (!controlled) {
+            candidate.loose_ball_state.chase_actor = actor;
+            break;
+        }
     }
-    if (!scene_shot_team_has_controller(&candidate, possession) &&
-        !tecmo_gameplay_live_foundation_normalize_automatic_primary(
-            &candidate.cpu_steering_assets, claimant,
-            &candidate.live_foundation)) {
-        return false;
-    }
+    if (!scene_loose_ball_state_valid(&candidate)) return false;
     *scene = candidate;
     return true;
 }
@@ -1362,6 +1413,79 @@ static bool scene_select_shot_claimant(
     return false;
 }
 
+bool scene_update_loose_ball(
+    TecmoGameplayScene *scene,
+    const TecmoControlFrame *controls[TECMO_GAMEPLAY_CONTROLLER_COUNT])
+{
+    TecmoGameplayScene candidate;
+    TecmoGameplayShotClaimantTeamRelation relation;
+    TecmoGameplayShotSettlementDecision decision;
+    TecmoGameplayTeam possession;
+    uint8_t claimant;
+    size_t controller;
+    if (scene == NULL || controls == NULL ||
+        !scene_loose_ball_state_valid(scene)) {
+        return false;
+    }
+    candidate = *scene;
+    if (candidate.state.phase ==
+            TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE) {
+        uint8_t retained_primary = candidate.live_foundation.primary_actor;
+        TecmoGameplayTeam retained_team = (TecmoGameplayTeam)
+            candidate.loose_ball_state.shooting_team;
+        /* Period-expiry shot settlement already retains the current side and
+           emits no claimant transaction. If zero arrives during this bounded
+           pending phase, end it through that same typed scene policy rather
+           than calling B87C after gameplay_reset_possession has closed. */
+        if (retained_primary >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+            candidate.actors[retained_primary].team !=
+                (uint8_t)retained_team) {
+            return false;
+        }
+        scene_loose_ball_clear(&candidate);
+        if (!scene_handoff_possession(
+                &candidate, retained_team, retained_primary) ||
+            !scene_loose_ball_state_valid(&candidate)) {
+            return false;
+        }
+        *scene = candidate;
+        return true;
+    }
+    /* Fixed $F031/$F034 selected movement precedes the slot-10 $A214
+       dispatcher. Preserve controller movement first; the extra autonomous
+       chase below is only a bounded substitute for the still-missing actor
+       scheduler, not a claim about either fixed-bank call. */
+    for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
+         ++controller) {
+        if (!scene_move_controlled_actor(
+                &candidate, controller, controls[controller])) {
+            return false;
+        }
+    }
+    if (!scene_move_actor_toward_loose_ball(
+            &candidate, candidate.loose_ball_state.chase_actor)) {
+        return false;
+    }
+    possession = (TecmoGameplayTeam)candidate.loose_ball_state.shooting_team;
+    if (!scene_select_shot_claimant(
+            &candidate, possession, &claimant, &relation, &decision)) {
+        if (!scene_loose_ball_state_valid(&candidate)) return false;
+        *scene = candidate;
+        return true;
+    }
+    possession = relation == TECMO_GAMEPLAY_SHOT_CLAIMANT_OTHER_TEAM
+        ? scene_other_team(possession) : possession;
+    scene_loose_ball_clear(&candidate);
+    if (!scene_handoff_claimant_settlement(
+            &candidate, possession, claimant) ||
+        !scene_sync_live_foundation(&candidate) ||
+        !scene_loose_ball_state_valid(&candidate)) {
+        return false;
+    }
+    *scene = candidate;
+    return true;
+}
+
 static bool scene_finish_shot(TecmoGameplayScene *scene,
                               TecmoGameplaySceneActor *actor,
     TecmoGameplayTeam shooting_team,
@@ -1449,12 +1573,12 @@ static bool scene_finish_shot(TecmoGameplayScene *scene,
                 ? next_team : shooting_team,
             claimant);
     }
-    /* A normal court can finish the ball route before any actor enters the
-       strict $B73E-$B87C claimant envelope.  The C scene has no loose-ball
-       object scheduler yet, so keep that unproven case playable with the
-       existing generic opposing-team handoff.  This deliberately emits no
-       B87C claimant settlement event and is not rebound/steal parity. */
-    return scene_handoff_miss_compatibility(scene, next_team, claimant);
+    /* In the ordinary admitted context, Bank05 $A214->$B6E5 retains slot-10
+       state $10 and the no-claim path retries the ascending claimant scan.
+       Preserve the terminal grounded ball/no-holder state instead of
+       manufacturing a claimant. Earlier $BA/$0499 cancellation gates, full
+       B7C1 physics, and airborne state $11 remain outside this bounded slice. */
+    return scene_begin_loose_ball(scene, shooting_team);
 }
 
 static bool scene_finish_jump_miss(TecmoGameplayScene *scene,
@@ -1514,9 +1638,7 @@ static bool scene_finish_jump_miss(TecmoGameplayScene *scene,
                 ? next_team : shooting_team,
             claimant);
     }
-    /* See scene_finish_shot(): no strict claimant means a documented generic
-       compatibility handoff, not a fabricated $B87C settlement. */
-    return scene_handoff_miss_compatibility(scene, next_team, claimant);
+    return scene_begin_loose_ball(scene, shooting_team);
 }
 
 static int32_t scene_lerp_q8(int32_t start, int32_t end,

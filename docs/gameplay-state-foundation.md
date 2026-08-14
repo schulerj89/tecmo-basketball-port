@@ -122,14 +122,25 @@ tail are not claimed. Close makes, supported jump makes, and final free throws
 stage this transition together with inbound setup transactionally. Period-
 expiry branches remain separate.
 
-If a normal miss ends without a source-qualified claimant, the existing
-compatibility handoff still emits no `$B87C` claimant trace. Static source shows
-no closed selected-primary promotion that retains an ordinary formation
-cursor, so an automatic promoted holder is normalized to the source-valid
-`$007D`, state 4, action `$18` tuple while stale wait/route/target/defer metadata
-is cleared. This is a justified playability approximation, not claimant,
-rebound, steal, or exact `$B87C` parity. Human-controlled holders retain the
-controller-owned endpoint.
+If a normal miss ends without a source-qualified claimant, the scene now
+retains a grounded loose ball with no holder. Bank05 `$A214-$A225` dispatches
+slot-10 state `$10` to `$B6E5`. In the ordinary admitted context modeled here,
+the no-claim path through `$B6E5-$B773` retains that state and retries the
+ascending `$B73E-$B87B` scan. C reruns the existing exact TGSR envelope and
+enters the typed `$B87C` transaction only after that scan succeeds. No claimant
+trace or possession change is emitted while the ball is pending. The earlier
+`$BA/$0499` cancellation gate and other unowned admissions are not generalized.
+
+The complete `$B7C1` ball physics, airborne state `$11`, and native actor
+scheduler are not yet owned. C therefore freezes the already grounded terminal
+ball and moves one deterministic active, non-controlled actor toward it using
+the exact pure direction/TGMO kernels under adapter-owned ordinary inputs.
+Human-selected actors retain their normal input movement before the scan. The
+chase selection/cadence is a class-3 playability adapter, not rebound, steal,
+nearest-player, B081, or exact `$B73E` motion parity. Shot-clock expiry is held
+off as it is during an active shot. If period zero arrives first, the existing
+period-expiry policy retains the shooting side/primary and emits no claimant
+trace; it does not force a late `$B87C` transaction through the closed clock.
 
 ### B87C claimant-settlement bridge
 
@@ -145,9 +156,10 @@ fingerprinted as `E903D8F9`. The claimant candidate arrives through `$9C`; the
 preceding `$B73E-$B87B` scan (FNV-1a32 `574FEE44`) is evidence for the bounded
 claimant-selection context, not a general possession predicate.
 
-The bridge is entered only after the native scene's existing terminal **miss**
-claimant selector has chosen an active claimant in `scene_finish_shot()` or
-`scene_finish_jump_miss()`.  It is intentionally absent from generic
+The bridge is entered only after the native scene's terminal or recurring
+**miss** claimant selector has chosen an active claimant. The recurring path
+preserves Bank05's scan-before-`$B87C` invariant without claiming the omitted
+slot-10 physics scheduler. It is intentionally absent from generic
 possession handoff, made baskets, period/restart handling, tip-off handoff,
 steals, fouls, and unproven recovery paths.  This is a bounded C scene mapping,
 not a claim that every original `$BA56` caller or collision condition has been
@@ -602,22 +614,22 @@ ROM launch solver; its captured endpoint uses TGOR X and the proven launch Y
 The ordinary-jump gate still uses an explicitly native deterministic policy.
 Its predicted-miss branch stores UNKNOWN at frame 1; current-B release at
 frame 2 passes TGJS's bit-7-set outcome flag through TGSR and requires MISS.
-At frame 87 the normal route requires TGSR's non-current, OTHER_TEAM claimant
-decision, awards zero points, queues crowd 11 followed by clock-gated side
-result 12/13, and gives possession to an explicitly approximate opposing
-actor. A simultaneous period expiry queues only crowd 11 and retains the
-current side. Outcome state clears after settlement and no rebound/block/steal
-stat event is synthesized.
+At frame 87 the normal route requires TGSR's claimant decision, awards zero
+points, and queues crowd 11 followed by the clock-gated side result 12/13.
+When nobody qualifies, possession remains with the shooting side semantically
+while the grounded ball has no physical holder; settlement occurs later through
+the same SAME_TEAM/OTHER_TEAM decision. A simultaneous period expiry queues
+only crowd 11 and retains the current side. Outcome state clears after the
+shot terminal and no rebound/block/steal stat event is synthesized.
 
 Family selection no longer invents the missing Bank05 `$006A` predicate from
 a stable hash. `$8B12` proves the reset value is family 0; `$8B83-$8BC8` can
 select family 1 only after its complete hoop/defender/side/raw-state gate. The
 scene therefore keeps production on family 0 until that raw owner is retained.
 When a miss route ends with no actor inside the strict claimant envelope, the
-native scene uses its compatibility opposing-team handoff instead of rejecting
-the update. That path emits no B87C claimant trace and does not claim a rebound,
-steal, or source-exact claimant; automatic promoted holders receive only the
-bounded selected-stream normalization described above.
+native scene retains the loose ball and retries the exact scan on later updates.
+It emits no `$B87C` trace until qualification. The deterministic actor chase is
+only the bounded scheduler adapter described above.
 
 TGSR-4 adds a separate deterministic diagnostic for the proven state-`$15`
 prefix without changing the normal frame-87 miss. Its canonical source uses

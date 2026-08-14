@@ -2543,12 +2543,11 @@ static bool scene_test_live_foundation_regressions(
         }
         if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
             scene->shot_actor != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
-            scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
-            scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
-            scene->actors[scene->ball_holder].team !=
-                TECMO_GAMEPLAY_TEAM_HOME ||
+            scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+            scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+            !scene->loose_ball_state.active ||
             !scene_ownership_valid(scene)) {
-            LIVE_FAIL("LIVE action-17 automatic jump did not terminate possession");
+            LIVE_FAIL("LIVE action-17 automatic jump did not retain loose ball");
         }
 
         /* The typed automatic entry rejects a human-owned offense without
@@ -7820,16 +7819,27 @@ static bool scene_test_production_terminal_scenarios(
     }
 
     /* A normal jump miss may finish with every actor outside the strict
-       $B73E-$B87C claimant envelope.  That used to reject the scene update and
-       made the desktop appear frozen.  Exercise the documented native
-       compatibility handoff without moving a claimant onto the endpoint or
-       emitting a source-shaped claimant event. */
+       $B73E-$B87C claimant envelope. Retain the grounded ball with no owner,
+       prove that the class-3 chase visibly moves through legal TGMO states,
+       and emit exactly one source-shaped event only after the exact scan
+       admits a claimant. */
     {
         TecmoGameplayTeam fallback_shooting_team = TECMO_GAMEPLAY_TEAM_AWAY;
         TecmoGameplayTeam fallback_next_team = TECMO_GAMEPLAY_TEAM_HOME;
-        uint8_t fallback_holder = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+        const TecmoControlFrame *loose_controls[
+            TECMO_GAMEPLAY_CONTROLLER_COUNT] = {&neutral, &neutral};
+        TecmoControlFrame chase_control[TECMO_GAMEPLAY_CONTROLLER_COUNT];
+        const TecmoControlFrame *chase_control_ptr[
+            TECMO_GAMEPLAY_CONTROLLER_COUNT];
+        TecmoGameplayCourtCoordinate chase_start;
+        TecmoGameplayCourtCoordinate controlled_start;
+        uint8_t chase_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+        uint8_t controlled_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+        size_t controlled_pad = TECMO_GAMEPLAY_CONTROLLER_COUNT;
+        uint8_t expected_team = TECMO_GAMEPLAY_SCENE_NO_TEAM;
         uint32_t fallback_serial = 0U;
         unsigned fallback_updates = 0U;
+        bool chase_moved = false;
         bool fallback_found = false;
         for (unsigned team = 0U; team < TECMO_GAMEPLAY_TEAM_COUNT &&
                  !fallback_found; ++team) {
@@ -7859,7 +7869,6 @@ static bool scene_test_production_terminal_scenarios(
         fallback_shooting_team =
             (TecmoGameplayTeam)scene->actors[scene->shot_actor].team;
         fallback_next_team = scene_other_team(fallback_shooting_team);
-        fallback_holder = scene_first_actor_for_team(fallback_next_team);
         fallback_serial = scene->claimant_settlement_trace.event_serial;
         for (uint8_t actor = 0U;
              actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
@@ -7868,7 +7877,7 @@ static bool scene_test_production_terminal_scenarios(
             scene->actors[actor].anchor = scene->actors[actor].position;
         }
         if (!scene_test_prepare_terminal_holder(
-                scene, fallback_holder, true)) {
+                scene, scene_first_actor_for_team(fallback_next_team), true)) {
             scene_test_terminal_failure = 261U;
             tecmo_gameplay_scene_end(scene);
             return false;
@@ -7884,12 +7893,168 @@ static bool scene_test_production_terminal_scenarios(
             ++fallback_updates;
         }
         if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
-            scene->state.possession != fallback_next_team ||
-            scene->ball_holder != fallback_holder ||
+            scene->state.possession != fallback_shooting_team ||
+            scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+            !scene->loose_ball_state.active ||
             scene->claimant_settlement_trace.event_serial != fallback_serial ||
             !scene_shot_state_valid(scene) || !scene_ownership_valid(scene)) {
             scene_test_terminal_failure = 263U;
             scene_test_terminal_detail = fallback_updates;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        for (unsigned relation_case = 0U; relation_case < 2U;
+             ++relation_case) {
+            TecmoGameplayTeam claimant_team = relation_case == 0U
+                ? fallback_shooting_team : fallback_next_team;
+            uint8_t claimant_actor = scene_first_actor_for_team(claimant_team);
+            malformed = *scene;
+            malformed.actors[claimant_actor].position.x = (int16_t)(
+                malformed.ball_position.x_q8 / 256);
+            malformed.actors[claimant_actor].position.y = (int16_t)(
+                malformed.ball_position.y_q8 / 256);
+            malformed.actors[claimant_actor].anchor =
+                malformed.actors[claimant_actor].position;
+            if (!scene_update_loose_ball(&malformed, loose_controls) ||
+                malformed.loose_ball_state.active ||
+                malformed.ball_holder != claimant_actor ||
+                malformed.state.possession != claimant_team ||
+                malformed.claimant_settlement_trace.event_serial !=
+                    fallback_serial + 1U ||
+                !scene_ownership_valid(&malformed)) {
+                scene_test_terminal_failure = 271U + relation_case;
+                tecmo_gameplay_scene_end(scene);
+                return false;
+            }
+        }
+        malformed = *scene;
+        malformed.state.clock_minutes = 0U;
+        malformed.state.clock_seconds = 1U;
+        malformed.state.clock_divider = 1U;
+        if (!tecmo_gameplay_scene_update(
+                &malformed, &neutral, &neutral) ||
+            malformed.state.phase !=
+                TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE ||
+            malformed.loose_ball_state.active ||
+            malformed.ball_holder !=
+                scene->live_foundation.primary_actor ||
+            malformed.state.possession != fallback_shooting_team ||
+            malformed.claimant_settlement_trace.event_serial !=
+                fallback_serial ||
+            !scene_ownership_valid(&malformed)) {
+            scene_test_terminal_failure = 264U;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        chase_actor = scene->loose_ball_state.chase_actor;
+        for (size_t controller = 0U;
+             controller < TECMO_GAMEPLAY_CONTROLLER_COUNT; ++controller) {
+            if (scene->controlled_actor[controller] <
+                    TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+                controlled_pad = controller;
+                controlled_actor = scene->controlled_actor[controller];
+                break;
+            }
+        }
+        if (chase_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+            controlled_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+            chase_actor == controlled_actor) {
+            scene_test_terminal_failure = 269U;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        malformed = *scene;
+        memset(chase_control, 0, sizeof(chase_control));
+        chase_control_ptr[0U] = &chase_control[0U];
+        chase_control_ptr[1U] = &chase_control[1U];
+        malformed.actors[controlled_actor].position.x = (int16_t)(
+            malformed.ball_position.x_q8 / 256 + 30);
+        malformed.actors[controlled_actor].position.y = (int16_t)(
+            malformed.ball_position.y_q8 / 256);
+        if (!scene_actor_world_position_valid(
+                &malformed.actors[controlled_actor])) {
+            malformed.actors[controlled_actor].position.x = (int16_t)(
+                malformed.ball_position.x_q8 / 256 - 30);
+            chase_control[controlled_pad].held.right = true;
+        } else {
+            chase_control[controlled_pad].held.left = true;
+        }
+        malformed.actors[controlled_actor].anchor =
+            malformed.actors[controlled_actor].position;
+        controlled_start = malformed.actors[controlled_actor].position;
+        if (!scene_update_loose_ball(&malformed, chase_control_ptr) ||
+            !scene_update_loose_ball(&malformed, chase_control_ptr) ||
+            !scene_update_loose_ball(&malformed, chase_control_ptr) ||
+            !scene_update_loose_ball(&malformed, chase_control_ptr) ||
+            malformed.actors[controlled_actor].position.x ==
+                controlled_start.x ||
+            !malformed.loose_ball_state.active ||
+            malformed.claimant_settlement_trace.event_serial !=
+                fallback_serial) {
+            scene_test_terminal_failure = 270U;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        expected_team = scene->actors[chase_actor].team;
+        scene->actors[chase_actor].position.x = (int16_t)(
+            scene->ball_position.x_q8 / 256 + 12);
+        scene->actors[chase_actor].position.y = (int16_t)(
+            scene->ball_position.y_q8 / 256);
+        if (!scene_actor_world_position_valid(&scene->actors[chase_actor])) {
+            scene->actors[chase_actor].position.x = (int16_t)(
+                scene->ball_position.x_q8 / 256 - 12);
+        }
+        scene->actors[chase_actor].anchor =
+            scene->actors[chase_actor].position;
+        chase_start = scene->actors[chase_actor].position;
+        malformed = *scene;
+        malformed.actors[chase_actor].movement_action_state = 0xFFU;
+        snapshot = malformed;
+        if (scene_update_loose_ball(&malformed, loose_controls) ||
+            memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+            scene_test_terminal_failure = 265U;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        for (guard = 0U; guard < 32U &&
+             scene->loose_ball_state.active; ++guard) {
+            if (!scene_update_loose_ball(scene, loose_controls)) {
+                scene_test_terminal_failure = 266U;
+                scene_test_terminal_detail = guard;
+                tecmo_gameplay_scene_end(scene);
+                return false;
+            }
+            chase_moved = chase_moved ||
+                scene->actors[chase_actor].position.x != chase_start.x ||
+                scene->actors[chase_actor].position.y != chase_start.y;
+            if (scene->loose_ball_state.active &&
+                scene->claimant_settlement_trace.event_serial !=
+                    fallback_serial) {
+                scene_test_terminal_failure = 267U;
+                tecmo_gameplay_scene_end(scene);
+                return false;
+            }
+        }
+        if (scene->loose_ball_state.active || !chase_moved ||
+            scene->ball_holder != chase_actor ||
+            scene->state.possession != (TecmoGameplayTeam)expected_team ||
+            scene->claimant_settlement_trace.event_serial !=
+                fallback_serial + 1U ||
+            !scene->claimant_settlement_trace.valid ||
+            !scene_loose_ball_state_valid(scene) ||
+            !scene_ownership_valid(scene)) {
+            scene_test_terminal_failure = 268U;
+            scene_test_terminal_detail = guard |
+                (scene->loose_ball_state.active ? 0x0100U : 0U) |
+                (!chase_moved ? 0x0200U : 0U) |
+                (scene->ball_holder != chase_actor ? 0x0400U : 0U) |
+                (scene->state.possession != (TecmoGameplayTeam)expected_team
+                     ? 0x0800U : 0U) |
+                (scene->claimant_settlement_trace.event_serial !=
+                     fallback_serial + 1U ? 0x1000U : 0U) |
+                (!scene->claimant_settlement_trace.valid ? 0x2000U : 0U) |
+                (!scene_loose_ball_state_valid(scene) ? 0x4000U : 0U) |
+                (!scene_ownership_valid(scene) ? 0x8000U : 0U);
             tecmo_gameplay_scene_end(scene);
             return false;
         }
@@ -8206,7 +8371,6 @@ static bool scene_test_close_rattle_claimant_cases(
     TecmoGameplayScene corrupted;
     TecmoGameplayCourtCoordinate endpoint;
     unsigned update;
-    unsigned expected_repeats;
     scene_test_claimant_failure = 0U;
     memset(&neutral, 0, sizeof(neutral));
 
@@ -8357,11 +8521,25 @@ static bool scene_test_close_rattle_claimant_cases(
         }
     }
     before_late_failure = *scene;
-    expected_repeats = scene->jump_rim_rattle_audio_repeats;
-    if (scene_update_shot(scene, &neutral) ||
-        memcmp(scene, &before_late_failure, sizeof(*scene)) != 0 ||
-        scene->jump_rim_rattle_audio_repeats != expected_repeats) {
+    if (!scene_update_shot(scene, &neutral)) {
         scene_test_claimant_failure = 43U;
+        return false;
+    }
+    if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        !scene->loose_ball_state.active ||
+        scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+        scene->state.possession != before_late_failure.state.possession ||
+        scene->claimant_settlement_trace.event_serial !=
+            before_late_failure.claimant_settlement_trace.event_serial ||
+        scene->jump_rim_rattle_audio_repeats != 0U ||
+        !scene_ownership_valid(scene)) {
+        scene_test_claimant_failure = 53U;
+        return false;
+    }
+    before_late_failure = *scene;
+    if (scene_update_shot(scene, &neutral) ||
+        memcmp(scene, &before_late_failure, sizeof(*scene)) != 0) {
+        scene_test_claimant_failure = 44U;
         return false;
     }
     tecmo_gameplay_scene_end(scene);

@@ -764,10 +764,11 @@ timeline, and do not add ASM/capture files as runtime inputs.
 For live ordinary shots, Bank05 `$8B12` proves family 0 as the reset state;
 family 1 remains unavailable until `$8B83-$8BC8`'s full hoop, defender,
 defender-side, and raw `$006A<$9C` gate has a retained native owner. Never
-substitute a stable/frame hash for that raw gate. A terminal miss with no actor
-inside the strict claimant envelope may use the explicitly native generic
-opposing-team handoff so play does not freeze, but it must not emit a B87C
-claimant trace or be labeled rebound/steal parity. A TGJS-owned shot pose clears
+substitute a stable/frame hash for that raw gate. In the ordinary admitted
+loose-ball context modeled by C, a terminal miss with no actor inside the strict
+claimant envelope retains a grounded ball/no-holder phase and retries the exact
+scan. It must not emit a B87C claimant trace before qualification or be labeled
+rebound/steal parity. A TGJS-owned shot pose clears
 the retained pre-tip orientation-encoded flag before rendering its launch-facing
 mirror.
 
@@ -1367,10 +1368,14 @@ typed scored-settlement boundary and projects the accepted Bank05
 `$04B0` bit-$10 mirrors before Bank07 reaches `$9621`. The scene stages that
 typed transition with immediate inbound setup; it must not expose ordinary AI
 between score and catch or preserve an ordinary aggregation cursor on the new
-primary. The full `$9621-$985C` tail remains incomplete. A no-source miss
-fallback is not `$B87C`: automatic holders use a labeled `$007D`/state-4/action-
-`$18` compatibility normalization with stale metadata cleared, while claimant
-traces remain absent and human control remains controller-owned.
+primary. The full `$9621-$985C` tail remains incomplete. A no-source miss is
+not an immediate `$B87C` transaction: retain the grounded ball/no-holder state,
+repeat the exact TGSR claimant scan, and emit the typed claimant trace only on
+qualification. Bank05 `$A214->$B6E5-$B773` proves the recurring slot-10 state-
+`$10` owner. Full `$B7C1` physics, airborne state `$11`, and actor scheduling
+remain missing; the one-actor legal chase is an explicit class-3 playability
+adapter and must not be called rebound, steal, nearest-player, B081, or exact
+`$B73E` motion.
 Selected state 0/action `$17` is exact Bank05 shot dispatch, not idle:
 `$81F2-$822F->$8A6D->$8ACE`. Launch admission remains a bounded native adapter
 because `$8ACE` reads unowned `$0478/$0499/$007E` gates. LIVE commits the

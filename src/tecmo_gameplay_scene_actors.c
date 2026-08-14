@@ -220,11 +220,13 @@ bool scene_sync_live_foundation(TecmoGameplayScene *scene)
     if (scene == NULL || scene->state.possession > TECMO_GAMEPLAY_TEAM_HOME) {
         return false;
     }
-    /* shots.c deliberately clears the slot holder during playback. Preserve
-       the last validated LIVE binding until its existing slot-based handoff
-       restores a holder; no dynamic matchup is fabricated mid-shot. */
+    /* shots.c deliberately clears the slot holder during playback and the
+       retained loose-ball phase. Preserve the last validated LIVE binding
+       until an existing typed handoff restores a holder; no dynamic matchup
+       is fabricated while ownership is physically open. */
     if (scene->ball_holder == TECMO_GAMEPLAY_SCENE_NO_ACTOR) {
-        return scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE;
+        return scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+               scene->loose_ball_state.active;
     }
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
         if (!scene->actors[actor].active ||
@@ -447,6 +449,68 @@ bool scene_move_controlled_actor(TecmoGameplayScene *scene,
             direction_bits)) {
         return false;
     }
+    return true;
+}
+
+bool scene_move_actor_toward_loose_ball(
+    TecmoGameplayScene *scene, uint8_t actor_index)
+{
+    TecmoGameplaySceneActor candidate_actors[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplayMovementState movement;
+    TecmoGameplayMovementStepInput input;
+    const TecmoTeamDataPlayer *player;
+    TecmoGameplayCourtCoordinate target;
+    int16_t horizontal;
+    int16_t depth;
+    uint8_t direction;
+    uint8_t direction_bits;
+    if (scene == NULL || actor_index >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        !scene->loose_ball_state.active ||
+        scene->loose_ball_state.chase_actor != actor_index ||
+        scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+        !scene->actors[actor_index].active ||
+        !tecmo_gameplay_court_coordinate_q8_valid(&scene->ball_position) ||
+        !scene_actor_movement_state(
+            scene, &scene->actors[actor_index], &movement)) {
+        return false;
+    }
+    target.x = (int16_t)(scene->ball_position.x_q8 /
+                         TECMO_GAMEPLAY_COURT_COORDINATE_Q8_SCALE);
+    target.y = (int16_t)(scene->ball_position.y_q8 /
+                         TECMO_GAMEPLAY_COURT_COORDINATE_Q8_SCALE);
+    horizontal = (int16_t)(target.x - scene->actors[actor_index].position.x);
+    depth = (int16_t)(target.y - scene->actors[actor_index].position.y);
+    if (horizontal == 0 && depth == 0) return true;
+    if (!tecmo_gameplay_cpu_steering_direction_for_delta(
+            &scene->cpu_steering_assets, horizontal, depth, &direction) ||
+        !scene_cpu_route_direction_bits(
+            scene, direction, &direction_bits) ||
+        (player = scene_actor_player(
+            scene, &scene->actors[actor_index])) == NULL) {
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.held_direction_bits = direction_bits;
+    input.player_movement_rating = player->profile[0];
+    input.condition = scene->actors[actor_index].condition;
+    input.speed_value = scene->launch.speed_value;
+    input.global_object_state = 0U;
+    input.movement_flags = 0U;
+    input.primary_selected_actor = false;
+    memcpy(candidate_actors, scene->actors, sizeof(candidate_actors));
+    if (!tecmo_gameplay_movement_step(
+            &scene->movement_assets, &movement, &input) ||
+        !scene_actor_apply_movement(
+            scene, candidate_actors, actor_index, &movement,
+            direction_bits) ||
+        !scene_actor_world_position_valid(&candidate_actors[actor_index])) {
+        return false;
+    }
+    /* Reuse the exact pure direction/TGMO kernels under adapter-owned state-0
+       secondary inputs. Which unowned actor receives this chase and those
+       inputs are class-3 policy, not Bank05 $B73E actor motion or B081. */
+    memcpy(scene->actors, candidate_actors, sizeof(candidate_actors));
     return true;
 }
 

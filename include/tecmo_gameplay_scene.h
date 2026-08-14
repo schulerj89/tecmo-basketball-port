@@ -135,6 +135,20 @@ typedef struct TecmoGameplaySceneInboundState {
     TecmoGameplayCourtCoordinateQ8 target_position;
 } TecmoGameplaySceneInboundState;
 
+/* Retained grounded-ball ownership between a missed-shot terminal and the
+   source-backed claimant transaction. In the ordinary admitted context,
+   Bank05 slot-10 state $10 retains/retries object and claimant work; the
+   native scene owns the exact claimant envelope but not the complete object
+   scheduler or its earlier cancellation gates. */
+typedef struct TecmoGameplaySceneLooseBallState {
+    bool active;
+    uint8_t shooting_team;
+    /* Deterministic class-3 locomotion adapter actor, never a claimant until
+       the independent source-backed eligibility scan accepts it. */
+    uint8_t chase_actor;
+    uint8_t reserved;
+} TecmoGameplaySceneLooseBallState;
+
 typedef struct TecmoGameplaySceneLaunch {
     TecmoGameplaySceneSource source;
     uint16_t game_index;
@@ -377,6 +391,7 @@ typedef struct TecmoGameplayScene {
     uint8_t ball_holder;
     TecmoGameplayScenePassState pass_state;
     TecmoGameplaySceneInboundState inbound_state;
+    TecmoGameplaySceneLooseBallState loose_ball_state;
     TecmoGameplayCourtCoordinateQ8 ball_position;
     TecmoGameplayCourtCoordinateQ8 shot_start_position;
     TecmoGameplayCourtCoordinateQ8 shot_end_position;

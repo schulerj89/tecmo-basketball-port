@@ -215,6 +215,13 @@ bool scene_begin_inbound(TecmoGameplayScene *scene,
 bool scene_begin_scored_inbound(TecmoGameplayScene *scene,
                                 TecmoGameplayTeam restart_team);
 bool scene_update_inbound(TecmoGameplayScene *scene);
+bool scene_loose_ball_state_valid(const TecmoGameplayScene *scene);
+void scene_loose_ball_clear(TecmoGameplayScene *scene);
+bool scene_update_loose_ball(
+    TecmoGameplayScene *scene,
+    const TecmoControlFrame *controls[TECMO_GAMEPLAY_CONTROLLER_COUNT]);
+bool scene_move_actor_toward_loose_ball(
+    TecmoGameplayScene *scene, uint8_t actor_index);
 
 /* Native policy sample retained at the shot boundary. It has no Bank/address,
    RAM-byte, or ROM-RNG identity. The substitution preserves the accepted
