@@ -4598,6 +4598,62 @@ try {
                         12 -and
                     [int]$TeamDataSource.native_contract.player_stride -eq 184 -and
                     [int]$TeamDataSource.native_contract.portrait_cells -eq 24 -and
+                    (@($TeamDataSource.native_contract.static_shooting.attribute_indexes) `
+                        -join ",") -eq "4,5,6" -and
+                    [int]$TeamDataSource.native_contract.static_shooting.multiplier -eq 4 -and
+                    [int]$TeamDataSource.native_contract.static_shooting.visible_decimal_digits -eq 3 -and
+                    $TeamDataSource.native_contract.static_shooting.ownership -eq
+                        "selected-ttdt-player" -and
+                    (@($TeamDataSource.native_contract.static_shooting.digit_ppu_cells) `
+                        -join ",") -eq "21E1,21E5,21E9" -and
+                    (@($TeamDataSource.native_contract.static_shooting.digit_logical_origins | `
+                        ForEach-Object { @($_) -join "," }) -join ";") -eq
+                        "8,120;40,120;72,120" -and
+                    (@($TeamDataSource.native_contract.static_shooting.authored_dot_ppu_cells) `
+                        -join ",") -eq "21E0,21E4,21E8" -and
+                    (@($TeamDataSource.native_contract.static_shooting.authored_dot_tile_origins | `
+                        ForEach-Object { @($_) -join "," }) -join ";") -eq
+                        "0,120;32,120;64,120" -and
+                    [int]$TeamDataSource.native_contract.mutable_stat_layout.value_y -eq
+                        120 -and
+                    (@($TeamDataSource.native_contract.mutable_stat_layout.integer_ppu_spans) `
+                        -join ",") -eq "21EE-21F1,21F2-21F5,21F6-21F9" -and
+                    (@($TeamDataSource.native_contract.mutable_stat_layout.integer_right_edges) `
+                        -join ",") -eq "144,176,208" -and
+                    $TeamDataSource.native_contract.mutable_stat_layout.points_ppu_span -eq
+                        "21FA-21FE" -and
+                    $TeamDataSource.native_contract.mutable_stat_layout.points_decimal_ppu_cell -eq
+                        "21FD" -and
+                    $TeamDataSource.native_contract.mutable_stat_layout.points_decimal_tile -eq
+                        "81" -and
+                    [int]$TeamDataSource.native_contract.mutable_stat_layout.points_right_edge -eq
+                        248 -and
+                    $TeamDataSource.native_contract.value_palette.ownership -eq
+                        "bank00-877d-screen-attributes" -and
+                    $TeamDataSource.native_contract.value_palette.renderer -eq
+                        "screen-2-per-cell" -and
+                    [int]$TeamDataSource.native_contract.value_palette.value_row -eq
+                        15 -and
+                    [int]$TeamDataSource.native_contract.value_palette.value_palette_index -eq
+                        3 -and
+                    [int]$TeamDataSource.native_contract.value_palette.label_row -eq
+                        13 -and
+                    [int]$TeamDataSource.native_contract.value_palette.label_palette_index -eq
+                        2 -and
+                    $TeamDataSource.native_contract.detail_physical_layout.height_ppu_start -eq
+                        "20D6" -and
+                    (@($TeamDataSource.native_contract.detail_physical_layout.height_origin) `
+                        -join ",") -eq "176,48" -and
+                    $TeamDataSource.native_contract.detail_physical_layout.weight_ppu_cells -eq
+                        "20F6-20F8" -and
+                    [int]$TeamDataSource.native_contract.detail_physical_layout.weight_right_edge -eq
+                        200 -and
+                    $TeamDataSource.native_contract.detail_physical_layout.position_ppu_start -eq
+                        "2116" -and
+                    (@($TeamDataSource.native_contract.detail_physical_layout.position_origin) `
+                        -join ",") -eq "176,64" -and
+                    $TeamDataSource.native_contract.value_palette.dynamic_matches_authored_dot -eq
+                        $true -and
                     [int]$TeamDataSource.native_contract.entry_transition.render_on -eq
                         4 -and
                     [int]$TeamDataSource.native_contract.entry_transition.first_visible -eq

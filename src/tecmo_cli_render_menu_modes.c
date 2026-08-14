@@ -49,13 +49,18 @@ static void seed_populated_leader_results(TecmoSeasonSession *session)
 
 /* Render-test fixture only: it takes the same supported path as gameplay
  * (attempt/make/free-throw emitters, then a ledger merge) instead of writing
- * directly into season totals.  Player zero on canonical team zero finishes
- * one game at .600 FG, .875 FT, .500 3PT, and 21.0 points per game. */
-static bool seed_team_data_player_detail_stats(TecmoRuntime *runtime)
+ * directly into season totals.  The deliberately conflicting .600/.875/.500
+ * ratios must not replace Bank02's static FG/FT/3PT display fields; only the
+ * separately owned PTS projection consumes this ledger. */
+static bool seed_team_data_player_detail_stats(TecmoRuntime *runtime,
+                                               uint8_t team,
+                                               uint8_t player)
 {
     TecmoSeasonSession *session;
     TecmoPlayerStatsGameLedger ledger;
-    if (runtime == NULL) return false;
+    if (runtime == NULL || team >= TECMO_PLAYER_STATS_TEAM_COUNT ||
+        player >= TECMO_PLAYER_STATS_ROSTER_COUNT)
+        return false;
     session = &runtime->season_session;
     memset(session->wins, 0, sizeof(session->wins));
     memset(session->losses, 0, sizeof(session->losses));
@@ -67,24 +72,27 @@ static bool seed_team_data_player_detail_stats(TecmoRuntime *runtime)
         uint8_t point_value = shot < 4U ? 3U : 2U;
         bool made = shot < 2U || (shot >= 4U && shot < 8U);
         if (!tecmo_player_stats_record_shot_attempt(
-                &ledger, 0U, 0U, point_value) ||
+                &ledger, 0U, player, point_value) ||
             (made && !tecmo_player_stats_record_shot_make(
-                &ledger, 0U, 0U, point_value)))
+                &ledger, 0U, player, point_value)))
             return false;
     }
     for (uint8_t attempt = 0U; attempt < 8U; ++attempt)
         if (!tecmo_player_stats_record_free_throw(
-                &ledger, 0U, 0U, attempt < 7U))
+                &ledger, 0U, player, attempt < 7U))
             return false;
     if (!tecmo_player_stats_merge_game(
             session->player_stats_totals, &session->player_stats_coverage,
-            0U, 1U, &ledger))
+            team,
+            (uint8_t)((team + 1U) % TECMO_PLAYER_STATS_TEAM_COUNT),
+            &ledger))
         return false;
     /* The merge is a game result's statistics half; the deterministic render
      * fixture supplies its matching one-game team denominator without saving
      * or manufacturing any unsupported player counters. */
-    session->wins[0U] = 1U;
-    session->losses[1U] = 1U;
+    session->wins[team] = 1U;
+    session->losses[(uint8_t)((team + 1U) % TECMO_PLAYER_STATS_TEAM_COUNT)] =
+        1U;
     session->dirty = false;
     return session->player_stats_coverage ==
            TECMO_PLAYER_STATS_IMPLEMENTED_COVERAGE;
@@ -684,19 +692,45 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
                 }
             } else if (strcmp(mode_name, "team-data-player-detail") == 0 ||
                        strcmp(mode_name,
-                              "team-data-player-detail-populated") == 0) {
+                              "team-data-player-detail-populated") == 0 ||
+                       strcmp(mode_name,
+                              "team-data-player-detail-chicago") == 0 ||
+                       strcmp(mode_name,
+                              "team-data-player-detail-chicago-populated") == 0 ||
+                       strcmp(mode_name,
+                              "team-data-player-detail-static-layout-a") == 0 ||
+                       strcmp(mode_name,
+                              "team-data-player-detail-static-layout-b") == 0) {
+                bool chicago = strstr(mode_name, "chicago") != NULL;
+                bool populated = strstr(mode_name, "populated") != NULL;
+                bool static_layout = strstr(mode_name, "static-layout") != NULL;
+                uint8_t detail_team = chicago ? 3U : 0U;
+                /* Bank02's Chicago pointer table at $836B is zero-based:
+                 * slot 0 is Paxson and slot 1 is Jordan. */
+                uint8_t detail_player = chicago ? 1U : 0U;
                 *handled_out = true;
-                if (strcmp(mode_name,
-                           "team-data-player-detail-populated") == 0 &&
-                    !seed_team_data_player_detail_stats(runtime)) {
+                if (static_layout) {
+                    /* Synthetic pair for pixel-diffing Bank02 $21E1/$21E5/$21E9.
+                     * Only selected TTDT attributes 4/5/6 differ between modes. */
+                    TecmoTeamDataPlayer *fixture =
+                        &runtime->team_data_asset.players[detail_team]
+                                                        [detail_player];
+                    bool layout_b = strstr(mode_name, "layout-b") != NULL;
+                    fixture->attributes[4] = layout_b ? 11U : 1U;
+                    fixture->attributes[5] = layout_b ? 22U : 2U;
+                    fixture->attributes[6] = layout_b ? 33U : 3U;
+                }
+                if (populated &&
+                    !seed_team_data_player_detail_stats(
+                        runtime, detail_team, detail_player)) {
                     printf("TEAM DATA player-detail ledger fixture failed\n");
                     render_runtime = false;
                     result = 1;
                 }
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
                 runtime->team_data_state.phase = TECMO_TEAM_DATA_PLAYER_DETAIL;
-                runtime->team_data_state.team_id = 0U;
-                runtime->team_data_state.player_index = 0U;
+                runtime->team_data_state.team_id = detail_team;
+                runtime->team_data_state.player_index = detail_player;
                 runtime->team_data_state.cursor_delay = 1U;
             } else if (strncmp(mode_name,
                                "team-data-entry-transition-frame", 32) == 0) {
