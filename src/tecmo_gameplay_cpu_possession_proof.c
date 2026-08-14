@@ -1028,6 +1028,8 @@ bool tecmo_gameplay_cpu_possession_proof(
                     0x0BU) {
                 selected_state0b_observed = true;
                 selected_state0b_update = update;
+                outcome = "selected-primary-state0b";
+                break;
             }
         }
         if (!mid_horizon_captured && scene->state.clock_minutes <= 1U) {
@@ -1093,7 +1095,8 @@ bool tecmo_gameplay_cpu_possession_proof(
     trace = NULL;
     result = reached_beyond_one_minute && possession_outcomes >= 2U &&
         legitimate_possession_outcomes == possession_outcomes &&
-        shot_launches >= 2U && !no_effect_failure && mid_horizon_captured &&
+        shot_launches >= 2U && !selected_state0b_observed &&
+        !no_effect_failure && mid_horizon_captured &&
         first_outcome_captured && first_outcome.normalized &&
         strcmp(proof_first_outcome_classification(&first_outcome),
                "jump-miss-generic-compatibility-handoff") == 0 &&

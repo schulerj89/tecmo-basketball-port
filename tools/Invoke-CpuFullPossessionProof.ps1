@@ -117,6 +117,7 @@ foreach ($Repeat in 1, 2) {
         [int]$Summary.source_progression_059b.countdown_ticks -ne 30 -or
         ![bool]$Summary.source_progression_059b.state4_cursor05a0 -or
         ![bool]$Summary.source_progression_059b.opcode2_to05a5 -or
+        [bool]$Summary.selected_state0b_observed -or
         [bool]$Summary.scene_update_failed -or
         [bool]$Summary.ownership_failure -or
         [bool]$Summary.anchor_oob) {
@@ -151,6 +152,7 @@ foreach ($Repeat in 1, 2) {
              [int]$Summary.legitimate_possession_outcomes -ne
                 [int]$Summary.possession_outcomes -or
              [int]$Summary.shot_launches -lt 2 -or
+             [bool]$Summary.selected_state0b_observed -or
              ![bool]$Summary.reached_beyond_one_minute -or
              [int]$Summary.terminal_clock[0] -ne 0 -or
              [int]$Summary.terminal_clock[1] -gt 59 -or
