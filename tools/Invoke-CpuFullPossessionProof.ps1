@@ -81,7 +81,7 @@ foreach ($Repeat in 1, 2) {
     if (!(Test-Path -LiteralPath $TracePath -PathType Leaf) -or
         !(Test-Path -LiteralPath $MidHorizonPath -PathType Leaf) -or
         !(Test-Path -LiteralPath $TerminalPath -PathType Leaf) -or
-        $Summary.schema -ne "tecmo.cpu-possession-proof/TGPH-5" -or
+        $Summary.schema -ne "tecmo.cpu-possession-proof/TGPH-6" -or
         ![bool]$Summary.structured_state_authority -or
         [int]$Summary.outer_update_limit -ne 20000 -or
         [string]$Summary.fixture -ne
@@ -139,7 +139,7 @@ foreach ($Repeat in 1, 2) {
             [int]$Summary.source_backed_outcomes -eq 0 -and
             [bool]$Summary.first_settlement.claimant_unchanged_invalid -and
             ![bool]$Summary.first_settlement.claimant_tied_to_new_holder -and
-            ![bool]$Summary.movement_lifecycle.completed
+            ![bool]$Summary.movement_coverage.completed
         if ($ExitCode -eq 0 -or [bool]$Summary.passed -or
             !$ExpectedLongHorizonFailure) {
             throw "Run $Repeat did not reproduce the bounded baseline failure."
@@ -151,26 +151,33 @@ foreach ($Repeat in 1, 2) {
              ![bool]$Summary.first_settlement.claimant_tied_to_new_holder -or
              [uint32]$Summary.first_settlement.claimant_serial_after -ne
                 $ExpectedClaimantSerial -or
+             [string]$Summary.first_settlement.claimant_relation -ne
+                'SAME_TEAM' -or
+             [bool]$Summary.first_settlement.possession_changed -or
              ![bool]$Summary.first_settlement.automatic_new_holder -or
              [int]$Summary.first_settlement.cursor -ne 125 -or
+             [int]$Summary.first_settlement.last_step_offset -ne 125 -or
              [int]$Summary.first_settlement.state -ne 4 -or
-             [int]$Summary.first_settlement.action -ne 24 -or
-             [int]$Summary.first_settlement.wait -ne 0 -or
-             ![bool]$Summary.first_settlement.route_cleared -or
-             ![bool]$Summary.first_settlement.target_cleared -or
-             ![bool]$Summary.first_settlement.defer_cleared -or
-             ![bool]$Summary.first_settlement.normalized -or
-             [int]$Summary.possession_outcomes -lt 2 -or
+             ![bool]$Summary.first_settlement.source_claimant_tuple -or
+             [int]$Summary.possession_changes -lt 1 -or
              [int]$Summary.source_backed_outcomes -lt 2 -or
+             [int]$Summary.legitimate_terminal_outcomes -ne
+                [int]$Summary.source_backed_outcomes -or
+             [int]$Summary.claimant_settlement_outcomes -lt 1 -or
+             [int]$Summary.same_team_claimant_outcomes -lt 1 -or
+             [int]$Summary.scored_inbound_outcomes -lt 1 -or
              [int]$Summary.generic_fallbacks -ne 0 -or
              [int]$Summary.unknown_possession_edges -ne 0 -or
-             [int]$Summary.legitimate_possession_outcomes -ne
-                [int]$Summary.possession_outcomes -or
              [int]$Summary.shot_launches -lt 2 -or
-             ![bool]$Summary.movement_lifecycle.state5_observed -or
-             ![bool]$Summary.movement_lifecycle.movement_observed -or
-             ![bool]$Summary.movement_lifecycle.completed -or
-             [bool]$Summary.movement_lifecycle.invalid -or
+             [string]$Summary.movement_coverage.kind -ne
+                'loose-ball-chase' -or
+             ![bool]$Summary.movement_coverage.typed_active_observed -or
+             ![bool]$Summary.movement_coverage.movement_observed -or
+             ![bool]$Summary.movement_coverage.visible_legal_movement -or
+             ![bool]$Summary.movement_coverage.exact_claimant_settlement -or
+             ![bool]$Summary.movement_coverage.completed -or
+             [bool]$Summary.movement_coverage.invalid -or
+             [bool]$Summary.state5_movement_lifecycle.invalid -or
              [bool]$Summary.selected_state0b_observed -or
              [bool]$Summary.no_effect_failure -or
              [int]$Summary.max_no_effect_streak -gt 1 -or
@@ -201,7 +208,7 @@ foreach ($Field in 'trace_sha256','mid_horizon_png_sha256',
 
 $ManifestPath = Join-Path $OutputDirectory "manifest.json"
 ([pscustomobject]@{
-    schema = "tecmo.cpu-possession-proof-run/TGPH-5"
+    schema = "tecmo.cpu-possession-proof-run/TGPH-6"
     status = if ($ExpectBaselineFailure) {
         "EXPECTED_BASELINE_FAILURE"
     } else { "PASS" }

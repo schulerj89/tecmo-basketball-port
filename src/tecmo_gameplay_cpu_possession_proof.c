@@ -59,6 +59,7 @@ typedef struct PossessionProofFirstOutcome {
     uint8_t possession_after;
     uint8_t holder_after;
     uint16_t cursor_after;
+    uint16_t last_step_after;
     uint8_t state_after;
     uint8_t action_after;
     uint8_t wait_after;
@@ -106,8 +107,23 @@ typedef struct PossessionProofLooseBallTelemetry {
     uint16_t eligible_mask;
     uint8_t eligible_count;
     uint8_t first_eligible_actor;
+    uint8_t shooting_team;
+    uint8_t chase_actor;
     bool active;
 } PossessionProofLooseBallTelemetry;
+
+typedef struct PossessionProofLooseBallCoverage {
+    TecmoGameplayCourtCoordinate previous_position;
+    uint8_t chase_actor;
+    unsigned active_ticks;
+    unsigned settlement_update;
+    bool observed;
+    bool movement_observed;
+    bool visible_legal_movement;
+    bool claimant_settled;
+    bool completed;
+    bool invalid;
+} PossessionProofLooseBallCoverage;
 
 static bool proof_route_motion_cleared(
     const TecmoGameplayCpuSteeringRouteMotionState *route)
@@ -143,17 +159,21 @@ static bool proof_loose_ball_telemetry(
     if (scene == NULL || telemetry == NULL) return false;
     memset(telemetry, 0, sizeof(*telemetry));
     telemetry->first_eligible_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
-    /* Proof-only observation of a live unowned ball.  This deliberately does
-       not invent a scene scheduler: it covers the existing MISS playback and
-       the post-fix shot-none loose-ball window while excluding pass/inbound
-       ownership.  A future typed scene owner can replace this observation
-       without changing its telemetry meaning. */
-    telemetry->active = scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
-        scene->ball_holder == TECMO_GAMEPLAY_SCENE_NO_ACTOR &&
-        !scene_pass_active(scene) && !scene_inbound_active(scene) &&
-        (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
-         scene->shot_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MISS);
+    telemetry->shooting_team = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    telemetry->chase_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    telemetry->active = scene->loose_ball_state.active;
     if (!telemetry->active) return true;
+    telemetry->shooting_team = scene->loose_ball_state.shooting_team;
+    telemetry->chase_actor = scene->loose_ball_state.chase_actor;
+    if (scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+        scene_pass_active(scene) || scene_inbound_active(scene) ||
+        telemetry->shooting_team >= TECMO_GAMEPLAY_TEAM_COUNT ||
+        telemetry->chase_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->actors[telemetry->chase_actor].team !=
+            telemetry->shooting_team) {
+        return false;
+    }
     ball_x = (int16_t)(scene->ball_position.x_q8 / 256);
     ball_y = (int16_t)(scene->ball_position.y_q8 / 256);
     ball_altitude = (uint8_t)(scene->jump_ball_altitude_q8 >> 8U);
@@ -203,7 +223,12 @@ static bool proof_claimant_settlement_tied(
         transaction->contract_tag !=
             TECMO_GAMEPLAY_LIVE_CLAIMANT_SETTLEMENT_TAG ||
         holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
-        scene->state.possession == shooting_team ||
+        trace->before.semantic_scene_possession != shooting_team ||
+        trace->before.semantic_ball_holder !=
+            TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+        scene->actors[holder].team != (uint8_t)scene->state.possession ||
+        transaction->side_context_swapped !=
+            (scene->state.possession != shooting_team) ||
         transaction->raw_0308_after != holder ||
         scene->live_foundation.primary_actor != holder ||
         scene->live_foundation.play_state.primary_actor != holder ||
@@ -213,14 +238,7 @@ static bool proof_claimant_settlement_tied(
         !trace->after.semantic_live_synchronized ||
         scene->live_foundation.play_state.stream_offset[holder] != 0x007DU ||
         scene->live_foundation.last_step_offset[holder] != 0x007DU ||
-        scene->live_foundation.play_state.actor_state[holder] != 0x04U ||
-        scene->live_foundation.play_state.action_state_046e[holder] != 0x18U ||
-        scene->live_foundation.play_state.wait_counter[holder] != 0U ||
-        !proof_route_motion_cleared(
-            &scene->live_foundation.play_state.route_motion[holder]) ||
-        scene->live_foundation.source_target_valid[holder] ||
-        scene->live_foundation.source_direction_valid[holder] ||
-        scene->live_foundation.deferred[holder]) {
+        scene->live_foundation.play_state.actor_state[holder] != 0x04U) {
         return false;
     }
     return true;
@@ -239,6 +257,35 @@ static bool proof_team_is_automatic(const TecmoGameplayScene *scene,
         if (scene->launch.controller_team[controller] == team) return false;
     }
     return true;
+}
+
+static bool proof_scored_inbound_tied(
+    const TecmoGameplayScene *scene, uint8_t shooting_team,
+    uint8_t point_value,
+    const uint16_t score_before[TECMO_GAMEPLAY_TEAM_COUNT])
+{
+    uint8_t restart_team;
+    uint8_t passer;
+    if (scene == NULL || score_before == NULL ||
+        shooting_team >= TECMO_GAMEPLAY_TEAM_COUNT ||
+        point_value < 1U || point_value > 3U) {
+        return false;
+    }
+    restart_team = (uint8_t)(shooting_team ^ 1U);
+    passer = scene->inbound_state.passer;
+    return scene_inbound_active(scene) &&
+        scene_inbound_state_valid(scene) &&
+        scene->state.possession == (TecmoGameplayTeam)restart_team &&
+        scene->inbound_state.restart_team == restart_team &&
+        passer < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+        scene->ball_holder == passer &&
+        scene->actors[passer].team == restart_team &&
+        scene->live_foundation.primary_actor == passer &&
+        scene->live_foundation.play_state.primary_actor == passer &&
+        scene->live_foundation.last_ball_holder == passer &&
+        scene->state.score[shooting_team] ==
+            (uint16_t)(score_before[shooting_team] + point_value) &&
+        scene->state.score[restart_team] == score_before[restart_team];
 }
 
 static void proof_capture_first_settlement(
@@ -269,6 +316,7 @@ static void proof_capture_first_settlement(
         live->play_state.primary_actor == holder &&
         live->last_ball_holder == holder;
     first->cursor_after = live->play_state.stream_offset[holder];
+    first->last_step_after = live->last_step_offset[holder];
     first->state_after = live->play_state.actor_state[holder];
     first->action_after = live->play_state.action_state_046e[holder];
     first->wait_after = live->play_state.wait_counter[holder];
@@ -288,12 +336,13 @@ static void proof_capture_first_settlement(
     first->defer_cleared = !live->deferred[holder] &&
         live->deferred_reason[holder] ==
             TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+    /* $B93B-$B95E owns only stream $007D and selected state 4 here. Unlike
+       the separate $96B6 catch tail, claimant settlement does not write
+       action $18 or clear retained route/target workspaces. */
     first->normalized = first->automatic_new_holder &&
         first->cursor_after == 0x007DU &&
-        live->last_step_offset[holder] == 0x007DU &&
-        first->state_after == 0x04U && first->action_after == 0x18U &&
-        first->wait_after == 0U && first->route_cleared &&
-        first->target_cleared && first->defer_cleared;
+        first->last_step_after == 0x007DU &&
+        first->state_after == 0x04U;
 }
 
 static const char *proof_first_outcome_classification(
@@ -707,6 +756,43 @@ static bool proof_actor_extent(const TecmoGameplayScene *scene,
     return true;
 }
 
+static bool proof_update_loose_ball_coverage(
+    const TecmoGameplayScene *scene,
+    PossessionProofLooseBallCoverage *coverage)
+{
+    TecmoGameplaySceneCourtFrame court;
+    PossessionProofActorExtent extent;
+    uint8_t actor;
+    if (scene == NULL || coverage == NULL) return false;
+    if (!scene->loose_ball_state.active) return true;
+    actor = scene->loose_ball_state.chase_actor;
+    if (actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        !scene->actors[actor].active ||
+        !tecmo_gameplay_scene_court_frame(scene, &court) ||
+        !proof_actor_extent(scene, &court, actor, &extent)) {
+        coverage->invalid = true;
+        return true;
+    }
+    if (!coverage->observed) {
+        coverage->observed = true;
+        coverage->chase_actor = actor;
+        coverage->previous_position = scene->actors[actor].position;
+    } else {
+        if (coverage->chase_actor != actor) coverage->invalid = true;
+        if (scene->actors[actor].position.x != coverage->previous_position.x ||
+            scene->actors[actor].position.y != coverage->previous_position.y) {
+            coverage->movement_observed = true;
+            if (extent.projected_visible && extent.scene_anchor_valid) {
+                coverage->visible_legal_movement = true;
+            }
+        }
+        coverage->previous_position = scene->actors[actor].position;
+    }
+    if (!extent.scene_anchor_valid) coverage->invalid = true;
+    ++coverage->active_ticks;
+    return true;
+}
+
 static bool proof_write_frame(FILE *trace, const TecmoGameplayScene *scene,
                               unsigned update, int delta_x, int delta_y,
                               int32_t ball_delta_x_q8,
@@ -728,7 +814,7 @@ static bool proof_write_frame(FILE *trace, const TecmoGameplayScene *scene,
         !tecmo_debug_cpu_ownership_snapshot(scene, &ownership) ||
         !proof_loose_ball_telemetry(scene, &loose_ball)) return false;
     fprintf(trace,
-            "{\"schema\":\"tecmo.cpu-possession-frame/TGPH-5\","
+            "{\"schema\":\"tecmo.cpu-possession-frame/TGPH-6\","
             "\"update\":%u,\"scene_frame\":%u,\"phase\":%u,"
             "\"violation\":%u,\"possession\":%u,\"holder\":%u,"
             "\"controller_team\":[%u,%u],\"controlled_actor\":[%u,%u],"
@@ -739,8 +825,9 @@ static bool proof_write_frame(FILE *trace, const TecmoGameplayScene *scene,
             "\"aggregation\":[%u,%u,%u],"
             "\"claimant_trace\":{\"valid\":%s,\"serial\":%u,"
             "\"primary_after\":%u,\"possession_after\":%u,"
-            "\"holder_after\":%u},"
-            "\"loose_ball\":{\"active\":%s,\"position_q8\":[%d,%d],"
+            "\"holder_after\":%u,\"side_context_swapped\":%s},"
+            "\"loose_ball\":{\"active\":%s,\"shooting_team\":%u,"
+            "\"chase_actor\":%u,\"position_q8\":[%d,%d],"
             "\"altitude_q8\":%u,\"delta_q8\":[%d,%d,%d],"
             "\"eligible_mask\":%u,\"eligible_count\":%u,"
             "\"first_eligible_actor\":%u},"
@@ -774,7 +861,11 @@ static bool proof_write_frame(FILE *trace, const TecmoGameplayScene *scene,
                 .semantic_scene_possession,
             (unsigned)scene->claimant_settlement_trace.after
                 .semantic_ball_holder,
+            scene->claimant_settlement_trace.transaction.side_context_swapped
+                ? "true" : "false",
             loose_ball.active ? "true" : "false",
+            (unsigned)loose_ball.shooting_team,
+            (unsigned)loose_ball.chase_actor,
             (int)scene->ball_position.x_q8, (int)scene->ball_position.y_q8,
             (unsigned)scene->jump_ball_altitude_q8,
             (int)ball_delta_x_q8, (int)ball_delta_y_q8,
@@ -913,8 +1004,12 @@ bool tecmo_gameplay_cpu_possession_proof(
     unsigned gate_excursion_count = 0U;
     unsigned pass_events = 0U;
     unsigned possession_outcomes = 0U;
-    unsigned legitimate_possession_outcomes = 0U;
+    unsigned legitimate_terminal_outcomes = 0U;
     unsigned source_backed_outcomes = 0U;
+    unsigned claimant_settlement_outcomes = 0U;
+    unsigned same_team_claimant_outcomes = 0U;
+    unsigned other_team_claimant_outcomes = 0U;
+    unsigned scored_inbound_outcomes = 0U;
     unsigned generic_fallbacks = 0U;
     unsigned unknown_possession_edges = 0U;
     unsigned shot_launches = 0U;
@@ -937,6 +1032,8 @@ bool tecmo_gameplay_cpu_possession_proof(
     bool first_outcome_captured = false;
     uint8_t active_shot_outcome = TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN;
     uint8_t active_shooting_team = TECMO_GAMEPLAY_TEAM_COUNT;
+    uint8_t active_shot_points = 0U;
+    uint16_t active_score_before[TECMO_GAMEPLAY_TEAM_COUNT] = {0U, 0U};
     uint32_t active_claimant_serial_before = 0U;
     PossessionProofFirstOutcome first_outcome;
     PossessionProofInboundPromotionResult promotion_0627;
@@ -944,6 +1041,7 @@ bool tecmo_gameplay_cpu_possession_proof(
     PossessionProofOwnershipFixtures ownership_fixtures;
     PossessionProofSourceProgression progression_059b;
     PossessionProofRouteCoverage route_coverage;
+    PossessionProofLooseBallCoverage loose_ball_coverage;
     const char *outcome = "horizon-exhausted";
     const char *setup_stage = "arguments";
     bool initialized = false;
@@ -962,7 +1060,9 @@ bool tecmo_gameplay_cpu_possession_proof(
     memset(&ownership_fixtures, 0, sizeof(ownership_fixtures));
     memset(&progression_059b, 0, sizeof(progression_059b));
     memset(&route_coverage, 0, sizeof(route_coverage));
+    memset(&loose_ball_coverage, 0, sizeof(loose_ball_coverage));
     route_coverage.actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    loose_ball_coverage.chase_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     permanent_block = malloc(POSSESSION_PROOF_MEMORY_SIZE);
     transient_block = malloc(POSSESSION_PROOF_MEMORY_SIZE);
     if (permanent_block == NULL || transient_block == NULL) goto done;
@@ -1065,6 +1165,9 @@ bool tecmo_gameplay_cpu_possession_proof(
             (int32_t)scene->jump_ball_altitude_q8 - ball_altitude_before;
         bool same_lifecycle = false;
         bool selected_no_effect = false;
+        bool claimant_settlement_this_frame = false;
+        bool possession_changed =
+            (uint8_t)scene->state.possession != possession_observed;
         TecmoDebugCpuOwnershipSnapshot ownership;
         if (!tecmo_debug_cpu_ownership_snapshot(scene, &ownership)) goto done;
         if (holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
@@ -1163,6 +1266,8 @@ bool tecmo_gameplay_cpu_possession_proof(
                 route_coverage.invalid = true;
             }
         }
+        if (!proof_update_loose_ball_coverage(
+                scene, &loose_ball_coverage)) goto done;
         if (!proof_write_frame(trace, scene, update, dx, dy,
                                ball_dx_q8, ball_dy_q8,
                                ball_altitude_delta_q8, idle_frames,
@@ -1199,10 +1304,20 @@ bool tecmo_gameplay_cpu_possession_proof(
         }
         if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
             !shot_active_before) {
+            if (possession_had_shot) {
+                ++unknown_possession_edges;
+                outcome = "shot-launch-before-prior-outcome";
+                break;
+            }
             ++shot_launches;
             possession_had_shot = true;
             active_shot_outcome = (uint8_t)scene->shot_outcome;
             active_shooting_team = scene->shot_actor_team;
+            active_shot_points = scene->shot_points;
+            active_score_before[TECMO_GAMEPLAY_TEAM_AWAY] =
+                scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY];
+            active_score_before[TECMO_GAMEPLAY_TEAM_HOME] =
+                scene->state.score[TECMO_GAMEPLAY_TEAM_HOME];
             active_claimant_serial_before =
                 scene->claimant_settlement_trace.event_serial;
             if (!mid_horizon_captured) {
@@ -1228,44 +1343,84 @@ bool tecmo_gameplay_cpu_possession_proof(
         }
         shot_active_before = scene->shot_kind !=
             TECMO_GAMEPLAY_SCENE_SHOT_NONE;
-        if ((uint8_t)scene->state.possession != possession_observed) {
-            ++possession_outcomes;
-            if (!possession_had_shot) {
-                ++unknown_possession_edges;
-                outcome = "possession-change-without-shot-outcome";
-                break;
-            }
+
+        /* A Bank05 $B87C claimant serial closes the MISS lifecycle.  SAME_TEAM
+           retains possession; OTHER_TEAM changes it.  Therefore claimant
+           ownership, not a possession edge, is the authoritative terminal. */
+        if (possession_had_shot &&
+            active_shot_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MISS &&
+            scene->claimant_settlement_trace.event_serial !=
+                active_claimant_serial_before) {
+            bool claimant_tied = proof_claimant_settlement_tied(
+                scene, active_claimant_serial_before, active_shooting_team);
             if (!first_outcome_captured) {
                 proof_capture_first_settlement(scene, &first_outcome);
                 first_outcome_captured = true;
             }
-            if (active_shot_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) {
-                if (!proof_claimant_settlement_tied(
-                        scene, active_claimant_serial_before,
-                        active_shooting_team)) {
-                    ++generic_fallbacks;
-                    outcome = "generic-miss-fallback";
+            if (!claimant_tied ||
+                scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY] !=
+                    active_score_before[TECMO_GAMEPLAY_TEAM_AWAY] ||
+                scene->state.score[TECMO_GAMEPLAY_TEAM_HOME] !=
+                    active_score_before[TECMO_GAMEPLAY_TEAM_HOME]) {
+                ++generic_fallbacks;
+                outcome = "generic-miss-fallback";
+                break;
+            }
+            claimant_settlement_this_frame = true;
+            ++source_backed_outcomes;
+            ++legitimate_terminal_outcomes;
+            ++claimant_settlement_outcomes;
+            if (scene->state.possession == active_shooting_team) {
+                ++same_team_claimant_outcomes;
+            } else {
+                ++other_team_claimant_outcomes;
+            }
+            loose_ball_coverage.claimant_settled =
+                loose_ball_coverage.observed &&
+                loose_ball_coverage.chase_actor == scene->ball_holder;
+            loose_ball_coverage.settlement_update = update;
+            loose_ball_coverage.completed =
+                loose_ball_coverage.claimant_settled &&
+                loose_ball_coverage.visible_legal_movement &&
+                !loose_ball_coverage.invalid;
+            possession_had_shot = false;
+            active_shot_outcome = TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN;
+            active_shooting_team = TECMO_GAMEPLAY_TEAM_COUNT;
+            active_shot_points = 0U;
+        }
+
+        if (possession_changed) {
+            ++possession_outcomes;
+            if (claimant_settlement_this_frame) {
+                if (scene->claimant_settlement_trace.transaction
+                        .side_context_swapped == false) {
+                    ++unknown_possession_edges;
+                    outcome = "same-team-claimant-changed-possession";
                     break;
                 }
-                ++source_backed_outcomes;
-                ++legitimate_possession_outcomes;
+            } else if (!possession_had_shot) {
+                ++unknown_possession_edges;
+                outcome = "possession-change-without-shot-outcome";
+                break;
             } else if (active_shot_outcome ==
                            TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE &&
-                       scene_inbound_active(scene) &&
-                       scene->ball_holder == TECMO_GAMEPLAY_SCENE_NO_ACTOR &&
-                       active_shooting_team < TECMO_GAMEPLAY_TEAM_COUNT &&
-                       scene->state.possession ==
-                           (TecmoGameplayTeam)(active_shooting_team ^ 1U)) {
+                       proof_scored_inbound_tied(
+                           scene, active_shooting_team, active_shot_points,
+                           active_score_before)) {
                 ++source_backed_outcomes;
-                ++legitimate_possession_outcomes;
+                ++legitimate_terminal_outcomes;
+                ++scored_inbound_outcomes;
             } else {
                 ++unknown_possession_edges;
                 outcome = "unknown-possession-edge";
                 break;
             }
-            possession_had_shot = false;
-            active_shot_outcome = TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN;
-            active_shooting_team = TECMO_GAMEPLAY_TEAM_COUNT;
+            if (!claimant_settlement_this_frame) {
+                possession_had_shot = false;
+                active_shot_outcome = TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN;
+                active_shooting_team = TECMO_GAMEPLAY_TEAM_COUNT;
+                active_shot_points = 0U;
+            }
             possession_observed = (uint8_t)scene->state.possession;
         }
         if (scene->live_foundation.primary_actor <
@@ -1283,15 +1438,14 @@ bool tecmo_gameplay_cpu_possession_proof(
             scene->state.clock_seconds <= 59U) {
             reached_beyond_one_minute = true;
         }
-        if (source_backed_outcomes >= 2U && route_coverage.completed &&
-            !route_coverage.invalid) {
-            outcome = "source-backed-outcomes-and-route-completion";
+        if (source_backed_outcomes >= 2U && loose_ball_coverage.completed) {
+            outcome = "source-backed-outcomes-and-loose-ball-completion";
             break;
         }
         if (scene->state.period != period_observed || scene->result_ready ||
             scene->state.phase == TECMO_GAMEPLAY_PHASE_COMPLETE) {
             outcome = source_backed_outcomes >= 2U &&
-                    !route_coverage.completed
+                    !loose_ball_coverage.completed
                 ? "movement-lifecycle-not-covered"
                 : "period-ended-before-two-source-backed-outcomes";
             break;
@@ -1337,18 +1491,21 @@ bool tecmo_gameplay_cpu_possession_proof(
         }
     }
     if (strcmp(outcome, "horizon-exhausted") == 0 &&
-        source_backed_outcomes >= 2U && !route_coverage.completed) {
+        source_backed_outcomes >= 2U && !loose_ball_coverage.completed) {
         outcome = "movement-lifecycle-not-covered";
     }
     if (!proof_render(&runtime, terminal_png_path, &terminal_hash)) goto done;
     fclose(trace);
     trace = NULL;
-    result = possession_outcomes >= 2U && source_backed_outcomes >= 2U &&
-        legitimate_possession_outcomes == possession_outcomes &&
+    result = possession_outcomes >= 1U && source_backed_outcomes >= 2U &&
+        legitimate_terminal_outcomes == source_backed_outcomes &&
+        claimant_settlement_outcomes >= 1U &&
+        same_team_claimant_outcomes >= 1U && scored_inbound_outcomes >= 1U &&
         generic_fallbacks == 0U && unknown_possession_edges == 0U &&
         shot_launches >= 2U && !selected_state0b_observed &&
-        !no_effect_failure && mid_horizon_captured && route_coverage.completed &&
-        route_coverage.movement_observed && !route_coverage.invalid &&
+        !no_effect_failure && mid_horizon_captured &&
+        loose_ball_coverage.completed && !loose_ball_coverage.invalid &&
+        !route_coverage.invalid &&
         first_outcome_captured && first_outcome.normalized &&
         strcmp(proof_first_outcome_classification(&first_outcome),
                "jump-miss-claimant-settlement") == 0 &&
@@ -1363,15 +1520,19 @@ bool tecmo_gameplay_cpu_possession_proof(
             TECMO_GAMEPLAY_VIOLATION_NONE;
     (void)snprintf(
         message, message_size,
-        "{\"schema\":\"tecmo.cpu-possession-proof/TGPH-5\","
+        "{\"schema\":\"tecmo.cpu-possession-proof/TGPH-6\","
         "\"passed\":%s,\"structured_state_authority\":true,"
         "\"screenshot_scope\":\"presentation-only\","
         "\"fixture\":\"COM VS COM controllerless setup feeding production inbound; deterministic clocks 24/50\","
         "\"outer_update_limit\":20000,\"updates_observed\":%u,"
-        "\"outcome\":\"%s\",\"possession_outcomes\":%u,"
-        "\"legitimate_possession_outcomes\":%u,"
+        "\"outcome\":\"%s\",\"possession_changes\":%u,"
+        "\"legitimate_terminal_outcomes\":%u,"
         "\"source_backed_outcomes\":%u,\"generic_fallbacks\":%u,"
         "\"unknown_possession_edges\":%u,"
+        "\"claimant_settlement_outcomes\":%u,"
+        "\"same_team_claimant_outcomes\":%u,"
+        "\"other_team_claimant_outcomes\":%u,"
+        "\"scored_inbound_outcomes\":%u,"
         "\"shot_launches\":%u,\"selected_state0b_observed\":%s,"
         "\"reached_beyond_one_minute\":%s,"
         "\"no_effect_failure\":%s,\"max_no_effect_streak\":%u,"
@@ -1387,9 +1548,12 @@ bool tecmo_gameplay_cpu_possession_proof(
         "\"scores_unchanged\":%s,\"claimant_valid_after\":%s,"
         "\"claimant_serial_after\":%u,\"claimant_unchanged_invalid\":%s,"
         "\"claimant_tied_to_new_holder\":%s,"
-        "\"automatic_new_holder\":%s,\"cursor\":%u,\"state\":%u,"
+        "\"claimant_relation\":\"%s\",\"possession_changed\":%s,"
+        "\"automatic_new_holder\":%s,\"cursor\":%u,"
+        "\"last_step_offset\":%u,\"state\":%u,"
         "\"action\":%u,\"wait\":%u,\"route_cleared\":%s,"
-        "\"target_cleared\":%s,\"defer_cleared\":%s,\"normalized\":%s},"
+        "\"target_cleared\":%s,\"defer_cleared\":%s,"
+        "\"source_claimant_tuple\":%s},"
         "\"selected_state0b_update\":%u,"
         "\"mid_horizon_update\":%u,"
         "\"ownership_fixtures\":{\"controllerless_automatic\":%s,"
@@ -1407,15 +1571,23 @@ bool tecmo_gameplay_cpu_possession_proof(
         "\"violation_code\":%u,\"violation_name\":\"%s\","
         "\"anchor_oob\":%s,\"max_idle_frames\":%u,"
         "\"gate_excursion_count\":%u,"
-        "\"movement_lifecycle\":{\"state5_observed\":%s,"
+        "\"movement_coverage\":{\"kind\":\"loose-ball-chase\","
+        "\"typed_active_observed\":%s,\"chase_actor\":%u,"
+        "\"active_ticks\":%u,\"settlement_update\":%u,"
+        "\"movement_observed\":%s,\"visible_legal_movement\":%s,"
+        "\"exact_claimant_settlement\":%s,\"completed\":%s,"
+        "\"invalid\":%s},"
+        "\"state5_movement_lifecycle\":{\"state5_observed\":%s,"
         "\"actor\":%u,\"target\":[%d,%d],\"ticks\":%u,"
         "\"movement_observed\":%s,\"completed\":%s,\"invalid\":%s},"
         "\"pass_active_frame_count\":%u,\"max_pose_overhang\":%d,"
         "\"mid_horizon_frame_fnv1a32\":\"%08X\","
         "\"terminal_frame_fnv1a32\":\"%08X\"}",
         result ? "true" : "false", update, outcome, possession_outcomes,
-        legitimate_possession_outcomes,
+        legitimate_terminal_outcomes,
         source_backed_outcomes, generic_fallbacks, unknown_possession_edges,
+        claimant_settlement_outcomes, same_team_claimant_outcomes,
+        other_team_claimant_outcomes, scored_inbound_outcomes,
         shot_launches, selected_state0b_observed ? "true" : "false",
         reached_beyond_one_minute ? "true" : "false",
         no_effect_failure ? "true" : "false", max_no_effect_streak,
@@ -1454,8 +1626,13 @@ bool tecmo_gameplay_cpu_possession_proof(
                     first_outcome.claimant_serial_after
             ? "true" : "false",
         first_outcome.claimant_tied ? "true" : "false",
+        first_outcome.possession_after == first_outcome.shooting_team
+            ? "SAME_TEAM" : "OTHER_TEAM",
+        first_outcome.possession_after != first_outcome.shooting_team
+            ? "true" : "false",
         first_outcome.automatic_new_holder ? "true" : "false",
         (unsigned)first_outcome.cursor_after,
+        (unsigned)first_outcome.last_step_after,
         (unsigned)first_outcome.state_after,
         (unsigned)first_outcome.action_after,
         (unsigned)first_outcome.wait_after,
@@ -1487,6 +1664,15 @@ bool tecmo_gameplay_cpu_possession_proof(
         tecmo_gameplay_violation_name(runtime.gameplay_scene.state.violation),
         anchor_oob ? "true" : "false", max_idle_frames,
         gate_excursion_count,
+        loose_ball_coverage.observed ? "true" : "false",
+        (unsigned)loose_ball_coverage.chase_actor,
+        loose_ball_coverage.active_ticks,
+        loose_ball_coverage.settlement_update,
+        loose_ball_coverage.movement_observed ? "true" : "false",
+        loose_ball_coverage.visible_legal_movement ? "true" : "false",
+        loose_ball_coverage.claimant_settled ? "true" : "false",
+        loose_ball_coverage.completed ? "true" : "false",
+        loose_ball_coverage.invalid ? "true" : "false",
         route_coverage.observed ? "true" : "false",
         (unsigned)route_coverage.actor,
         (int)route_coverage.target_x, (int)route_coverage.target_depth,
