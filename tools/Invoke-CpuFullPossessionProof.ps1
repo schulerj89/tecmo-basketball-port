@@ -64,11 +64,11 @@ foreach ($Repeat in 1, 2) {
     $RunDirectory = Join-Path $OutputDirectory ("run-{0}" -f $Repeat)
     New-Item -ItemType Directory -Force -Path $RunDirectory | Out-Null
     $TracePath = Join-Path $RunDirectory "frames.ndjson"
-    $SecondPossessionPath = Join-Path $RunDirectory "second-possession.png"
+    $MidHorizonPath = Join-Path $RunDirectory "mid-horizon.png"
     $TerminalPath = Join-Path $RunDirectory "terminal.png"
     $Output = @(& $Executable --root $ProjectRoot `
         --gameplay-cpu-possession-proof $PackPath $TracePath `
-        $SecondPossessionPath $TerminalPath 2>&1)
+        $MidHorizonPath $TerminalPath 2>&1)
     $ExitCode = $LASTEXITCODE
     $Text = ($Output -join [Environment]::NewLine).Trim()
     $JsonStart = $Text.IndexOf('{')
@@ -79,13 +79,13 @@ foreach ($Repeat in 1, 2) {
         throw "CPU full-possession run $Repeat emitted invalid summary JSON."
     }
     if (!(Test-Path -LiteralPath $TracePath -PathType Leaf) -or
-        !(Test-Path -LiteralPath $SecondPossessionPath -PathType Leaf) -or
+        !(Test-Path -LiteralPath $MidHorizonPath -PathType Leaf) -or
         !(Test-Path -LiteralPath $TerminalPath -PathType Leaf) -or
-        $Summary.schema -ne "tecmo.cpu-possession-proof/TGPH-3" -or
+        $Summary.schema -ne "tecmo.cpu-possession-proof/TGPH-4" -or
         ![bool]$Summary.structured_state_authority -or
         [int]$Summary.outer_update_limit -ne 20000 -or
         [string]$Summary.fixture -ne
-            'deterministic controllerless setup feeding production inbound; native clocks 24/50' -or
+            'COM VS COM controllerless setup feeding production inbound; deterministic clocks 24/50' -or
         ![bool]$Summary.first_shot.captured -or
         [int]$Summary.first_shot.kind -ne 1 -or
         [string]$Summary.first_shot.kind_name -ne 'jump' -or
@@ -108,20 +108,31 @@ foreach ($Repeat in 1, 2) {
         ![bool]$Summary.inbound_promotion_0488.inbound_started -or
         ![bool]$Summary.inbound_promotion_0488.stale_suppressed_before_ai -or
         ![bool]$Summary.inbound_promotion_0488.catch_promoted_d7_state4_action18 -or
+        ![bool]$Summary.ownership_fixtures.controllerless_automatic -or
+        ![bool]$Summary.ownership_fixtures.p1_direct_holder -or
+        ![bool]$Summary.ownership_fixtures.p2_direct_holder -or
+        ![bool]$Summary.ownership_fixtures.invalid_same_team_other_actor_unowned -or
+        ![bool]$Summary.source_progression_059b.opcode3 -or
+        ![bool]$Summary.source_progression_059b.state6_wait30_cursor05a0 -or
+        [int]$Summary.source_progression_059b.countdown_ticks -ne 30 -or
+        ![bool]$Summary.source_progression_059b.state4_cursor05a0 -or
+        ![bool]$Summary.source_progression_059b.opcode2_to05a5 -or
+        [bool]$Summary.scene_update_failed -or
+        [bool]$Summary.ownership_failure -or
         [bool]$Summary.anchor_oob) {
         throw "CPU full-possession run $Repeat violated its evidence contract."
     }
+    if ((Get-Item -LiteralPath $TracePath).Length -gt 64MB -or
+        (Get-Item -LiteralPath $MidHorizonPath).Length -gt 8MB -or
+        (Get-Item -LiteralPath $TerminalPath).Length -gt 8MB) {
+        throw "CPU full-possession run $Repeat exceeded its artifact cap."
+    }
     if ($ExpectBaselineFailure) {
-        $ExpectedOldStateFailure =
-            [bool]$Summary.selected_state0b_observed -and
-            [string]$Summary.outcome -eq 'selected-primary-state0b'
-        $ExpectedNormalizationFailure =
-            [string]$Summary.outcome -eq 'first-outcome-contract-failed' -and
-            [string]$Summary.first_outcome_classification -eq
-                'jump-miss-handoff-not-normalized'
+        $ExpectedLongHorizonFailure =
+            [string]$Summary.outcome -eq 'automatic-state4-no-effect' -or
+            [string]$Summary.outcome -eq 'shot-clock-violation'
         if ($ExitCode -eq 0 -or [bool]$Summary.passed -or
-            (!$ExpectedOldStateFailure -and !$ExpectedNormalizationFailure) -or
-            [int]$Summary.violation_code -ne 0) {
+            !$ExpectedLongHorizonFailure) {
             throw "Run $Repeat did not reproduce the bounded baseline failure."
         }
     } elseif ($ExitCode -ne 0 -or ![bool]$Summary.passed -or
@@ -137,8 +148,14 @@ foreach ($Repeat in 1, 2) {
              ![bool]$Summary.first_settlement.defer_cleared -or
              ![bool]$Summary.first_settlement.normalized -or
              [int]$Summary.possession_outcomes -lt 2 -or
+             [int]$Summary.legitimate_possession_outcomes -ne
+                [int]$Summary.possession_outcomes -or
              [int]$Summary.shot_launches -lt 2 -or
-             [bool]$Summary.selected_state0b_observed -or
+             ![bool]$Summary.reached_beyond_one_minute -or
+             [int]$Summary.terminal_clock[0] -ne 0 -or
+             [int]$Summary.terminal_clock[1] -gt 59 -or
+             [bool]$Summary.no_effect_failure -or
+             [int]$Summary.max_no_effect_streak -gt 1 -or
              [int]$Summary.violation_code -ne 0 -or
              [string]$Summary.violation_name -ne "NONE") {
         throw "CPU full-possession run $Repeat did not resolve legitimately."
@@ -148,8 +165,8 @@ foreach ($Repeat in 1, 2) {
         Set-Content -LiteralPath $SummaryPath -Encoding UTF8
     $Records += [pscustomobject]@{
         trace_sha256 = (Get-FileHash $TracePath -Algorithm SHA256).Hash
-        second_possession_png_sha256 =
-            (Get-FileHash $SecondPossessionPath -Algorithm SHA256).Hash
+        mid_horizon_png_sha256 =
+            (Get-FileHash $MidHorizonPath -Algorithm SHA256).Hash
         terminal_png_sha256 =
             (Get-FileHash $TerminalPath -Algorithm SHA256).Hash
         summary_sha256 = (Get-FileHash $SummaryPath -Algorithm SHA256).Hash
@@ -157,7 +174,7 @@ foreach ($Repeat in 1, 2) {
     }
 }
 
-foreach ($Field in 'trace_sha256','second_possession_png_sha256',
+foreach ($Field in 'trace_sha256','mid_horizon_png_sha256',
                    'terminal_png_sha256','summary_sha256') {
     if ($Records[0].$Field -ne $Records[1].$Field) {
         throw "CPU full-possession proof was not deterministic: $Field."
@@ -166,7 +183,7 @@ foreach ($Field in 'trace_sha256','second_possession_png_sha256',
 
 $ManifestPath = Join-Path $OutputDirectory "manifest.json"
 ([pscustomobject]@{
-    schema = "tecmo.cpu-possession-proof-run/TGPH-3"
+    schema = "tecmo.cpu-possession-proof-run/TGPH-4"
     status = if ($ExpectBaselineFailure) {
         "EXPECTED_BASELINE_FAILURE"
     } else { "PASS" }

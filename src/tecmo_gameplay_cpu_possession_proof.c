@@ -15,6 +15,7 @@
 #define POSSESSION_PROOF_PRETIP_LIMIT 2048U
 #define POSSESSION_PROOF_INBOUND_LIMIT 128U
 #define POSSESSION_PROOF_OUTER_LIMIT 20000U
+#define POSSESSION_PROOF_NO_EFFECT_LIMIT 1U
 
 typedef struct PossessionProofActorExtent {
     int pose_min_dx;
@@ -29,7 +30,9 @@ typedef struct PossessionProofActorExtent {
     int right_edge;
     int left_overhang;
     int right_overhang;
-    bool anchor_within;
+    bool world_anchor_within;
+    bool scene_anchor_valid;
+    bool ordinary_gate_band;
     bool projected_visible;
     uint8_t screen_x;
     uint8_t screen_y;
@@ -69,6 +72,21 @@ typedef struct PossessionProofFirstOutcome {
     bool defer_cleared;
     bool normalized;
 } PossessionProofFirstOutcome;
+
+typedef struct PossessionProofOwnershipFixtures {
+    bool controllerless_automatic;
+    bool p1_direct_holder;
+    bool p2_direct_holder;
+    bool invalid_same_team_other_actor_unowned;
+} PossessionProofOwnershipFixtures;
+
+typedef struct PossessionProofSourceProgression {
+    bool start_059b_opcode3;
+    bool installed_state6_wait30_cursor05a0;
+    unsigned countdown_ticks;
+    bool returned_state4_cursor05a0;
+    bool fetched_05a0_opcode2_to_05a5;
+} PossessionProofSourceProgression;
 
 static bool proof_route_motion_cleared(
     const TecmoGameplayCpuSteeringRouteMotionState *route)
@@ -298,6 +316,146 @@ static bool proof_inbound_promotion(
     return true;
 }
 
+static bool proof_ownership_fixtures(
+    const TecmoGameplayScene *scene,
+    PossessionProofOwnershipFixtures *result)
+{
+    TecmoGameplayScene candidate;
+    TecmoDebugCpuOwnershipSnapshot snapshot;
+    uint8_t holder;
+    if (scene == NULL || result == NULL ||
+        scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) return false;
+    memset(result, 0, sizeof(*result));
+    holder = scene->ball_holder;
+    candidate = *scene;
+    candidate.launch.controller_team[0U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    candidate.launch.controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    candidate.controlled_actor[0U] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    candidate.controlled_actor[1U] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    result->controllerless_automatic =
+        tecmo_debug_cpu_ownership_snapshot(&candidate, &snapshot) &&
+        snapshot.holder_owner ==
+            TECMO_DEBUG_CPU_HOLDER_OWNER_AUTOMATIC_PRIMARY &&
+        snapshot.automatic_selected_eligible &&
+        snapshot.automatic_selected_admitted;
+
+    candidate.launch.controller_team[0U] =
+        (uint8_t)candidate.state.possession;
+    candidate.controlled_actor[0U] = holder;
+    result->p1_direct_holder =
+        tecmo_debug_cpu_ownership_snapshot(&candidate, &snapshot) &&
+        snapshot.holder_owner == TECMO_DEBUG_CPU_HOLDER_OWNER_HUMAN_P1 &&
+        !snapshot.automatic_selected_eligible &&
+        !snapshot.automatic_selected_admitted;
+
+    candidate.launch.controller_team[0U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    candidate.controlled_actor[0U] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    candidate.launch.controller_team[1U] =
+        (uint8_t)candidate.state.possession;
+    candidate.controlled_actor[1U] = holder;
+    result->p2_direct_holder =
+        tecmo_debug_cpu_ownership_snapshot(&candidate, &snapshot) &&
+        snapshot.holder_owner == TECMO_DEBUG_CPU_HOLDER_OWNER_HUMAN_P2 &&
+        !snapshot.automatic_selected_eligible &&
+        !snapshot.automatic_selected_admitted;
+
+    candidate.launch.controller_team[1U] =
+        (uint8_t)candidate.state.possession;
+    candidate.controlled_actor[1U] = holder < 5U
+        ? (uint8_t)((holder + 1U) % 5U)
+        : (uint8_t)(5U + ((holder - 5U + 1U) % 5U));
+    result->invalid_same_team_other_actor_unowned =
+        tecmo_debug_cpu_ownership_snapshot(&candidate, &snapshot) &&
+        snapshot.holder_owner == TECMO_DEBUG_CPU_HOLDER_OWNER_UNOWNED &&
+        !snapshot.automatic_selected_eligible &&
+        !snapshot.automatic_selected_admitted;
+    return result->controllerless_automatic && result->p1_direct_holder &&
+        result->p2_direct_holder &&
+        result->invalid_same_team_other_actor_unowned;
+}
+
+static bool proof_source_progression_059b(
+    const TecmoGameplayScene *scene,
+    PossessionProofSourceProgression *result)
+{
+    TecmoGameplayScene candidate;
+    TecmoGameplaySceneCpuShotRequest shot_request;
+    TecmoGameplayCpuSteeringCommand command;
+    TecmoGameplayCpuSteeringRouteMotionState *route;
+    uint8_t actor;
+    unsigned tick;
+    if (scene == NULL || result == NULL ||
+        scene->live_foundation.primary_actor >=
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) return false;
+    memset(result, 0, sizeof(*result));
+    candidate = *scene;
+    actor = candidate.live_foundation.primary_actor;
+    if (actor != candidate.ball_holder) return false;
+    candidate.launch.controller_team[0U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    candidate.launch.controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    candidate.controlled_actor[0U] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    candidate.controlled_actor[1U] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    candidate.live_foundation.play_state.stream_offset[actor] = 0x059BU;
+    candidate.live_foundation.last_step_offset[actor] = 0x059BU;
+    candidate.live_foundation.play_state.actor_state[actor] = 0x04U;
+    candidate.live_foundation.play_state.action_state_046e[actor] = 0U;
+    candidate.live_foundation.play_state.wait_counter[actor] = 0U;
+    candidate.live_foundation.play_state.target_object[actor] =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    candidate.live_foundation.play_state.target_x[actor] = 0;
+    candidate.live_foundation.play_state.target_depth[actor] = 0;
+    candidate.live_foundation.play_state.direction[actor] =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+    candidate.live_foundation.source_target_valid[actor] = false;
+    candidate.live_foundation.source_direction_valid[actor] = false;
+    candidate.live_foundation.source_direction[actor] =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+    candidate.live_foundation.deferred[actor] = false;
+    candidate.live_foundation.deferred_reason[actor] =
+        TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+    route = &candidate.live_foundation.play_state.route_motion[actor];
+    memset(route, 0, sizeof(*route));
+    route->contract_tag =
+        TECMO_GAMEPLAY_CPU_STEERING_ROUTE_MOTION_STATE_TAG;
+    if (!tecmo_gameplay_live_foundation_valid(
+            &candidate.cpu_steering_assets, &candidate.live_foundation) ||
+        !tecmo_gameplay_cpu_steering_decode_command(
+            &candidate.cpu_steering_assets, 0x059BU, &command)) return false;
+    result->start_059b_opcode3 = command.opcode == 3U;
+    memset(&shot_request, 0, sizeof(shot_request));
+    if (!result->start_059b_opcode3 ||
+        !scene_update_ai(&candidate, &shot_request) ||
+        shot_request.requested) return false;
+    result->installed_state6_wait30_cursor05a0 =
+        candidate.live_foundation.play_state.actor_state[actor] == 0x06U &&
+        candidate.live_foundation.play_state.wait_counter[actor] == 30U &&
+        candidate.live_foundation.play_state.stream_offset[actor] == 0x05A0U;
+    if (!result->installed_state6_wait30_cursor05a0) return false;
+    for (tick = 0U; tick < 30U; ++tick) {
+        memset(&shot_request, 0, sizeof(shot_request));
+        if (!scene_update_ai(&candidate, &shot_request) ||
+            shot_request.requested ||
+            candidate.live_foundation.play_state.stream_offset[actor] !=
+                0x05A0U) return false;
+        ++result->countdown_ticks;
+    }
+    result->returned_state4_cursor05a0 =
+        candidate.live_foundation.play_state.actor_state[actor] == 0x04U &&
+        candidate.live_foundation.play_state.wait_counter[actor] == 0U;
+    if (!result->returned_state4_cursor05a0 ||
+        !tecmo_gameplay_cpu_steering_decode_command(
+            &candidate.cpu_steering_assets, 0x05A0U, &command) ||
+        command.opcode != 2U) return false;
+    memset(&shot_request, 0, sizeof(shot_request));
+    if (!scene_update_ai(&candidate, &shot_request) ||
+        shot_request.requested) return false;
+    result->fetched_05a0_opcode2_to_05a5 =
+        candidate.live_foundation.play_state.stream_offset[actor] == 0x05A5U &&
+        candidate.live_foundation.last_step_offset[actor] == 0x05A5U &&
+        candidate.live_foundation.source_target_valid[actor];
+    return result->fetched_05a0_opcode2_to_05a5;
+}
+
 static uint32_t proof_hash(const uint8_t *bytes, size_t count)
 {
     uint32_t hash = 2166136261U;
@@ -353,7 +511,7 @@ static void proof_launch_init(TecmoGameplaySceneLaunch *launch)
     launch->regulation_minutes = 4U;
     launch->difficulty = 0U;
     launch->speed_value = 0U;
-    launch->controller_team[0U] = TECMO_GAMEPLAY_TEAM_AWAY;
+    launch->controller_team[0U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
     launch->controller_team[1U] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
     launch->game_music_enabled = false;
     launch->starter_binding_bound = true;
@@ -363,19 +521,12 @@ static void proof_launch_init(TecmoGameplaySceneLaunch *launch)
 
 static bool proof_advance_pretip(TecmoGameplayScene *scene)
 {
-    TecmoControlFrame away;
     TecmoControlFrame neutral;
     size_t update;
-    memset(&away, 0, sizeof(away));
     memset(&neutral, 0, sizeof(neutral));
     for (update = 0U; update < POSSESSION_PROOF_PRETIP_LIMIT &&
          tecmo_gameplay_scene_in_pretip(scene); ++update) {
-        memset(&away, 0, sizeof(away));
-        if (scene->pretip_state.phase ==
-            TECMO_GAMEPLAY_PRETIP_CENTER_COURT_SETUP) {
-            away.held.cancel = true;
-        }
-        if (!tecmo_gameplay_scene_update(scene, &away, &neutral)) {
+        if (!tecmo_gameplay_scene_update(scene, &neutral, &neutral)) {
             return false;
         }
     }
@@ -419,10 +570,13 @@ static bool proof_actor_extent(const TecmoGameplayScene *scene,
         item->position.y / 2;
     extent->right_edge = TECMO_GAMEPLAY_RIGHT_BOUNDARY_BASE +
         item->position.y / 2;
-    extent->anchor_within = item->position.y >= TECMO_GAMEPLAY_MIN_Y &&
+    extent->world_anchor_within =
+        tecmo_gameplay_court_coordinate_valid(&item->position);
+    extent->ordinary_gate_band = item->position.y >= TECMO_GAMEPLAY_MIN_Y &&
         item->position.y <= TECMO_GAMEPLAY_MAX_Y &&
         item->position.x >= extent->left_edge &&
         item->position.x <= extent->right_edge;
+    extent->scene_anchor_valid = scene_actor_world_position_valid(item);
     extent->left_overhang = extent->world_min_x < extent->left_edge
         ? extent->left_edge - extent->world_min_x : 0;
     extent->right_overhang = extent->world_max_x > extent->right_edge
@@ -436,19 +590,25 @@ static bool proof_actor_extent(const TecmoGameplayScene *scene,
 static bool proof_write_frame(FILE *trace, const TecmoGameplayScene *scene,
                               unsigned update, int delta_x, int delta_y,
                               unsigned idle_frames, int *max_overhang_out,
-                              bool *anchor_oob_out)
+                              bool *anchor_oob_out,
+                              unsigned *gate_excursion_count_out)
 {
     TecmoGameplaySceneCourtFrame court;
+    TecmoDebugCpuOwnershipSnapshot ownership;
     size_t actor;
     int frame_max = 0;
     uint8_t holder = scene->ball_holder;
     if (trace == NULL || scene == NULL || max_overhang_out == NULL ||
-        anchor_oob_out == NULL ||
-        !tecmo_gameplay_scene_court_frame(scene, &court)) return false;
+        anchor_oob_out == NULL || gate_excursion_count_out == NULL ||
+        !tecmo_gameplay_scene_court_frame(scene, &court) ||
+        !tecmo_debug_cpu_ownership_snapshot(scene, &ownership)) return false;
     fprintf(trace,
-            "{\"schema\":\"tecmo.cpu-possession-frame/TGPH-2\","
+            "{\"schema\":\"tecmo.cpu-possession-frame/TGPH-4\","
             "\"update\":%u,\"scene_frame\":%u,\"phase\":%u,"
             "\"violation\":%u,\"possession\":%u,\"holder\":%u,"
+            "\"controller_team\":[%u,%u],\"controlled_actor\":[%u,%u],"
+            "\"holder_owned_by\":\"%s\",\"automatic_selected_eligible\":%s,"
+            "\"automatic_selected_admitted\":%s,"
             "\"primary\":%u,\"defender\":%u,\"clock\":[%u,%u,%u],"
             "\"shot_clock\":%u,\"action_serial\":%u,"
             "\"aggregation\":[%u,%u,%u],"
@@ -458,6 +618,13 @@ static bool proof_write_frame(FILE *trace, const TecmoGameplayScene *scene,
             update, (unsigned)scene->frame, (unsigned)scene->state.phase,
             (unsigned)scene->state.violation,
             (unsigned)scene->state.possession, (unsigned)holder,
+            (unsigned)ownership.controller_team[0U],
+            (unsigned)ownership.controller_team[1U],
+            (unsigned)ownership.controlled_actor[0U],
+            (unsigned)ownership.controlled_actor[1U],
+            tecmo_debug_cpu_holder_owner_name(ownership.holder_owner),
+            ownership.automatic_selected_eligible ? "true" : "false",
+            ownership.automatic_selected_admitted ? "true" : "false",
             (unsigned)scene->live_foundation.primary_actor,
             (unsigned)scene->live_foundation.defender_actor,
             (unsigned)scene->state.clock_minutes,
@@ -527,20 +694,28 @@ static bool proof_write_frame(FILE *trace, const TecmoGameplayScene *scene,
         PossessionProofActorExtent extent;
         const TecmoGameplaySceneActor *item = &scene->actors[actor];
         if (!proof_actor_extent(scene, &court, actor, &extent)) return false;
-        if (!extent.anchor_within) *anchor_oob_out = true;
+        if (!extent.scene_anchor_valid) *anchor_oob_out = true;
+        if (!extent.ordinary_gate_band &&
+            (scene->live_foundation.play_state.actor_state[actor] == 0x05U ||
+             scene->live_foundation.play_state.route_motion[actor].active)) {
+            ++*gate_excursion_count_out;
+        }
         if (extent.left_overhang > frame_max) frame_max = extent.left_overhang;
         if (extent.right_overhang > frame_max) frame_max = extent.right_overhang;
         fprintf(trace,
                 "%s{\"slot\":%u,\"anchor\":[%d,%d],"
-                "\"bounds\":[%d,%d],\"anchor_within\":%s,"
-                "\"projected_foot\":[%s,%u,%u],\"mirror\":%s,"
+                "\"ordinary_gate_band\":[%d,%d,%s],"
+                "\"world_anchor_within\":%s,\"scene_anchor_valid\":%s,"
+                "\"projected_anchor\":[%s,%u,%u],\"mirror\":%s,"
                 "\"pose_bbox_relative\":[%d,%d,%d,%d],"
                 "\"pose_bbox_world\":[%d,%d,%d,%d],"
                 "\"court_edge_overhang\":[%d,%d]}",
                 actor == 0U ? "" : ",", (unsigned)actor,
                 (int)item->position.x, (int)item->position.y,
                 extent.left_edge, extent.right_edge,
-                extent.anchor_within ? "true" : "false",
+                extent.ordinary_gate_band ? "true" : "false",
+                extent.world_anchor_within ? "true" : "false",
+                extent.scene_anchor_valid ? "true" : "false",
                 extent.projected_visible ? "true" : "false",
                 (unsigned)extent.screen_x, (unsigned)extent.screen_y,
                 extent.mirror ? "true" : "false",
@@ -557,7 +732,7 @@ static bool proof_write_frame(FILE *trace, const TecmoGameplayScene *scene,
 
 bool tecmo_gameplay_cpu_possession_proof(
     const char *project_root, const char *asset_pack_path,
-    const char *trace_path, const char *second_possession_png_path,
+    const char *trace_path, const char *mid_horizon_png_path,
     const char *terminal_png_path, char *message, size_t message_size)
 {
     TecmoRuntime runtime;
@@ -574,34 +749,54 @@ bool tecmo_gameplay_cpu_possession_proof(
     uint16_t step_before = 0U;
     uint16_t cursor_before = 0U;
     uint8_t state_before = 0U;
+    uint8_t actor_action_before = 0U;
     uint8_t wait_before = 0U;
+    bool route_active_before = false;
+    uint16_t route_remaining_before = 0U;
+    bool source_target_before = false;
+    bool deferred_before = false;
+    bool automatic_admitted_before = false;
+    uint8_t movement_action_before = 0U;
+    uint8_t movement_fraction_before = 0U;
     unsigned update;
     unsigned idle_frames = 0U;
     unsigned max_idle_frames = 0U;
+    unsigned no_effect_streak = 0U;
+    unsigned max_no_effect_streak = 0U;
+    unsigned gate_excursion_count = 0U;
     unsigned pass_events = 0U;
     unsigned possession_outcomes = 0U;
+    unsigned legitimate_possession_outcomes = 0U;
     unsigned shot_launches = 0U;
     unsigned selected_state0b_update = UINT_MAX;
-    unsigned second_possession_update = UINT_MAX;
+    unsigned mid_horizon_update = UINT_MAX;
     uint8_t possession_observed;
     uint8_t period_observed;
     int max_overhang = -1;
-    uint32_t second_possession_hash = 0U;
+    uint32_t mid_horizon_hash = 0U;
     uint32_t terminal_hash = 0U;
     bool anchor_oob = false;
     bool selected_state0b_observed = false;
-    bool second_possession_captured = false;
+    bool mid_horizon_captured = false;
+    bool reached_beyond_one_minute = false;
+    bool no_effect_failure = false;
+    bool ownership_failure = false;
     bool shot_active_before = false;
+    bool possession_had_shot = false;
+    bool update_failed = false;
     bool first_outcome_captured = false;
     PossessionProofFirstOutcome first_outcome;
     PossessionProofInboundPromotionResult promotion_0627;
     PossessionProofInboundPromotionResult promotion_0488;
+    PossessionProofOwnershipFixtures ownership_fixtures;
+    PossessionProofSourceProgression progression_059b;
     const char *outcome = "horizon-exhausted";
+    const char *setup_stage = "arguments";
     bool initialized = false;
     bool result = false;
     if (message != NULL && message_size != 0U) message[0] = '\0';
     if (project_root == NULL || asset_pack_path == NULL ||
-        trace_path == NULL || second_possession_png_path == NULL ||
+        trace_path == NULL || mid_horizon_png_path == NULL ||
         terminal_png_path == NULL ||
         message == NULL || message_size == 0U) {
         return false;
@@ -610,6 +805,8 @@ bool tecmo_gameplay_cpu_possession_proof(
     memset(&memory, 0, sizeof(memory));
     memset(&neutral, 0, sizeof(neutral));
     memset(&first_outcome, 0, sizeof(first_outcome));
+    memset(&ownership_fixtures, 0, sizeof(ownership_fixtures));
+    memset(&progression_059b, 0, sizeof(progression_059b));
     permanent_block = malloc(POSSESSION_PROOF_MEMORY_SIZE);
     transient_block = malloc(POSSESSION_PROOF_MEMORY_SIZE);
     if (permanent_block == NULL || transient_block == NULL) goto done;
@@ -618,6 +815,7 @@ bool tecmo_gameplay_cpu_possession_proof(
     tecmo_arena_init(&memory.transient, transient_block,
                      POSSESSION_PROOF_MEMORY_SIZE);
     runtime.memory = &memory;
+    setup_stage = "scene-load";
     tecmo_gameplay_scene_init(&runtime.gameplay_scene);
     initialized = true;
     if (!tecmo_music_asset_load_from_pack(&runtime.music_asset,
@@ -628,41 +826,74 @@ bool tecmo_gameplay_cpu_possession_proof(
         goto done;
     }
     proof_launch_init(&launch);
+    setup_stage = "controllerless-pretip";
     if (!tecmo_gameplay_scene_launch(&runtime.gameplay_scene, &launch) ||
         !proof_advance_pretip(&runtime.gameplay_scene)) goto done;
-    runtime.gameplay_scene.launch.controller_team[0U] =
-        TECMO_GAMEPLAY_SCENE_NO_TEAM;
-    runtime.gameplay_scene.controlled_actor[0U] =
-        TECMO_GAMEPLAY_SCENE_NO_ACTOR;
-    runtime.gameplay_scene.live_foundation.control_mode[
-        TECMO_GAMEPLAY_TEAM_AWAY] = 1U;
-    if (
-        !scene_handoff_possession(&runtime.gameplay_scene,
-                                  TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
-        !scene_sync_live_foundation(&runtime.gameplay_scene) ||
-        !scene_begin_inbound(&runtime.gameplay_scene,
-                             TECMO_GAMEPLAY_TEAM_AWAY)) goto done;
+    setup_stage = "production-inbound";
+    /* Deterministic 24/50 clock fixture feeding the real inbound transport. */
+    runtime.gameplay_scene.state.shot_clock = 24U;
+    runtime.gameplay_scene.state.clock_divider = 50U;
+    if (runtime.gameplay_scene.state.shot_clock != 24U ||
+        runtime.gameplay_scene.state.clock_divider != 50U) {
+        (void)snprintf(message, message_size,
+                       "pre-inbound native clocks rejected %u/%u",
+                       (unsigned)runtime.gameplay_scene.state.shot_clock,
+                       (unsigned)runtime.gameplay_scene.state.clock_divider);
+        goto done;
+    }
+    if (!scene_begin_inbound(
+            &runtime.gameplay_scene,
+            runtime.gameplay_scene.state.possession)) {
+        (void)snprintf(message, message_size,
+                       "production inbound rejected phase=%u possession=%u holder=%u inbound=%u",
+                       (unsigned)runtime.gameplay_scene.state.phase,
+                       (unsigned)runtime.gameplay_scene.state.possession,
+                       (unsigned)runtime.gameplay_scene.ball_holder,
+                       (unsigned)runtime.gameplay_scene.inbound_state.phase);
+        goto done;
+    }
+    setup_stage = "production-inbound-flight";
     for (update = 0U; update < POSSESSION_PROOF_INBOUND_LIMIT &&
          scene_inbound_active(&runtime.gameplay_scene); ++update) {
         if (!tecmo_gameplay_scene_update(&runtime.gameplay_scene,
-                                         &neutral, &neutral)) goto done;
+                                         &neutral, &neutral)) {
+            (void)snprintf(message, message_size,
+                           "production inbound update rejected at %u: %s",
+                           update, runtime.gameplay_scene.status);
+            goto done;
+        }
     }
     if (scene_inbound_active(&runtime.gameplay_scene) ||
-        runtime.gameplay_scene.state.shot_clock != 24U ||
-        runtime.gameplay_scene.state.clock_divider != 50U ||
         runtime.gameplay_scene.ball_holder >=
-            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) goto done;
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        (void)snprintf(message, message_size,
+                       "post-inbound contract rejected active=%u clocks=%u/%u holder=%u",
+                       scene_inbound_active(&runtime.gameplay_scene) ? 1U : 0U,
+                       (unsigned)runtime.gameplay_scene.state.shot_clock,
+                       (unsigned)runtime.gameplay_scene.state.clock_divider,
+                       (unsigned)runtime.gameplay_scene.ball_holder);
+        goto done;
+    }
+    setup_stage = "post-inbound-clocks";
+    setup_stage = "promotion-fixtures";
     if (!proof_inbound_promotion(
             &runtime.gameplay_scene, 0x0627U, &promotion_0627) ||
         !proof_inbound_promotion(
             &runtime.gameplay_scene, 0x0488U, &promotion_0488)) {
         goto done;
     }
+    setup_stage = "ownership-fixtures";
+    if (!proof_ownership_fixtures(&runtime.gameplay_scene,
+                                  &ownership_fixtures)) goto done;
+    setup_stage = "source-progression-059b";
+    if (!proof_source_progression_059b(&runtime.gameplay_scene,
+                                       &progression_059b)) goto done;
     runtime.mode = TECMO_MODE_COURT;
     runtime.normal_play_active = true;
     runtime.debug_overlay = false;
     runtime.frame_seconds = 1.0f / 60.0f;
     if (fopen_s(&trace, trace_path, "wb") != 0 || trace == NULL) goto done;
+    setup_stage = "natural-horizon";
     possession_observed = (uint8_t)runtime.gameplay_scene.state.possession;
     period_observed = runtime.gameplay_scene.state.period;
     for (update = 0U; update <= POSSESSION_PROOF_OUTER_LIMIT; ++update) {
@@ -671,6 +902,9 @@ bool tecmo_gameplay_cpu_possession_proof(
         int dx = 0;
         int dy = 0;
         bool same_lifecycle = false;
+        bool selected_no_effect = false;
+        TecmoDebugCpuOwnershipSnapshot ownership;
+        if (!tecmo_debug_cpu_ownership_snapshot(scene, &ownership)) goto done;
         if (holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
             holder == holder_before_actor) {
             dx = scene->actors[holder].position.x - holder_before.x;
@@ -686,15 +920,59 @@ bool tecmo_gameplay_cpu_possession_proof(
                 scene->live_foundation.play_state.wait_counter[holder] ==
                     wait_before && !scene_pass_active(scene) &&
                 scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE;
+            selected_no_effect = automatic_admitted_before &&
+                ownership.automatic_selected_admitted &&
+                state_before == 0x04U &&
+                scene->live_foundation.play_state.actor_state[holder] ==
+                    0x04U &&
+                dx == 0 && dy == 0 &&
+                scene->action_serial == action_before &&
+                scene->cpu_actors[holder].decision_serial == decision_before &&
+                scene->live_foundation.play_state.stream_offset[holder] ==
+                    cursor_before &&
+                scene->live_foundation.play_state.action_state_046e[holder] ==
+                    actor_action_before &&
+                scene->live_foundation.play_state.wait_counter[holder] ==
+                    wait_before &&
+                scene->live_foundation.play_state.route_motion[holder].active ==
+                    route_active_before &&
+                scene->live_foundation.play_state.route_motion[holder]
+                        .remaining_timer == route_remaining_before &&
+                scene->live_foundation.source_target_valid[holder] ==
+                    source_target_before &&
+                scene->live_foundation.deferred[holder] == deferred_before &&
+                scene->actors[holder].movement_action_state ==
+                    movement_action_before &&
+                scene->actors[holder].movement_fractional_accumulator ==
+                    movement_fraction_before &&
+                !scene_pass_active(scene) && !scene_inbound_active(scene) &&
+                scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE;
         }
         idle_frames = same_lifecycle ? idle_frames + 1U : 0U;
+        no_effect_streak = selected_no_effect ? no_effect_streak + 1U : 0U;
         if (idle_frames > max_idle_frames) max_idle_frames = idle_frames;
+        if (no_effect_streak > max_no_effect_streak) {
+            max_no_effect_streak = no_effect_streak;
+        }
         if (!proof_write_frame(trace, scene, update, dx, dy, idle_frames,
-                               &max_overhang, &anchor_oob)) goto done;
+                               &max_overhang, &anchor_oob,
+                               &gate_excursion_count)) goto done;
         runtime.frame_counter = scene->frame;
         runtime.mode_frame_counter = scene->frame;
         if (anchor_oob) {
             outcome = "anchor-oob";
+            break;
+        }
+        if (holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+            scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
+            scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+            !scene_pass_active(scene) && !scene_inbound_active(scene) &&
+            (!ownership.automatic_selected_eligible ||
+             !ownership.automatic_selected_admitted ||
+             ownership.holder_owner !=
+                 TECMO_DEBUG_CPU_HOLDER_OWNER_AUTOMATIC_PRIMARY)) {
+            ownership_failure = true;
+            outcome = "automatic-holder-ownership-invalid";
             break;
         }
         if (scene->state.violation != TECMO_GAMEPLAY_VIOLATION_NONE) {
@@ -703,9 +981,15 @@ bool tecmo_gameplay_cpu_possession_proof(
                 ? "shot-clock-violation" : "other-violation";
             break;
         }
+        if (no_effect_streak > POSSESSION_PROOF_NO_EFFECT_LIMIT) {
+            no_effect_failure = true;
+            outcome = "automatic-state4-no-effect";
+            break;
+        }
         if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
             !shot_active_before) {
             ++shot_launches;
+            possession_had_shot = true;
             if (!first_outcome.launch_captured) {
                 first_outcome.launch_captured = true;
                 first_outcome.shot_kind = (uint8_t)scene->shot_kind;
@@ -725,14 +1009,15 @@ bool tecmo_gameplay_cpu_possession_proof(
             TECMO_GAMEPLAY_SCENE_SHOT_NONE;
         if ((uint8_t)scene->state.possession != possession_observed) {
             ++possession_outcomes;
+            if (!possession_had_shot) {
+                outcome = "possession-change-without-shot-outcome";
+                break;
+            }
+            ++legitimate_possession_outcomes;
+            possession_had_shot = false;
             if (!first_outcome_captured) {
                 proof_capture_first_settlement(scene, &first_outcome);
                 first_outcome_captured = true;
-                if (strcmp(proof_first_outcome_classification(&first_outcome),
-                           "jump-miss-generic-compatibility-handoff") != 0) {
-                    outcome = "first-outcome-contract-failed";
-                    break;
-                }
             }
             possession_observed = (uint8_t)scene->state.possession;
         }
@@ -743,20 +1028,21 @@ bool tecmo_gameplay_cpu_possession_proof(
                     0x0BU) {
                 selected_state0b_observed = true;
                 selected_state0b_update = update;
-                outcome = "selected-primary-state0b";
-                break;
             }
         }
-        if (possession_outcomes >= 1U && !second_possession_captured &&
-            scene->ball_holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
-            scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
-            second_possession_captured = true;
-            second_possession_update = update;
-            if (!proof_render(&runtime, second_possession_png_path,
-                              &second_possession_hash)) goto done;
+        if (!mid_horizon_captured && scene->state.clock_minutes <= 1U) {
+            mid_horizon_captured = true;
+            mid_horizon_update = update;
+            if (!proof_render(&runtime, mid_horizon_png_path,
+                              &mid_horizon_hash)) goto done;
         }
-        if (possession_outcomes >= 2U && shot_launches >= 2U) {
-            outcome = "two-legitimate-possession-outcomes";
+        if (scene->state.clock_minutes == 0U &&
+            scene->state.clock_seconds <= 59U) {
+            reached_beyond_one_minute = true;
+        }
+        if (reached_beyond_one_minute && possession_outcomes >= 2U &&
+            shot_launches >= 2U) {
+            outcome = "long-horizon-legitimate-possession-outcomes";
             break;
         }
         if (scene->state.period != period_observed || scene->result_ready ||
@@ -776,31 +1062,64 @@ bool tecmo_gameplay_cpu_possession_proof(
                 .stream_offset[holder];
             state_before = scene->live_foundation.play_state
                 .actor_state[holder];
+            actor_action_before = scene->live_foundation.play_state
+                .action_state_046e[holder];
             wait_before = scene->live_foundation.play_state
                 .wait_counter[holder];
+            route_active_before = scene->live_foundation.play_state
+                .route_motion[holder].active;
+            route_remaining_before = scene->live_foundation.play_state
+                .route_motion[holder].remaining_timer;
+            source_target_before =
+                scene->live_foundation.source_target_valid[holder];
+            deferred_before = scene->live_foundation.deferred[holder];
+            automatic_admitted_before =
+                ownership.automatic_selected_admitted;
+            movement_action_before =
+                scene->actors[holder].movement_action_state;
+            movement_fraction_before =
+                scene->actors[holder].movement_fractional_accumulator;
+        } else {
+            automatic_admitted_before = false;
         }
-        if (!tecmo_gameplay_scene_update(scene, &neutral, &neutral)) goto done;
+        if (!tecmo_gameplay_scene_update(scene, &neutral, &neutral)) {
+            update_failed = true;
+            outcome = "scene-update-failed";
+            break;
+        }
     }
     if (!proof_render(&runtime, terminal_png_path, &terminal_hash)) goto done;
     fclose(trace);
     trace = NULL;
-    result = possession_outcomes >= 2U && shot_launches >= 2U &&
-        !selected_state0b_observed &&
+    result = reached_beyond_one_minute && possession_outcomes >= 2U &&
+        legitimate_possession_outcomes == possession_outcomes &&
+        shot_launches >= 2U && !no_effect_failure && mid_horizon_captured &&
         first_outcome_captured && first_outcome.normalized &&
         strcmp(proof_first_outcome_classification(&first_outcome),
                "jump-miss-generic-compatibility-handoff") == 0 &&
         promotion_0627.promoted && promotion_0488.promoted &&
-        !anchor_oob && runtime.gameplay_scene.state.violation ==
+        ownership_fixtures.controllerless_automatic &&
+        ownership_fixtures.p1_direct_holder &&
+        ownership_fixtures.p2_direct_holder &&
+        ownership_fixtures.invalid_same_team_other_actor_unowned &&
+        progression_059b.fetched_05a0_opcode2_to_05a5 &&
+        !update_failed && !ownership_failure && !anchor_oob &&
+        runtime.gameplay_scene.state.violation ==
             TECMO_GAMEPLAY_VIOLATION_NONE;
     (void)snprintf(
         message, message_size,
-        "{\"schema\":\"tecmo.cpu-possession-proof/TGPH-3\","
+        "{\"schema\":\"tecmo.cpu-possession-proof/TGPH-4\","
         "\"passed\":%s,\"structured_state_authority\":true,"
         "\"screenshot_scope\":\"presentation-only\","
-        "\"fixture\":\"deterministic controllerless setup feeding production inbound; native clocks 24/50\","
+        "\"fixture\":\"COM VS COM controllerless setup feeding production inbound; deterministic clocks 24/50\","
         "\"outer_update_limit\":20000,\"updates_observed\":%u,"
         "\"outcome\":\"%s\",\"possession_outcomes\":%u,"
+        "\"legitimate_possession_outcomes\":%u,"
         "\"shot_launches\":%u,\"selected_state0b_observed\":%s,"
+        "\"reached_beyond_one_minute\":%s,"
+        "\"no_effect_failure\":%s,\"max_no_effect_streak\":%u,"
+        "\"scene_update_failed\":%s,\"terminal_clock\":[%u,%u,%u],"
+        "\"ownership_failure\":%s,"
         "\"first_outcome_classification\":\"%s\","
         "\"first_shot\":{\"captured\":%s,\"kind\":%u,\"kind_name\":\"%s\","
         "\"outcome\":%u,\"outcome_name\":\"%s\",\"shooting_team\":%u,"
@@ -814,7 +1133,13 @@ bool tecmo_gameplay_cpu_possession_proof(
         "\"action\":%u,\"wait\":%u,\"route_cleared\":%s,"
         "\"target_cleared\":%s,\"defer_cleared\":%s,\"normalized\":%s},"
         "\"selected_state0b_update\":%u,"
-        "\"second_possession_update\":%u,"
+        "\"mid_horizon_update\":%u,"
+        "\"ownership_fixtures\":{\"controllerless_automatic\":%s,"
+        "\"p1_direct_holder\":%s,\"p2_direct_holder\":%s,"
+        "\"invalid_same_team_other_actor_unowned\":%s},"
+        "\"source_progression_059b\":{\"opcode3\":%s,"
+        "\"state6_wait30_cursor05a0\":%s,\"countdown_ticks\":%u,"
+        "\"state4_cursor05a0\":%s,\"opcode2_to05a5\":%s},"
         "\"inbound_promotion_0627\":{\"adversarial_fixture_valid\":%s,"
         "\"inbound_started\":%s,\"stale_suppressed_before_ai\":%s,"
         "\"catch_promoted_d7_state4_action18\":%s},"
@@ -823,11 +1148,20 @@ bool tecmo_gameplay_cpu_possession_proof(
         "\"catch_promoted_d7_state4_action18\":%s},"
         "\"violation_code\":%u,\"violation_name\":\"%s\","
         "\"anchor_oob\":%s,\"max_idle_frames\":%u,"
+        "\"gate_excursion_count\":%u,"
         "\"pass_active_frame_count\":%u,\"max_pose_overhang\":%d,"
-        "\"second_possession_frame_fnv1a32\":\"%08X\","
+        "\"mid_horizon_frame_fnv1a32\":\"%08X\","
         "\"terminal_frame_fnv1a32\":\"%08X\"}",
         result ? "true" : "false", update, outcome, possession_outcomes,
+        legitimate_possession_outcomes,
         shot_launches, selected_state0b_observed ? "true" : "false",
+        reached_beyond_one_minute ? "true" : "false",
+        no_effect_failure ? "true" : "false", max_no_effect_streak,
+        update_failed ? "true" : "false",
+        (unsigned)runtime.gameplay_scene.state.clock_minutes,
+        (unsigned)runtime.gameplay_scene.state.clock_seconds,
+        (unsigned)runtime.gameplay_scene.state.clock_divider,
+        ownership_failure ? "true" : "false",
         proof_first_outcome_classification(&first_outcome),
         first_outcome.launch_captured ? "true" : "false",
         (unsigned)first_outcome.shot_kind,
@@ -866,7 +1200,18 @@ bool tecmo_gameplay_cpu_possession_proof(
         first_outcome.target_cleared ? "true" : "false",
         first_outcome.defer_cleared ? "true" : "false",
         first_outcome.normalized ? "true" : "false",
-        selected_state0b_update, second_possession_update,
+        selected_state0b_update, mid_horizon_update,
+        ownership_fixtures.controllerless_automatic ? "true" : "false",
+        ownership_fixtures.p1_direct_holder ? "true" : "false",
+        ownership_fixtures.p2_direct_holder ? "true" : "false",
+        ownership_fixtures.invalid_same_team_other_actor_unowned
+            ? "true" : "false",
+        progression_059b.start_059b_opcode3 ? "true" : "false",
+        progression_059b.installed_state6_wait30_cursor05a0
+            ? "true" : "false",
+        progression_059b.countdown_ticks,
+        progression_059b.returned_state4_cursor05a0 ? "true" : "false",
+        progression_059b.fetched_05a0_opcode2_to_05a5 ? "true" : "false",
         promotion_0627.adversarial_state_valid ? "true" : "false",
         promotion_0627.inbound_started ? "true" : "false",
         promotion_0627.stale_suppressed ? "true" : "false",
@@ -877,14 +1222,16 @@ bool tecmo_gameplay_cpu_possession_proof(
         promotion_0488.promoted ? "true" : "false",
         (unsigned)runtime.gameplay_scene.state.violation,
         tecmo_gameplay_violation_name(runtime.gameplay_scene.state.violation),
-        anchor_oob ? "true" : "false", max_idle_frames, pass_events,
-        max_overhang, (unsigned)second_possession_hash,
+        anchor_oob ? "true" : "false", max_idle_frames,
+        gate_excursion_count, pass_events,
+        max_overhang, (unsigned)mid_horizon_hash,
         (unsigned)terminal_hash);
 done:
     if (trace != NULL) fclose(trace);
     if (message != NULL && message_size != 0U && message[0] == '\0') {
         (void)snprintf(message, message_size,
-                       "CPU possession proof setup or telemetry failed");
+                       "CPU possession proof setup or telemetry failed at %s",
+                       setup_stage);
     }
     if (initialized) {
         tecmo_gameplay_scene_destroy(&runtime.gameplay_scene);
