@@ -17,6 +17,7 @@
 #define TECMO_TEAM_MANAGEMENT_PLAY_COUNT 8U
 #define TECMO_TEAM_MANAGEMENT_SCREEN_CELLS 960U
 #define TECMO_TEAM_MANAGEMENT_DIAGRAM_CELLS 64U
+#define TECMO_TEAM_MANAGEMENT_LINEUP_NAME_SIZE 12U
 
 struct TecmoTeamDataAsset;
 
@@ -38,6 +39,8 @@ typedef struct TecmoTeamManagementAsset {
     uint8_t held_repeat_frames;
     uint8_t carousel_frames;
     uint8_t carousel_pixels_per_frame;
+    /* Retained TTMG-1 compatibility bytes. STARTERS uses the nonuniform
+     * source config-$0D/$0F resolver, not this legacy approximation. */
     uint8_t starters_cursor_x;
     uint8_t starters_cursor_y;
     uint8_t starters_cursor_stride;
@@ -77,6 +80,29 @@ typedef struct TecmoTeamManagementViewState {
     uint8_t direction_cooldown;
 } TecmoTeamManagementViewState;
 
+typedef struct TecmoTeamManagementStarterRow {
+    uint8_t roster_index;
+    char position;
+    char name[TECMO_TEAM_MANAGEMENT_LINEUP_NAME_SIZE];
+} TecmoTeamManagementStarterRow;
+
+typedef struct TecmoTeamManagementStartersPresentation {
+    uint8_t team_id;
+    uint8_t profile_palette_group;
+    uint8_t logo_x;
+    uint8_t logo_y;
+    uint8_t logo_width;
+    uint8_t logo_height;
+    TecmoTeamManagementStarterRow lineup[TECMO_TEAM_MANAGEMENT_STARTER_COUNT];
+    TecmoTeamManagementStarterRow bench[TECMO_TEAM_MANAGEMENT_BENCH_COUNT];
+} TecmoTeamManagementStartersPresentation;
+
+typedef struct TecmoTeamManagementCursorPosition {
+    bool visible;
+    int16_t x;
+    int16_t y;
+} TecmoTeamManagementCursorPosition;
+
 typedef enum TecmoTeamManagementAction {
     TECMO_TEAM_MANAGEMENT_ACTION_NONE,
     TECMO_TEAM_MANAGEMENT_ACTION_BACK_TO_PROFILE,
@@ -98,6 +124,15 @@ void tecmo_team_management_view_init_starters(
     TecmoTeamManagementViewState *state);
 void tecmo_team_management_view_init_playbook(
     TecmoTeamManagementViewState *state);
+bool tecmo_team_management_starters_presentation(
+    const TecmoTeamManagementSession *session,
+    const struct TecmoTeamDataAsset *team_data,
+    uint8_t team_id,
+    TecmoTeamManagementStartersPresentation *presentation);
+bool tecmo_team_management_starters_cursor_positions(
+    const TecmoTeamManagementViewState *state,
+    TecmoTeamManagementCursorPosition *lineup_cursor,
+    TecmoTeamManagementCursorPosition *bench_cursor);
 TecmoTeamManagementAction tecmo_team_management_update(
     TecmoTeamManagementViewState *state,
     TecmoTeamManagementSession *session,

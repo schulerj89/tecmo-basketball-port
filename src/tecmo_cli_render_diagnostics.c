@@ -165,6 +165,10 @@ void tecmo_cli_print_render_diagnostics(
             if (strncmp(mode_name, "team-data", 9) == 0) {
                 int cursor_oam_x = -1;
                 int cursor_oam_y = -1;
+                TecmoTeamManagementStartersPresentation starters = {0};
+                TecmoTeamManagementCursorPosition lineup_cursor = {0};
+                TecmoTeamManagementCursorPosition bench_cursor = {0};
+                bool starters_resolved = false;
                 bool cursor_drawn =
                     runtime->team_data_state.transition ==
                         TECMO_TEAM_DATA_TRANSITION_NONE &&
@@ -192,6 +196,21 @@ void tecmo_cli_print_render_diagnostics(
                     cursor_oam_y = runtime->team_data_asset.roster_cursor_oam_y +
                         runtime->team_data_state.roster_row *
                             runtime->team_data_asset.roster_cursor_stride;
+                } else if (runtime->team_data_state.phase ==
+                           TECMO_TEAM_DATA_STARTERS) {
+                    starters_resolved =
+                        tecmo_team_management_starters_presentation(
+                            &runtime->team_management_session,
+                            &runtime->team_data_asset,
+                            runtime->team_data_state.team_id, &starters) &&
+                        tecmo_team_management_starters_cursor_positions(
+                            &runtime->team_data_state.management_view,
+                            &lineup_cursor, &bench_cursor);
+                    cursor_drawn = starters_resolved && lineup_cursor.visible;
+                    if (cursor_drawn) {
+                        cursor_oam_x = lineup_cursor.x;
+                        cursor_oam_y = lineup_cursor.y - 1;
+                    }
                 } else {
                     cursor_drawn = false;
                 }
@@ -219,6 +238,38 @@ void tecmo_cli_print_render_diagnostics(
                        cursor_oam_x, cursor_oam_y,
                        cursor_oam_x,
                        cursor_oam_y >= 0 ? cursor_oam_y + 1 : -1);
+                if (starters_resolved) {
+                    printf("team-data-starters team=%u palette-group=%u logo=%u,%u,%u,%u view=%u lineup-cursor=%u,%d,%d bench-cursor=%u,%d,%d lineup=",
+                           (unsigned)starters.team_id,
+                           (unsigned)starters.profile_palette_group,
+                           (unsigned)starters.logo_x,
+                           (unsigned)starters.logo_y,
+                           (unsigned)starters.logo_width,
+                           (unsigned)starters.logo_height,
+                           (unsigned)runtime->team_data_state.management_view.view,
+                           lineup_cursor.visible ? 1U : 0U,
+                           (int)lineup_cursor.x, (int)lineup_cursor.y,
+                           bench_cursor.visible ? 1U : 0U,
+                           (int)bench_cursor.x, (int)bench_cursor.y);
+                    for (size_t row = 0U;
+                         row < TECMO_TEAM_MANAGEMENT_STARTER_COUNT; ++row) {
+                        const TecmoTeamManagementStarterRow *entry =
+                            &starters.lineup[row];
+                        printf("%s%u:%c:\"%s\"", row == 0U ? "" : "|",
+                               (unsigned)entry->roster_index,
+                               entry->position, entry->name);
+                    }
+                    printf(" bench=");
+                    for (size_t row = 0U;
+                         row < TECMO_TEAM_MANAGEMENT_BENCH_COUNT; ++row) {
+                        const TecmoTeamManagementStarterRow *entry =
+                            &starters.bench[row];
+                        printf("%s%u:%c:\"%s\"", row == 0U ? "" : "|",
+                               (unsigned)entry->roster_index,
+                               entry->position, entry->name);
+                    }
+                    printf("\n");
+                }
                 if (runtime->team_data_state.phase ==
                         TECMO_TEAM_DATA_PLAYER_DETAIL) {
                     TecmoTeamDataPlayerStatsSource stats_source;

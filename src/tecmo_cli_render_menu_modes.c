@@ -611,15 +611,29 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
                     strcmp(mode_name, "team-data-profile-row2") == 0 ? 2U : 0U;
                 runtime->team_data_state.cursor_delay = 1U;
             } else if (strcmp(mode_name, "team-data-starters") == 0 ||
+                       strcmp(mode_name, "team-data-starters-chicago") == 0 ||
+                       strcmp(mode_name,
+                              "team-data-starters-chicago-row3") == 0 ||
+                       strcmp(mode_name,
+                              "team-data-starters-chicago-substituted") == 0 ||
                        strcmp(mode_name, "team-data-starters-reset") == 0 ||
                        strcmp(mode_name, "team-data-starters-bench") == 0) {
                 *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
                 runtime->team_data_state.phase = TECMO_TEAM_DATA_STARTERS;
-                runtime->team_data_state.team_id = 0U;
+                runtime->team_data_state.team_id =
+                    strstr(mode_name, "chicago") != NULL ? 3U : 0U;
                 tecmo_team_management_view_init_starters(
                     &runtime->team_data_state.management_view);
-                if (strcmp(mode_name, "team-data-starters-reset") == 0) {
+                if (strcmp(mode_name,
+                           "team-data-starters-chicago-row3") == 0) {
+                    runtime->team_data_state.management_view.selection = 3U;
+                } else if (strcmp(
+                               mode_name,
+                               "team-data-starters-chicago-substituted") == 0) {
+                    runtime->team_management_session.starters[3U][0U] = 5U;
+                } else if (strcmp(mode_name,
+                                  "team-data-starters-reset") == 0) {
                     runtime->team_data_state.management_view.view =
                         TECMO_TEAM_MANAGEMENT_VIEW_STARTER_RESET;
                 } else if (strcmp(mode_name, "team-data-starters-bench") == 0) {
@@ -662,11 +676,19 @@ static bool configure_team_data_mode(TecmoRuntime *runtime, const char *mode_nam
                 }
             } else if (strcmp(mode_name, "team-data-roster-page1") == 0 ||
                        strcmp(mode_name, "team-data-roster-page2") == 0 ||
-                       strcmp(mode_name, "team-data-roster-row5") == 0) {
+                       strcmp(mode_name, "team-data-roster-row5") == 0 ||
+                       strcmp(mode_name,
+                              "team-data-roster-chicago") == 0 ||
+                       strcmp(mode_name,
+                              "team-data-roster-chicago-substituted") == 0) {
                 *handled_out = true;
                 tecmo_runtime_set_mode(runtime, TECMO_MODE_TEAM_DATA);
                 runtime->team_data_state.phase = TECMO_TEAM_DATA_ROSTER;
-                runtime->team_data_state.team_id = 0U;
+                runtime->team_data_state.team_id =
+                    strstr(mode_name, "chicago") != NULL ? 3U : 0U;
+                if (strcmp(mode_name,
+                           "team-data-roster-chicago-substituted") == 0)
+                    runtime->team_management_session.starters[3U][0U] = 5U;
                 runtime->team_data_state.roster_page =
                     strcmp(mode_name, "team-data-roster-page2") == 0 ? 1U : 0U;
                 runtime->team_data_state.roster_row =

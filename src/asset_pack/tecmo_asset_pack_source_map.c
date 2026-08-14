@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define TECMO_ASSET_PACK_SOURCE_MAP_BASE_CAPACITY 131072U
+#define TECMO_ASSET_PACK_SOURCE_MAP_BASE_CAPACITY 135168U
 #define TECMO_ASSET_PACK_SOURCE_MAP_TGCA_CAPACITY 4096U
 
 static uint64_t source_map_prg_bank_cpu_source_offset(uint64_t prg_offset,
@@ -1355,7 +1355,10 @@ static int append_team_management_source_map_entry(
         "{\"role\":\"screen-streams\",\"source_entries\":[\"prg/bank00\",\"prg/bank01\"],\"source_offsets\":[%llu,%llu],\"encoded_sizes\":[%llu,%llu],\"encoded_fingerprints_fnv1a32\":[\"C869A670\",\"3111C9BF\"]},"
         "{\"role\":\"screen-palettes\",\"source_entries\":[\"prg/bank00\",\"prg/bank01\"],\"source_offsets\":[%llu,%llu],\"size_each\":16,\"fingerprints_fnv1a32\":[\"98634D94\",\"0242ED20\"]},"
         "{\"role\":\"full-chr\",\"source_entry\":\"chr/all\",\"source_offset\":%llu,\"size\":262144,\"fingerprint_fnv1a32\":\"F6F6E854\",\"fingerprint_fnv1a64\":\"96A64F53B240ABB4\"}],"
-        "\"native_contract\":{\"payload_size\":%u,\"payload_fingerprint_fnv1a32\":\"D192EAC6\",\"teams\":29,\"starters\":5,\"bench_choices\":7,\"playbook_slots\":4,\"plays\":8,\"carousel_frames\":8,\"terminal\":\"management-only-no-gameplay\"}}",
+        "\"native_contract\":{\"payload_size\":%u,\"payload_fingerprint_fnv1a32\":\"D192EAC6\",\"teams\":29,\"starters\":5,\"bench_choices\":7,\"playbook_slots\":4,\"plays\":8,\"carousel_frames\":8,"
+        "\"fresh_real_team_starters\":{\"team_id_range\":[0,26],\"palette_and_logo_owner\":\"same-pack-TTDT-1\",\"logo_sources\":\"Bank06-$A2E4-layout-Bank03-$8017-origin\",\"lineup_name_origin\":[32,128],\"lineup_stride\":8,\"lineup_positions\":\"authored-fixed-G-G-F-F-C\",\"bench_position_origin\":[136,128],\"bench_position_map\":\"low3-0-or-1-G-2-or-3-F-4-C\",\"bench_name_origin\":[152,128],\"bench_stride\":8,\"name_format\":\"first-initial-dot-first-space-surname-nine-char-cap\",\"title\":\"existing-native-renderer-placement-preserved-not-exact-PPU-buffer-claim\",\"injured\":\"empty-deferred-no-condition-seed-proxy\",\"all_star_visuals\":\"fail-closed\"},"
+        "\"cursor_visible_tops\":{\"config_0d\":[[16,113],[24,129],[24,137],[24,145],[24,153],[24,161]],\"config_0f_x\":144,\"config_0f_y\":[129,137,145,153,161,169,177]},"
+        "\"legacy_start_cursor_payload_bytes\":\"retained-for-TTMG-1-compatibility-not-used-by-exact-STARTERS-resolver\",\"terminal\":\"management-only-no-gameplay\"}}",
         prefix, TECMO_ASSET_PACK_TEAM_MANAGEMENT_ID,
         (unsigned long long)p->route_vector_offset,
         (unsigned long long)p->starters_flow_offset,
