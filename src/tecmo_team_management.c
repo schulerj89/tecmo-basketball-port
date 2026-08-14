@@ -410,7 +410,6 @@ static uint8_t wrap(uint8_t value, uint8_t count, int direction)
 
 static size_t bench_candidates(uint8_t destination[7],
                                const TecmoTeamManagementSession *session,
-                               const TecmoTeamDataAsset *team_data,
                                uint8_t team_id)
 {
     size_t count = 0U;
@@ -419,12 +418,163 @@ static size_t bench_candidates(uint8_t destination[7],
         bool starter = false;
         for (size_t i = 0U; i < TECMO_TEAM_MANAGEMENT_STARTER_COUNT; ++i)
             if (session->starters[team_id][i] == player) starter = true;
-        if (!starter &&
-            team_data->players[team_id][player].condition_seed != 0U &&
-            count < 7U)
+        /* Bank02 $A6C4-$A70F classifies the fresh roster solely by ordered
+         * membership in $6023-$6027. Persistent $7953 injury ownership is
+         * outside this slice, so a static TTDT condition seed is not a proxy. */
+        if (!starter && count < 7U)
             destination[count++] = player;
     }
     return count;
+}
+
+static bool format_lineup_name(
+    char destination[TECMO_TEAM_MANAGEMENT_LINEUP_NAME_SIZE],
+                               const char *full_name,
+                               size_t full_name_size)
+{
+    const char *end;
+    const char *space;
+    const char *surname;
+    size_t count;
+    if (destination == NULL || full_name == NULL || full_name_size == 0U)
+        return false;
+    end = (const char *)memchr(full_name, '\0', full_name_size);
+    if (end == NULL || end == full_name) return false;
+    space = (const char *)memchr(full_name, ' ', (size_t)(end - full_name));
+    if (space == NULL || space + 1 == end) return false;
+    surname = space + 1;
+    count = (size_t)(end - surname);
+    if (count > 9U) count = 9U;
+    destination[0] = full_name[0];
+    destination[1] = '.';
+    memcpy(destination + 2U, surname, count);
+    destination[2U + count] = '\0';
+    return true;
+}
+
+static bool position_character(uint8_t roster_code, char *position)
+{
+    if (position == NULL) return false;
+    /* Bank02 $A744-$A750 and $A7E6-$A7EB map the roster byte's low three
+     * bits to the one-cell bench position glyph. */
+    switch (roster_code & 0x07U) {
+    case 0U:
+    case 1U: *position = 'G'; return true;
+    case 2U:
+    case 3U: *position = 'F'; return true;
+    case 4U: *position = 'C'; return true;
+    default: return false;
+    }
+}
+
+bool tecmo_team_management_starters_presentation(
+    const TecmoTeamManagementSession *session,
+    const TecmoTeamDataAsset *team_data,
+    uint8_t team_id,
+    TecmoTeamManagementStartersPresentation *presentation)
+{
+    static const char lineup_positions[TECMO_TEAM_MANAGEMENT_STARTER_COUNT] = {
+        'G', 'G', 'F', 'F', 'C'
+    };
+    TecmoTeamManagementStartersPresentation resolved;
+    uint8_t candidates[TECMO_TEAM_MANAGEMENT_BENCH_COUNT];
+    const TecmoTeamDataTeam *team;
+    size_t logo_cell_count;
+    if (presentation == NULL || team_data == NULL || !team_data->available ||
+        !tecmo_team_management_session_valid(session) ||
+        team_id >= TECMO_TEAM_DATA_REAL_TEAM_COUNT)
+        return false;
+    team = &team_data->teams[team_id];
+    logo_cell_count = (size_t)team->logo_width * (size_t)team->logo_height;
+    if (team->profile_palette_group >= TECMO_TEAM_DATA_PROFILE_PALETTE_COUNT ||
+        team->logo_width == 0U || team->logo_height == 0U ||
+        logo_cell_count > TECMO_TEAM_DATA_LOGO_CELL_LIMIT ||
+        (size_t)team->logo_count != logo_cell_count ||
+        bench_candidates(candidates, session, team_id) !=
+            TECMO_TEAM_MANAGEMENT_BENCH_COUNT)
+        return false;
+    memset(&resolved, 0, sizeof(resolved));
+    resolved.team_id = team_id;
+    resolved.profile_palette_group = team->profile_palette_group;
+    resolved.logo_x = team->logo_x;
+    resolved.logo_y = team_data->logo_y;
+    resolved.logo_width = team->logo_width;
+    resolved.logo_height = team->logo_height;
+    for (size_t row = 0U; row < TECMO_TEAM_MANAGEMENT_STARTER_COUNT; ++row) {
+        TecmoTeamManagementStarterRow *destination = &resolved.lineup[row];
+        uint8_t roster = session->starters[team_id][row];
+        destination->roster_index = roster;
+        destination->position = lineup_positions[row];
+        if (!format_lineup_name(destination->name,
+                                team_data->players[team_id][roster].name,
+                                sizeof(team_data->players[team_id][roster].name)))
+            return false;
+    }
+    for (size_t row = 0U; row < TECMO_TEAM_MANAGEMENT_BENCH_COUNT; ++row) {
+        TecmoTeamManagementStarterRow *destination = &resolved.bench[row];
+        uint8_t roster = candidates[row];
+        destination->roster_index = roster;
+        if (!position_character(team_data->players[team_id][roster].attributes[0],
+                                &destination->position) ||
+            !format_lineup_name(destination->name,
+                                team_data->players[team_id][roster].name,
+                                sizeof(team_data->players[team_id][roster].name)))
+            return false;
+    }
+    *presentation = resolved;
+    return true;
+}
+
+bool tecmo_team_management_starters_cursor_positions(
+    const TecmoTeamManagementViewState *state,
+    TecmoTeamManagementCursorPosition *lineup_cursor,
+    TecmoTeamManagementCursorPosition *bench_cursor)
+{
+    TecmoTeamManagementCursorPosition lineup = {false, 0, 0};
+    TecmoTeamManagementCursorPosition bench = {false, 0, 0};
+    if (state == NULL || lineup_cursor == NULL || bench_cursor == NULL)
+        return false;
+    /* Bank03 $8EA8 selects config $0D. Its heading emitter is (16,116),
+     * while its five lineup emitters are (24,132+8n). Bank01 $8031 applies
+     * dy=-4 and NES OAM appears one pixel lower, so framebuffer-visible tops
+     * are (16,113) and (24,129+8n). Config $0F supplies the seven bench
+     * emitters (144,132+8n), hence visible (144,129+8n). */
+    switch (state->view) {
+    case TECMO_TEAM_MANAGEMENT_VIEW_STARTERS:
+        if (state->selection >= 6U) return false;
+        lineup.visible = true;
+        if (state->selection == 0U) {
+            lineup.x = 16;
+            lineup.y = 113;
+        } else {
+            lineup.x = 24;
+            lineup.y = (int16_t)(129 + (state->selection - 1U) * 8U);
+        }
+        break;
+    case TECMO_TEAM_MANAGEMENT_VIEW_STARTER_RESET:
+        if (state->selection != 0U || state->secondary_selection >= 2U)
+            return false;
+        lineup.visible = true;
+        lineup.x = 16;
+        lineup.y = 113;
+        break;
+    case TECMO_TEAM_MANAGEMENT_VIEW_STARTER_BENCH:
+        if (state->selection == 0U || state->selection >= 6U ||
+            state->secondary_selection >= TECMO_TEAM_MANAGEMENT_BENCH_COUNT)
+            return false;
+        lineup.visible = true;
+        lineup.x = 24;
+        lineup.y = (int16_t)(129 + (state->selection - 1U) * 8U);
+        bench.visible = true;
+        bench.x = 144;
+        bench.y = (int16_t)(129 + state->secondary_selection * 8U);
+        break;
+    default:
+        return false;
+    }
+    *lineup_cursor = lineup;
+    *bench_cursor = bench;
+    return true;
 }
 
 static size_t unused_plays(uint8_t destination[4],
@@ -557,7 +707,7 @@ TecmoTeamManagementAction tecmo_team_management_update(
         }
     } else if (state->view == TECMO_TEAM_MANAGEMENT_VIEW_STARTER_BENCH) {
         uint8_t candidates[7];
-        size_t count = bench_candidates(candidates, session, team_data, team_id);
+        size_t count = bench_candidates(candidates, session, team_id);
         if ((released & TEAM_MANAGEMENT_B) != 0U) {
             state->view = TECMO_TEAM_MANAGEMENT_VIEW_STARTERS;
         } else if ((released & TEAM_MANAGEMENT_A) != 0U && count == 7U) {
@@ -707,6 +857,52 @@ static void draw_text(TecmoFramebuffer *view,
     }
 }
 
+static void draw_screen_text(TecmoFramebuffer *view,
+                             const TecmoTeamDataAsset *data,
+                             const TecmoStartGameMenuCell *screen,
+                             const uint8_t palette[16],
+                             const char *text,
+                             int x,
+                             int y,
+                             int scale,
+                             const uint8_t *chr,
+                             uint64_t chr_count)
+{
+    if (screen == NULL || text == NULL) return;
+    for (size_t i = 0U; text[i] != '\0'; ++i) {
+        int px = x + (int)i * 8;
+        int column = px / 8;
+        int row = y / 8;
+        TecmoStartGameMenuCell cell;
+        if (column < 0 || column >= 32 || row < 0 || row >= 30) continue;
+        cell = *font_cell(data, text[i]);
+        cell.palette_index =
+            screen[(size_t)row * 32U + (size_t)column].palette_index;
+        draw_cell(view, &cell, palette, chr, chr_count,
+                  px * scale, y * scale, scale);
+    }
+}
+
+static void draw_team_logo(TecmoFramebuffer *view,
+                           const TecmoTeamDataAsset *data,
+                           const TecmoTeamManagementStartersPresentation *presentation,
+                           const uint8_t palette[16],
+                           const uint8_t *chr,
+                           uint64_t chr_count,
+                           int scale)
+{
+    for (size_t i = 0U;
+         i < (size_t)presentation->logo_width * presentation->logo_height;
+         ++i) {
+        unsigned column = (unsigned)(i % presentation->logo_width);
+        unsigned row = (unsigned)(i / presentation->logo_width);
+        draw_cell(view, &data->logos[presentation->team_id][i], palette,
+                  chr, chr_count,
+                  (presentation->logo_x + (int)column * 8) * scale,
+                  (presentation->logo_y + (int)row * 8) * scale, scale);
+    }
+}
+
 static void draw_cursor(TecmoFramebuffer *view,
                         const TecmoTeamDataAsset *data,
                         const uint8_t *chr,
@@ -791,57 +987,64 @@ bool tecmo_team_management_draw(
     if (state->view == TECMO_TEAM_MANAGEMENT_VIEW_STARTERS ||
         state->view == TECMO_TEAM_MANAGEMENT_VIEW_STARTER_RESET ||
         state->view == TECMO_TEAM_MANAGEMENT_VIEW_STARTER_BENCH) {
+        TecmoTeamManagementStartersPresentation presentation;
+        TecmoTeamManagementCursorPosition lineup_cursor;
+        TecmoTeamManagementCursorPosition bench_cursor;
+        const uint8_t *palette;
         char team_title[34];
-        draw_screen(&view, asset->starters_screen, asset->palettes[0],
+        if (!tecmo_team_management_starters_presentation(
+                session, team_data, team_id, &presentation) ||
+            !tecmo_team_management_starters_cursor_positions(
+                state, &lineup_cursor, &bench_cursor))
+            return false;
+        /* Strict Rev1 TTDT ownership: Bank06 $A2E4 logo layout plus Bank03
+         * $8017 origins, with the selected profile palette. TTMG supplies the
+         * authored base screen but its stored palette is superseded here. */
+        palette = team_data->profile_palettes[
+            presentation.profile_palette_group];
+        draw_screen(&view, asset->starters_screen, palette,
                     chr_bytes, chr_byte_count, scale);
         (void)snprintf(team_title, sizeof(team_title), "%s %s",
                        team_data->teams[team_id].city,
                        team_data->teams[team_id].nickname);
-        draw_text(&view, team_data, asset->palettes[0], 2U, team_title,
-                  16, 8, scale, chr_bytes, chr_byte_count);
-        draw_text(&view, team_data, asset->palettes[0], 2U, "RESET", 56, 48,
-                  scale, chr_bytes, chr_byte_count);
+        draw_team_logo(&view, team_data, &presentation, palette,
+                       chr_bytes, chr_byte_count, scale);
+        draw_screen_text(&view, team_data, asset->starters_screen, palette,
+                         team_title, 16, 8, scale,
+                         chr_bytes, chr_byte_count);
         for (size_t i = 0U; i < 5U; ++i) {
-            uint8_t player = session->starters[team_id][i];
-            char lineup_name[12];
-            const char *full_name = team_data->players[team_id][player].name;
-            const char *last_name = strrchr(full_name, ' ');
-            if (last_name != NULL) ++last_name;
-            else last_name = full_name;
-            (void)snprintf(lineup_name, sizeof(lineup_name), "%.11s", last_name);
-            draw_text(&view, team_data, asset->palettes[0], 2U,
-                      team_data->players[team_id][player].name,
-                      56, 56 + (int)i * 8, scale,
-                      chr_bytes, chr_byte_count);
-            draw_text(&view, team_data, asset->palettes[0], 2U,
-                      lineup_name, 32, 132 + (int)i * 8, scale,
-                      chr_bytes, chr_byte_count);
+            draw_screen_text(
+                &view, team_data, asset->starters_screen, palette,
+                presentation.lineup[i].name, 32, 128 + (int)i * 8, scale,
+                chr_bytes, chr_byte_count);
         }
-        draw_cursor(&view, team_data, chr_bytes, chr_byte_count,
-                    asset->starters_cursor_x,
-                    asset->starters_cursor_y +
-                        (int)state->selection * asset->starters_cursor_stride,
-                    scale);
+        for (size_t i = 0U; i < 7U; ++i) {
+            char position[2] = {presentation.bench[i].position, '\0'};
+            draw_screen_text(
+                &view, team_data, asset->starters_screen, palette,
+                position, 136, 128 + (int)i * 8, scale,
+                chr_bytes, chr_byte_count);
+            draw_screen_text(
+                &view, team_data, asset->starters_screen, palette,
+                presentation.bench[i].name, 152, 128 + (int)i * 8, scale,
+                chr_bytes, chr_byte_count);
+        }
+        if (lineup_cursor.visible)
+            draw_cursor(&view, team_data, chr_bytes, chr_byte_count,
+                        lineup_cursor.x, lineup_cursor.y, scale);
         if (state->view == TECMO_TEAM_MANAGEMENT_VIEW_STARTER_RESET) {
-            draw_text(&view, team_data, asset->palettes[0], 2U, "STARTER RESET",
+            draw_text(&view, team_data, palette, 2U, "STARTER RESET",
                       64, 160, scale, chr_bytes, chr_byte_count);
-            draw_text(&view, team_data, asset->palettes[0], 2U, "NO", 104, 176,
+            draw_text(&view, team_data, palette, 2U, "NO", 104, 176,
                       scale, chr_bytes, chr_byte_count);
-            draw_text(&view, team_data, asset->palettes[0], 2U, "YES", 104, 192,
+            draw_text(&view, team_data, palette, 2U, "YES", 104, 192,
                       scale, chr_bytes, chr_byte_count);
             draw_cursor(&view, team_data, chr_bytes, chr_byte_count,
                         88, 172 + (int)state->secondary_selection * 16, scale);
         } else if (state->view == TECMO_TEAM_MANAGEMENT_VIEW_STARTER_BENCH) {
-            uint8_t candidates[7];
-            size_t count = bench_candidates(candidates, session, team_data,
-                                            team_id);
-            for (size_t i = 0U; i < count; ++i)
-                draw_text(&view, team_data, asset->palettes[0], 2U,
-                          team_data->players[team_id][candidates[i]].name,
-                          144, 48 + (int)i * 16, scale,
-                          chr_bytes, chr_byte_count);
-            draw_cursor(&view, team_data, chr_bytes, chr_byte_count,
-                        128, 44 + (int)state->secondary_selection * 16, scale);
+            if (bench_cursor.visible)
+                draw_cursor(&view, team_data, chr_bytes, chr_byte_count,
+                            bench_cursor.x, bench_cursor.y, scale);
         }
         return true;
     }
@@ -912,6 +1115,9 @@ bool tecmo_team_management_self_test(const char *project_root,
     TecmoTeamManagementSession session;
     TecmoTeamManagementViewState state;
     TecmoControlFrame controls;
+    TecmoTeamManagementStartersPresentation presentation;
+    TecmoTeamManagementCursorPosition lineup_cursor;
+    TecmoTeamManagementCursorPosition bench_cursor;
     uint8_t player = 0xFFU;
     if (!tecmo_team_management_asset_load(&asset, project_root) ||
         !tecmo_team_data_asset_load(&data, project_root) ||
@@ -919,6 +1125,114 @@ bool tecmo_team_management_self_test(const char *project_root,
         (void)snprintf(message, message_size,
                        "TTMG-1 assets/session were unavailable");
         return false;
+    }
+    if (!tecmo_team_management_starters_presentation(
+            &session, &data, 0U, &presentation) ||
+        presentation.team_id != 0U || presentation.logo_width == 0U ||
+        presentation.logo_height == 0U)
+        goto fail;
+    for (size_t row = 0U; row < TECMO_TEAM_MANAGEMENT_STARTER_COUNT; ++row) {
+        if (presentation.lineup[row].roster_index != row ||
+            presentation.lineup[row].name[0] == '\0' ||
+            presentation.lineup[row].name[1] != '.' ||
+            strlen(presentation.lineup[row].name) > 11U)
+            goto fail;
+    }
+    for (size_t row = 0U; row < TECMO_TEAM_MANAGEMENT_BENCH_COUNT; ++row) {
+        if (presentation.bench[row].roster_index != row + 5U ||
+            presentation.bench[row].name[0] == '\0' ||
+            presentation.bench[row].name[1] != '.' ||
+            strlen(presentation.bench[row].name) > 11U)
+            goto fail;
+    }
+    {
+        TecmoTeamManagementStartersPresentation unchanged;
+        memset(&unchanged, 0xA5, sizeof(unchanged));
+        presentation = unchanged;
+        if (tecmo_team_management_starters_presentation(
+                &session, &data, TECMO_TEAM_DATA_REAL_TEAM_COUNT,
+                &presentation) ||
+            memcmp(&presentation, &unchanged, sizeof(presentation)) != 0)
+            goto fail;
+    }
+    {
+        TecmoTeamManagementStartersPresentation unchanged;
+        uint8_t saved_width = data.teams[0].logo_width;
+        uint8_t saved_height = data.teams[0].logo_height;
+        memset(&unchanged, 0x5A, sizeof(unchanged));
+        presentation = unchanged;
+        data.teams[0].logo_width = 16U;
+        data.teams[0].logo_height = 16U;
+        if (tecmo_team_management_starters_presentation(
+                &session, &data, 0U, &presentation) ||
+            memcmp(&presentation, &unchanged, sizeof(presentation)) != 0)
+            goto fail;
+        data.teams[0].logo_width = saved_width;
+        data.teams[0].logo_height = saved_height;
+    }
+    {
+        TecmoTeamManagementStartersPresentation unchanged;
+        TecmoTeamDataPlayer saved_player = data.players[0][0];
+        memset(&unchanged, 0x3C, sizeof(unchanged));
+        presentation = unchanged;
+        memset(data.players[0][0].name, 'X',
+               sizeof(data.players[0][0].name));
+        if (tecmo_team_management_starters_presentation(
+                &session, &data, 0U, &presentation) ||
+            memcmp(&presentation, &unchanged, sizeof(presentation)) != 0)
+            goto fail;
+        data.players[0][0] = saved_player;
+    }
+    tecmo_team_management_view_init_starters(&state);
+    for (uint8_t selection = 0U; selection < 6U; ++selection) {
+        state.selection = selection;
+        if (!tecmo_team_management_starters_cursor_positions(
+                &state, &lineup_cursor, &bench_cursor) ||
+            !lineup_cursor.visible || bench_cursor.visible ||
+            lineup_cursor.x != (selection == 0U ? 16 : 24) ||
+            lineup_cursor.y !=
+                (int16_t)(selection == 0U
+                              ? 113
+                              : 129 + (selection - 1U) * 8U))
+            goto fail;
+    }
+    state.view = TECMO_TEAM_MANAGEMENT_VIEW_STARTER_BENCH;
+    state.selection = 3U;
+    for (uint8_t selection = 0U;
+         selection < TECMO_TEAM_MANAGEMENT_BENCH_COUNT; ++selection) {
+        state.secondary_selection = selection;
+        if (!tecmo_team_management_starters_cursor_positions(
+                &state, &lineup_cursor, &bench_cursor) ||
+            !lineup_cursor.visible || lineup_cursor.x != 24 ||
+            lineup_cursor.y != 145 || !bench_cursor.visible ||
+            bench_cursor.x != 144 ||
+            bench_cursor.y != (int16_t)(129 + selection * 8U))
+            goto fail;
+    }
+    {
+        TecmoTeamManagementCursorPosition unchanged_lineup = {true, 777, 778};
+        TecmoTeamManagementCursorPosition unchanged_bench = {true, 779, 780};
+        lineup_cursor = unchanged_lineup;
+        bench_cursor = unchanged_bench;
+        state.secondary_selection = TECMO_TEAM_MANAGEMENT_BENCH_COUNT;
+        if (tecmo_team_management_starters_cursor_positions(
+                &state, &lineup_cursor, &bench_cursor) ||
+            memcmp(&lineup_cursor, &unchanged_lineup,
+                   sizeof(lineup_cursor)) != 0 ||
+            memcmp(&bench_cursor, &unchanged_bench,
+                   sizeof(bench_cursor)) != 0 ||
+            tecmo_team_management_starters_cursor_positions(
+                &state, NULL, &bench_cursor))
+            goto fail;
+        tecmo_team_management_view_init_starters(&state);
+        state.selection = 6U;
+        if (tecmo_team_management_starters_cursor_positions(
+                &state, &lineup_cursor, &bench_cursor) ||
+            memcmp(&lineup_cursor, &unchanged_lineup,
+                   sizeof(lineup_cursor)) != 0 ||
+            memcmp(&bench_cursor, &unchanged_bench,
+                   sizeof(bench_cursor)) != 0)
+            goto fail;
     }
     tecmo_team_management_view_init_starters(&state);
     state.selection = 1U;
@@ -932,6 +1246,11 @@ bool tecmo_team_management_self_test(const char *project_root,
                                        &controls, &player);
     if (session.starters[0][0] != 5U ||
         !tecmo_team_management_session_valid(&session)) goto fail;
+    if (!tecmo_team_management_starters_presentation(
+            &session, &data, 0U, &presentation) ||
+        presentation.lineup[0].roster_index != 5U ||
+        presentation.bench[0].roster_index != 0U)
+        goto fail;
     tecmo_team_management_view_init_starters(&state);
     state.selection = 1U;
     release_button(&controls, TEAM_MANAGEMENT_START);

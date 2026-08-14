@@ -391,18 +391,36 @@ frame. STARTERS and PLAYBOOK also enter natively on the following frame. Roster
 pages slide over 32 frames at eight pixels per frame.
 Roster-to-player-detail is black at 8, render-off at 10, render-on black at 15,
 capped/full at 18/22/26/30, and stable at 31; B uses the 32-frame reverse timing.
-All three profile A routes are native. `PLAYERS DATA` opens the roster;
-`STARTERS` edits five unique starters from the seven-player bench with player
-detail and reset flows; `PLAYBOOK` edits four unique slots from eight plays with
-the original replacement carousel and reset flow. Their mutable session state
+All three profile A routes are native. `PLAYERS DATA` opens the ordinary roster.
+For real teams 0..26, fresh `STARTERS` composes the selected TTDT profile
+palette and Bank06 `$A2E4`/Bank03 `$8017` logo over the authored TTMG screen,
+then renders five lineup rows at `(32,128+8n)` and the ascending seven-player
+nonstarter complement at position/name origins `(136,128+8n)` and
+`(152,128+8n)`. Bank02 `$AF96-$AFDB` supplies first-initial, dot, and the text
+after the first ASCII space, capped to nine surname characters. The fresh
+lineup G/G/F/F/C letters remain authored fixed-slot glyphs; only the matched
+starter name is dynamic. Bench positions map player low-three-bit codes
+`0/1=G`, `2/3=F`, and `4=C` at Bank02 `$A744-$A750/$A7E6-$A7EB`. Existing
+title placement is preserved without an
+exact PPU-buffer claim. The fresh
+`INJURED` section remains empty: persistent `$7953` injury state is outside the
+slice and TTDT condition seed is not used as a proxy. All-Star STARTERS visuals
+fail closed. `PLAYBOOK` edits four unique slots from eight plays with the
+original replacement carousel and reset flow. Their mutable session state
 remains native and never routes to gameplay.
 
 STARTERS and PLAYBOOK require the same pack's strict 21061-byte
 `menu/team-management` TTMG-1 payload (FNV1a32 `D192EAC6`) plus TTDT-1 and
 `chr/all`. Missing, malformed, oversized, wrong-revision, or cross-pack
-dependencies fail closed. Run `tools\Run-TeamManagementTests.ps1 -RomPath
-<LOCAL_ROM.nes>` for its state, flow, malformed-data, and nine-pixel-checkpoint
-coverage.
+dependencies fail closed. The payload's legacy `40/44/8` STARTERS cursor bytes
+remain parsed for TTMG-1 compatibility but are not source metadata and are not
+used. Exact framebuffer-visible cursor tops come from Bank03 configs `$0D/$0F`
+and Bank01 `$8031`: base `(16,113)`, lineup `(24,129+8n)`, and bench
+`(144,129+8n)`, with the chosen lineup arrow parked during bench selection.
+The existing reset modal remains a transient native approximation; only removal
+of permanent `RESET` from the base is source-closed.
+Run `tools\Run-TeamManagementTests.ps1 -RomPath <LOCAL_ROM.nes>` for state,
+flow, malformed-data, structured composition, and pixel-checkpoint coverage.
 
 Profile colors come from Bank06 `$AC0B-$AC4A`, selected by `$A3AD`. Logos use
 the Bank06 `$A2E4` layout tables and Bank03 `$8017` origin table; ATL resolves

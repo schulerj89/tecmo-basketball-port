@@ -453,14 +453,32 @@ A reaches black at 8, render-off at 10, render-on black at 15, palette caps at
 timing back to the same roster row. Direction repeat and A/B release semantics
 remain ROM-derived; B restores the exact root or season origin.
 
-All three profile A routes are native. `PLAYERS DATA` opens the roster.
-`STARTERS` edits five unique starters from seven eligible bench players,
-supports player detail, and carries the reset confirmation. `PLAYBOOK` edits
-four unique slots from eight plays and carries the replacement carousel and
-reset flow. Their strict 21061-byte `menu/team-management` TTMG-1 payload
+All three profile A routes are native. `PLAYERS DATA` opens the ordinary roster.
+For real teams 0..26, fresh `STARTERS` uses the selected TTDT profile palette
+and Bank06 `$A2E4`/Bank03 `$8017` logo on the authored TTMG base. Bank02
+`$A6C4-$A70F` classifies five lineup members and the ascending seven-player
+nonstarter complement; names land at `(32,128+8n)`, while bench positions and
+names land at `(136,128+8n)` and `(152,128+8n)`. Bank02 `$AF96-$AFDB`
+formats first initial, dot, then text following the first ASCII space with a
+nine-character surname cap. Lineup G/G/F/F/C letters are authored fixed-slot
+glyphs and the matched-starter path writes only the name. Bench positions map
+the player low-three-bit code as `0/1=G`, `2/3=F`, and `4=C` at Bank02
+`$A744-$A750/$A7E6-$A7EB`. Existing title
+placement is preserved without an exact PPU-buffer claim. Persistent `$7953`
+injury state is not yet owned,
+so `INJURED` stays empty and TTDT condition seed is never used as a proxy.
+All-Star STARTERS visuals fail closed. `PLAYBOOK` edits four unique slots from
+eight plays and carries the replacement carousel and reset flow. Their strict
+21061-byte `menu/team-management` TTMG-1 payload
 (FNV1a32 `D192EAC6`) requires the same pack's TTDT-1 and `chr/all`; malformed or
-cross-pack dependencies fail before partial rendering. Player detail and both
-management editors are terminal and cannot launch gameplay.
+cross-pack dependencies fail before partial rendering. Its legacy `40/44/8`
+STARTERS cursor bytes remain payload-compatible but unused. Bank03 configs
+`$0D/$0F` plus Bank01 `$8031` resolve exact visible tops: base `(16,113)`,
+lineup `(24,129+8n)`, bench `(144,129+8n)`, and a parked lineup arrow during
+bench selection. The existing reset modal remains a transient native
+approximation; only removal of permanent `RESET` from the base is source-closed.
+Player detail and both management editors are terminal and cannot launch
+gameplay.
 
 ## Native NES Color Profile
 
