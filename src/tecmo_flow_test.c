@@ -2782,6 +2782,123 @@ static bool flow_expect_all_star_native_path(TecmoRuntime *runtime,
     return true;
 }
 
+static bool flow_expect_cpu_ownership_diagnostics(
+    const TecmoRuntime *runtime,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplayScene *fixture;
+    TecmoDebugCpuOwnershipSnapshot snapshot;
+    uint32_t before_hash;
+    size_t controller;
+
+    fixture = (TecmoGameplayScene *)malloc(sizeof(*fixture));
+    if (fixture == NULL) {
+        set_flow_test_message(message, message_size,
+                              "CPU ownership diagnostic fixture allocation failed");
+        return false;
+    }
+    *fixture = runtime->gameplay_scene;
+    fixture->active = true;
+    fixture->result_ready = false;
+    fixture->pretip_abort_pending = false;
+    fixture->state.phase = TECMO_GAMEPLAY_PHASE_LIVE;
+    fixture->state.possession = TECMO_GAMEPLAY_TEAM_AWAY;
+    fixture->state.violation = TECMO_GAMEPLAY_VIOLATION_NONE;
+    fixture->state.free_throws.attempts_remaining = 0U;
+    fixture->ball_holder = 0U;
+    fixture->actors[0].team = TECMO_GAMEPLAY_TEAM_AWAY;
+    fixture->live_foundation.state_valid = true;
+    fixture->live_foundation.primary_actor = 0U;
+    fixture->shot_kind = TECMO_GAMEPLAY_SCENE_SHOT_NONE;
+    fixture->pass_state.phase = TECMO_GAMEPLAY_SCENE_PASS_NONE;
+    fixture->inbound_state.phase = TECMO_GAMEPLAY_SCENE_INBOUND_NONE;
+    fixture->free_throw_lineup_active = false;
+    for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
+         ++controller) {
+        fixture->launch.controller_team[controller] =
+            TECMO_GAMEPLAY_SCENE_NO_TEAM;
+        fixture->controlled_actor[controller] =
+            TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    }
+
+    before_hash = flow_fnv1a32((const uint8_t *)fixture, sizeof(*fixture));
+    if (!tecmo_debug_cpu_ownership_snapshot(fixture, &snapshot) ||
+        flow_fnv1a32((const uint8_t *)fixture, sizeof(*fixture)) != before_hash ||
+        snapshot.holder_owner !=
+            TECMO_DEBUG_CPU_HOLDER_OWNER_AUTOMATIC_PRIMARY ||
+        !snapshot.automatic_selected_eligible ||
+        !snapshot.automatic_selected_admitted) {
+        free(fixture);
+        set_flow_test_message(message, message_size,
+                              "controllerless automatic holder diagnostic rejected");
+        return false;
+    }
+
+    fixture->launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
+    fixture->controlled_actor[0] = 0U;
+    if (!tecmo_debug_cpu_ownership_snapshot(fixture, &snapshot) ||
+        snapshot.holder_owner != TECMO_DEBUG_CPU_HOLDER_OWNER_HUMAN_P1 ||
+        snapshot.automatic_selected_eligible ||
+        snapshot.automatic_selected_admitted) {
+        free(fixture);
+        set_flow_test_message(message, message_size,
+                              "P1-owned holder diagnostic misclassified");
+        return false;
+    }
+
+    fixture->launch.controller_team[0] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    fixture->controlled_actor[0] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    fixture->launch.controller_team[1] = TECMO_GAMEPLAY_TEAM_AWAY;
+    fixture->controlled_actor[1] = 0U;
+    if (!tecmo_debug_cpu_ownership_snapshot(fixture, &snapshot) ||
+        snapshot.holder_owner != TECMO_DEBUG_CPU_HOLDER_OWNER_HUMAN_P2) {
+        free(fixture);
+        set_flow_test_message(message, message_size,
+                              "P2-owned holder diagnostic misclassified");
+        return false;
+    }
+
+    fixture->launch.controller_team[1] = TECMO_GAMEPLAY_SCENE_NO_TEAM;
+    fixture->controlled_actor[1] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    fixture->launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
+    fixture->controlled_actor[0] = 1U;
+    if (!tecmo_debug_cpu_ownership_snapshot(fixture, &snapshot) ||
+        snapshot.holder_owner != TECMO_DEBUG_CPU_HOLDER_OWNER_UNOWNED ||
+        snapshot.automatic_selected_eligible ||
+        snapshot.automatic_selected_admitted) {
+        free(fixture);
+        set_flow_test_message(message, message_size,
+                              "invalid mixed actor ownership was accepted");
+        return false;
+    }
+
+    fixture->launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_HOME;
+    fixture->controlled_actor[0] = 5U;
+    if (!tecmo_debug_cpu_ownership_snapshot(fixture, &snapshot) ||
+        snapshot.holder_owner !=
+            TECMO_DEBUG_CPU_HOLDER_OWNER_AUTOMATIC_PRIMARY ||
+        !snapshot.automatic_selected_admitted) {
+        free(fixture);
+        set_flow_test_message(message, message_size,
+                              "opponent controller blocked automatic holder diagnostic");
+        return false;
+    }
+
+    fixture->live_foundation.primary_actor = 1U;
+    if (!tecmo_debug_cpu_ownership_snapshot(fixture, &snapshot) ||
+        snapshot.holder_owner != TECMO_DEBUG_CPU_HOLDER_OWNER_UNOWNED ||
+        snapshot.automatic_selected_eligible ||
+        snapshot.automatic_selected_admitted) {
+        free(fixture);
+        set_flow_test_message(message, message_size,
+                              "non-primary holder diagnostic misclassified");
+        return false;
+    }
+    free(fixture);
+    return true;
+}
+
 static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
                                         char *message,
                                         size_t message_size)
@@ -2803,6 +2920,10 @@ static bool runtime_flow_self_test_body(TecmoRuntime *runtime,
     }
     if (runtime->team_count == 0U) {
         set_flow_test_message(message, message_size, "no roster teams loaded");
+        return false;
+    }
+    if (!flow_expect_cpu_ownership_diagnostics(runtime, message,
+                                               message_size)) {
         return false;
     }
     if (!runtime->start_game_menu_asset.available ||

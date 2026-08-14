@@ -443,6 +443,11 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
         checkpoint = TECMO_CLI_PRETIP_LIVE_START_FRAME;
         live_start = true;
         debug_overlay_only = true;
+    } else if (strcmp(mode_name, "gameplay-live-f3-auto-overlay") == 0) {
+        checkpoint = TECMO_CLI_PRETIP_LIVE_START_FRAME;
+        live_start = true;
+        cpu_steering = true;
+        debug_overlay_only = true;
     } else if (strcmp(mode_name, "gameplay-live-start") == 0) {
         checkpoint = TECMO_CLI_PRETIP_LIVE_START_FRAME;
         live_start = true;
@@ -566,7 +571,8 @@ static bool parse_gameplay_render_checkpoint_mode(const char *mode_name, TecmoCl
     if (ball_bounce && (checkpoint == 0U || checkpoint > 15U)) {
         return false;
     }
-    if (cpu_steering && (checkpoint == 0U || checkpoint > 240U)) {
+    if (cpu_steering && !debug_overlay_only &&
+        (checkpoint == 0U || checkpoint > 240U)) {
         return false;
     }
     if (cpu_playbook_lab && cpu_playbook_lab_steps > 32U) return false;

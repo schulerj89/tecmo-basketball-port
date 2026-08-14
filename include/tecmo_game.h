@@ -46,6 +46,30 @@ typedef enum TecmoPlayMode {
     TECMO_MODE_SEASON_MENU
 } TecmoPlayMode;
 
+/* Passive developer classification of the current holder's typed owner.
+   These values describe scene ownership only; they are not raw $030C/$030D
+   encodings and never participate in gameplay admission. */
+typedef enum TecmoDebugCpuHolderOwner {
+    TECMO_DEBUG_CPU_HOLDER_OWNER_UNAVAILABLE = 0,
+    TECMO_DEBUG_CPU_HOLDER_OWNER_HUMAN_P1,
+    TECMO_DEBUG_CPU_HOLDER_OWNER_HUMAN_P2,
+    TECMO_DEBUG_CPU_HOLDER_OWNER_AUTOMATIC_PRIMARY,
+    TECMO_DEBUG_CPU_HOLDER_OWNER_UNOWNED,
+    TECMO_DEBUG_CPU_HOLDER_OWNER_COUNT
+} TecmoDebugCpuHolderOwner;
+
+typedef struct TecmoDebugCpuOwnershipSnapshot {
+    TecmoDebugCpuHolderOwner holder_owner;
+    uint8_t possession;
+    uint8_t holder;
+    uint8_t controller_team[TECMO_GAMEPLAY_CONTROLLER_COUNT];
+    uint8_t controlled_actor[TECMO_GAMEPLAY_CONTROLLER_COUNT];
+    bool automatic_selected_eligible;
+    /* Mirrors the current selected-primary admission after the scene's typed
+       controller/holder invariant. It is diagnostic, not a second gate. */
+    bool automatic_selected_admitted;
+} TecmoDebugCpuOwnershipSnapshot;
+
 typedef struct TecmoRuntime {
     TecmoGameMemory *memory;
     RosterTable roster;
@@ -141,6 +165,7 @@ typedef struct TecmoRuntime {
     uint8_t debug_cpu_frame_delta_actor;
     int16_t debug_cpu_frame_delta_x;
     int16_t debug_cpu_frame_delta_y;
+    unsigned debug_cpu_no_effect_streak;
     bool title_probe_available;
     unsigned frame_counter;
     unsigned mode_frame_counter;
@@ -166,6 +191,11 @@ void tecmo_runtime_render(const TecmoRuntime *runtime, TecmoFramebuffer *framebu
 bool tecmo_render_gameplay_scene(const TecmoRuntime *runtime,
                                  TecmoFramebuffer *framebuffer);
 bool tecmo_runtime_flow_self_test(TecmoRuntime *runtime, char *message, size_t message_size);
+bool tecmo_debug_cpu_ownership_snapshot(
+    const TecmoGameplayScene *scene,
+    TecmoDebugCpuOwnershipSnapshot *snapshot_out);
+const char *tecmo_debug_cpu_holder_owner_name(
+    TecmoDebugCpuHolderOwner owner);
 void tecmo_render_original_title_probe(TecmoFramebuffer *framebuffer, const char *title_text);
 void tecmo_render_intro_c051_d861_model(TecmoFramebuffer *framebuffer);
 bool tecmo_render_intro_presents_screen(const TecmoRuntime *runtime,

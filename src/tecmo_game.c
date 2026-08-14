@@ -2,6 +2,7 @@
 #include "tecmo_gameplay_cpu_steering.h"
 #include "tecmo_nes_video.h"
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -76,6 +77,165 @@ static int text_equals(const char *a, const char *b)
 static uint32_t rgb(uint8_t r, uint8_t g, uint8_t b)
 {
     return 0xFF000000U | ((uint32_t)r << 16U) | ((uint32_t)g << 8U) | (uint32_t)b;
+}
+
+typedef struct DebugCpuProgressSnapshot {
+    TecmoDebugCpuOwnershipSnapshot ownership;
+    TecmoGameplayCourtCoordinate position;
+    uint16_t cursor;
+    uint16_t route_remaining;
+    uint32_t decision_serial;
+    uint8_t actor_state;
+    uint8_t action_state;
+    uint8_t wait_counter;
+    bool route_active;
+    bool source_target_valid;
+    bool deferred;
+    bool valid;
+} DebugCpuProgressSnapshot;
+
+static bool debug_cpu_team_has_controller(const TecmoGameplayScene *scene,
+                                          uint8_t team)
+{
+    size_t controller;
+    if (scene == NULL || team >= TECMO_GAMEPLAY_TEAM_COUNT) return false;
+    for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
+         ++controller) {
+        if (scene->launch.controller_team[controller] == team) return true;
+    }
+    return false;
+}
+
+const char *tecmo_debug_cpu_holder_owner_name(
+    TecmoDebugCpuHolderOwner owner)
+{
+    switch (owner) {
+        case TECMO_DEBUG_CPU_HOLDER_OWNER_HUMAN_P1: return "HUMAN P1";
+        case TECMO_DEBUG_CPU_HOLDER_OWNER_HUMAN_P2: return "HUMAN P2";
+        case TECMO_DEBUG_CPU_HOLDER_OWNER_AUTOMATIC_PRIMARY:
+            return "AUTOMATIC PRIMARY";
+        case TECMO_DEBUG_CPU_HOLDER_OWNER_UNOWNED: return "UNOWNED";
+        case TECMO_DEBUG_CPU_HOLDER_OWNER_UNAVAILABLE: return "UNAVAILABLE";
+        default: return "INVALID";
+    }
+}
+
+bool tecmo_debug_cpu_ownership_snapshot(
+    const TecmoGameplayScene *scene,
+    TecmoDebugCpuOwnershipSnapshot *snapshot_out)
+{
+    TecmoDebugCpuOwnershipSnapshot snapshot;
+    size_t controller;
+    bool idle_live;
+
+    if (scene == NULL || snapshot_out == NULL) return false;
+    memset(&snapshot, 0, sizeof(snapshot));
+    snapshot.holder_owner = TECMO_DEBUG_CPU_HOLDER_OWNER_UNAVAILABLE;
+    snapshot.possession = (uint8_t)scene->state.possession;
+    snapshot.holder = scene->ball_holder;
+    for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
+         ++controller) {
+        snapshot.controller_team[controller] =
+            scene->launch.controller_team[controller];
+        snapshot.controlled_actor[controller] =
+            scene->controlled_actor[controller];
+    }
+    if (!scene->active || !scene->live_foundation.state_valid ||
+        snapshot.possession >= TECMO_GAMEPLAY_TEAM_COUNT ||
+        snapshot.holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->actors[snapshot.holder].team != snapshot.possession) {
+        *snapshot_out = snapshot;
+        return true;
+    }
+    for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
+         ++controller) {
+        if (snapshot.controller_team[controller] == snapshot.possession &&
+            snapshot.controlled_actor[controller] == snapshot.holder) {
+            snapshot.holder_owner = controller == 0U
+                ? TECMO_DEBUG_CPU_HOLDER_OWNER_HUMAN_P1
+                : TECMO_DEBUG_CPU_HOLDER_OWNER_HUMAN_P2;
+            *snapshot_out = snapshot;
+            return true;
+        }
+    }
+    if (debug_cpu_team_has_controller(scene, snapshot.possession)) {
+        /* scene_ownership_valid rejects this shape during ordinary held LIVE
+           play: a side controller must own the holder, not another actor. */
+        snapshot.holder_owner = TECMO_DEBUG_CPU_HOLDER_OWNER_UNOWNED;
+    } else if (scene->live_foundation.primary_actor == snapshot.holder) {
+        snapshot.holder_owner =
+            TECMO_DEBUG_CPU_HOLDER_OWNER_AUTOMATIC_PRIMARY;
+        idle_live = !scene->result_ready && !scene->pretip_abort_pending &&
+            scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
+            scene->state.violation == TECMO_GAMEPLAY_VIOLATION_NONE &&
+            scene->state.free_throws.attempts_remaining == 0U &&
+            scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+            scene->pass_state.phase == TECMO_GAMEPLAY_SCENE_PASS_NONE &&
+            scene->inbound_state.phase == TECMO_GAMEPLAY_SCENE_INBOUND_NONE &&
+            !scene->free_throw_lineup_active;
+        snapshot.automatic_selected_eligible = idle_live;
+        snapshot.automatic_selected_admitted = idle_live;
+    } else {
+        snapshot.holder_owner = TECMO_DEBUG_CPU_HOLDER_OWNER_UNOWNED;
+    }
+    *snapshot_out = snapshot;
+    return true;
+}
+
+static void debug_cpu_progress_snapshot(
+    const TecmoGameplayScene *scene,
+    DebugCpuProgressSnapshot *snapshot)
+{
+    uint8_t actor;
+    memset(snapshot, 0, sizeof(*snapshot));
+    if (!tecmo_debug_cpu_ownership_snapshot(scene, &snapshot->ownership)) {
+        return;
+    }
+    actor = snapshot->ownership.holder;
+    if (actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) return;
+    snapshot->position = scene->actors[actor].position;
+    snapshot->cursor =
+        scene->live_foundation.play_state.stream_offset[actor];
+    snapshot->decision_serial = scene->cpu_actors[actor].decision_serial;
+    snapshot->actor_state =
+        scene->live_foundation.play_state.actor_state[actor];
+    snapshot->action_state =
+        scene->live_foundation.play_state.action_state_046e[actor];
+    snapshot->wait_counter =
+        scene->live_foundation.play_state.wait_counter[actor];
+    snapshot->route_active =
+        scene->live_foundation.play_state.route_motion[actor].active;
+    snapshot->route_remaining =
+        scene->live_foundation.play_state.route_motion[actor].remaining_timer;
+    snapshot->source_target_valid =
+        scene->live_foundation.source_target_valid[actor];
+    snapshot->deferred = scene->live_foundation.deferred[actor];
+    snapshot->valid = true;
+}
+
+static bool debug_cpu_selected_no_effect(
+    const DebugCpuProgressSnapshot *before,
+    const DebugCpuProgressSnapshot *after)
+{
+    return before->valid && after->valid &&
+        before->ownership.holder_owner ==
+            TECMO_DEBUG_CPU_HOLDER_OWNER_AUTOMATIC_PRIMARY &&
+        after->ownership.holder_owner ==
+            TECMO_DEBUG_CPU_HOLDER_OWNER_AUTOMATIC_PRIMARY &&
+        before->ownership.automatic_selected_eligible &&
+        after->ownership.automatic_selected_eligible &&
+        before->ownership.holder == after->ownership.holder &&
+        before->actor_state == 0x04U && after->actor_state == 0x04U &&
+        before->cursor == after->cursor &&
+        before->decision_serial == after->decision_serial &&
+        before->position.x == after->position.x &&
+        before->position.y == after->position.y &&
+        before->action_state == after->action_state &&
+        before->wait_counter == after->wait_counter &&
+        before->route_active == after->route_active &&
+        before->route_remaining == after->route_remaining &&
+        before->source_target_valid == after->source_target_valid &&
+        before->deferred == after->deferred;
 }
 
 static const char *mode_name(TecmoPlayMode mode)
@@ -1047,11 +1207,14 @@ static void update_court(TecmoRuntime *runtime,
 {
     TecmoGameplaySceneResult result;
     TecmoGameplayCourtCoordinate before[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    DebugCpuProgressSnapshot progress_before;
+    DebugCpuProgressSnapshot progress_after;
     uint8_t holder_before;
     uint8_t delta_actor;
     size_t actor;
 
     if (!runtime->gameplay_scene.active) return;
+    debug_cpu_progress_snapshot(&runtime->gameplay_scene, &progress_before);
     holder_before = runtime->gameplay_scene.ball_holder;
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
         before[actor] = runtime->gameplay_scene.actors[actor].position;
@@ -1060,7 +1223,16 @@ static void update_court(TecmoRuntime *runtime,
     if (!runtime->gameplay_scene.result_ready &&
         !tecmo_gameplay_scene_update(&runtime->gameplay_scene,
                                      player_one, player_two)) {
+        runtime->debug_cpu_no_effect_streak = 0U;
         return;
+    }
+    debug_cpu_progress_snapshot(&runtime->gameplay_scene, &progress_after);
+    if (debug_cpu_selected_no_effect(&progress_before, &progress_after)) {
+        if (runtime->debug_cpu_no_effect_streak < UINT_MAX) {
+            ++runtime->debug_cpu_no_effect_streak;
+        }
+    } else {
+        runtime->debug_cpu_no_effect_streak = 0U;
     }
     delta_actor = runtime->gameplay_scene.ball_holder <
             TECMO_GAMEPLAY_SCENE_ACTOR_COUNT
@@ -1757,6 +1929,7 @@ static void render_debug_cpu_diagnostics(const TecmoRuntime *runtime,
     const TecmoGameplayLiveFoundation *live;
     const TecmoGameplaySceneCpuActor *cpu = NULL;
     TecmoGameplayCpuSteeringCommand command;
+    TecmoDebugCpuOwnershipSnapshot ownership;
     char line[192];
     char holder_label[16];
     char primary_label[16];
@@ -1775,8 +1948,8 @@ static void render_debug_cpu_diagnostics(const TecmoRuntime *runtime,
     }
     scene = &runtime->gameplay_scene;
     live = &scene->live_foundation;
-    rect(fb, x - 6, y - 8, 620, 302, rgb(10, 14, 18));
-    rect(fb, x - 4, y - 6, 616, 298, rgb(28, 38, 42));
+    rect(fb, x - 6, y - 8, 620, 342, rgb(10, 14, 18));
+    rect(fb, x - 4, y - 6, 616, 338, rgb(28, 38, 42));
     draw_debug_text(fb, x, y, "CPU PASSIVE TYPED DIAGNOSTICS");
     if (!live->state_valid) {
         draw_debug_text(fb, x, y + 20, "LIVE CPU SNAPSHOT NOT RETAINED");
@@ -1906,6 +2079,25 @@ static void render_debug_cpu_diagnostics(const TecmoRuntime *runtime,
         scene->claimant_settlement_trace.valid ? 1U : 0U,
         (unsigned)scene->claimant_settlement_trace.event_serial);
     draw_debug_text(fb, x, y + 240, line);
+    if (tecmo_debug_cpu_ownership_snapshot(scene, &ownership)) {
+        (void)snprintf(
+            line, sizeof(line),
+            "POSSESSION %u  CTRL0 TEAM %u ACTOR %u  CTRL1 TEAM %u ACTOR %u",
+            (unsigned)ownership.possession,
+            (unsigned)ownership.controller_team[0],
+            (unsigned)ownership.controlled_actor[0],
+            (unsigned)ownership.controller_team[1],
+            (unsigned)ownership.controlled_actor[1]);
+        draw_debug_text(fb, x, y + 260, line);
+        (void)snprintf(
+            line, sizeof(line),
+            "HOLDER OWNED BY %s  AUTO ELIGIBLE %u ADMITTED %u  NO EFFECT %u",
+            tecmo_debug_cpu_holder_owner_name(ownership.holder_owner),
+            ownership.automatic_selected_eligible ? 1U : 0U,
+            ownership.automatic_selected_admitted ? 1U : 0U,
+            runtime->debug_cpu_no_effect_streak);
+        draw_debug_text(fb, x, y + 280, line);
+    }
     (void)snprintf(line, sizeof(line), "DEFER %u REASON %s",
                    holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
                            live->deferred[holder]
@@ -1915,7 +2107,7 @@ static void render_debug_cpu_diagnostics(const TecmoRuntime *runtime,
                              live->deferred_reason[holder])
                        : "not-retained");
     draw_debug_text(fb, x, y + 200, line);
-    draw_debug_text(fb, x, y + 272,
+    draw_debug_text(fb, x, y + 312,
                     "F4 LAB MENU  F3 OFF LEAVES PLAY UNCHANGED");
 }
 

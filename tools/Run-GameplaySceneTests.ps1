@@ -2310,6 +2310,8 @@ try {
     $env:TECMO_ASSETPACK = $PackPath
     $RenderSpecs = @(
         [pscustomobject]@{ mode="gameplay-start"; state='gameplay-state frame=0 shot=none phase=live' },
+        [pscustomobject]@{ mode="gameplay-live-f3-overlay"; state='gameplay-state frame=606 shot=none phase=live' },
+        [pscustomobject]@{ mode="gameplay-live-f3-auto-overlay"; state='gameplay-state frame=606 shot=none phase=live' },
         [pscustomobject]@{ mode="gameplay-facing-away-left"; state='gameplay-state frame=606 shot=none phase=live' },
         [pscustomobject]@{ mode="gameplay-ball-bounce-frame1"; state='gameplay-state frame=607 shot=none phase=live' },
         [pscustomobject]@{ mode="gameplay-ball-bounce-frame12"; state='gameplay-state frame=618 shot=none phase=live' },
@@ -2379,6 +2381,20 @@ try {
     foreach ($Spec in $RenderSpecs) {
         $RenderHashes[$Spec.mode] = Invoke-RenderCheckpoint `
             -Mode $Spec.mode -ExpectedState $Spec.state
+    }
+    $ExpectedCpuOwnershipOverlayHashes = @{
+        "gameplay-live-f3-overlay" =
+            "E656D6226C7E87E6AE572B2CB72F4C897DDC2C47B546F05E4413C340B15E3B12"
+        "gameplay-live-f3-auto-overlay" =
+            "DFDA22260A31E094121CB4E240ADBFA0B24F5466FFC24E5B6FDCD7015D3BEC5E"
+    }
+    foreach ($Mode in $ExpectedCpuOwnershipOverlayHashes.Keys) {
+        if ($RenderHashes[$Mode] -ne
+            $ExpectedCpuOwnershipOverlayHashes[$Mode]) {
+            throw ("Gameplay CPU ownership overlay render hash changed at '{0}': expected {1}, actual {2}." -f
+                $Mode, $ExpectedCpuOwnershipOverlayHashes[$Mode],
+                $RenderHashes[$Mode])
+        }
     }
     $ExpectedShotClockViolationHashes = @{
         "gameplay-shot-clock-violation-frame0" =
