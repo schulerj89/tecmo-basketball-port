@@ -1800,12 +1800,17 @@ and atomically persists it. The native scene now launches that pending matchup;
 it ends only after the matching non-tied result commits successfully, then
 returns to the existing season result rows without reinitializing the session.
 
-First-period LIVE setup is not a generic formation refresh. The only owned
-Bank06 `$85EA/$86D2` seed occurs at the real first-period PRETIP handoff, uses
-the exact descending `$8728/$8774` scan and coordinate tables, and exposes
-only final primary cursor `$017C`. Preserve its typed one-shot and clamp-
-exemption provenance; never replay it for later periods, possession changes,
-restarts, fouls, or inbounds, and never substitute a cold Bank04 initializer.
+Regulation-period LIVE entry is not a generic formation refresh. The owned
+Bank06 `$85EA/$86D2` seed occurs at the real first-period PRETIP handoff and
+the P2-P4 banner returns, uses the exact descending `$8728/$8774` scan and
+coordinate tables, and exposes only final primary cursor `$017C`. Fixed
+`$E71B` equality keeps the selected pairs while ordinary-admitted mismatch
+uses Bank05 `$8FAD` to swap them; both paths apply the all-ten `$BFA8`
+`$046E` clear and selected-pair state/action reset without broadly clearing
+target, direction, route, or wait planes. Preserve the typed monotonic-period
+and clamp-exemption provenance; never replay it for possession changes,
+non-banner restarts, fouls, inbounds, or overtime, and never substitute a cold
+Bank04 initializer.
 
 League Leaders category navigation is supported from ROM `$AD3D-$AD58`.
 Bank00's `$AC88/$AC5E` priority metasprites and per-player accumulator/ranking

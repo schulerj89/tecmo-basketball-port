@@ -523,28 +523,39 @@ The unported `$8D59-$8E21` caller-specific scaling inputs and remaining
 dynamic `$06CB` assignment policy stay explicitly bounded as unresolved; the
 native port does not invent them.
 
-## First-period `$85EA` entry seed
+## Regulation-period `$85EA` entry lifecycle
 
-The real first-period PRETIP-to-LIVE handoff now performs the surviving
-Bank06 `$86D2/$85EA` transaction after possession/foundation synchronization
-and before the first ordered LIVE update. Fixed `$E74F` selects Bank06 before
-calling `$85EA`; Bank05 `$85EA` is repeated data and is pinned separately.
-The one-shot transaction selects the holder as primary, scans the four
-same-side nonprimary actors in descending slot order, derives the first two
-streams with `$8774` from their immutable pre-seed depths, assigns fixed
-`$0208/$0195` to the last two, writes state 4, and publishes the scan's final
-candidate to the typed `$06DA` equivalent. The primary exposes only final
-cursor `$017C`, state 4, and wait 0; temporary `$0168` is not observable.
+The real first-period PRETIP-to-LIVE handoff and each P2-P4 banner return now
+perform the surviving Bank06 `$86D2/$85EA` transaction after role/foundation
+synchronization and before the first ordered LIVE update. Fixed `$E74F`
+selects Bank06 before calling `$85EA`; Bank05 `$85EA` is repeated data and is
+pinned separately. The regulation target sequence from the initial side `S`
+is P2 `S^1`, P3 `S`, P4 `S^1`. Each transaction selects the holder as primary,
+scans the four same-side nonprimary actors in descending slot order, derives
+the first two streams with `$8774` from their immutable pre-seed depths,
+assigns fixed `$0208/$0195` to the last two, writes state 4, and publishes the
+scan's final candidate to the typed `$06DA` equivalent. The primary exposes
+only final cursor `$017C`, state 4, and wait 0; temporary `$0168` is not
+observable.
+
+The banner path follows fixed `$E71B`: equality takes Bank05 `$8F97` without
+swapping roles, while mismatch takes ordinary-admitted `$8FAD` and swaps the
+side and selected pairs exactly. Both converge on `$8FE8`; `$BFA8` clears
+owned `$046E,X` for all ten actors, and the selected primary/defender receive
+state 0 and packed action `$30`. The transaction does not broadly clear typed
+target, direction, route, or wait planes. A monotonic serial plus the last
+seeded period rejects duplicate or out-of-order banner calls. Overtime keeps
+its existing fallback and does not publish regulation-entry provenance.
 
 The coordinate tables seed the primary at `027B,94` or `0085,94` and the
 first two descending teammates from the exact side table. Those primary
 points intentionally lie just beyond the ordinary trapezoid. A typed
-first-entry exemption owns source bit `$0588&08` only for that selected
+regulation-entry exemption owns source bit `$0588&08` only for that selected
 primary, admits only the narrow seed-to-boundary re-entry corridor, and feeds
 TGMO flag `$08`. Human movement expires it on natural re-entry; the automatic
 opcode-5/pass route stays at the staging coordinate until catch changes the
 primary, when the former primary takes the ordinary secondary clamp. Opcode-5 facing is
 not composed into native locomotion during this staging lifecycle, matching
-the retained source position through opcode 6/pass. Periods 2-4, generic
-possession changes, restarts, fouls, inbounds, malformed flags, and reseed
-attempts remain outside this one-shot owner.
+the retained source position through opcode 6/pass. Generic possession
+changes, non-banner restarts, fouls, inbounds, malformed flags, duplicate
+period calls, and overtime remain outside this regulation-only owner.

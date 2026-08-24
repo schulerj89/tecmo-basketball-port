@@ -311,18 +311,24 @@ static bool live_play_state_valid(
         foundation->last_possession >=
             TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT ||
         foundation->initialization_serial == 0U ||
-        (!foundation->first_period_entry_seeded &&
-         foundation->first_period_entry_seed_serial != 0U) ||
-        (foundation->first_period_entry_clamp_exemption_active &&
-         !foundation->first_period_entry_seeded) ||
-        (foundation->first_period_entry_clamp_exemption_active &&
-         foundation->first_period_entry_clamp_exempt_actor >=
+        (foundation->regulation_entry_seeded_period == 0U &&
+         (foundation->regulation_entry_seed_serial != 0U ||
+          foundation->regulation_entry_initial_offense_side !=
+              TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR)) ||
+        (foundation->regulation_entry_seeded_period > 4U) ||
+        (foundation->regulation_entry_seeded_period != 0U &&
+         (foundation->regulation_entry_seed_serial !=
+              foundation->regulation_entry_seeded_period ||
+          foundation->regulation_entry_initial_offense_side >=
+              TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT)) ||
+        (foundation->regulation_entry_clamp_exemption_active &&
+         foundation->regulation_entry_seeded_period == 0U) ||
+        (foundation->regulation_entry_clamp_exemption_active &&
+         foundation->regulation_entry_clamp_exempt_actor >=
              TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT) ||
-        (!foundation->first_period_entry_clamp_exemption_active &&
-         foundation->first_period_entry_clamp_exempt_actor !=
+        (!foundation->regulation_entry_clamp_exemption_active &&
+         foundation->regulation_entry_clamp_exempt_actor !=
              TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR) ||
-        (foundation->first_period_entry_seeded &&
-         foundation->first_period_entry_seed_serial == 0U) ||
         !live_actor_team_valid(foundation->actor_team) ||
         !live_selector_flags_valid(foundation) ||
         !live_actor_positions_valid(foundation->actor_position) ||
@@ -470,7 +476,9 @@ void tecmo_gameplay_live_foundation_init(
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     foundation->defender_actor =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
-    foundation->first_period_entry_clamp_exempt_actor =
+    foundation->regulation_entry_initial_offense_side =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    foundation->regulation_entry_clamp_exempt_actor =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     foundation->prior_selected_actor = 4U;
     foundation->prior_defender_actor = 9U;
@@ -595,9 +603,10 @@ static void live_invalidate_source_metadata(
     }
 }
 
-bool tecmo_gameplay_live_foundation_first_period_entry_seed(
+bool tecmo_gameplay_live_foundation_regulation_entry_seed(
     const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t period,
+    uint8_t target_offense_side,
     bool ordinary_ba_low2_clear,
     TecmoGameplayLiveFoundation *foundation_io)
 {
@@ -616,50 +625,63 @@ bool tecmo_gameplay_live_foundation_first_period_entry_seed(
     int actor;
     size_t eligible_count = 0U;
     size_t teammate = 0U;
-    if (assets == NULL || foundation_io == NULL || period != 1U ||
+    if (assets == NULL || foundation_io == NULL || period < 1U ||
+        period > 4U || target_offense_side >= 2U ||
         !ordinary_ba_low2_clear ||
         !tecmo_gameplay_live_foundation_valid(assets, foundation_io) ||
         foundation_io->first_sync_pending ||
-        foundation_io->first_period_entry_seeded ||
-        foundation_io->first_period_entry_seed_serial != 0U ||
+        foundation_io->regulation_entry_seeded_period != period - 1U ||
+        foundation_io->regulation_entry_seed_serial == UINT32_MAX ||
+        (period == 1U
+             ? foundation_io->regulation_entry_seed_serial != 0U
+             : foundation_io->regulation_entry_seed_serial == 0U) ||
+        (period == 1U
+             ? foundation_io->regulation_entry_initial_offense_side !=
+                   TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR
+             : foundation_io->regulation_entry_initial_offense_side >= 2U ||
+               target_offense_side !=
+                   (uint8_t)(foundation_io
+                       ->regulation_entry_initial_offense_side ^
+                       ((period & 1U) == 0U ? 1U : 0U))) ||
         foundation_io->orientation >= 2U ||
-        foundation_io->offense_side >= 2U ||
+        foundation_io->offense_side != target_offense_side ||
         foundation_io->last_ball_holder != foundation_io->primary_actor ||
         foundation_io->actor_team[foundation_io->primary_actor] !=
             foundation_io->offense_side) {
         return false;
     }
-    /* Admit only the untouched first-entry command lifecycle. `$8728` and
-       `$85EA` do not clear source target/direction planes, so a mixed later
-       lifecycle is rejected instead of being normalized by the adapter. */
+    candidate = *foundation_io;
+    /* `$85EA/$8728` does not clear target or direction planes. P1 requires
+       untouched inputs because no prior LIVE command may exist. Later
+       regulation entries preserve those typed planes exactly; the rewritten
+       cursor/state determines which command consumes them next. */
     for (actor = 0; actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT;
          ++actor) {
         bool offense_actor =
-            foundation_io->actor_team[actor] == foundation_io->offense_side;
-        if (offense_actor && (uint8_t)actor != foundation_io->primary_actor) {
-            if ((foundation_io->actor_selector_flags[actor] & 0x10U) != 0U) {
+            candidate.actor_team[actor] == candidate.offense_side;
+        if (offense_actor && (uint8_t)actor != candidate.primary_actor) {
+            if ((candidate.actor_selector_flags[actor] & 0x10U) != 0U) {
                 return false;
             }
             ++eligible_count;
         } else if (!offense_actor &&
-                   (foundation_io->actor_selector_flags[actor] & 0x10U) == 0U) {
+                   (candidate.actor_selector_flags[actor] & 0x10U) == 0U) {
             return false;
         }
-        if (offense_actor &&
-            (foundation_io->play_state.route_motion[actor].active ||
-             foundation_io->source_target_valid[actor] ||
-             foundation_io->source_raw_target_valid[actor] ||
-             foundation_io->source_inactive_target_storage[actor] ||
-             foundation_io->source_direction_valid[actor] ||
-             foundation_io->source_direction[actor] !=
+        if (period == 1U && offense_actor &&
+            (candidate.play_state.route_motion[actor].active ||
+             candidate.source_target_valid[actor] ||
+             candidate.source_raw_target_valid[actor] ||
+             candidate.source_inactive_target_storage[actor] ||
+             candidate.source_direction_valid[actor] ||
+             candidate.source_direction[actor] !=
                  TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION ||
-             foundation_io->play_state.direction[actor] !=
+             candidate.play_state.direction[actor] !=
                  TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION)) {
             return false;
         }
     }
     if (eligible_count != 4U) return false;
-    candidate = *foundation_io;
     primary = candidate.primary_actor;
     /* This exact `$85EA` caller loads Y from `$0308`, so `$86D2` takes its
        equal-primary branch and never calls `$88B0`.  `$8728` then scans
@@ -680,11 +702,14 @@ bool tecmo_gameplay_live_foundation_first_period_entry_seed(
                 stream_offset = choose_023a ? 0x023AU : 0x0226U;
                 stream_choice_state = choose_023a ? 1U : 2U;
             } else {
-                /* The real first-period caller has `$0587==2`, selecting
+                /* The fixed all-period caller has `$0587==2`, selecting
                    the `$0195/$0208` half of the two fixed tables. */
                 stream_offset = scan_y == 1 ? 0x0208U : 0x0195U;
             }
             candidate.play_state.actor_state[actor] = 0x04U;
+            /* State 4 makes any retained Q6 route dormant, but `$85EA`
+               does not clear its accumulator/velocity/timer storage. */
+            candidate.play_state.route_motion[actor].active = false;
             candidate.play_state.stream_offset[actor] = stream_offset;
             candidate.last_step_offset[actor] = stream_offset;
             selected_candidate = (uint8_t)actor;
@@ -703,6 +728,7 @@ bool tecmo_gameplay_live_foundation_first_period_entry_seed(
     candidate.actor_position[primary] =
         primary_position[candidate.orientation];
     candidate.play_state.actor_state[primary] = 0x04U;
+    candidate.play_state.route_motion[primary].active = false;
     candidate.play_state.wait_counter[primary] = 0U;
     candidate.play_state.stream_offset[primary] = 0x017CU;
     candidate.last_step_offset[primary] = 0x017CU;
@@ -715,12 +741,108 @@ bool tecmo_gameplay_live_foundation_first_period_entry_seed(
         ++teammate;
     }
     if (teammate != 2U) return false;
-    candidate.first_period_entry_seeded = true;
-    candidate.first_period_entry_clamp_exemption_active = true;
-    candidate.first_period_entry_clamp_exempt_actor = primary;
-    candidate.first_period_entry_seed_serial = 1U;
+    if (period == 1U) {
+        candidate.regulation_entry_initial_offense_side =
+            target_offense_side;
+    }
+    candidate.regulation_entry_seeded_period = period;
+    candidate.regulation_entry_clamp_exemption_active = true;
+    candidate.regulation_entry_clamp_exempt_actor = primary;
+    candidate.regulation_entry_seed_serial =
+        live_serial_next(candidate.regulation_entry_seed_serial);
     candidate.sync_serial = live_serial_next(candidate.sync_serial);
     if (!tecmo_gameplay_live_foundation_valid(assets, &candidate)) {
+        return false;
+    }
+    *foundation_io = candidate;
+    return true;
+}
+
+bool tecmo_gameplay_live_foundation_regulation_entry_resolve_roles(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t target_offense_side,
+    bool ordinary_ba_low2_clear,
+    TecmoGameplayLiveFoundation *foundation_io)
+{
+    TecmoGameplayLiveFoundation candidate;
+    uint8_t primary;
+    uint8_t defender;
+    uint8_t old_offense;
+    uint8_t old_defense;
+    size_t actor;
+    if (assets == NULL || !assets->available || foundation_io == NULL ||
+        !ordinary_ba_low2_clear ||
+        target_offense_side >= TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT ||
+        !live_play_state_valid(assets, foundation_io) ||
+        (foundation_io->offense_side != target_offense_side &&
+         foundation_io->defense_side != target_offense_side)) {
+        return false;
+    }
+    candidate = *foundation_io;
+    primary = candidate.primary_actor;
+    defender = candidate.defender_actor;
+    old_offense = candidate.offense_side;
+    old_defense = candidate.defense_side;
+    if (primary >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        defender >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        candidate.actor_team[primary] != candidate.offense_side ||
+        candidate.actor_team[defender] != candidate.defense_side) {
+        return false;
+    }
+    /* `$E71B` equality calls Bank05 `$8F97`; mismatch calls `$8FAD` only
+       under ordinary BA-low2-clear admission. Mismatch swaps the side and
+       selected pairs and toggles every selector bit before both routes share
+       `$8FE8`. No target/direction/route or wait plane is cleared. */
+    if (old_offense != target_offense_side) {
+        candidate.offense_side = old_defense;
+        candidate.defense_side = old_offense;
+        candidate.primary_actor = defender;
+        candidate.play_state.primary_actor = defender;
+        candidate.defender_actor = primary;
+        candidate.play_state.defender_actor = primary;
+        candidate.last_possession = target_offense_side;
+        candidate.last_ball_holder = defender;
+        candidate.prior_selected_actor = primary;
+        candidate.prior_defender_actor = defender;
+        primary = candidate.primary_actor;
+        defender = candidate.defender_actor;
+        for (actor = 0U;
+             actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
+            candidate.actor_selector_flags[actor] ^= 0x10U;
+        }
+    } else if (candidate.last_possession != target_offense_side) {
+        return false;
+    }
+    /* `$BFA8` clears the owned `$046E,X` action byte for all ten actors.
+       Its `$0420/$048F/$7E/$F3` effects have no typed owner here. */
+    for (actor = 0U;
+         actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
+        candidate.play_state.action_state_046e[actor] = 0U;
+    }
+    candidate.play_state.actor_state[primary] = 0U;
+    candidate.play_state.actor_state[defender] = 0U;
+    /* `$8FE8` resets the selected states without owning the raw Q6 route
+       planes. Retain those bytes while making the typed state-5 projection
+       dormant. */
+    candidate.play_state.route_motion[primary].active = false;
+    candidate.play_state.route_motion[defender].active = false;
+    candidate.play_state.action[primary] = 0x30U;
+    candidate.play_state.action[defender] = 0x30U;
+    candidate.selected_actor_by_side[candidate.offense_side] = primary;
+    candidate.selected_actor_by_side[candidate.defense_side] = defender;
+    candidate.candidate_actor_by_side[candidate.offense_side] =
+        live_b87c_candidate_remap[primary];
+    candidate.play_state.candidate_actor =
+        candidate.candidate_actor_by_side[candidate.offense_side];
+    candidate.selected_defender_handoff_active =
+        candidate.control_mode[candidate.defense_side] != 0U;
+    candidate.play_state.aggregation_06df = 0U;
+    candidate.play_state.aggregation_06e1 = 0U;
+    candidate.play_state.global_0790 = 0U;
+    candidate.first_sync_pending = false;
+    candidate.sync_serial = live_serial_next(candidate.sync_serial);
+    live_seed_fixed_link_projection(&candidate);
+    if (!live_play_state_valid(assets, &candidate)) {
         return false;
     }
     *foundation_io = candidate;
@@ -945,10 +1067,10 @@ bool tecmo_gameplay_live_foundation_synchronize(
     candidate.orientation = orientation;
     candidate.last_possession = possession;
     candidate.last_ball_holder = ball_holder;
-    if (candidate.first_period_entry_clamp_exemption_active &&
-        ball_holder != candidate.first_period_entry_clamp_exempt_actor) {
-        candidate.first_period_entry_clamp_exemption_active = false;
-        candidate.first_period_entry_clamp_exempt_actor =
+    if (candidate.regulation_entry_clamp_exemption_active &&
+        ball_holder != candidate.regulation_entry_clamp_exempt_actor) {
+        candidate.regulation_entry_clamp_exemption_active = false;
+        candidate.regulation_entry_clamp_exempt_actor =
             TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     }
     if (changed) {

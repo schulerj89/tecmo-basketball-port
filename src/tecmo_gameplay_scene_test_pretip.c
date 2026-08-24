@@ -342,8 +342,8 @@ static bool scene_test_concurrent_tip_simulation(
         size_t seed_index = 0U;
         int scan_y = 3;
         int seed_actor;
-        if (!scene->live_foundation.first_period_entry_seeded ||
-            scene->live_foundation.first_period_entry_seed_serial != 1U ||
+        if (scene->live_foundation.regulation_entry_seeded_period != 1U ||
+            scene->live_foundation.regulation_entry_seed_serial != 1U ||
             primary != scene->ball_holder ||
             scene->live_foundation.selected_actor_by_side[side] != primary ||
             scene->live_foundation.play_state.actor_state[primary] != 0x04U ||
@@ -414,9 +414,9 @@ static bool scene_test_concurrent_tip_simulation(
                 goto failed;
             malformed = *scene;
             malformed.live_foundation
-                .first_period_entry_clamp_exemption_active = false;
+                .regulation_entry_clamp_exemption_active = false;
             malformed.live_foundation
-                .first_period_entry_clamp_exempt_actor =
+                .regulation_entry_clamp_exempt_actor =
                     TECMO_GAMEPLAY_SCENE_NO_ACTOR;
             if (scene_actor_position_valid_for_scene(&malformed, primary))
                 goto failed;
@@ -446,7 +446,7 @@ static bool scene_test_concurrent_tip_simulation(
             scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
             scene->actors[holder_after_handoff].movement_boundary_latched ||
             !scene->live_foundation
-                .first_period_entry_clamp_exemption_active ||
+                .regulation_entry_clamp_exemption_active ||
             scene->actors[holder_after_handoff].position.x != holder_start.x ||
             scene->actors[holder_after_handoff].position.y != holder_start.y) {
             goto failed;
@@ -482,7 +482,7 @@ static bool scene_test_concurrent_tip_simulation(
                 legacy_probe->actors[holder_after_handoff]
                     .movement_boundary_latched ||
                 !legacy_probe->live_foundation
-                    .first_period_entry_clamp_exemption_active ||
+                    .regulation_entry_clamp_exemption_active ||
                 legacy_probe->actors[holder_after_handoff].position.x !=
                     holder_start.x ||
                 legacy_probe->actors[holder_after_handoff].position.y !=
@@ -522,14 +522,14 @@ static bool scene_test_concurrent_tip_simulation(
         goto failed;
     }
     for (frame = 0U; frame < 64U &&
-         scene->live_foundation.first_period_entry_clamp_exemption_active;
+         scene->live_foundation.regulation_entry_clamp_exemption_active;
          ++frame) {
         if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
             failure = "first-period clamp exemption re-entry update failed";
             goto failed;
         }
     }
-    if (scene->live_foundation.first_period_entry_clamp_exemption_active ||
+    if (scene->live_foundation.regulation_entry_clamp_exemption_active ||
         !scene_actor_world_position_valid(
             &scene->actors[holder_after_handoff])) {
         failure = "first-period clamp exemption did not clear on re-entry";
@@ -959,7 +959,7 @@ static bool scene_test_continuous_tip_render(
             ++shot_probe_started;
             if (probe.shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
                 !scene->live_foundation
-                    .first_period_entry_clamp_exemption_active) {
+                    .regulation_entry_clamp_exemption_active) {
                 ++shot_probe_jump;
                 break;
             }
@@ -1074,7 +1074,7 @@ static bool scene_test_continuous_tip_render(
                            (int)scene->actors[shooting_actor].position.x,
                            (int)scene->actors[shooting_actor].position.y,
                            scene->live_foundation
-                               .first_period_entry_clamp_exemption_active
+                               .regulation_entry_clamp_exemption_active
                                ? 1U : 0U,
                            scene->status);
             goto failed;

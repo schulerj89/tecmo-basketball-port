@@ -1731,26 +1731,30 @@ static bool scene_pretip_cpu_requested(
            TECMO_GAMEPLAY_CONTROLLER_COUNT;
 }
 
-static bool scene_apply_first_period_entry_seed(TecmoGameplayScene *scene)
+static bool scene_apply_regulation_entry_seed(
+    TecmoGameplayScene *scene, uint8_t target_offense_side,
+    bool require_pretip_handoff)
 {
     TecmoGameplayScene candidate;
     TecmoGameplayBallDribbleFrame ball_frame;
     size_t actor;
-    if (scene == NULL || scene->state.period != 1U ||
+    if (scene == NULL || scene->state.period < 1U ||
+        scene->state.period > 4U || target_offense_side >= 2U ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        !scene->pretip_state.live_handoff ||
+        (require_pretip_handoff && !scene->pretip_state.live_handoff) ||
         scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         !scene_cpu_common_tail_has_ordinary_live_zero(scene)) {
         if (scene != NULL) {
-            scene_set_status(scene, "first-period seed admission rejected");
+            scene_set_status(scene, "regulation-entry seed admission rejected");
         }
         return false;
     }
     candidate = *scene;
-    if (!tecmo_gameplay_live_foundation_first_period_entry_seed(
-            &candidate.cpu_steering_assets, candidate.state.period, true,
+    if (!tecmo_gameplay_live_foundation_regulation_entry_seed(
+            &candidate.cpu_steering_assets, candidate.state.period,
+            target_offense_side, true,
             &candidate.live_foundation)) {
-        scene_set_status(scene, "first-period seed foundation rejected");
+        scene_set_status(scene, "regulation-entry seed foundation rejected");
         return false;
     }
     /* `$85EA` begins with `ORA #$0B / AND #$EB`: the newly established
@@ -1798,7 +1802,7 @@ static bool scene_apply_first_period_entry_seed(TecmoGameplayScene *scene)
                 &candidate, actor, &candidate.cpu_actors[actor])) {
             char detail[96];
             (void)snprintf(detail, sizeof(detail),
-                           "first-period seed actor %u %s validation rejected",
+                           "regulation-entry seed actor %u %s validation rejected",
                            (unsigned)actor,
                            scene_actor_position_valid_for_scene(
                                &candidate, actor) ? "CPU" : "world");
@@ -1812,7 +1816,92 @@ static bool scene_apply_first_period_entry_seed(TecmoGameplayScene *scene)
         !tecmo_gameplay_court_coordinate_to_q8(
             &ball_frame.visible_position, &candidate.ball_position) ||
         !scene_ownership_valid(&candidate)) {
-        scene_set_status(scene, "first-period seed scene validation rejected");
+        scene_set_status(scene, "regulation-entry seed scene validation rejected");
+        return false;
+    }
+    *scene = candidate;
+    return true;
+}
+
+static bool scene_apply_period_banner_regulation_entry(
+    TecmoGameplayScene *scene)
+{
+    TecmoGameplayScene candidate;
+    uint8_t target_offense;
+    uint8_t preferred_primary;
+    bool side_swap;
+    size_t controller;
+    if (scene == NULL || scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.period < 2U || scene->state.period > 4U ||
+        scene->live_foundation.regulation_entry_initial_offense_side >= 2U ||
+        scene->live_foundation.regulation_entry_seeded_period !=
+            scene->state.period - 1U) {
+        return false;
+    }
+    candidate = *scene;
+    target_offense = (uint8_t)(candidate.live_foundation
+        .regulation_entry_initial_offense_side ^
+        ((candidate.state.period & 1U) == 0U ? 1U : 0U));
+    side_swap = candidate.live_foundation.offense_side != target_offense;
+    preferred_primary = side_swap
+        ? candidate.live_foundation.defender_actor
+        : candidate.live_foundation.primary_actor;
+    if (preferred_primary >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        !scene_handoff_possession(
+            &candidate, (TecmoGameplayTeam)target_offense,
+            scene_first_actor_for_team(
+                (TecmoGameplayTeam)target_offense))) {
+        return false;
+    }
+    /* The existing generic handoff requires an immediately dribble-resolvable
+       holder, while source `$E71B` selects the prior defender before `$85EA`
+       relocates it. Stage that exact identity only inside this transaction;
+       the writer below attaches the ball after the canonical coordinates. */
+    candidate.ball_holder = preferred_primary;
+    for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
+         ++controller) {
+        if (candidate.launch.controller_team[controller] == target_offense) {
+            candidate.controlled_actor[controller] = preferred_primary;
+        }
+    }
+    /* The generic state/orientation handoff deliberately leaves the typed
+       foundation pending. Refresh only immutable actor positions here so
+       `$85EA`'s three coordinate stores cannot replay a stale prior-frame
+       position for one of the seven actors it does not write. */
+    for (controller = 0U; controller < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
+         ++controller) {
+        candidate.live_foundation.actor_position[controller] =
+            candidate.actors[controller].position;
+    }
+    if (!tecmo_gameplay_live_foundation_regulation_entry_resolve_roles(
+            &candidate.cpu_steering_assets, target_offense, true,
+            &candidate.live_foundation)) {
+        scene_set_status(scene, "regulation role reset rejected");
+        return false;
+    }
+    candidate.live_foundation.orientation =
+        candidate.orientation_state.attack_direction;
+    for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
+         ++controller) {
+        candidate.live_foundation.controller_team[controller] =
+            candidate.launch.controller_team[controller];
+        candidate.live_foundation.last_controlled_actor[controller] =
+            candidate.controlled_actor[controller];
+    }
+    if (!scene_cpu_common_tail_has_ordinary_live_zero(&candidate)) {
+        scene_set_status(scene, "regulation ordinary BA rejected");
+        return false;
+    }
+    if (
+        candidate.live_foundation.primary_actor != preferred_primary ||
+        candidate.live_foundation.offense_side != target_offense ||
+        !scene_apply_regulation_entry_seed(
+            &candidate, target_offense, false) ||
+        !tecmo_gameplay_camera_settle_court(
+            &candidate.camera_assets, &candidate.camera_state,
+            &candidate.ball_position,
+            candidate.orientation_state.attack_direction, false) ||
+        !scene_ownership_valid(&candidate)) {
         return false;
     }
     *scene = candidate;
@@ -1965,7 +2054,9 @@ static bool scene_update_pretip_frame(
                 handoff_reject = "pre-tip possession handoff rejected";
             } else if (!scene_sync_live_foundation(scene)) {
                 handoff_reject = "pre-tip foundation sync rejected";
-            } else if (!scene_apply_first_period_entry_seed(scene)) {
+            } else if (!scene_apply_regulation_entry_seed(
+                           scene,
+                           scene->live_foundation.offense_side, true)) {
                 handoff_reject = scene->status;
             } else if (!tecmo_gameplay_camera_settle_court(
                     &scene->camera_assets, &scene->camera_state,
@@ -2065,15 +2156,23 @@ static bool scene_advance_state_and_restarts(
         return false;
     }
     if (phase_before == TECMO_GAMEPLAY_PHASE_PERIOD_BANNER &&
-        scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
-        !scene_handoff_possession(
-            scene, scene->state.possession,
-            scene_first_actor_for_team(scene->state.possession))) {
-        scene_set_status(scene, "period restart synchronization rejected");
-        return false;
-    }
-    if (phase_before == TECMO_GAMEPLAY_PHASE_PERIOD_BANNER &&
         scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE) {
+        bool regulation_entry = scene->state.period <= 4U;
+        bool accepted = regulation_entry
+            ? scene_apply_period_banner_regulation_entry(scene)
+            : scene_handoff_possession(
+                  scene, scene->state.possession,
+                  scene_first_actor_for_team(scene->state.possession));
+        /* Overtime's adjacent `$E740` A9 overlap has a distinct recurrence
+           and remains outside this regulation-only conversion. Preserve the
+           prior native handoff without publishing `$85EA` provenance. */
+        if (!accepted) {
+            scene_set_status(scene,
+                regulation_entry
+                    ? "regulation period-entry synchronization rejected"
+                    : "overtime period restart synchronization rejected");
+            return false;
+        }
         restart_applied = true;
     }
     *phase_before_out = phase_before;

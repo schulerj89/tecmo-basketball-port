@@ -129,15 +129,17 @@ typedef struct TecmoGameplayLiveFoundation {
        follows the CPU contract's natural wrap. */
     uint32_t sync_serial;
     uint32_t tick_serial;
-    /* Exact one-shot first playable period `$86D2/$85EA` seed. This is a
-       typed lifecycle marker, not a raw-RAM mirror or restart counter. */
-    bool first_period_entry_seeded;
-    bool first_period_entry_clamp_exemption_active;
+    /* Exact regulation-period `$86D2/$85EA` entry lifecycle. The initial
+       offense side is the typed P1 selector seed for S,S^1,S,S^1; the last
+       period and serial reject duplicate banner/restart calls. */
+    uint8_t regulation_entry_initial_offense_side;
+    uint8_t regulation_entry_seeded_period;
+    bool regulation_entry_clamp_exemption_active;
     /* Exact actor carrying the typed `$0588&$08` staging exemption. Keeping
        this identity explicit lets a catch rebind primary before the old
        primary is clamped and the exemption is retired. */
-    uint8_t first_period_entry_clamp_exempt_actor;
-    uint32_t first_period_entry_seed_serial;
+    uint8_t regulation_entry_clamp_exempt_actor;
+    uint32_t regulation_entry_seed_serial;
     uint16_t formation_start_offset[
         TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint16_t last_step_offset[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
@@ -180,9 +182,15 @@ bool tecmo_gameplay_live_foundation_valid(
 bool tecmo_gameplay_live_foundation_formation_index_for_coordinate(
     const TecmoGameplayCourtCoordinate *coordinate,
     uint8_t *formation_index_out);
-bool tecmo_gameplay_live_foundation_first_period_entry_seed(
+bool tecmo_gameplay_live_foundation_regulation_entry_seed(
     const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t period,
+    uint8_t target_offense_side,
+    bool ordinary_ba_low2_clear,
+    TecmoGameplayLiveFoundation *foundation_io);
+bool tecmo_gameplay_live_foundation_regulation_entry_resolve_roles(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t target_offense_side,
     bool ordinary_ba_low2_clear,
     TecmoGameplayLiveFoundation *foundation_io);
 bool tecmo_gameplay_live_foundation_refresh_formation(
