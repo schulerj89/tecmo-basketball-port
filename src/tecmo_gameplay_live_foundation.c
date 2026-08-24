@@ -603,7 +603,7 @@ static void live_invalidate_source_metadata(
     }
 }
 
-bool tecmo_gameplay_live_foundation_regulation_entry_seed(
+static bool live_regulation_entry_seed(
     const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t period,
     uint8_t target_offense_side,
@@ -729,7 +729,9 @@ bool tecmo_gameplay_live_foundation_regulation_entry_seed(
         primary_position[candidate.orientation];
     candidate.play_state.actor_state[primary] = 0x04U;
     candidate.play_state.route_motion[primary].active = false;
-    candidate.play_state.wait_counter[primary] = 0U;
+    if (period == 1U) {
+        candidate.play_state.wait_counter[primary] = 0U;
+    }
     candidate.play_state.stream_offset[primary] = 0x017CU;
     candidate.last_step_offset[primary] = 0x017CU;
     for (actor = candidate.offense_side == 0U ? 4 : 9;
@@ -758,7 +760,7 @@ bool tecmo_gameplay_live_foundation_regulation_entry_seed(
     return true;
 }
 
-bool tecmo_gameplay_live_foundation_regulation_entry_resolve_roles(
+static bool live_regulation_entry_resolve_roles(
     const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t target_offense_side,
     bool ordinary_ba_low2_clear,
@@ -843,6 +845,30 @@ bool tecmo_gameplay_live_foundation_regulation_entry_resolve_roles(
     candidate.sync_serial = live_serial_next(candidate.sync_serial);
     live_seed_fixed_link_projection(&candidate);
     if (!live_play_state_valid(assets, &candidate)) {
+        return false;
+    }
+    *foundation_io = candidate;
+    return true;
+}
+
+bool tecmo_gameplay_live_foundation_regulation_entry_apply(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t period,
+    uint8_t target_offense_side,
+    bool ordinary_ba_low2_clear,
+    TecmoGameplayLiveFoundation *foundation_io)
+{
+    TecmoGameplayLiveFoundation candidate;
+    if (assets == NULL || foundation_io == NULL || period < 1U ||
+        period > 4U || !ordinary_ba_low2_clear) {
+        return false;
+    }
+    candidate = *foundation_io;
+    if ((period > 1U &&
+         !live_regulation_entry_resolve_roles(
+             assets, target_offense_side, true, &candidate)) ||
+        !live_regulation_entry_seed(
+            assets, period, target_offense_side, true, &candidate)) {
         return false;
     }
     *foundation_io = candidate;

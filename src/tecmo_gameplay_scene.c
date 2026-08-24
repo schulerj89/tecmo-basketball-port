@@ -1731,12 +1731,14 @@ static bool scene_pretip_cpu_requested(
            TECMO_GAMEPLAY_CONTROLLER_COUNT;
 }
 
-static bool scene_apply_regulation_entry_seed(
+static bool scene_apply_regulation_entry(
     TecmoGameplayScene *scene, uint8_t target_offense_side,
     bool require_pretip_handoff)
 {
     TecmoGameplayScene candidate;
     TecmoGameplayBallDribbleFrame ball_frame;
+    uint8_t prior_clamp_actor;
+    bool prior_clamp_active;
     size_t actor;
     if (scene == NULL || scene->state.period < 1U ||
         scene->state.period > 4U || target_offense_side >= 2U ||
@@ -1749,13 +1751,31 @@ static bool scene_apply_regulation_entry_seed(
         }
         return false;
     }
+    prior_clamp_active =
+        scene->live_foundation.regulation_entry_clamp_exemption_active;
+    prior_clamp_actor =
+        scene->live_foundation.regulation_entry_clamp_exempt_actor;
     candidate = *scene;
-    if (!tecmo_gameplay_live_foundation_regulation_entry_seed(
+    if (!tecmo_gameplay_live_foundation_regulation_entry_apply(
             &candidate.cpu_steering_assets, candidate.state.period,
             target_offense_side, true,
             &candidate.live_foundation)) {
         scene_set_status(scene, "regulation-entry seed foundation rejected");
         return false;
+    }
+    if (prior_clamp_active &&
+        prior_clamp_actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+        prior_clamp_actor != candidate.live_foundation
+            .regulation_entry_clamp_exempt_actor) {
+        /* Replacing `$0588&08` makes the former selected primary an ordinary
+           actor at this same atomic seam. Apply the existing exact trapezoid
+           projection before publishing the new exemption; no intermediate
+           half-entry foundation or invalid scene is observable. */
+        scene_clamp_actor_world(&candidate.actors[prior_clamp_actor]);
+        candidate.actors[prior_clamp_actor].anchor =
+            candidate.actors[prior_clamp_actor].position;
+        candidate.live_foundation.actor_position[prior_clamp_actor] =
+            candidate.actors[prior_clamp_actor].position;
     }
     /* `$85EA` begins with `ORA #$0B / AND #$EB`: the newly established
        bit-$08 clamp exemption cannot inherit a prior selected-holder
@@ -1873,12 +1893,6 @@ static bool scene_apply_period_banner_regulation_entry(
         candidate.live_foundation.actor_position[controller] =
             candidate.actors[controller].position;
     }
-    if (!tecmo_gameplay_live_foundation_regulation_entry_resolve_roles(
-            &candidate.cpu_steering_assets, target_offense, true,
-            &candidate.live_foundation)) {
-        scene_set_status(scene, "regulation role reset rejected");
-        return false;
-    }
     candidate.live_foundation.orientation =
         candidate.orientation_state.attack_direction;
     for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
@@ -1892,11 +1906,10 @@ static bool scene_apply_period_banner_regulation_entry(
         scene_set_status(scene, "regulation ordinary BA rejected");
         return false;
     }
-    if (
+    if (!scene_apply_regulation_entry(
+            &candidate, target_offense, false) ||
         candidate.live_foundation.primary_actor != preferred_primary ||
         candidate.live_foundation.offense_side != target_offense ||
-        !scene_apply_regulation_entry_seed(
-            &candidate, target_offense, false) ||
         !tecmo_gameplay_camera_settle_court(
             &candidate.camera_assets, &candidate.camera_state,
             &candidate.ball_position,
@@ -2054,7 +2067,7 @@ static bool scene_update_pretip_frame(
                 handoff_reject = "pre-tip possession handoff rejected";
             } else if (!scene_sync_live_foundation(scene)) {
                 handoff_reject = "pre-tip foundation sync rejected";
-            } else if (!scene_apply_regulation_entry_seed(
+            } else if (!scene_apply_regulation_entry(
                            scene,
                            scene->live_foundation.offense_side, true)) {
                 handoff_reject = scene->status;

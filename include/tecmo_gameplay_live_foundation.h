@@ -182,14 +182,13 @@ bool tecmo_gameplay_live_foundation_valid(
 bool tecmo_gameplay_live_foundation_formation_index_for_coordinate(
     const TecmoGameplayCourtCoordinate *coordinate,
     uint8_t *formation_index_out);
-bool tecmo_gameplay_live_foundation_regulation_entry_seed(
+/* Atomic fixed `$E71B`/Bank05-role-reset/Bank06 `$85EA` regulation entry.
+   P1 consumes the already synchronized PRETIP roles; P2-P4 resolve equality
+   or mismatch and seed in one transaction. Rejection leaves the foundation
+   byte-identical, so no replayable half-entry state is public. */
+bool tecmo_gameplay_live_foundation_regulation_entry_apply(
     const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t period,
-    uint8_t target_offense_side,
-    bool ordinary_ba_low2_clear,
-    TecmoGameplayLiveFoundation *foundation_io);
-bool tecmo_gameplay_live_foundation_regulation_entry_resolve_roles(
-    const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t target_offense_side,
     bool ordinary_ba_low2_clear,
     TecmoGameplayLiveFoundation *foundation_io);

@@ -741,6 +741,10 @@ static bool scene_test_period_expiry_and_restart(
     uint16_t away_score_before;
     uint16_t home_score_before;
     uint8_t shot_actor;
+    uint8_t expected_p3_primary;
+    uint8_t expected_p3_defender;
+    uint8_t expected_p4_primary;
+    uint8_t expected_p4_defender;
     int16_t x;
     size_t frame;
     launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
@@ -899,6 +903,146 @@ static bool scene_test_period_expiry_and_restart(
             TECMO_MUSIC_TRACK_GAMEPLAY) {
         tecmo_gameplay_scene_test_message(message, message_size,
                            "period live-return music restart failed");
+        return false;
+    }
+    /* Continue through the real P2 and P3 clock-expiry/banner seams. This
+       proves the scene, rather than only the foundation vector, publishes
+       the S and S^1 entries atomically and replaces the prior period's
+       clamp owner without consuming the incoming selected-primary wait. */
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    scene->state.clock_minutes = 0U;
+    scene->state.clock_seconds = 1U;
+    scene->state.clock_divider = 2U;
+    scene->state.shot_clock = 20U;
+    for (frame = 0U; frame < 40U &&
+         (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE ||
+          scene->state.phase ==
+              TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE ||
+          scene->state.phase ==
+              TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_FIXED_WAIT); ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) break;
+    }
+    if (scene->state.phase != TECMO_GAMEPLAY_PHASE_HALFTIME_BANNER ||
+        scene->state.period != 3U ||
+        scene->state.banner != TECMO_GAMEPLAY_BANNER_HALFTIME) {
+        (void)snprintf(message, message_size,
+            "halftime expiry/banner transition failed status=%s phase=%u period=%u banner=%u clock=%u:%u/%u",
+            scene->status, (unsigned)scene->state.phase,
+            (unsigned)scene->state.period, (unsigned)scene->state.banner,
+            (unsigned)scene->state.clock_minutes,
+            (unsigned)scene->state.clock_seconds,
+            (unsigned)scene->state.clock_divider);
+        return false;
+    }
+    scene->state.phase_frame =
+        TECMO_GAMEPLAY_HALFTIME_BANNER_FRAMES - 1U;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase !=
+            TECMO_GAMEPLAY_PHASE_HALFTIME_SCORE_SCREEN) {
+        tecmo_gameplay_scene_test_message(message, message_size,
+                           "halftime score transition failed");
+        return false;
+    }
+    p1.released.shoot = true;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
+        scene->state.banner != TECMO_GAMEPLAY_BANNER_THIRD_PERIOD) {
+        tecmo_gameplay_scene_test_message(message, message_size,
+                           "third-period banner entry failed");
+        return false;
+    }
+    memset(&p1, 0, sizeof(p1));
+    expected_p3_primary = scene->live_foundation.defender_actor;
+    expected_p3_defender = scene->live_foundation.primary_actor;
+    scene->state.phase_frame = TECMO_GAMEPLAY_PERIOD_BANNER_FRAMES - 1U;
+    scene->live_foundation.play_state.wait_counter[expected_p3_primary] = 23U;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->ball_holder != expected_p3_primary ||
+        scene->orientation_state.attack_direction != 0U ||
+        scene->live_foundation.offense_side != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->live_foundation.primary_actor != expected_p3_primary ||
+        scene->live_foundation.defender_actor != expected_p3_defender ||
+        scene->live_foundation.regulation_entry_seeded_period != 3U ||
+        scene->live_foundation.regulation_entry_seed_serial != 3U ||
+        !scene->live_foundation.regulation_entry_clamp_exemption_active ||
+        scene->live_foundation.regulation_entry_clamp_exempt_actor !=
+            expected_p3_primary ||
+        !scene_actor_world_position_valid(
+            &scene->actors[expected_p3_defender]) ||
+        scene->live_foundation.play_state.wait_counter[
+            expected_p3_primary] != 23U) {
+        (void)snprintf(message, message_size,
+            "third-period regulation entry failed status=%s possession=%u holder=%u orientation=%u primary=%u defender=%u serial=%u/%u wait=%u",
+            scene->status, (unsigned)scene->state.possession,
+            (unsigned)scene->ball_holder,
+            (unsigned)scene->orientation_state.attack_direction,
+            (unsigned)scene->live_foundation.primary_actor,
+            (unsigned)scene->live_foundation.defender_actor,
+            (unsigned)scene->live_foundation.regulation_entry_seeded_period,
+            (unsigned)scene->live_foundation.regulation_entry_seed_serial,
+            (unsigned)scene->live_foundation.play_state.wait_counter[
+                expected_p3_primary]);
+        return false;
+    }
+    scene->state.clock_minutes = 0U;
+    scene->state.clock_seconds = 1U;
+    scene->state.clock_divider = 2U;
+    scene->state.shot_clock = 20U;
+    for (frame = 0U; frame < 40U &&
+         (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE ||
+          scene->state.phase ==
+              TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE ||
+          scene->state.phase ==
+              TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_FIXED_WAIT); ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) break;
+    }
+    if (scene->state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
+        scene->state.period != 4U ||
+        scene->state.banner != TECMO_GAMEPLAY_BANNER_FOURTH_PERIOD) {
+        (void)snprintf(message, message_size,
+            "third-period expiry/banner transition failed status=%s phase=%u period=%u banner=%u clock=%u:%u/%u",
+            scene->status, (unsigned)scene->state.phase,
+            (unsigned)scene->state.period, (unsigned)scene->state.banner,
+            (unsigned)scene->state.clock_minutes,
+            (unsigned)scene->state.clock_seconds,
+            (unsigned)scene->state.clock_divider);
+        return false;
+    }
+    scene->state.phase_frame = TECMO_GAMEPLAY_PERIOD_BANNER_FRAMES - 1U;
+    expected_p4_primary = scene->live_foundation.defender_actor;
+    expected_p4_defender = scene->live_foundation.primary_actor;
+    scene->live_foundation.play_state.wait_counter[expected_p4_primary] = 24U;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->ball_holder != expected_p4_primary ||
+        scene->orientation_state.attack_direction != 1U ||
+        scene->live_foundation.offense_side != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->live_foundation.primary_actor != expected_p4_primary ||
+        scene->live_foundation.defender_actor != expected_p4_defender ||
+        scene->live_foundation.regulation_entry_seeded_period != 4U ||
+        scene->live_foundation.regulation_entry_seed_serial != 4U ||
+        !scene->live_foundation.regulation_entry_clamp_exemption_active ||
+        scene->live_foundation.regulation_entry_clamp_exempt_actor !=
+            expected_p4_primary ||
+        !scene_actor_world_position_valid(
+            &scene->actors[expected_p4_defender]) ||
+        scene->live_foundation.play_state.wait_counter[
+            expected_p4_primary] != 24U) {
+        (void)snprintf(message, message_size,
+            "fourth-period regulation entry failed status=%s possession=%u holder=%u orientation=%u primary=%u defender=%u serial=%u/%u wait=%u",
+            scene->status, (unsigned)scene->state.possession,
+            (unsigned)scene->ball_holder,
+            (unsigned)scene->orientation_state.attack_direction,
+            (unsigned)scene->live_foundation.primary_actor,
+            (unsigned)scene->live_foundation.defender_actor,
+            (unsigned)scene->live_foundation.regulation_entry_seeded_period,
+            (unsigned)scene->live_foundation.regulation_entry_seed_serial,
+            (unsigned)scene->live_foundation.play_state.wait_counter[
+                expected_p4_primary]);
         return false;
     }
     tecmo_gameplay_scene_end(scene);
@@ -1764,7 +1908,7 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                     malformed_fixture.source_direction[primary] = 0U;
                     malformed_fixture.play_state.direction[primary] = 0U;
                     fixture = malformed_fixture;
-                    if (tecmo_gameplay_live_foundation_regulation_entry_seed(
+                    if (tecmo_gameplay_live_foundation_regulation_entry_apply(
                             &scene->cpu_steering_assets, 1U, side, true,
                             &fixture) ||
                         memcmp(&fixture, &malformed_fixture,
@@ -1776,12 +1920,12 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                     fixture = before_reject;
                     if (!tecmo_gameplay_live_foundation_valid(
                             &scene->cpu_steering_assets, &fixture) ||
-                        tecmo_gameplay_live_foundation_regulation_entry_seed(
+                        tecmo_gameplay_live_foundation_regulation_entry_apply(
                             &scene->cpu_steering_assets, 1U, side, false,
                             &fixture) ||
                         memcmp(&fixture, &before_reject,
                                sizeof(fixture)) != 0 ||
-                        !tecmo_gameplay_live_foundation_regulation_entry_seed(
+                        !tecmo_gameplay_live_foundation_regulation_entry_apply(
                             &scene->cpu_steering_assets, 1U, side, true,
                             &fixture) ||
                         fixture.primary_actor != primary ||
@@ -1844,6 +1988,24 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                         lifecycle.play_state.route_motion[preserved_actor]
                             .active = true;
                         equality = lifecycle;
+                        equality.offense_side = 1U;
+                        equality.defense_side = 0U;
+                        equality.last_possession = 1U;
+                        equality.primary_actor = 5U;
+                        equality.play_state.primary_actor = 5U;
+                        equality.last_ball_holder = 5U;
+                        equality.defender_actor = 0U;
+                        equality.play_state.defender_actor = 0U;
+                        equality.play_state.candidate_actor =
+                            equality.candidate_actor_by_side[1U];
+                        for (fixture_actor = 0U;
+                             fixture_actor <
+                                 TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
+                             ++fixture_actor) {
+                            equality.actor_selector_flags[fixture_actor] ^=
+                                0x10U;
+                        }
+                        equality.play_state.wait_counter[5U] = 13U;
                         for (fixture_actor = 0U;
                              fixture_actor <
                                  TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
@@ -1852,8 +2014,10 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                                 (uint8_t)(0x80U + fixture_actor);
                         }
                         before_reject = equality;
-                        if (!tecmo_gameplay_live_foundation_regulation_entry_resolve_roles(
-                                &scene->cpu_steering_assets, side, true,
+                        if (!tecmo_gameplay_live_foundation_valid(
+                                &scene->cpu_steering_assets, &equality) ||
+                            !tecmo_gameplay_live_foundation_regulation_entry_apply(
+                                &scene->cpu_steering_assets, 2U, 1U, true,
                                 &equality) ||
                             equality.primary_actor !=
                                 before_reject.primary_actor ||
@@ -1863,16 +2027,17 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                                    before_reject.actor_selector_flags,
                                    sizeof(equality.actor_selector_flags)) != 0 ||
                             equality.play_state.actor_state[
-                                equality.primary_actor] != 0U ||
-                            equality.play_state.actor_state[
-                                equality.defender_actor] != 0U ||
+                                equality.primary_actor] != 0x04U ||
                             equality.play_state.action[equality.primary_actor] !=
                                 0x30U ||
                             equality.play_state.action[equality.defender_actor] !=
                                 0x30U ||
-                            equality.regulation_entry_seed_serial != 1U) {
+                            equality.play_state.wait_counter[
+                                equality.primary_actor] != 13U ||
+                            equality.regulation_entry_seeded_period != 2U ||
+                            equality.regulation_entry_seed_serial != 2U) {
                             (void)snprintf(failure, sizeof(failure),
-                                "regulation equality role reset failed");
+                                "regulation equality atomic entry failed");
                             goto failed;
                         }
                         for (fixture_actor = 0U;
@@ -1887,6 +2052,48 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                                 goto failed;
                             }
                         }
+                        before_reject = equality;
+                        if (tecmo_gameplay_live_foundation_regulation_entry_apply(
+                                &scene->cpu_steering_assets, 2U, 1U, true,
+                                &equality) ||
+                            memcmp(&equality, &before_reject,
+                                   sizeof(equality)) != 0) {
+                            (void)snprintf(failure, sizeof(failure),
+                                "regulation equality repeat rollback failed");
+                            goto failed;
+                        }
+
+                        before_reject = lifecycle;
+                        if (tecmo_gameplay_live_foundation_regulation_entry_apply(
+                                &scene->cpu_steering_assets, 2U, 1U, false,
+                                &lifecycle) ||
+                            memcmp(&lifecycle, &before_reject,
+                                   sizeof(lifecycle)) != 0) {
+                            (void)snprintf(failure, sizeof(failure),
+                                "regulation atomic BA rollback failed");
+                            goto failed;
+                        }
+                        equality = lifecycle;
+                        equality.regulation_entry_seeded_period = 0U;
+                        equality.regulation_entry_seed_serial = 0U;
+                        equality.regulation_entry_initial_offense_side =
+                            TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+                        equality.regulation_entry_clamp_exemption_active =
+                            false;
+                        equality.regulation_entry_clamp_exempt_actor =
+                            TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+                        before_reject = equality;
+                        if (!tecmo_gameplay_live_foundation_valid(
+                                &scene->cpu_steering_assets, &equality) ||
+                            tecmo_gameplay_live_foundation_regulation_entry_apply(
+                                &scene->cpu_steering_assets, 2U, 1U, true,
+                                &equality) ||
+                            memcmp(&equality, &before_reject,
+                                   sizeof(equality)) != 0) {
+                            (void)snprintf(failure, sizeof(failure),
+                                "regulation post-role seed rollback failed");
+                            goto failed;
+                        }
 
                         for (period = 2U; period <= 4U; ++period) {
                             uint8_t target_side = (uint8_t)(
@@ -1895,9 +2102,14 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                             uint8_t defender_before = lifecycle.defender_actor;
                             uint8_t flags_before[
                                 TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+                            uint8_t primary_wait_before;
                             memcpy(flags_before,
                                    lifecycle.actor_selector_flags,
                                    sizeof(flags_before));
+                            lifecycle.play_state.wait_counter[
+                                defender_before] = (uint8_t)(10U + period);
+                            primary_wait_before = lifecycle.play_state
+                                .wait_counter[defender_before];
                             for (fixture_actor = 0U;
                                  fixture_actor <
                                      TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
@@ -1906,19 +2118,20 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                                     fixture_actor] =
                                         (uint8_t)(0x40U + fixture_actor);
                             }
-                            if (!tecmo_gameplay_live_foundation_regulation_entry_resolve_roles(
-                                    &scene->cpu_steering_assets, target_side,
-                                    true, &lifecycle) ||
+                            if (!tecmo_gameplay_live_foundation_regulation_entry_apply(
+                                    &scene->cpu_steering_assets, period,
+                                    target_side, true, &lifecycle) ||
                                 lifecycle.primary_actor != defender_before ||
                                 lifecycle.defender_actor != primary_before ||
                                 lifecycle.play_state.actor_state[
-                                    lifecycle.primary_actor] != 0U ||
-                                lifecycle.play_state.actor_state[
-                                    lifecycle.defender_actor] != 0U ||
+                                    lifecycle.primary_actor] != 0x04U ||
                                 lifecycle.play_state.action[
                                     lifecycle.primary_actor] != 0x30U ||
                                 lifecycle.play_state.action[
                                     lifecycle.defender_actor] != 0x30U ||
+                                lifecycle.play_state.wait_counter[
+                                    lifecycle.primary_actor] !=
+                                    primary_wait_before ||
                                 lifecycle.source_target_valid[preserved_actor] !=
                                     true ||
                                 lifecycle.play_state.target_x[preserved_actor] !=
@@ -1948,8 +2161,12 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                                 lifecycle.play_state.route_motion[
                                     preserved_actor]
                                         .remaining_timer != 9U ||
+                                lifecycle.play_state.route_motion[
+                                    preserved_actor].active != (period == 2U) ||
+                                lifecycle.regulation_entry_seeded_period !=
+                                    period ||
                                 lifecycle.regulation_entry_seed_serial !=
-                                    (uint32_t)(period - 1U)) {
+                                    (uint32_t)period) {
                                 (void)snprintf(failure, sizeof(failure),
                                     "regulation mismatch role reset failed p%u",
                                     (unsigned)period);
@@ -1972,60 +2189,28 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                                     goto failed;
                                 }
                             }
-                            if (!tecmo_gameplay_live_foundation_regulation_entry_seed(
+                            before_reject = lifecycle;
+                            if (tecmo_gameplay_live_foundation_regulation_entry_apply(
                                     &scene->cpu_steering_assets, period,
                                     target_side, true, &lifecycle) ||
-                                lifecycle.regulation_entry_seeded_period !=
-                                    period ||
-                                lifecycle.regulation_entry_seed_serial !=
-                                    (uint32_t)period ||
-                                lifecycle.source_target_valid[preserved_actor] !=
-                                    true ||
-                                lifecycle.play_state.target_x[preserved_actor] !=
-                                    0x0180 ||
-                                lifecycle.play_state.target_depth[
-                                    preserved_actor] != 0x0090 ||
-                                !lifecycle.source_direction_valid[
-                                    preserved_actor] ||
-                                lifecycle.source_direction[preserved_actor] !=
-                                    3U ||
-                                lifecycle.play_state.direction[
-                                    preserved_actor] != 3U ||
-                                lifecycle.play_state.wait_counter[
-                                    preserved_actor] != 7U ||
-                                lifecycle.play_state.route_motion[
-                                    preserved_actor]
-                                        .horizontal_accumulator_q6 != 0x4567U ||
-                                lifecycle.play_state.route_motion[
-                                    preserved_actor]
-                                        .depth_accumulator_q6 != 0x2345U ||
-                                lifecycle.play_state.route_motion[
-                                    preserved_actor]
-                                        .horizontal_velocity_q6 != -32 ||
-                                lifecycle.play_state.route_motion[
-                                    preserved_actor]
-                                        .depth_velocity_q6 != 16 ||
-                                lifecycle.play_state.route_motion[
-                                    preserved_actor]
-                                        .remaining_timer != 9U ||
-                                lifecycle.play_state.route_motion[
-                                    preserved_actor].active != (period == 2U)) {
+                                memcmp(&lifecycle, &before_reject,
+                                       sizeof(lifecycle)) != 0) {
                                 (void)snprintf(failure, sizeof(failure),
-                                    "regulation P1-P4 seed lifecycle failed p%u",
+                                    "regulation atomic repeat rollback failed p%u",
                                     (unsigned)period);
                                 goto failed;
                             }
                         }
                     }
                     before_reject = fixture;
-                    if (tecmo_gameplay_live_foundation_regulation_entry_seed(
+                    if (tecmo_gameplay_live_foundation_regulation_entry_apply(
                             &scene->cpu_steering_assets, 1U, side, true,
                             &fixture) ||
                         memcmp(&fixture, &before_reject,
                                sizeof(fixture)) != 0 ||
-                        tecmo_gameplay_live_foundation_regulation_entry_seed(
-                            &scene->cpu_steering_assets, 2U,
-                            (uint8_t)(side ^ 1U), true, &fixture) ||
+                        tecmo_gameplay_live_foundation_regulation_entry_apply(
+                            &scene->cpu_steering_assets, 3U,
+                            side, true, &fixture) ||
                         memcmp(&fixture, &before_reject,
                                sizeof(fixture)) != 0) {
                         (void)snprintf(failure, sizeof(failure),

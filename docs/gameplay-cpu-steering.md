@@ -535,17 +535,27 @@ scans the four same-side nonprimary actors in descending slot order, derives
 the first two streams with `$8774` from their immutable pre-seed depths,
 assigns fixed `$0208/$0195` to the last two, writes state 4, and publishes the
 scan's final candidate to the typed `$06DA` equivalent. The primary exposes
-only final cursor `$017C`, state 4, and wait 0; temporary `$0168` is not
-observable.
+only final cursor `$017C` and state 4; P1 also exposes wait 0, while P2-P4
+retain the incoming wait. Temporary `$0168` is not observable.
 
 The banner path follows fixed `$E71B`: equality takes Bank05 `$8F97` without
 swapping roles, while mismatch takes ordinary-admitted `$8FAD` and swaps the
 side and selected pairs exactly. Both converge on `$8FE8`; `$BFA8` clears
 owned `$046E,X` for all ten actors, and the selected primary/defender receive
-state 0 and packed action `$30`. The transaction does not broadly clear typed
-target, direction, route, or wait planes. A monotonic serial plus the last
-seeded period rejects duplicate or out-of-order banner calls. Overtime keeps
-its existing fallback and does not publish regulation-entry provenance.
+state 0 and packed action `$30` before `$85EA` writes the offense state/cursor.
+One public transaction owns role resolution and seed together, so callers
+cannot publish or replay a half-entry. It does not broadly clear typed target,
+direction, route, or wait planes. P1 alone writes the initial primary wait 0;
+P2-P4 preserve every wait byte, including the newly selected primary. A
+monotonic serial plus the last seeded period rejects duplicate or out-of-order
+banner calls byte-identically. Overtime keeps its existing fallback and does
+not publish regulation-entry provenance.
+
+`Run-GameplayCpuSteeringTests.ps1` pins the canonical Rev1 raw anchors
+independently of the copied TGAI payload: fixed `$E71B-$E756` including the
+`$E740` JMP-operand/table overlap (`63D4F5A3`), Bank05 `$8F97-$8FAC`
+(`62809A8D`), `$8FAD-$8FE7` (`7C94E5EA`), `$8FE8-$902D` (`FFA12025`), and
+`$BFA8-$BFC8` (`7AD3EC16`). Values are FNV1a32 over the inclusive range.
 
 The coordinate tables seed the primary at `027B,94` or `0085,94` and the
 first two descending teammates from the exact side table. Those primary

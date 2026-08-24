@@ -352,6 +352,17 @@ try {
         @{ label="Bank06 9BD8-9C6E route divider"; bank=6; fixed=$false; start=0x9BD8; size=151 },
         @{ label="Bank05 9709-970A route table"; bank=5; fixed=$false; start=0x9709; size=2 }
     )
+    # Regulation-entry control flow is a runner-only semantic anchor rather
+    # than copied TGAI payload. Pin the exact canonical bytes independently:
+    # fixed $E740 is both the JMP operand at $E73F and the table read by
+    # $E723, so its raw overlap must remain inside the fixed span.
+    $RegulationEntryAnchorSpans = @(
+        @{ label="Fixed E71B-E756 entry/E740 overlap"; bank=7; fixed=$true; start=0xE71B; size=0x3C; hash="63D4F5A3" },
+        @{ label="Bank05 8F97-8FAC equality"; bank=5; fixed=$false; start=0x8F97; size=0x16; hash="62809A8D" },
+        @{ label="Bank05 8FAD-8FE7 mismatch"; bank=5; fixed=$false; start=0x8FAD; size=0x3B; hash="7C94E5EA" },
+        @{ label="Bank05 8FE8-902D selected reset"; bank=5; fixed=$false; start=0x8FE8; size=0x46; hash="FFA12025" },
+        @{ label="Bank05 BFA8-BFC8 all-actor reset"; bank=5; fixed=$false; start=0xBFA8; size=0x21; hash="7AD3EC16" }
+    )
     # The first entry below is a separately copied raw helper. The remaining
     # handler/tail anchors overlap the retained command-handler source span;
     # they are semantic anchors, not additional copied source entries.
@@ -873,6 +884,16 @@ try {
     $RomBytes = [IO.File]::ReadAllBytes($RomPath)
     $Trainer = if (($RomBytes[6] -band 4) -ne 0) { 512 } else { 0 }
     $Prg = 16 + $Trainer
+    foreach ($Span in $RegulationEntryAnchorSpans) {
+        $CpuBase = if ([bool]$Span.fixed) { 0xC000 } else { 0x8000 }
+        $Offset = $Prg + $Span.bank * 0x4000 + ($Span.start - $CpuBase)
+        $Raw = New-Object byte[] ([int]$Span.size)
+        [Array]::Copy($RomBytes, $Offset, $Raw, 0, [int]$Span.size)
+        if ((Get-Fnv1a32 $Raw) -ne $Span.hash) {
+            throw ("Canonical regulation-entry anchor changed at " +
+                "$($Span.label).")
+        }
+    }
     $RomMutationCount = 0
     foreach ($Span in $ExpectedSpans) {
         $CpuBase = if ($Span.fixed) { 0xC000 } else { 0x8000 }
@@ -913,6 +934,28 @@ try {
         ++$LifecycleRomMutationCount
     }
 
+    $RegulationEntryRomMutationCount = 0
+    foreach ($Span in $RegulationEntryAnchorSpans) {
+        $CpuBase = if ([bool]$Span.fixed) { 0xC000 } else { 0x8000 }
+        $Offset = $Prg + $Span.bank * 0x4000 + ($Span.start - $CpuBase)
+        $MutatedRom = Join-Path $Scratch `
+            ("rom-regulation-entry-{0}-{1:X4}.nes" -f `
+                $Span.bank, $Span.start)
+        $Bytes = [byte[]]$RomBytes.Clone()
+        $Bytes[$Offset] = $Bytes[$Offset] -bxor 1
+        [IO.File]::WriteAllBytes($MutatedRom, $Bytes)
+        $Output = @(& $Executable --gameplay-cpu-steering-source-test `
+            $MutatedRom 2>&1)
+        if ($LASTEXITCODE -eq 0 -or
+            ($Output -join [Environment]::NewLine) -notmatch
+                'TGAI-3 import requires the exact Rev1 ROM fingerprint') {
+            throw ("Rev1 regulation-entry anchor mutation at " +
+                "$($Span.label) was accepted.`n$(Get-ShortTail $Output)")
+        }
+        ++$RomMutationCount
+        ++$RegulationEntryRomMutationCount
+    }
+
     $Opcode15RomMutationCount = 0
     foreach ($Span in $Opcode15AnchorSpans) {
         $CpuBase = if ([bool]$Span.fixed) { 0xC000 } else { 0x8000 }
@@ -935,14 +978,16 @@ try {
     }
 
     Write-Host ("TGAI-3 focused tests passed: exact Rev1 importer and twelve " +
-        "source spans plus eight lifecycle anchor/table spans and six opcode-15 " +
+        "source spans plus eight lifecycle anchor/table spans, five exact " +
+        "regulation-entry spans, and six opcode-15 " +
         "source/semantic-anchor spans, 680 aligned " +
         "commands, 24 handlers, eight exact " +
         "direction codes, deterministic ten-coordinate/context harness, " +
         "transactional TGMO direction/movement composition, " +
         "strict provenance/dependency/parser/input mutations, " +
         "$RomMutationCount ROM mutations ($LifecycleRomMutationCount lifecycle " +
-        "anchor/table; $Opcode15RomMutationCount opcode-15), bounded live scene " +
+        "anchor/table; $RegulationEntryRomMutationCount regulation entry; " +
+        "$Opcode15RomMutationCount opcode-15), bounded live scene " +
         "adapter enabled")
     $global:LASTEXITCODE = 0
 } finally {

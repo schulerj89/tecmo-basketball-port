@@ -1807,10 +1807,12 @@ coordinate tables, and exposes only final primary cursor `$017C`. Fixed
 `$E71B` equality keeps the selected pairs while ordinary-admitted mismatch
 uses Bank05 `$8FAD` to swap them; both paths apply the all-ten `$BFA8`
 `$046E` clear and selected-pair state/action reset without broadly clearing
-target, direction, route, or wait planes. Preserve the typed monotonic-period
-and clamp-exemption provenance; never replay it for possession changes,
-non-banner restarts, fouls, inbounds, or overtime, and never substitute a cold
-Bank04 initializer.
+target, direction, route, or wait planes. P1 alone seeds primary wait 0;
+P2-P4 retain all wait bytes. Role resolution and `$85EA` seed are one public
+atomic transaction: no caller may publish a half-entry. Preserve the typed
+monotonic-period and clamp-exemption provenance; never replay it for
+possession changes, non-banner restarts, fouls, inbounds, or overtime, and
+never substitute a cold Bank04 initializer.
 
 League Leaders category navigation is supported from ROM `$AD3D-$AD58`.
 Bank00's `$AC88/$AC5E` priority metasprites and per-player accumulator/ranking
