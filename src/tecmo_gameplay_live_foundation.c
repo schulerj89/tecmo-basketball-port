@@ -602,15 +602,7 @@ bool tecmo_gameplay_live_foundation_refresh_formation(
         bool postcatch_prior_cursor =
             actor == candidate.prior_selected_actor &&
             candidate.play_state.actor_state[actor] == 0x04U &&
-            (candidate.play_state.stream_offset[actor] == 0x0B63U ||
-             candidate.play_state.stream_offset[actor] == 0x0B68U ||
-             candidate.play_state.stream_offset[actor] == 0x0B77U ||
-             candidate.play_state.stream_offset[actor] == 0x0B86U ||
-             candidate.play_state.stream_offset[actor] == 0x0B95U ||
-             candidate.play_state.stream_offset[actor] == 0x0BA4U ||
-             candidate.play_state.stream_offset[actor] == 0x0BB3U ||
-             candidate.play_state.stream_offset[actor] == 0x0BC2U ||
-             candidate.play_state.stream_offset[actor] == 0x0BD1U);
+            candidate.play_state.stream_offset[actor] == 0x0B63U;
         candidate.formation_start_offset[actor] = formation.stream_offset[actor];
         /* $944D excludes $0308 and $9452 excludes bit-$10 actors. The
            ordinary actor loop separately excludes $0309, so retain both
@@ -629,10 +621,9 @@ bool tecmo_gameplay_live_foundation_refresh_formation(
     /* Bank05 $B27B writes the former selected actor's exact `$0B63` cursor
        before the next Bank06 dispatch. A holder-driven formation bucket
        change must not erase that same-call catch result before its first
-       eligible opcode-2 step or at one of the eight exact opcode-8 boundary
-       records that recur in the same post-catch stream. This typed
-       prior-selected/state/cursor tuple is narrower than inventing a
-       persistent raw selector flag.
+       eligible opcode-2 step. Only this typed prior-selected/state/cursor
+       catch tuple is exempt; once opcode 2 advances to an opcode-8 record,
+       ordinary formation-refresh behavior applies again.
 
        Bank06 $944D does not reload $0308, and $9452 excludes bit-$10
        actors.  Those slots keep their existing stream cursor and their
