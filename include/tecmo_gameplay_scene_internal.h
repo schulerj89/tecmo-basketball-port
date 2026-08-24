@@ -168,6 +168,8 @@ bool scene_apply_goal_facing(
         actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT]);
 bool scene_actor_coordinate_valid(const TecmoGameplayCourtCoordinate *coordinate);
 bool scene_actor_world_position_valid(const TecmoGameplaySceneActor *actor);
+bool scene_actor_position_valid_for_scene(
+    const TecmoGameplayScene *scene, size_t actor);
 void scene_clamp_actor_world(TecmoGameplaySceneActor *actor);
 bool scene_actor_movement_state(
     const TecmoGameplayScene *scene,
@@ -287,6 +289,8 @@ bool scene_cpu_target_for_source_direction(
     const TecmoGameplayCourtCoordinate *actor_position,
     uint8_t source_direction,
     TecmoGameplayCourtCoordinate *target_out);
+bool scene_cpu_common_tail_has_ordinary_live_zero(
+    const TecmoGameplayScene *scene);
 uint8_t scene_bank06_ordinary_actor_at(size_t source_index);
 /* Exact ordinary-LIVE opcode-10 projection seams. The selector trusts only
    actual Bank02 stores; retained/no-store results remain unavailable. The

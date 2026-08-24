@@ -128,8 +128,6 @@ static bool scene_test_concurrent_tip_simulation(
     uint8_t home_commits;
     TecmoGameplaySceneActor actors_before_handoff[
         TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
-    TecmoGameplaySceneCpuActor cpu_before_handoff[
-        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     TecmoGameplayCourtCoordinate holder_start;
     uint8_t holder_after_handoff;
     bool actor_moved;
@@ -308,8 +306,6 @@ static bool scene_test_concurrent_tip_simulation(
         }
         memcpy(actors_before_handoff, scene->actors,
                sizeof(actors_before_handoff));
-        memcpy(cpu_before_handoff, scene->cpu_actors,
-               sizeof(cpu_before_handoff));
         if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) goto failed;
     }
     failure = "concurrent pre-tip no-restart handoff failed";
@@ -329,11 +325,107 @@ static bool scene_test_concurrent_tip_simulation(
         failure = "pre-tip handoff unexpectedly emitted B87C claimant trace";
         goto failed;
     }
-    failure = "pre-tip in-place actor continuity failed";
-    if (memcmp(scene->actors, actors_before_handoff,
-               sizeof(actors_before_handoff)) != 0 ||
-        memcmp(scene->cpu_actors, cpu_before_handoff,
-               sizeof(cpu_before_handoff)) != 0) goto failed;
+    failure = "pre-tip first-period Bank06 seed failed";
+    {
+        static const TecmoGameplayCourtCoordinate primary_position[2U] = {
+            {0x027B, 0x0094}, {0x0085, 0x0094}
+        };
+        static const TecmoGameplayCourtCoordinate teammate_position[2U][2U] = {
+            {{0x0226, 0x00D2}, {0x01F4, 0x006E}},
+            {{0x00DA, 0x00D2}, {0x010C, 0x006E}}
+        };
+        bool seeded_actor[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT] = {false};
+        uint8_t side = scene->live_foundation.offense_side;
+        uint8_t primary = scene->live_foundation.primary_actor;
+        uint8_t expected_candidate = side == 0U ? 0U : 5U;
+        uint8_t stream_choice_state = 0U;
+        size_t seed_index = 0U;
+        int scan_y = 3;
+        int seed_actor;
+        if (!scene->live_foundation.first_period_entry_seeded ||
+            scene->live_foundation.first_period_entry_seed_serial != 1U ||
+            primary != scene->ball_holder ||
+            scene->live_foundation.selected_actor_by_side[side] != primary ||
+            scene->live_foundation.play_state.actor_state[primary] != 0x04U ||
+            scene->live_foundation.play_state.wait_counter[primary] != 0U ||
+            scene->live_foundation.play_state.stream_offset[primary] != 0x017CU ||
+            scene->live_foundation.actor_position[primary].x !=
+                primary_position[scene->live_foundation.orientation].x ||
+            scene->live_foundation.actor_position[primary].y !=
+                primary_position[scene->live_foundation.orientation].y) {
+            goto failed;
+        }
+        if (expected_candidate == primary) ++expected_candidate;
+        if (scene->live_foundation.candidate_actor_by_side[side] !=
+                expected_candidate ||
+            scene->live_foundation.play_state.candidate_actor !=
+                expected_candidate) goto failed;
+        seeded_actor[primary] = true;
+        for (seed_actor = side == 0U ? 4 : 9;
+             seed_actor >= (side == 0U ? 0 : 5); --seed_actor) {
+            uint16_t expected_stream;
+            bool choose_023a;
+            if ((uint8_t)seed_actor == primary) continue;
+            if (scan_y >= 2) {
+                choose_023a =
+                    (actors_before_handoff[seed_actor].position.y >= 0x0096 &&
+                     stream_choice_state != 1U) ||
+                    (actors_before_handoff[seed_actor].position.y < 0x0096 &&
+                     stream_choice_state == 2U);
+                expected_stream = choose_023a ? 0x023AU : 0x0226U;
+                stream_choice_state = choose_023a ? 1U : 2U;
+            } else {
+                expected_stream = scan_y == 1 ? 0x0208U : 0x0195U;
+            }
+            if (scene->live_foundation.play_state.actor_state[seed_actor] !=
+                    0x04U ||
+                scene->live_foundation.play_state.stream_offset[seed_actor] !=
+                    expected_stream) goto failed;
+            --scan_y;
+        }
+        if (scan_y != -1) goto failed;
+        for (seed_actor = side == 0U ? 4 : 9;
+             seed_actor >= (side == 0U ? 0 : 5) && seed_index < 2U;
+             --seed_actor) {
+            if ((uint8_t)seed_actor == primary) continue;
+            seeded_actor[seed_actor] = true;
+            if (scene->actors[seed_actor].position.x !=
+                    teammate_position[side][seed_index].x ||
+                scene->actors[seed_actor].position.y !=
+                    teammate_position[side][seed_index].y) goto failed;
+            ++seed_index;
+        }
+        for (frame = 0U; frame < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++frame) {
+            if (!seeded_actor[frame] &&
+                memcmp(&scene->actors[frame], &actors_before_handoff[frame],
+                       sizeof(scene->actors[frame])) != 0) goto failed;
+        }
+        {
+            TecmoGameplayScene malformed = *scene;
+            uint8_t secondary = primary == (uint8_t)(side * 5U)
+                ? (uint8_t)(primary + 1U) : (uint8_t)(side * 5U);
+            malformed.actors[primary].position.x +=
+                malformed.live_foundation.orientation == 0U ? 1 : -1;
+            if (scene_actor_position_valid_for_scene(&malformed, primary))
+                goto failed;
+            malformed = *scene;
+            ++malformed.actors[primary].position.y;
+            if (scene_actor_position_valid_for_scene(&malformed, primary))
+                goto failed;
+            malformed = *scene;
+            malformed.live_foundation
+                .first_period_entry_clamp_exemption_active = false;
+            if (scene_actor_position_valid_for_scene(&malformed, primary))
+                goto failed;
+            malformed = *scene;
+            malformed.actors[secondary].position =
+                malformed.actors[primary].position;
+            malformed.actors[secondary].anchor =
+                malformed.actors[primary].anchor;
+            if (scene_actor_position_valid_for_scene(&malformed, secondary))
+                goto failed;
+        }
+    }
     failure = "pre-tip live-foundation coordinate continuity failed";
     for (frame = 0U; frame < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++frame) {
         if (scene->live_foundation.actor_position[frame].x !=
@@ -341,10 +433,13 @@ static bool scene_test_concurrent_tip_simulation(
             scene->live_foundation.actor_position[frame].y !=
                 scene->actors[frame].position.y) goto failed;
     }
+    memcpy(actors_before_handoff, scene->actors,
+           sizeof(actors_before_handoff));
     holder_after_handoff = scene->ball_holder;
     holder_start = scene->actors[holder_after_handoff].position;
-    p1.held.right = true;
-    failure = "first live movement did not continue from preserved position";
+    p1.held.right = scene->actors[holder_after_handoff].position.x < 0x0180;
+    p1.held.left = !p1.held.right;
+    failure = "first live movement did not continue from seeded position";
     for (frame = 0U; frame < 24U; ++frame) {
         if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
             failure = scene->status;
@@ -361,12 +456,26 @@ static bool scene_test_concurrent_tip_simulation(
                 actors_before_handoff[frame].position.x - 40 ||
             scene->actors[frame].position.x >
                 actors_before_handoff[frame].position.x + 40) {
-            failure = "first live movement jumped away from preserved coordinate";
+            failure = "first live movement jumped away from seeded coordinate";
             goto failed;
         }
     }
     if (!actor_moved) {
         failure = "first live movement remained frozen";
+        goto failed;
+    }
+    for (frame = 0U; frame < 64U &&
+         scene->live_foundation.first_period_entry_clamp_exemption_active;
+         ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+            failure = "first-period clamp exemption re-entry update failed";
+            goto failed;
+        }
+    }
+    if (scene->live_foundation.first_period_entry_clamp_exemption_active ||
+        !scene_actor_world_position_valid(
+            &scene->actors[holder_after_handoff])) {
+        failure = "first-period clamp exemption did not clear on re-entry";
         goto failed;
     }
     if ((scene->actors[holder_after_handoff].position.x == 528 &&
@@ -511,7 +620,7 @@ static bool scene_test_continuous_tip_render(
     bool saw_natural_landing = false;
     bool saw_live_post_landing = false;
     size_t frame;
-    char failure[256] = "continuous pre-tip scene regression failed";
+    char failure[256] = "";
 
     if (test == NULL || scene == NULL || launch == NULL) return false;
     pixels = (uint32_t *)malloc(pixel_count * sizeof(*pixels));
@@ -708,15 +817,16 @@ static bool scene_test_continuous_tip_render(
                        "live handoff broke tipped-jumper continuity");
         goto failed;
     }
-    p1.held.right = true;
+    p1.held.right = scene->actors[scene->ball_holder].position.x < 0x0180;
+    p1.held.left = !p1.held.right;
     for (frame = 0U; frame < 180U; ++frame) {
         if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
             !scene_test_render_continuously(scene, pixels, failure,
                                             sizeof(failure))) {
             if (failure[0] == '\0') {
                 (void)snprintf(failure, sizeof(failure),
-                               "continuous live recovery rejected: %s",
-                               scene->status);
+                               "continuous live recovery frame %u rejected: %s",
+                               (unsigned)frame, scene->status);
             }
             goto failed;
         }
@@ -773,6 +883,13 @@ static bool scene_test_continuous_tip_render(
         goto failed;
     }
     shooting_controls = shooting_controller == 0U ? &p1 : &p2;
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    if (scene->actors[shooting_actor].position.x < 0x0180) {
+        shooting_controls->held.right = true;
+    } else {
+        shooting_controls->held.left = true;
+    }
 
     /* The stable evaluator is frame-bound. Advance naturally only if needed
        until this holder has an ordinary jump-shot sample; no shot result or
@@ -783,7 +900,9 @@ static bool scene_test_continuous_tip_render(
                                    shooting_actor) &&
             probe.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
             ++shot_probe_started;
-            if (probe.shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP) {
+            if (probe.shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
+                !scene->live_foundation
+                    .first_period_entry_clamp_exemption_active) {
                 ++shot_probe_jump;
                 break;
             }
@@ -799,7 +918,11 @@ static bool scene_test_continuous_tip_render(
         if (shooting_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
             scene->actors[shooting_actor].team != (uint8_t)shooting_team) {
             (void)snprintf(failure, sizeof(failure),
-                           "post-tip holder changed during miss search");
+                           "holder f%u h%u p%u s%u q%u",
+                           (unsigned)frame, (unsigned)shooting_actor,
+                           (unsigned)scene->pass_state.phase,
+                           (unsigned)scene->shot_kind,
+                           (unsigned)scene->state.phase);
             goto failed;
         }
     }
@@ -886,8 +1009,17 @@ static bool scene_test_continuous_tip_render(
             !scene_test_render_continuously(scene, pixels, failure,
                                             sizeof(failure))) {
             (void)snprintf(failure, sizeof(failure),
-                           "post-tip shot tail rejected at %u: %s",
-                           (unsigned)frame, scene->status);
+                           "tail f%u sf%u jp%u k%u a%u x%d y%d e%u: %s",
+                           (unsigned)frame, (unsigned)scene->shot_frame,
+                           (unsigned)scene->jump_phase_counter,
+                           (unsigned)scene->shot_kind,
+                           (unsigned)shooting_actor,
+                           (int)scene->actors[shooting_actor].position.x,
+                           (int)scene->actors[shooting_actor].position.y,
+                           scene->live_foundation
+                               .first_period_entry_clamp_exemption_active
+                               ? 1U : 0U,
+                           scene->status);
             goto failed;
         }
     }

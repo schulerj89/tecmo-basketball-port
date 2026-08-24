@@ -129,6 +129,11 @@ typedef struct TecmoGameplayLiveFoundation {
        follows the CPU contract's natural wrap. */
     uint32_t sync_serial;
     uint32_t tick_serial;
+    /* Exact one-shot first playable period `$86D2/$85EA` seed. This is a
+       typed lifecycle marker, not a raw-RAM mirror or restart counter. */
+    bool first_period_entry_seeded;
+    bool first_period_entry_clamp_exemption_active;
+    uint32_t first_period_entry_seed_serial;
     uint16_t formation_start_offset[
         TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint16_t last_step_offset[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
@@ -171,6 +176,11 @@ bool tecmo_gameplay_live_foundation_valid(
 bool tecmo_gameplay_live_foundation_formation_index_for_coordinate(
     const TecmoGameplayCourtCoordinate *coordinate,
     uint8_t *formation_index_out);
+bool tecmo_gameplay_live_foundation_first_period_entry_seed(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t period,
+    bool ordinary_ba_low2_clear,
+    TecmoGameplayLiveFoundation *foundation_io);
 bool tecmo_gameplay_live_foundation_refresh_formation(
     const TecmoGameplayCpuSteeringAssets *assets,
     const TecmoGameplayCourtCoordinate actor_position[

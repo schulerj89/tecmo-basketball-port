@@ -311,6 +311,12 @@ static bool live_play_state_valid(
         foundation->last_possession >=
             TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT ||
         foundation->initialization_serial == 0U ||
+        (!foundation->first_period_entry_seeded &&
+         foundation->first_period_entry_seed_serial != 0U) ||
+        (foundation->first_period_entry_clamp_exemption_active &&
+         !foundation->first_period_entry_seeded) ||
+        (foundation->first_period_entry_seeded &&
+         foundation->first_period_entry_seed_serial == 0U) ||
         !live_actor_team_valid(foundation->actor_team) ||
         !live_selector_flags_valid(foundation) ||
         !live_actor_positions_valid(foundation->actor_position) ||
@@ -581,6 +587,132 @@ static void live_invalidate_source_metadata(
     }
 }
 
+bool tecmo_gameplay_live_foundation_first_period_entry_seed(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t period,
+    bool ordinary_ba_low2_clear,
+    TecmoGameplayLiveFoundation *foundation_io)
+{
+    static const TecmoGameplayCourtCoordinate primary_position[2U] = {
+        {0x027B, 0x0094}, {0x0085, 0x0094}
+    };
+    static const TecmoGameplayCourtCoordinate teammate_position[2U][2U] = {
+        {{0x0226, 0x00D2}, {0x01F4, 0x006E}},
+        {{0x00DA, 0x00D2}, {0x010C, 0x006E}}
+    };
+    TecmoGameplayLiveFoundation candidate;
+    uint8_t primary;
+    uint8_t selected_candidate = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    uint8_t stream_choice_state = 0U;
+    int scan_y = 3;
+    int actor;
+    size_t eligible_count = 0U;
+    size_t teammate = 0U;
+    if (assets == NULL || foundation_io == NULL || period != 1U ||
+        !ordinary_ba_low2_clear ||
+        !tecmo_gameplay_live_foundation_valid(assets, foundation_io) ||
+        foundation_io->first_sync_pending ||
+        foundation_io->first_period_entry_seeded ||
+        foundation_io->first_period_entry_seed_serial != 0U ||
+        foundation_io->orientation >= 2U ||
+        foundation_io->offense_side >= 2U ||
+        foundation_io->last_ball_holder != foundation_io->primary_actor ||
+        foundation_io->actor_team[foundation_io->primary_actor] !=
+            foundation_io->offense_side) {
+        return false;
+    }
+    /* Admit only the untouched first-entry command lifecycle. `$8728` and
+       `$85EA` do not clear source target/direction planes, so a mixed later
+       lifecycle is rejected instead of being normalized by the adapter. */
+    for (actor = 0; actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT;
+         ++actor) {
+        bool offense_actor =
+            foundation_io->actor_team[actor] == foundation_io->offense_side;
+        if (offense_actor && (uint8_t)actor != foundation_io->primary_actor) {
+            if ((foundation_io->actor_selector_flags[actor] & 0x10U) != 0U) {
+                return false;
+            }
+            ++eligible_count;
+        } else if (!offense_actor &&
+                   (foundation_io->actor_selector_flags[actor] & 0x10U) == 0U) {
+            return false;
+        }
+        if (offense_actor &&
+            (foundation_io->play_state.route_motion[actor].active ||
+             foundation_io->source_target_valid[actor] ||
+             foundation_io->source_raw_target_valid[actor] ||
+             foundation_io->source_inactive_target_storage[actor])) {
+            return false;
+        }
+    }
+    if (eligible_count != 4U) return false;
+    candidate = *foundation_io;
+    primary = candidate.primary_actor;
+    /* This exact `$85EA` caller loads Y from `$0308`, so `$86D2` takes its
+       equal-primary branch and never calls `$88B0`.  `$8728` then scans
+       X=9..0, skipping primary and every `$04B0&$10` actor.  A4 is replaced
+       on each eligible actor, hence the final candidate is the lowest slot
+       on the possession side other than primary. */
+    for (actor = TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT - 1;
+         actor >= 0; --actor) {
+        if ((uint8_t)actor != primary &&
+            (candidate.actor_selector_flags[actor] & 0x10U) == 0U) {
+            uint16_t stream_offset;
+            if (scan_y >= 2) {
+                bool choose_023a =
+                    (candidate.actor_position[actor].y >= 0x0096 &&
+                     stream_choice_state != 1U) ||
+                    (candidate.actor_position[actor].y < 0x0096 &&
+                     stream_choice_state == 2U);
+                stream_offset = choose_023a ? 0x023AU : 0x0226U;
+                stream_choice_state = choose_023a ? 1U : 2U;
+            } else {
+                /* The real first-period caller has `$0587==2`, selecting
+                   the `$0195/$0208` half of the two fixed tables. */
+                stream_offset = scan_y == 1 ? 0x0208U : 0x0195U;
+            }
+            candidate.play_state.actor_state[actor] = 0x04U;
+            candidate.play_state.stream_offset[actor] = stream_offset;
+            candidate.last_step_offset[actor] = stream_offset;
+            selected_candidate = (uint8_t)actor;
+            --scan_y;
+        }
+    }
+    if (scan_y != -1 ||
+        selected_candidate >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        candidate.actor_team[selected_candidate] != candidate.offense_side) {
+        return false;
+    }
+    candidate.selected_actor_by_side[candidate.offense_side] = primary;
+    candidate.candidate_actor_by_side[candidate.offense_side] =
+        selected_candidate;
+    candidate.play_state.candidate_actor = selected_candidate;
+    candidate.actor_position[primary] =
+        primary_position[candidate.orientation];
+    candidate.play_state.actor_state[primary] = 0x04U;
+    candidate.play_state.wait_counter[primary] = 0U;
+    candidate.play_state.stream_offset[primary] = 0x017CU;
+    candidate.last_step_offset[primary] = 0x017CU;
+    for (actor = candidate.offense_side == 0U ? 4 : 9;
+         actor >= (candidate.offense_side == 0U ? 0 : 5) && teammate < 2U;
+         --actor) {
+        if ((uint8_t)actor == primary) continue;
+        candidate.actor_position[actor] =
+            teammate_position[candidate.offense_side][teammate];
+        ++teammate;
+    }
+    if (teammate != 2U) return false;
+    candidate.first_period_entry_seeded = true;
+    candidate.first_period_entry_clamp_exemption_active = true;
+    candidate.first_period_entry_seed_serial = 1U;
+    candidate.sync_serial = live_serial_next(candidate.sync_serial);
+    if (!tecmo_gameplay_live_foundation_valid(assets, &candidate)) {
+        return false;
+    }
+    *foundation_io = candidate;
+    return true;
+}
+
 bool tecmo_gameplay_live_foundation_refresh_formation(
     const TecmoGameplayCpuSteeringAssets *assets,
     const TecmoGameplayCourtCoordinate actor_position[
@@ -799,6 +931,10 @@ bool tecmo_gameplay_live_foundation_synchronize(
     candidate.orientation = orientation;
     candidate.last_possession = possession;
     candidate.last_ball_holder = ball_holder;
+    if (candidate.first_period_entry_clamp_exemption_active &&
+        ball_holder != candidate.primary_actor) {
+        candidate.first_period_entry_clamp_exemption_active = false;
+    }
     if (changed) {
         bool seed_selection = candidate.first_sync_pending ||
             possession_changed;

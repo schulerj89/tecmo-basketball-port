@@ -522,3 +522,28 @@ TGAI source span, focused executor tests, and source-map provenance above.
 The unported `$8D59-$8E21` caller-specific scaling inputs and remaining
 dynamic `$06CB` assignment policy stay explicitly bounded as unresolved; the
 native port does not invent them.
+
+## First-period `$85EA` entry seed
+
+The real first-period PRETIP-to-LIVE handoff now performs the surviving
+Bank06 `$86D2/$85EA` transaction after possession/foundation synchronization
+and before the first ordered LIVE update. Fixed `$E74F` selects Bank06 before
+calling `$85EA`; Bank05 `$85EA` is repeated data and is pinned separately.
+The one-shot transaction selects the holder as primary, scans the four
+same-side nonprimary actors in descending slot order, derives the first two
+streams with `$8774` from their immutable pre-seed depths, assigns fixed
+`$0208/$0195` to the last two, writes state 4, and publishes the scan's final
+candidate to the typed `$06DA` equivalent. The primary exposes only final
+cursor `$017C`, state 4, and wait 0; temporary `$0168` is not observable.
+
+The coordinate tables seed the primary at `027B,94` or `0085,94` and the
+first two descending teammates from the exact side table. Those primary
+points intentionally lie just beyond the ordinary trapezoid. A typed
+first-entry exemption owns source bit `$0588&08` only for that selected
+primary, admits only the narrow seed-to-boundary re-entry corridor, and feeds
+TGMO flag `$08`. It expires on natural re-entry or primary change; the former
+primary then takes the ordinary secondary clamp. Automatic opcode-5 facing is
+not composed into native locomotion during this staging lifecycle, matching
+the retained source position through opcode 6/pass. Periods 2-4, generic
+possession changes, restarts, fouls, inbounds, malformed flags, and reseed
+attempts remain outside this one-shot owner.

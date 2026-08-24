@@ -1731,6 +1731,88 @@ static bool scene_pretip_cpu_requested(
            TECMO_GAMEPLAY_CONTROLLER_COUNT;
 }
 
+static bool scene_apply_first_period_entry_seed(TecmoGameplayScene *scene)
+{
+    TecmoGameplayScene candidate;
+    TecmoGameplayBallDribbleFrame ball_frame;
+    size_t actor;
+    if (scene == NULL || scene->state.period != 1U ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        !scene->pretip_state.live_handoff ||
+        scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        !scene_cpu_common_tail_has_ordinary_live_zero(scene)) {
+        if (scene != NULL) {
+            scene_set_status(scene, "first-period seed admission rejected");
+        }
+        return false;
+    }
+    candidate = *scene;
+    if (!tecmo_gameplay_live_foundation_first_period_entry_seed(
+            &candidate.cpu_steering_assets, candidate.state.period, true,
+            &candidate.live_foundation)) {
+        scene_set_status(scene, "first-period seed foundation rejected");
+        return false;
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        bool source_state_changed =
+            candidate.live_foundation.actor_team[actor] ==
+                candidate.live_foundation.offense_side;
+        bool position_changed =
+            candidate.actors[actor].position.x !=
+                candidate.live_foundation.actor_position[actor].x ||
+            candidate.actors[actor].position.y !=
+                candidate.live_foundation.actor_position[actor].y;
+        if (!source_state_changed && !position_changed) {
+            continue;
+        }
+        if (position_changed) {
+            candidate.actors[actor].position =
+                candidate.live_foundation.actor_position[actor];
+            candidate.actors[actor].anchor = candidate.actors[actor].position;
+        }
+        candidate.cpu_actors[actor].decision_serial = 0U;
+        candidate.cpu_actors[actor].snapshot_fingerprint = 0U;
+        candidate.cpu_actors[actor].target_position.x = 0;
+        candidate.cpu_actors[actor].target_position.y = 0;
+        candidate.cpu_actors[actor].command_offset =
+            TECMO_GAMEPLAY_SCENE_CPU_NO_COMMAND_OFFSET;
+        candidate.cpu_actors[actor].linked_actor =
+            candidate.live_foundation.play_state.fixed_link[actor];
+        candidate.cpu_actors[actor].target_kind =
+            TECMO_GAMEPLAY_CPU_STEERING_HARNESS_TARGET_KIND_COUNT;
+        candidate.cpu_actors[actor].direction =
+            TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+        candidate.cpu_actors[actor].held_direction_bits =
+            TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
+        candidate.cpu_actors[actor].command_advance_pending = false;
+        candidate.cpu_actors[actor].target_valid = false;
+        candidate.cpu_actors[actor].writes_direction = false;
+        if (!scene_actor_position_valid_for_scene(&candidate, actor) ||
+            !scene_cpu_actor_state_valid(
+                &candidate, actor, &candidate.cpu_actors[actor])) {
+            char detail[96];
+            (void)snprintf(detail, sizeof(detail),
+                           "first-period seed actor %u %s validation rejected",
+                           (unsigned)actor,
+                           scene_actor_position_valid_for_scene(
+                               &candidate, actor) ? "CPU" : "world");
+            scene_set_status(scene, detail);
+            return false;
+        }
+    }
+    if (!scene_live_ball_frame_for_actors(
+            &candidate, candidate.actors, candidate.ball_holder,
+            &ball_frame) ||
+        !tecmo_gameplay_court_coordinate_to_q8(
+            &ball_frame.visible_position, &candidate.ball_position) ||
+        !scene_ownership_valid(&candidate)) {
+        scene_set_status(scene, "first-period seed scene validation rejected");
+        return false;
+    }
+    *scene = candidate;
+    return true;
+}
+
 static bool scene_update_pretip_frame(
     TecmoGameplayScene *scene,
     const TecmoControlFrame *player_one,
@@ -1813,6 +1895,8 @@ static bool scene_update_pretip_frame(
         TecmoGameplayLiveFoundation foundation_before;
         TecmoGameplaySceneActor actors_before[
             TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+        TecmoGameplaySceneCpuActor cpu_before[
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
         TecmoGameplayCourtCoordinateQ8 ball_before;
         uint8_t controlled_before[TECMO_GAMEPLAY_CONTROLLER_COUNT];
         uint16_t altitude_before[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
@@ -1858,6 +1942,7 @@ static bool scene_update_pretip_frame(
         audio_before = scene->audio_player;
         foundation_before = scene->live_foundation;
         memcpy(actors_before, scene->actors, sizeof(actors_before));
+        memcpy(cpu_before, scene->cpu_actors, sizeof(cpu_before));
         memcpy(controlled_before, scene->controlled_actor,
                sizeof(controlled_before));
         memcpy(altitude_before, scene->pretip_jumper_altitude_q8,
@@ -1868,15 +1953,29 @@ static bool scene_update_pretip_frame(
         /* $A274-$A2DE changes ball/selection state only.  Jumper landing is
            owned by normal $8732/$8745 airborne recovery, never by cinematic
            completion or the live handoff. */
-        if (!scene_handoff_tip_possession(scene, possession, holder) ||
-            !scene_sync_live_foundation(scene) ||
-            !tecmo_gameplay_camera_settle_court(
-                &scene->camera_assets, &scene->camera_state,
-                &scene->ball_position,
-                scene->orientation_state.attack_direction, false) ||
-            (scene->launch.game_music_enabled &&
-             !tecmo_gameplay_audio_queue_game_music(
-                 &scene->audio_player))) {
+        {
+            const char *handoff_reject = NULL;
+            if (!scene_handoff_tip_possession(scene, possession, holder)) {
+                handoff_reject = "pre-tip possession handoff rejected";
+            } else if (!scene_sync_live_foundation(scene)) {
+                handoff_reject = "pre-tip foundation sync rejected";
+            } else if (!scene_apply_first_period_entry_seed(scene)) {
+                handoff_reject = scene->status;
+            } else if (!tecmo_gameplay_camera_settle_court(
+                    &scene->camera_assets, &scene->camera_state,
+                    &scene->ball_position,
+                    scene->orientation_state.attack_direction, false)) {
+                handoff_reject = "pre-tip seeded camera settle rejected";
+            } else if (scene->launch.game_music_enabled &&
+                       !tecmo_gameplay_audio_queue_game_music(
+                           &scene->audio_player)) {
+                handoff_reject = "pre-tip game music queue rejected";
+            }
+            if (handoff_reject != NULL) {
+                char handoff_reject_copy[128];
+                (void)snprintf(handoff_reject_copy,
+                               sizeof(handoff_reject_copy), "%s",
+                               handoff_reject);
             scene->state = state_before;
             scene->orientation_state = orientation_before;
             scene->camera_state = camera_before;
@@ -1884,6 +1983,7 @@ static bool scene_update_pretip_frame(
             scene->audio_player = audio_before;
             scene->live_foundation = foundation_before;
             memcpy(scene->actors, actors_before, sizeof(actors_before));
+            memcpy(scene->cpu_actors, cpu_before, sizeof(cpu_before));
             memcpy(scene->controlled_actor, controlled_before,
                    sizeof(controlled_before));
             memcpy(scene->pretip_jumper_altitude_q8, altitude_before,
@@ -1891,8 +1991,9 @@ static bool scene_update_pretip_frame(
             scene->ball_position = ball_before;
             scene->ball_holder = holder_before;
             scene->pretip_jump_active = jump_active_before;
-            scene_set_status(scene, "pre-tip in-place handoff rejected");
+                scene_set_status(scene, handoff_reject_copy);
             return false;
+            }
         }
         scene_set_status(scene, "native gameplay active");
     }

@@ -9,6 +9,15 @@ video, save state, or dump at runtime.
 
 ## Supported runtime boundary
 
+The LIVE foundation owns a transactional first-playable-period entry serial
+and a separate clamp-exemption availability bit. They are initialized only by
+scene/runtime initialization and are seeded once at the real PRETIP handoff;
+ordinary synchronization never recreates the event. The seed requires the
+already established ordinary LIVE `$BA&3==0` predicate and an untouched
+command/target lifecycle. Unsupported periods or mixed metadata reject with
+byte-identical foundation output. This is typed ownership of the supported
+source slice, not a raw `$0588/$06DA` RAM mirror.
+
 Preseason final team confirmation now launches the selected teams, difficulty,
 control ownership, period length, speed setting, and GAME MUSIC setting. A
 completed preseason game returns to the stable PRESEASON row on the blue menu.

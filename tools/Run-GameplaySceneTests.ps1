@@ -859,6 +859,29 @@ try {
     }
     New-Item -ItemType Directory -Path $Scratch | Out-Null
 
+    # First-period PRETIP->LIVE seed source anchors. Fixed-bank calls select
+    # Bank06 before `$85EA`; the same CPU address in Bank05 is repeated data,
+    # preventing an accidental cross-bank identity claim.
+    $SeedRom = [IO.File]::ReadAllBytes($RomPath)
+    function Assert-SeedBytes([int]$Bank, [int]$Base, [int]$Cpu,
+                              [string]$Expected, [string]$Label) {
+        $Offset = 16 + $Bank * 0x4000 + ($Cpu - $Base)
+        $Actual = ($SeedRom[$Offset..($Offset +
+            ($Expected.Split(' ').Count) - 1)] | ForEach-Object {
+                $_.ToString('X2')
+            }) -join ' '
+        if ($Actual -ne $Expected) {
+            throw "First-period seed source anchor '$Label' diverged."
+        }
+    }
+    Assert-SeedBytes 7 0xC000 0xE5E3 "20 E8 E6 4C 6E E5 A9 05 8D 5C 03 AD 5B 07 38 ED" "fixed E5E3"
+    Assert-SeedBytes 7 0xC000 0xE6E8 "A9 00 8D 78 04 8D A6 05 8D 05 03 8D 42 07 8D EA" "fixed E6E8"
+    Assert-SeedBytes 7 0xC000 0xE74F "A9 06 20 6A D3 20 EA 85 A9 1B 20 11 C7 20 65 E7 20 8D EB 4C 2B EB A9 18" "fixed Bank06 call"
+    Assert-SeedBytes 6 0x8000 0x85EA "AD 88 05 09 0B 29 EB 8D 88 05 AC 08 03 20 D2 86" "Bank06 85EA"
+    Assert-SeedBytes 6 0x8000 0x864F "04 09 7B 85 26 F4 DA 0C 02 00 02 01 00 01 D2 6E D2 6E" "Bank06 coordinate tables"
+    Assert-SeedBytes 6 0x8000 0x86D2 "CC 08 03 F0 0C AE 08 03 8C 08 03 20 B0 88 AC 08 03 AE 0A 03" "Bank06 86D2"
+    Assert-SeedBytes 5 0x8000 0x85EA "05 05 05 05 05 05 05 05 05 AD 5A 03 D0 23 A0 09" "Bank05 data identity"
+
     $PackLog = Join-Path $Scratch "build-assetpack.log"
     $PackRun = Invoke-Logged -Command $Executable -Arguments @(
         "--build-assetpack", $RomPath, $PackPath

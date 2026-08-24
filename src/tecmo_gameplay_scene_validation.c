@@ -1674,9 +1674,10 @@ bool scene_ownership_valid(const TecmoGameplayScene *scene)
               scene->live_foundation.actor_position[actor].y !=
                   scene->actors[actor].position.y)) ||
             (scene->actors[actor].active &&
-             (!scene_actor_world_position_valid(&scene->actors[actor]) ||
-              !scene_actor_coordinate_valid(
-                  &scene->actors[actor].anchor) ||
+             (!scene_actor_position_valid_for_scene(scene, actor) ||
+              (!scene_actor_coordinate_valid(
+                   &scene->actors[actor].anchor) &&
+               !scene_actor_position_valid_for_scene(scene, actor)) ||
               !scene_actor_movement_state(
                   scene, &scene->actors[actor], &movement) ||
               scene->actors[actor].team >=

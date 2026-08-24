@@ -165,6 +165,39 @@ bool scene_actor_world_position_valid(
            scene_actor_coordinate_valid(&actor->position);
 }
 
+bool scene_actor_position_valid_for_scene(
+    const TecmoGameplayScene *scene, size_t actor)
+{
+    static const TecmoGameplayCourtCoordinate seed_position[2U] = {
+        {0x027B, 0x0094}, {0x0085, 0x0094}
+    };
+    const TecmoGameplaySceneActor *item;
+    uint8_t orientation;
+    if (scene == NULL || actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        return false;
+    }
+    item = &scene->actors[actor];
+    if (scene_actor_world_position_valid(item)) return true;
+    orientation = scene->live_foundation.orientation;
+    /* `$85EA` seeds the selected primary 16/17 pixels beyond the ordinary
+       `$F106` trapezoid at depth `$94`, while `$0588&$08` makes selected
+       movement bypass that clamp. Admit only the typed one-shot owner and
+       its narrow source-to-boundary corridor. The human and CPU movement
+       callers retire the tag transactionally after natural re-entry; a
+       later primary change also retires it during foundation sync. */
+    return scene->live_foundation.first_period_entry_clamp_exemption_active &&
+           orientation < 2U &&
+           actor == scene->live_foundation.primary_actor &&
+           item->position.y == seed_position[orientation].y &&
+           item->anchor.x == seed_position[orientation].x &&
+           item->anchor.y == seed_position[orientation].y &&
+           (orientation == 0U
+                ? item->position.x >= 0x026AU &&
+                  item->position.x <= seed_position[0U].x
+                : item->position.x >= seed_position[1U].x &&
+                  item->position.x <= 0x0095);
+}
+
 void scene_clamp_actor_world(TecmoGameplaySceneActor *actor)
 {
     int16_t left_boundary;
@@ -213,6 +246,8 @@ const TecmoTeamDataPlayer *scene_actor_player(
 
 bool scene_sync_live_foundation(TecmoGameplayScene *scene)
 {
+    TecmoGameplaySceneActor candidate_actors[
+        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     TecmoGameplayCourtCoordinate positions[
         TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     uint8_t actor_team[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
@@ -229,13 +264,29 @@ bool scene_sync_live_foundation(TecmoGameplayScene *scene)
         return scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
                scene->loose_ball_state.active;
     }
+    memcpy(candidate_actors, scene->actors, sizeof(candidate_actors));
+    if (scene->live_foundation.first_period_entry_clamp_exemption_active &&
+        scene->live_foundation.primary_actor <
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+        scene->ball_holder != scene->live_foundation.primary_actor) {
+        uint8_t old_primary = scene->live_foundation.primary_actor;
+        /* A primary change ends `$0588&$08`; the old primary immediately
+           becomes a secondary actor and therefore takes the ordinary exact
+           trapezoid clamp before the new LIVE binding is published. */
+        scene_clamp_actor_world(&candidate_actors[old_primary]);
+        candidate_actors[old_primary].anchor =
+            candidate_actors[old_primary].position;
+    }
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
-        if (!scene->actors[actor].active ||
-            !scene_actor_world_position_valid(&scene->actors[actor])) {
+        TecmoGameplayScene validation_scene = *scene;
+        validation_scene.actors[actor] = candidate_actors[actor];
+        if (!candidate_actors[actor].active ||
+            !scene_actor_position_valid_for_scene(
+                &validation_scene, actor)) {
             return false;
         }
-        positions[actor] = scene->actors[actor].position;
-        actor_team[actor] = scene->actors[actor].team;
+        positions[actor] = candidate_actors[actor].position;
+        actor_team[actor] = candidate_actors[actor].team;
     }
     candidate = scene->live_foundation;
     if (!tecmo_gameplay_live_foundation_synchronize(
@@ -246,6 +297,7 @@ bool scene_sync_live_foundation(TecmoGameplayScene *scene)
             scene->controlled_actor, &candidate)) {
         return false;
     }
+    memcpy(scene->actors, candidate_actors, sizeof(candidate_actors));
     scene->live_foundation = candidate;
     return true;
 }
@@ -441,7 +493,10 @@ bool scene_move_controlled_actor(TecmoGameplayScene *scene,
     /* Ordinary live control currently maps to the ROM's state-0 selected
        actor path. TGMO retains the other dispatcher cases for later actions. */
     input.global_object_state = 0U;
-    input.movement_flags = 0U;
+    input.movement_flags =
+        scene->live_foundation.first_period_entry_clamp_exemption_active &&
+        actor_index == scene->live_foundation.primary_actor
+            ? 0x08U : 0U;
     input.primary_selected_actor = actor_index == scene->ball_holder;
     if (!tecmo_gameplay_movement_step(
             &scene->movement_assets, &movement, &input) ||
@@ -449,6 +504,14 @@ bool scene_move_controlled_actor(TecmoGameplayScene *scene,
             scene, scene->actors, actor_index, &movement,
             direction_bits)) {
         return false;
+    }
+    if (scene->live_foundation.first_period_entry_clamp_exemption_active &&
+        actor_index == scene->live_foundation.primary_actor &&
+        scene_actor_world_position_valid(&scene->actors[actor_index])) {
+        scene->actors[actor_index].anchor =
+            scene->actors[actor_index].position;
+        scene->live_foundation.first_period_entry_clamp_exemption_active =
+            false;
     }
     return true;
 }
@@ -2144,7 +2207,7 @@ bool scene_cpu_target_for_source_direction(
     return true;
 }
 
-static bool scene_cpu_common_tail_has_ordinary_live_zero(
+bool scene_cpu_common_tail_has_ordinary_live_zero(
     const TecmoGameplayScene *scene)
 {
     /* Bank05 $86DD-$8798 owns nonzero $BA low bits while shot/recovery
@@ -2799,7 +2862,7 @@ static bool scene_update_ai_legacy(
     shot_request_out->deferred = false;
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
         if (!scene->actors[actor].active ||
-            !scene_actor_world_position_valid(&scene->actors[actor]) ||
+            !scene_actor_position_valid_for_scene(scene, actor) ||
             !scene_cpu_actor_state_valid(
                 scene, actor, &scene->cpu_actors[actor])) {
             return false;
@@ -2855,8 +2918,10 @@ static bool scene_update_ai_legacy(
                 &input, &result) ||
             !scene_actor_apply_movement(
                 scene, candidate_actors, actor, &result.movement,
-                result.held_direction_bits) ||
-            !scene_actor_world_position_valid(&candidate_actors[actor])) {
+                result.held_direction_bits)) {
+            return false;
+        }
+        if (!scene_actor_world_position_valid(&candidate_actors[actor])) {
             return false;
         }
         ++cpu->decision_serial;
@@ -2974,7 +3039,7 @@ bool scene_update_ai(
     }
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
         if (!scene->actors[actor].active ||
-            !scene_actor_world_position_valid(&scene->actors[actor]) ||
+            !scene_actor_position_valid_for_scene(scene, actor) ||
             !scene_cpu_actor_state_valid(
                 scene, actor, &scene->cpu_actors[actor])) {
             return false;
@@ -3436,6 +3501,15 @@ bool scene_update_ai(
             actor != candidate_foundation.defender_actor) {
             movement_target = source_target || source_direction_target;
         }
+        /* `$85EA`'s selected-primary staging flag survives the automatic
+           opcode-5/wait/opcode-23/opcode-6 chain; natural source observation
+           retains the exact table coordinate through action `$10/$13`.
+           Do not compose the opcode-5 facing direction into adapter TGMO
+           locomotion while that exact clamp-exemption lifecycle is active. */
+        if (candidate_foundation.first_period_entry_clamp_exemption_active &&
+            actor == candidate_foundation.primary_actor) {
+            movement_target = false;
+        }
         input.steering.has_explicit_target = movement_target;
         if (movement_target) input.steering.explicit_target = target;
         if (!scene_actor_movement_state(
@@ -3446,7 +3520,9 @@ bool scene_update_ai(
         input.condition = scene->actors[actor].condition;
         input.speed_value = scene->launch.speed_value;
         input.global_object_state = 0U;
-        input.movement_flags = 0U;
+        input.movement_flags =
+            candidate_foundation.first_period_entry_clamp_exemption_active &&
+            actor == candidate_foundation.primary_actor ? 0x08U : 0U;
         input.primary_selected_actor = actor == scene->ball_holder;
         if (!movement_target) {
             /* A deferred/no-target source step is intentionally inert. Clear
@@ -3479,9 +3555,23 @@ bool scene_update_ai(
             result.steering.matchup_actor != input.steering.matchup_actor ||
             !scene_actor_apply_movement(
                 scene, candidate_actors, actor, &result.movement,
-                result.held_direction_bits) ||
-            !scene_actor_world_position_valid(&candidate_actors[actor])) {
+                result.held_direction_bits)) {
             return false;
+        }
+        if (!scene_actor_world_position_valid(&candidate_actors[actor])) {
+            TecmoGameplayScene position_candidate = *scene;
+            position_candidate.actors[actor] = candidate_actors[actor];
+            position_candidate.live_foundation = candidate_foundation;
+            if (!scene_actor_position_valid_for_scene(
+                    &position_candidate, actor)) {
+                return false;
+            }
+        } else if (
+            candidate_foundation.first_period_entry_clamp_exemption_active &&
+            actor == candidate_foundation.primary_actor) {
+            candidate_actors[actor].anchor = candidate_actors[actor].position;
+            candidate_foundation.first_period_entry_clamp_exemption_active =
+                false;
         }
         if (result.steering.writes_direction) {
             uint8_t expected_direction;
