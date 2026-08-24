@@ -1511,6 +1511,23 @@ try {
                          (@($ControlledPosition[1]) -join ','))) {
                     throw "LIVE proof shot off-ball actors did not move."
                 }
+                if ($ExpectedCaptureFrame -ge 33) {
+                    $Assignment = $State.actor_command_assignment
+                    $B783 = $Assignment.state17_production
+                    if (![bool]$Assignment.emitted -or
+                        ![bool]$Assignment.production_mutated -or
+                        [string]$Assignment.caller_identity -ne
+                            "object-state17-B783" -or
+                        [string]$Assignment.no_op_reason -ne "none" -or
+                        ![bool]$B783.observed -or
+                        [string]$B783.dispatch_handler -ne "B775" -or
+                        [int]$B783.raw_0499 -ge 4 -or
+                        [int]$B783.opcode20_actor_mask -lt 0 -or
+                        [int]$B783.opcode20_actor_mask -gt 1023 -or
+                        ![bool]$B783.same_update_latch_consumed) {
+                        throw "LIVE proof did not retain exact state-17 B783/A023 production evidence."
+                    }
+                }
                 if ($ExpectedCaptureFrame -lt 89 -and
                     [bool]$ShotOffball.a9da.observed) {
                     throw "LIVE proof shot off-ball A9DA appeared before frame 89."
@@ -1876,7 +1893,7 @@ try {
             force_possession = "deterministic test fixture; not original or normal-policy evidence"
             source_offset_injection = "deterministic test fixture; not original or normal-policy evidence"
             close_position_injection = "deterministic test fixture; not original or normal-policy evidence"
-            actor_command_assignment = "ordinary pretip-to-LIVE observation; emits a missing-input diagnostic and no A023 fixture or production mutation"
+            actor_command_assignment = "ordinary pretip-to-LIVE observation remains a missing-input diagnostic; shot-offball frames 33/65/89 separately prove the production A0DD-countdown/state17/A214/B775/B783/A023 path"
             lineup_binding = "bound production-style scene launch; game.c bridge separately proven by flow tests"
             cpu_auto_pass_stream = "selected primary reset to state4/wait0/action0 with cursor parked at `$017C and all other actors suspended at state6/waitFF; execution/presentation isolation only, not production play selection; object-slot-10 `$13 is inferred from separate canonical executor/state-flow tests and is not scene-observed"
         }

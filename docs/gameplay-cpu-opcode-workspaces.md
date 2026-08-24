@@ -60,10 +60,13 @@ ordinary nonlegacy MISS writer chain: `$A0F3` writes its solved launch target,
 overwrites it with the projected landing target. Successful `$A790` traces own
 `$BA&3==0`; eligible off-ball opcode-13 records consume the latest persistent
 value, and the `$A993` actor consumes `$002D` in that same descending 9-to-0
-traversal. `$A214` state gates, opcode 15, and exact `$0041` latest-writer
-timing remain unowned. Outside that shot chain, the current rendered ball and
-TGCA's one-frame opcode-20 capability are not substitutes, so opcode 13 still
-reports `missing-global-target`.
+traversal. The same shot lifecycle now binds `$A0DD` remaining ticks `<4` and
+the selected-rattle bit to exact `$A214->$B775->$B783->$A023`; its masked
+opcode-20 consumer is available for that update only. Other `$A214` state
+gates, opcode 15, and exact `$0041` latest-writer timing remain unowned.
+Outside that shot chain, the current rendered ball and TGCA's one-frame
+opcode-20 capability are not substitutes, so opcode 13 still reports
+`missing-global-target`.
 
 The `$002D` opcode-13 record is source-linked to the anchored
 `$A9DA->$A993` family. TGA9-1 models only its typed target/assignment subset:

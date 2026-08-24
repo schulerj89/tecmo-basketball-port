@@ -85,8 +85,10 @@ immediate `$0019` opcode-20 actor during the following Bank06 9..0 traversal.
 Create it only through the atomic apply-and-capture API; never reuse a prior
 assignment result or pair different court/raw targets or gate snapshots.
 Do not infer authorization from a cursor alone, expose it to opcode 13 or the
-delayed `$000A` path, persist it across frames, or bind it in production until
-the raw `$A214` gate/object-slot lifecycle has a faithful native owner.
+delayed `$000A` path, or persist it across frames. Production binds only the
+source-shaped `$A0DD` remaining-tick `<4`, state `$17`, selected-rattle
+`$0588&$20` path through `$A214->$B775->$B783`; state `$10`, state `$18`, and
+interaction callers remain unbound until their raw lifecycles are owned.
 
 ## Useful Verification Commands
 
@@ -1608,8 +1610,8 @@ the `$A993` actor must still consume `$002D` in the same update. Outside this
 chain, leave `global_target_available` false and report
 `missing-global-target`; never substitute the rendered ball, an actor position,
 or a raw shadow byte. `$A0DD` scheduling beyond the bound launch/RNG edge,
-`$A214` state-specific gates, opcode 15, and latest-writer timing at record
-`$0041` remain unowned.
+`$A214` state-specific gates other than the bound state-$17 B783 path, opcode
+15, and latest-writer timing at record `$0041` remain unowned.
 Tests may bind an intentional typed fixture, which must still provide the
 separate `$BA` owner. TGCA's `$B721/$B783` same-frame opcode-20 capability is
 separate and cannot snapshot, persist, or authorize TGGL-1 for opcode 13.

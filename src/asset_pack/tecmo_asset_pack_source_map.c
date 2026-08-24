@@ -2521,7 +2521,7 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "\"ordering\":\"one transactional NMI tick per accepted bound LIVE scene frame; ordinary MISS release calls tagged $9FA1 then $A0DD\","
         "\"rollback\":\"rejected scene update restores RNG bytes/serials\","
         "\"parity_boundary\":\"LIVE $C05D call ledger remains noncanonical; shot raw $006A is a bounded native stream, not canonical global parity\"},"
-        "\"missing_live_owners\":[\"$A0DD object scheduler beyond its bound RNG/launch edge\",\"$A214 state-specific gates beyond exact 28-way dispatch\",\"opcode15\",\"$0041 latest-writer schedule\"]},"
+        "\"missing_live_owners\":[\"$A0DD object scheduler beyond its bound RNG/launch/countdown edge\",\"$A214 state-specific gates except bound state17 B783\",\"opcode15\",\"$0041 latest-writer schedule\"]},"
         "\"opcode15_source_contract\":{"
         "\"scope\":\"harness-only; LIVE opcode 15 remains deferred\","
         "\"dispatch\":{\"bank\":6,\"address\":\"$8B90-$8BE0\",\"opcode\":15,\"handler\":\"$9172\"},"

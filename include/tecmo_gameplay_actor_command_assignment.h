@@ -211,7 +211,9 @@ bool tecmo_gameplay_actor_command_assignment_apply(
  * must equal the court target used by that same assignment (with source-zero
  * depth high byte); assignment, foundation, result, and latch commit together.
  * Rejection leaves all three outputs byte-for-byte unchanged. A later accepted
- * producer overwrites every target/provenance byte. Production is not attached. */
+ * producer overwrites every target/provenance byte. Production attaches this
+ * transaction only for the source-shaped A0DD-countdown/state-$17 B783 path;
+ * B721/state-$18 and interaction callers remain unbound. */
 bool tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
     const TecmoGameplayActorCommandAssignmentAssets *assignment_assets,
     const TecmoGameplayCpuSteeringAssets *steering_assets,

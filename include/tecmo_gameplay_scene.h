@@ -384,6 +384,8 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayMovementAssets movement_assets;
     TecmoGameplayBallDribbleAssets ball_dribble_assets;
     TecmoGameplayCpuSteeringAssets cpu_steering_assets;
+    TecmoGameplayActorCommandAssignmentAssets
+        *actor_command_assignment_assets;
     TecmoGameplayCpuA0f3Assets cpu_a0f3_assets;
     TecmoGameplayPenaltyAssets penalty_assets;
     TecmoGameplayViolationRefereeAssets violation_referee_assets;
@@ -536,6 +538,13 @@ typedef struct TecmoGameplayScene {
     uint16_t shot_a0f3_raw_x;
     uint8_t shot_a0f3_raw_depth;
     uint16_t shot_a0f3_tick_count;
+    /* Exact live `$A214->$B775->$B783->$A023` state-$17 transaction.
+       `$0499` is the translated A0DD remaining-tick byte and `$0588&$20`
+       is the already-selected A7A9 rim-route capability. */
+    bool shot_b783_assignment_applied;
+    uint8_t shot_b783_raw_0499;
+    uint16_t shot_b783_handler_cpu;
+    uint16_t shot_b783_opcode20_actor_mask;
     /* Persistent raw `$038D-$0390` shot-lifecycle latch. `$A0F3` writes the
        launch target, `$A7A9->$A790` overwrites it with slot-10 position, and
        `$A9DA` overwrites it again with the projected landing target. */

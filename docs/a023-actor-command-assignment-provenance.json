@@ -154,7 +154,7 @@
     ],
     "synthetic_no_candidate": "A valid LIVE foundation always has five actors on each $04B0 bit-$10 selector side. The no-candidate scan test is intentionally a direct invalid-selector fixture, not an organic scene claim."
     ,
-    "same_frame_latch": "Intentional exact-event scene fixtures cover masked $0019 consumption, unrelated-$0019 rejection, delayed $000A and opcode13 rejection, single-frame expiry, malformed provenance, and rollback. Production never binds the context because A214 gate/object-slot ownership is absent."
+    "same_frame_latch": "Intentional exact-event scene fixtures cover masked $0019 consumption, unrelated-$0019 rejection, delayed $000A and opcode13 rejection, single-frame expiry, malformed provenance, and rollback. Production binds the context only for the source-shaped A0DD remaining-tick <4, state-$17, $0588&$20 path through A214->$B775->$B783."
   },
   "native_caller_equivalence": [
     {
@@ -163,8 +163,13 @@
       "status": "deferred-no-production-attachment"
     },
     {
-      "asm_caller": "$B775->$B783->$A023 and $B7B6->$B783->$A023",
-      "current_native_observation": "No source-shaped state-17/state-18 object dispatcher or $0499/$0588 owner exists in the native scene.",
+      "asm_caller": "$B775->$B783->$A023",
+      "current_native_observation": "Ordinary nonlegacy selected-rattle MISS playback owns A0DD remaining ticks as $0499, state $17, the $0588 bit-$20 route capability, raw object-10 position, exact A214 table dispatch to $B775, A023 assignment, and same-update masked opcode-20 consume/expiry.",
+      "status": "production-bound-source-shaped-state17"
+    },
+    {
+      "asm_caller": "$B7B6->$B783->$A023",
+      "current_native_observation": "State-$18 object lifecycle and its $0499==0 admission remain unowned.",
       "status": "deferred-no-production-attachment"
     },
     {
@@ -192,6 +197,18 @@
       "scene_frame and sync_serial before/after"
     ],
     "screenshot_interpretation": "The screenshot proves the ordinary renderer/flow remained intact. It is explicitly not evidence of A023 gameplay parity."
+    ,
+    "state17_event": {
+      "events": ["shot-offball-33", "shot-offball-65", "shot-offball-89"],
+      "path": "ordinary nonlegacy selected-rattle MISS through production scene update",
+      "expected": {
+        "caller_identity": "object-state17-B783",
+        "dispatch_handler": "$B775",
+        "raw_0499_less_than": 4,
+        "production_mutated": true,
+        "same_update_latch_consumed": true
+      }
+    }
   },
   "unowned_or_unrecovered_effects": [
     "$046E=$18",

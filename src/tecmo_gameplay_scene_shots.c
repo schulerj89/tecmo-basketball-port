@@ -142,6 +142,10 @@ static void scene_shot_clear_raw_launch(TecmoGameplayScene *scene)
     scene->shot_a0f3_raw_x = 0U;
     scene->shot_a0f3_raw_depth = 0U;
     scene->shot_a0f3_tick_count = 0U;
+    scene->shot_b783_assignment_applied = false;
+    scene->shot_b783_raw_0499 = 0U;
+    scene->shot_b783_handler_cpu = 0U;
+    scene->shot_b783_opcode20_actor_mask = 0U;
     scene->shot_global_latch_initialized = false;
     scene->shot_global_ba_low2_known_zero = false;
     memset(&scene->shot_global_latch, 0,
@@ -156,6 +160,101 @@ static void scene_shot_clear_raw_launch(TecmoGameplayScene *scene)
     memset(&scene->shot_a9da_input, 0, sizeof(scene->shot_a9da_input));
     memset(&scene->shot_a9da_output, 0, sizeof(scene->shot_a9da_output));
     memset(&scene->shot_a9da_result, 0, sizeof(scene->shot_a9da_result));
+}
+
+static bool scene_apply_b783_state17_assignment(TecmoGameplayScene *scene)
+{
+    TecmoGameplayObject10DispatchResult dispatch;
+    TecmoGameplayActorCommandAssignmentInput input;
+    TecmoGameplayActorCommandAssignmentResult assignment;
+    TecmoGameplayActorCommandAssignmentSameFrameLatch latch;
+    TecmoGameplaySceneA023LatchFrameContext context;
+    TecmoGameplayLiveFoundation foundation;
+    TecmoGameplayLiveFoundation foundation_before;
+    uint16_t raw_x;
+    uint8_t raw_depth;
+    uint8_t raw_0499;
+    if (scene == NULL || scene->legacy_direct_launch ||
+        scene->jump_rim_rattle_debug ||
+        scene->shot_b783_assignment_applied ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+        scene->predicted_make_route || !scene->shot_rim_rattle_selected ||
+        !scene->shot_a0f3_motion_valid ||
+        !scene->shot_a0f3_raw_position_valid ||
+        scene->jump_ball_state != 0x17U ||
+        scene->shot_a0f3_motion.remaining_ticks >= 0x04U ||
+        scene->shot_a0f3_motion.remaining_ticks > UINT8_MAX ||
+        scene->a023_latch_frame_context.available ||
+        scene->actor_command_assignment_assets == NULL ||
+        !scene->actor_command_assignment_assets->available) {
+        return false;
+    }
+    raw_x = scene->shot_a0f3_raw_x;
+    raw_depth = scene->shot_a0f3_raw_depth;
+    raw_0499 = (uint8_t)scene->shot_a0f3_motion.remaining_ticks;
+    if (raw_x > INT16_MAX) return false;
+    memset(&dispatch, 0, sizeof(dispatch));
+    memset(&input, 0, sizeof(input));
+    memset(&assignment, 0, sizeof(assignment));
+    memset(&latch, 0, sizeof(latch));
+    memset(&context, 0, sizeof(context));
+    if (!tecmo_gameplay_object10_dispatch_resolve(
+            scene->actor_command_assignment_assets, 0x17U, &dispatch) ||
+        dispatch.contract_tag !=
+            TECMO_GAMEPLAY_OBJECT10_DISPATCH_RESULT_TAG ||
+        dispatch.handler_cpu != 0xB775U) {
+        return false;
+    }
+    input.contract_tag =
+        TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_INPUT_TAG;
+    input.caller =
+        TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_CALLER_OBJECT_STATE17_B783;
+    input.raw_object_state = 0x17U;
+    input.raw_0499 = raw_0499;
+    input.raw_0588 = 0x20U;
+    input.object10_target_valid = true;
+    input.object10_target.x = (int16_t)raw_x;
+    input.object10_target.y = (int16_t)raw_depth;
+    input.object10_raw_target_valid = true;
+    input.object10_raw_target.x = raw_x;
+    input.object10_raw_target.depth = raw_depth;
+    foundation_before = scene->live_foundation;
+    foundation = foundation_before;
+    if (!tecmo_gameplay_actor_command_assignment_apply(
+            scene->actor_command_assignment_assets,
+            &scene->cpu_steering_assets, &input, &foundation,
+            &assignment) || !assignment.applied ||
+        assignment.caller != input.caller) {
+        return false;
+    }
+    if (assignment.immediate_opcode20_actor_mask != 0U) {
+        TecmoGameplayActorCommandAssignmentResult captured_assignment;
+        foundation = foundation_before;
+        memset(&captured_assignment, 0, sizeof(captured_assignment));
+        if (!tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
+                scene->actor_command_assignment_assets,
+                &scene->cpu_steering_assets, &input, &foundation,
+                &captured_assignment, &latch) ||
+            memcmp(&captured_assignment, &assignment,
+                   sizeof(assignment)) != 0 ||
+            latch.producer_kind !=
+                TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B783 ||
+            !latch.b783_bit20_clear_follows_assignment) {
+            return false;
+        }
+        context.contract_tag =
+            TECMO_GAMEPLAY_SCENE_A023_LATCH_FRAME_CONTEXT_TAG;
+        context.latch = latch;
+        context.available = true;
+    }
+    scene->live_foundation = foundation;
+    scene->a023_latch_frame_context = context;
+    scene->shot_b783_handler_cpu = dispatch.handler_cpu;
+    scene->shot_b783_opcode20_actor_mask =
+        assignment.immediate_opcode20_actor_mask;
+    scene->shot_b783_raw_0499 = raw_0499;
+    scene->shot_b783_assignment_applied = true;
+    return true;
 }
 
 void scene_shot_clear_jump_playback(TecmoGameplayScene *scene)
@@ -966,7 +1065,9 @@ bool scene_start_shot_actor(TecmoGameplayScene *scene,
     TecmoGameplayScene candidate;
     if (scene == NULL) return false;
     candidate = *scene;
-    if (!scene_shot_boundary_valid(&candidate)) return false;
+    if (!scene_shot_boundary_valid(&candidate)) {
+        return false;
+    }
     if (!scene_start_shot_actor_mutating(
             &candidate, controller, actor_index,
             SCENE_SHOT_LAUNCH_HUMAN)) {
@@ -2697,6 +2798,14 @@ static bool scene_update_jump_miss_mutating(
     }
     scene->shot_frame = next_frame;
     route_frame = next_frame;
+    /* Direct shot-step tests intentionally omit the outer Bank06 phase.
+       B783's target is a one-update capability just like A9DA's: if the
+       immediately following off-ball traversal did not consume it, expire
+       it before advancing another shot update. */
+    if (scene->shot_b783_assignment_applied &&
+        scene->a023_latch_frame_context.available) {
+        scene->a023_latch_frame_context.available = false;
+    }
     /* Direct shot-step tests do not run the outer ordinary actor phase. The
        A9DA capability is nevertheless single-update: if frame 89 did not
        consume it, expire it before any later shot frame. */
@@ -2716,6 +2825,15 @@ static bool scene_update_jump_miss_mutating(
         scene->shot_a0f3_raw_depth = published.raw_depth;
         scene->shot_a0f3_raw_position_valid = true;
         ++scene->shot_a0f3_tick_count;
+        /* `$A214` resolves state `$17` to `$B775`. Its `<4` countdown and
+           `$0588&$20` gates reach `$B783`, whose A023 assignment must precede
+           this update's descending Bank06 off-ball traversal. */
+        if (scene->shot_rim_rattle_selected &&
+            scene->shot_a0f3_motion.remaining_ticks < 0x04U &&
+            !scene->shot_b783_assignment_applied &&
+            !scene_apply_b783_state17_assignment(scene)) {
+            return false;
+        }
     }
 
     if (next_frame == 3U) {
@@ -3138,9 +3256,7 @@ bool scene_update_shot(TecmoGameplayScene *scene,
         !scene_sync_live_foundation(&candidate)) {
         return false;
     }
-    if (!scene_shot_boundary_valid(&candidate)) {
-        return false;
-    }
+    if (!scene_shot_boundary_valid(&candidate)) return false;
     *scene = candidate;
     return true;
 }

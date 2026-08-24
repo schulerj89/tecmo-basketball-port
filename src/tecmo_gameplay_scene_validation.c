@@ -1256,6 +1256,10 @@ static bool scene_raw_launch_zero(const TecmoGameplayScene *scene)
         scene->shot_a0f3_raw_x == 0U &&
         scene->shot_a0f3_raw_depth == 0U &&
         scene->shot_a0f3_tick_count == 0U &&
+        !scene->shot_b783_assignment_applied &&
+        scene->shot_b783_raw_0499 == 0U &&
+        scene->shot_b783_handler_cpu == 0U &&
+        scene->shot_b783_opcode20_actor_mask == 0U &&
         !scene->shot_a8e9_normalized_valid &&
         scene->shot_a8e9_raw_006a == 0U &&
         memcmp(&scene->shot_a8e9_normalized, &zero_normalized,
@@ -1412,6 +1416,21 @@ static bool scene_raw_launch_active_valid(const TecmoGameplayScene *scene)
         scene->shot_a0f3_raw_depth != expected_depth ||
         memcmp(&motion, &scene->shot_a0f3_motion, sizeof(motion)) != 0)
         return false;
+    if (scene->shot_b783_assignment_applied) {
+        if (!scene->shot_rim_rattle_selected ||
+            scene->shot_b783_raw_0499 >= 0x04U ||
+            scene->shot_b783_handler_cpu != 0xB775U ||
+            (scene->shot_b783_opcode20_actor_mask & ~0x03FFU) != 0U ||
+            expected_ticks < result.duration_051e_0513 - 3U) {
+            return false;
+        }
+    } else if (scene->shot_b783_raw_0499 != 0U ||
+               scene->shot_b783_handler_cpu != 0U ||
+               scene->shot_b783_opcode20_actor_mask != 0U ||
+               (scene->shot_rim_rattle_selected &&
+                motion.remaining_ticks < 0x04U)) {
+        return false;
+    }
     terminal_normalized = scene->shot_rim_rattle_selected &&
         scene->shot_frame >= TECMO_GAMEPLAY_JUMP_RATTLE_HANDOFF_FRAME;
     if (!terminal_normalized) {

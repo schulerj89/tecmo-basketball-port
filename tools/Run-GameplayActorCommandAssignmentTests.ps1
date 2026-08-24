@@ -313,6 +313,12 @@ try {
         @($Provenance.authoritative_spans).Count -ne 9 -or
         $Provenance.production_proof_contract.expected.emitted -or
         $Provenance.production_proof_contract.expected.production_mutated -or
+        ![bool]$Provenance.production_proof_contract.state17_event.expected.production_mutated -or
+        ![bool]$Provenance.production_proof_contract.state17_event.expected.same_update_latch_consumed -or
+        [string]$Provenance.production_proof_contract.state17_event.expected.caller_identity -ne
+            "object-state17-B783" -or
+        [string]$Provenance.production_proof_contract.state17_event.expected.dispatch_handler -ne
+            '$B775' -or
         $Provenance.fixture_boundary.resolver_inputs -notmatch "Synthetic") {
         throw "TGCA-1 machine-readable provenance is incomplete."
     }

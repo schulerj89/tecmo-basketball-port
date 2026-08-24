@@ -3973,6 +3973,32 @@ bool scene_apply_a9da_landing_assignment(TecmoGameplayScene *scene)
         foundation.play_state.action_state_046e[actor] =
             output.action_state_046e[actor];
         foundation.play_state.action[actor] = output.action_0458[actor];
+        if (input.state[actor] == 0x05U && output.state[actor] == 0x04U) {
+            /* `$A993` replaces the source actor state directly. Q6 route
+               motion and typed target provenance are C-only expansions of
+               state 5, so they must retire in the same transaction; leaving
+               them active would manufacture a state pair the NES cannot
+               represent. */
+            memset(&foundation.play_state.route_motion[actor], 0,
+                   sizeof(foundation.play_state.route_motion[actor]));
+            foundation.play_state.route_motion[actor].contract_tag =
+                TECMO_GAMEPLAY_CPU_STEERING_ROUTE_MOTION_STATE_TAG;
+            foundation.play_state.target_object[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+            foundation.play_state.target_x[actor] = 0;
+            foundation.play_state.target_depth[actor] = 0;
+            foundation.play_state.direction[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+            foundation.source_target_valid[actor] = false;
+            foundation.source_raw_target_valid[actor] = false;
+            foundation.source_inactive_target_storage[actor] = false;
+            foundation.source_direction_valid[actor] = false;
+            foundation.source_direction[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+            foundation.deferred[actor] = false;
+            foundation.deferred_reason[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+        }
     }
     if (!tecmo_gameplay_live_foundation_valid(
             &scene->cpu_steering_assets, &foundation)) {
@@ -4000,6 +4026,7 @@ bool scene_update_shot_cpu_offball(TecmoGameplayScene *scene)
     TecmoGameplaySceneCpuActor
         candidate_cpu[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     TecmoGameplaySceneOpcode10FrameContext candidate_opcode10_context;
+    TecmoGameplaySceneA023LatchFrameContext candidate_a023_context;
     bool a9da_consumed = false;
     size_t source_index;
     if (scene == NULL || scene->legacy_direct_launch ||
@@ -4033,6 +4060,7 @@ bool scene_update_shot_cpu_offball(TecmoGameplayScene *scene)
     memcpy(candidate_cpu, scene->cpu_actors, sizeof(candidate_cpu));
     candidate_foundation = scene->live_foundation;
     candidate_opcode10_context = scene->opcode10_frame_context;
+    candidate_a023_context = scene->a023_latch_frame_context;
     if (!scene_cpu_build_shot_play_input(
             scene, steering_snapshot, &candidate_foundation, &play_input) ||
         !scene_cpu_opcode16_workspace_project(
@@ -4062,6 +4090,7 @@ bool scene_update_shot_cpu_offball(TecmoGameplayScene *scene)
         bool movement_target;
         bool global_authorized;
         bool a9da_authorized;
+        bool a023_authorized;
         if (scene_actor_is_controlled(scene, actor) ||
             scene_actor_in_pretip_recovery(scene, actor) ||
             actor == scene->shot_actor ||
@@ -4109,8 +4138,16 @@ bool scene_update_shot_cpu_offball(TecmoGameplayScene *scene)
             scene->shot_a9da_latch.valid &&
             scene->shot_a9da_latch.producer ==
                 TECMO_GAMEPLAY_CPU_GLOBAL_LATCH_PRODUCER_A9DA;
-        play_input.global_target_available = global_authorized;
-        if (global_authorized) {
+        a023_authorized =
+            candidate_foundation.play_state.stream_offset[actor] == 0x0019U &&
+            (candidate_a023_context.latch.immediate_opcode20_actor_mask &
+             (uint16_t)(1U << actor)) != 0U &&
+            scene_cpu_a023_latch_context_valid(&candidate_a023_context);
+        play_input.global_target_available =
+            global_authorized || a023_authorized;
+        if (a023_authorized) {
+            play_input.global_target = candidate_a023_context.latch.target;
+        } else if (global_authorized) {
             play_input.global_target.x =
                 scene->shot_global_latch.raw_x_038d_038e;
             play_input.global_target.depth =
@@ -4140,6 +4177,16 @@ bool scene_update_shot_cpu_offball(TecmoGameplayScene *scene)
                     scene->shot_global_latch.raw_depth_038f_0390) {
                 return false;
             }
+        }
+        if (a023_authorized &&
+            (!play_result.fetched || play_result.command.opcode != 20U ||
+             play_result.deferred || !play_result.advanced ||
+             !play_result.raw_target_valid ||
+             play_result.raw_target_x !=
+                 candidate_a023_context.latch.target.x ||
+             play_result.raw_target_depth !=
+                 candidate_a023_context.latch.target.depth)) {
+            return false;
         }
         if (a9da_authorized) {
             if (!play_result.fetched || play_result.command.opcode != 13U ||
@@ -4301,6 +4348,8 @@ bool scene_update_shot_cpu_offball(TecmoGameplayScene *scene)
     scene->live_foundation = candidate_foundation;
     scene->opcode10_frame_context = candidate_opcode10_context;
     scene->shot_a9da_opcode13_pending = false;
+    candidate_a023_context.available = false;
+    scene->a023_latch_frame_context = candidate_a023_context;
     return true;
 }
 

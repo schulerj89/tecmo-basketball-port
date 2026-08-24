@@ -141,6 +141,11 @@ static void scene_release_owned(TecmoGameplayScene *scene)
     tecmo_gameplay_court_orientation_destroy(&scene->court_orientation);
     tecmo_gameplay_cpu_steering_assets_destroy(
         &scene->cpu_steering_assets);
+    if (scene->actor_command_assignment_assets != NULL) {
+        tecmo_gameplay_actor_command_assignment_assets_destroy(
+            scene->actor_command_assignment_assets);
+    }
+    free(scene->actor_command_assignment_assets);
     tecmo_gameplay_ball_dribble_assets_destroy(
         &scene->ball_dribble_assets);
     tecmo_gameplay_penalties_destroy(&scene->penalty_assets);
@@ -329,6 +334,24 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
         scene_set_status(scene, failure);
         return false;
     }
+    scene->actor_command_assignment_assets =
+        (TecmoGameplayActorCommandAssignmentAssets *)malloc(
+            sizeof(*scene->actor_command_assignment_assets));
+    if (scene->actor_command_assignment_assets == NULL) {
+        scene_release_owned(scene);
+        scene_set_status(scene, "TGCA-1 scene dependency allocation failed");
+        return false;
+    }
+    tecmo_gameplay_actor_command_assignment_assets_init(
+        scene->actor_command_assignment_assets);
+    if (!tecmo_gameplay_actor_command_assignment_assets_load(
+            scene->actor_command_assignment_assets, selected)) {
+        (void)snprintf(failure, sizeof(failure), "%s",
+                       scene->actor_command_assignment_assets->status);
+        scene_release_owned(scene);
+        scene_set_status(scene, failure);
+        return false;
+    }
     if (!tecmo_gameplay_cpu_a0f3_assets_load(
             &scene->cpu_a0f3_assets, selected)) {
         scene_release_owned(scene);
@@ -446,7 +469,7 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
     }
     scene->available = true;
     scene_set_status(scene,
-                     "native gameplay ready: TPTI-2/TGPL-1/TTDT-1/TWAR-1/TMUS-1/TGCT-1/TGCP-2/TGMO-1/TGBD-1/TGAI-3/TGFT-1/TPNL-1/TGVR-1/TGOR-1/TGFL-1/THUD-1/TGCS-1/TGDK-1/TGJS-2/TGSR-4/TGRB-1/TSFX-1/TDMC-1");
+                     "native gameplay ready: TPTI-2/TGPL-1/TTDT-1/TWAR-1/TMUS-1/TGCT-1/TGCP-2/TGMO-1/TGBD-1/TGAI-3/TGCA-1/TGFT-1/TPNL-1/TGVR-1/TGOR-1/TGFL-1/THUD-1/TGCS-1/TGDK-1/TGJS-2/TGSR-4/TGRB-1/TSFX-1/TDMC-1");
     return true;
 }
 
