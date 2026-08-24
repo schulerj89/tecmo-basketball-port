@@ -129,13 +129,14 @@ typedef struct TecmoGameplayLiveFoundation {
        follows the CPU contract's natural wrap. */
     uint32_t sync_serial;
     uint32_t tick_serial;
-    /* Exact regulation-period `$86D2/$85EA` entry lifecycle. The initial
-       offense side is the typed P1 selector seed for S,S^1,S,S^1; the last
-       period and serial reject duplicate banner/restart calls. */
-    uint8_t regulation_entry_initial_offense_side;
+    /* Exact `$86D2/$85EA` period-entry lifecycle. The last regulation period,
+       OT count, and shared serial reject duplicate/out-of-order calls. */
+    /* Binary `$0758` selector from the proven P1 tip winner/offense XOR 1
+       projection. It is distinct from the P1 holder/offense side. */
+    uint8_t period_entry_selector;
     uint8_t regulation_entry_seeded_period;
-    /* Exact period-5 epoch and the fixed `$E740` raw-equivalent selector
-       observed for its last accepted banner. Zero means no OT entry yet. */
+    /* Exact period-5 epoch and the binary selector observed for its last
+       accepted banner. Zero count means no OT entry yet. */
     uint8_t overtime_entry_last_applied_count;
     uint8_t overtime_entry_last_selector_raw;
     bool regulation_entry_clamp_exemption_active;

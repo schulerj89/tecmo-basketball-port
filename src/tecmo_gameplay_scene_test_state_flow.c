@@ -832,8 +832,8 @@ static bool scene_test_period_expiry_and_restart(
     /* This legacy-direct period-expiry fixture starts after P1 setup. Bind
        the exact prior-entry lifecycle explicitly; organic PRETIP coverage
        owns the real P1 writer and separate regulation vectors own P1-P4. */
-    scene->live_foundation.regulation_entry_initial_offense_side =
-        TECMO_GAMEPLAY_TEAM_AWAY;
+    scene->live_foundation.period_entry_selector =
+        TECMO_GAMEPLAY_TEAM_HOME;
     scene->live_foundation.regulation_entry_seeded_period = 1U;
     scene->live_foundation.regulation_entry_seed_serial = 1U;
     scene->state.clock_minutes = 0U;
@@ -964,7 +964,7 @@ static bool scene_test_period_expiry_and_restart(
     }
     /* Continue through the real P2 and P3 clock-expiry/banner seams. This
        proves the scene, rather than only the foundation vector, publishes
-       the S and S^1 entries atomically and replaces the prior period's
+       the R,R,R^1 entries atomically and replaces the prior period's
        clamp owner without consuming the incoming selected-primary wait. */
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
@@ -1010,16 +1010,16 @@ static bool scene_test_period_expiry_and_restart(
         return false;
     }
     memset(&p1, 0, sizeof(p1));
-    expected_p3_primary = scene->live_foundation.defender_actor;
-    expected_p3_defender = scene->live_foundation.primary_actor;
+    expected_p3_primary = scene->live_foundation.primary_actor;
+    expected_p3_defender = scene->live_foundation.defender_actor;
     scene->state.phase_frame = TECMO_GAMEPLAY_PERIOD_BANNER_FRAMES - 1U;
     scene->live_foundation.play_state.wait_counter[expected_p3_primary] = 23U;
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
         scene->ball_holder != expected_p3_primary ||
-        scene->orientation_state.attack_direction != 0U ||
-        scene->live_foundation.offense_side != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->orientation_state.attack_direction != 1U ||
+        scene->live_foundation.offense_side != TECMO_GAMEPLAY_TEAM_HOME ||
         scene->live_foundation.primary_actor != expected_p3_primary ||
         scene->live_foundation.defender_actor != expected_p3_defender ||
         scene->live_foundation.regulation_entry_seeded_period != 3U ||
@@ -1074,10 +1074,10 @@ static bool scene_test_period_expiry_and_restart(
     scene->live_foundation.play_state.wait_counter[expected_p4_primary] = 24U;
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_AWAY ||
         scene->ball_holder != expected_p4_primary ||
-        scene->orientation_state.attack_direction != 1U ||
-        scene->live_foundation.offense_side != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->orientation_state.attack_direction != 0U ||
+        scene->live_foundation.offense_side != TECMO_GAMEPLAY_TEAM_AWAY ||
         scene->live_foundation.primary_actor != expected_p4_primary ||
         scene->live_foundation.defender_actor != expected_p4_defender ||
         scene->live_foundation.regulation_entry_seeded_period != 4U ||
@@ -1141,10 +1141,10 @@ static bool scene_test_period_expiry_and_restart(
         scene->live_foundation.primary_actor != expected_ot_primary ||
         scene->live_foundation.defender_actor != expected_ot_defender ||
         scene->ball_holder != expected_ot_primary ||
-        scene->live_foundation.offense_side != TECMO_GAMEPLAY_TEAM_AWAY ||
-        scene->orientation_state.attack_direction != 0U ||
+        scene->live_foundation.offense_side != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->orientation_state.attack_direction != 1U ||
         scene->live_foundation.overtime_entry_last_applied_count != 1U ||
-        scene->live_foundation.overtime_entry_last_selector_raw != 0xA8U ||
+        scene->live_foundation.overtime_entry_last_selector_raw != 0x01U ||
         scene->live_foundation.regulation_entry_seed_serial != 5U ||
         scene->live_foundation.play_state.wait_counter[
             expected_ot_primary] != 41U ||
@@ -1198,10 +1198,10 @@ static bool scene_test_period_expiry_and_restart(
         scene->live_foundation.primary_actor != expected_ot_primary ||
         scene->live_foundation.defender_actor != expected_ot_defender ||
         scene->ball_holder != expected_ot_primary ||
-        scene->live_foundation.offense_side != TECMO_GAMEPLAY_TEAM_HOME ||
-        scene->orientation_state.attack_direction != 1U ||
+        scene->live_foundation.offense_side != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->orientation_state.attack_direction != 0U ||
         scene->live_foundation.overtime_entry_last_applied_count != 2U ||
-        scene->live_foundation.overtime_entry_last_selector_raw != 0x01U ||
+        scene->live_foundation.overtime_entry_last_selector_raw != 0x00U ||
         scene->live_foundation.regulation_entry_seed_serial != 6U ||
         scene->live_foundation.play_state.wait_counter[
             expected_ot_primary] != 42U ||
@@ -2049,7 +2049,7 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                     int scan_actor;
                     size_t fixture_actor;
                     fixture.regulation_entry_seeded_period = 0U;
-                    fixture.regulation_entry_initial_offense_side =
+                    fixture.period_entry_selector =
                         TECMO_GAMEPLAY_SCENE_NO_ACTOR;
                     fixture.regulation_entry_clamp_exemption_active = false;
                     fixture.regulation_entry_clamp_exempt_actor =
@@ -2149,6 +2149,8 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                         fixture.play_state.candidate_actor !=
                             expected_candidate ||
                         fixture.regulation_entry_seeded_period != 1U ||
+                        fixture.period_entry_selector !=
+                            (uint8_t)(side ^ 1U) ||
                         !fixture.regulation_entry_clamp_exemption_active ||
                         fixture.regulation_entry_clamp_exempt_actor !=
                             primary) {
@@ -2156,6 +2158,17 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                             "first-period seed slot vector failed s%u o%u p%u",
                             (unsigned)side, (unsigned)orientation,
                             (unsigned)primary);
+                        goto failed;
+                    }
+                    before_reject = fixture;
+                    if (tecmo_gameplay_live_foundation_regulation_entry_apply(
+                            &scene->cpu_steering_assets, 2U, side, true,
+                            &fixture) ||
+                        memcmp(&fixture, &before_reject,
+                               sizeof(fixture)) != 0) {
+                        (void)snprintf(failure, sizeof(failure),
+                            "period selector target rollback failed s%u",
+                            (unsigned)side);
                         goto failed;
                     }
                     for (fixture_actor = (size_t)side * 5U;
@@ -2288,7 +2301,7 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                         equality = lifecycle;
                         equality.regulation_entry_seeded_period = 0U;
                         equality.regulation_entry_seed_serial = 0U;
-                        equality.regulation_entry_initial_offense_side =
+                        equality.period_entry_selector =
                             TECMO_GAMEPLAY_SCENE_NO_ACTOR;
                         equality.regulation_entry_clamp_exemption_active =
                             false;
@@ -2309,9 +2322,13 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
 
                         for (period = 2U; period <= 4U; ++period) {
                             uint8_t target_side = (uint8_t)(
-                                side ^ ((period & 1U) == 0U ? 1U : 0U));
+                                (side ^ 1U) ^ (period == 4U ? 1U : 0U));
                             uint8_t primary_before = lifecycle.primary_actor;
                             uint8_t defender_before = lifecycle.defender_actor;
+                            bool expected_swap =
+                                lifecycle.offense_side != target_side;
+                            uint8_t expected_primary = expected_swap
+                                ? defender_before : primary_before;
                             uint8_t flags_before[
                                 TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
                             uint8_t primary_wait_before;
@@ -2319,9 +2336,9 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                                    lifecycle.actor_selector_flags,
                                    sizeof(flags_before));
                             lifecycle.play_state.wait_counter[
-                                defender_before] = (uint8_t)(10U + period);
+                                expected_primary] = (uint8_t)(10U + period);
                             primary_wait_before = lifecycle.play_state
-                                .wait_counter[defender_before];
+                                .wait_counter[expected_primary];
                             for (fixture_actor = 0U;
                                  fixture_actor <
                                      TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
@@ -2333,8 +2350,12 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                             if (!tecmo_gameplay_live_foundation_regulation_entry_apply(
                                     &scene->cpu_steering_assets, period,
                                     target_side, true, &lifecycle) ||
-                                lifecycle.primary_actor != defender_before ||
-                                lifecycle.defender_actor != primary_before ||
+                                lifecycle.primary_actor !=
+                                    (expected_swap
+                                         ? defender_before : primary_before) ||
+                                lifecycle.defender_actor !=
+                                    (expected_swap
+                                         ? primary_before : defender_before) ||
                                 lifecycle.play_state.actor_state[
                                     lifecycle.primary_actor] != 0x04U ||
                                 lifecycle.play_state.action[
@@ -2373,15 +2394,26 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                                 lifecycle.play_state.route_motion[
                                     preserved_actor]
                                         .remaining_timer != 9U ||
-                                lifecycle.play_state.route_motion[
-                                    preserved_actor].active != (period == 2U) ||
                                 lifecycle.regulation_entry_seeded_period !=
                                     period ||
                                 lifecycle.regulation_entry_seed_serial !=
                                     (uint32_t)period) {
                                 (void)snprintf(failure, sizeof(failure),
-                                    "regulation mismatch role reset failed p%u",
-                                    (unsigned)period);
+                                    "regulation entry failed p%u swap%u roles%u/%u expected%u/%u wait%u/%u selector%u route%u",
+                                    (unsigned)period,
+                                    expected_swap ? 1U : 0U,
+                                    (unsigned)lifecycle.primary_actor,
+                                    (unsigned)lifecycle.defender_actor,
+                                    (unsigned)(expected_swap
+                                        ? defender_before : primary_before),
+                                    (unsigned)(expected_swap
+                                        ? primary_before : defender_before),
+                                    (unsigned)lifecycle.play_state.wait_counter[
+                                        lifecycle.primary_actor],
+                                    (unsigned)primary_wait_before,
+                                    (unsigned)lifecycle.period_entry_selector,
+                                    lifecycle.play_state.route_motion[
+                                        preserved_actor].active ? 1U : 0U);
                                 goto failed;
                             }
                             for (fixture_actor = 0U;
@@ -2393,7 +2425,7 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                                     lifecycle.actor_selector_flags[
                                         fixture_actor] !=
                                         (uint8_t)(flags_before[fixture_actor] ^
-                                                  0x10U)) {
+                                            (expected_swap ? 0x10U : 0U))) {
                                     (void)snprintf(failure, sizeof(failure),
                                         "regulation mismatch BFA8/role-bit failed p%u a%u",
                                         (unsigned)period,
@@ -2427,8 +2459,8 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                              regulation_period <= 4U;
                              ++regulation_period) {
                             uint8_t target_side = (uint8_t)(
-                                side ^ ((regulation_period & 1U) == 0U
-                                    ? 1U : 0U));
+                                (side ^ 1U) ^
+                                (regulation_period == 4U ? 1U : 0U));
                             if (!tecmo_gameplay_live_foundation_regulation_entry_apply(
                                     &scene->cpu_steering_assets,
                                     regulation_period,
@@ -2480,8 +2512,8 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                                 uint8_t expected_defender;
                                 uint8_t expected_raw =
                                     (overtime_epoch & 1U) != 0U
-                                        ? (uint8_t)(0xA8U | side)
-                                        : (uint8_t)(side ^ 1U);
+                                        ? (uint8_t)(side ^ 1U)
+                                        : side;
                                 bool expected_swap;
                                 overtime = regulation_four;
                                 for (prior_epoch = 1U;
@@ -2526,13 +2558,8 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                                             fixture_actor] ^= 0x10U;
                                     }
                                 }
-                                expected_swap =
-                                    (overtime_epoch & 1U) != 0U ||
-                                    current_side != (uint8_t)(side ^ 1U);
-                                expected_offense =
-                                    (overtime_epoch & 1U) != 0U
-                                        ? (uint8_t)(current_side ^ 1U)
-                                        : (uint8_t)(side ^ 1U);
+                                expected_swap = current_side != expected_raw;
+                                expected_offense = expected_raw;
                                 expected_primary = expected_swap
                                     ? overtime.defender_actor
                                     : overtime.primary_actor;
@@ -2648,21 +2675,39 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                             }
                         }
                         overtime = regulation_four;
-                        overtime.overtime_entry_last_applied_count = UINT8_MAX;
-                        overtime.overtime_entry_last_selector_raw =
-                            (uint8_t)(0xA8U | side);
-                        overtime.regulation_entry_seed_serial =
-                            (uint32_t)(4U + UINT8_MAX);
+                        overtime.overtime_entry_last_applied_count =
+                            (uint8_t)(UINT8_MAX - 1U);
+                        overtime.period_entry_selector = side;
+                        overtime.overtime_entry_last_selector_raw = side;
+                        overtime.regulation_entry_seed_serial = 258U;
+                        overtime.play_state.wait_counter[2U] = 79U;
                         rollback = overtime;
                         if (!tecmo_gameplay_live_foundation_valid(
                                 &scene->cpu_steering_assets, &overtime) ||
-                            tecmo_gameplay_live_foundation_overtime_entry_apply(
+                            !tecmo_gameplay_live_foundation_overtime_entry_apply(
+                                &scene->cpu_steering_assets, UINT8_MAX, true,
+                                &overtime) ||
+                            overtime.overtime_entry_last_applied_count !=
+                                UINT8_MAX ||
+                            overtime.period_entry_selector !=
+                                (uint8_t)(side ^ 1U) ||
+                            overtime.overtime_entry_last_selector_raw !=
+                                (uint8_t)(side ^ 1U) ||
+                            overtime.regulation_entry_seed_serial != 259U ||
+                            overtime.play_state.wait_counter[2U] != 79U) {
+                            (void)snprintf(failure, sizeof(failure),
+                                "overtime UINT8_MAX acceptance failed s%u",
+                                (unsigned)side);
+                            goto failed;
+                        }
+                        rollback = overtime;
+                        if (tecmo_gameplay_live_foundation_overtime_entry_apply(
                                 &scene->cpu_steering_assets, 1U, true,
                                 &overtime) ||
                             memcmp(&overtime, &rollback,
                                    sizeof(overtime)) != 0) {
                             (void)snprintf(failure, sizeof(failure),
-                                "overtime UINT8_MAX rollback failed s%u",
+                                "overtime post-UINT8_MAX rollback failed s%u",
                                 (unsigned)side);
                             goto failed;
                         }

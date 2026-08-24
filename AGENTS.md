@@ -1801,17 +1801,21 @@ it ends only after the matching non-tied result commits successfully, then
 returns to the existing season result rows without reinitializing the session.
 
 Regulation/overtime LIVE entry is not a generic formation refresh. The owned
-Bank06 `$85EA/$86D2` seed occurs at the real first-period PRETIP handoff,
-P2-P4 banner returns, and every accepted period-5 epoch; it uses the exact
+Bank06 `$85EA/$86D2` seed occurs at the real first-period PRETIP handoff and
+every accepted banner epoch. The P1 claimant/coordinate/state-17 chain through
+fixed `$E51B-$E53F`, corroborated by natural outcomes for both winners, proves
+binary `$0758` selector `R = P1 tip winner/offense ^ 1`. Production uses the
 descending `$8728/$8774` scan and coordinate tables and exposes only final
 primary cursor `$017C`. Fixed
 `$E71B` equality keeps the selected pairs while ordinary-admitted mismatch
 uses Bank05 `$8FAD` to swap them; both paths apply the all-ten `$BFA8`
 `$046E` clear and selected-pair state/action reset without broadly clearing
 target, direction, route, or wait planes. P1 alone seeds primary wait 0;
-P2-P4 and OT retain all wait bytes. After P4 selector `S^1` persists: odd OT
-counts force mismatch via raw-equivalent `$A8|S`; even counts compare `S^1`
-and take equality or mismatch normally. Role resolution and `$85EA` seed are
+P2-P4 and OT retain all wait bytes. `$0758` is selector `R`, not the P1
+holder. `$035C` indexes XOR 0,0,1 for P2-P4, yielding `R,R,R^1`; `$E5E9`
+forces `$035C=5`, so every OT XORs `$E745=01`, yielding odd `R`, even `R^1`.
+All entries use ordinary equality/mismatch only; never create `$A8/$A9` raw
+selectors or force a parity swap. Role resolution and `$85EA` seed are
 one public atomic transaction per typed epoch; duplicates, decreasing/skipped
 OT counts, overflow, and non-banner possession/restart/foul/inbound paths may
 not seed. Never substitute a cold Bank04 initializer.

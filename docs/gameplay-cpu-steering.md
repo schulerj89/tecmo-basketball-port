@@ -525,13 +525,11 @@ native port does not invent them.
 
 ## Regulation and overtime `$85EA` entry lifecycle
 
-The real first-period PRETIP-to-LIVE handoff, each P2-P4 banner return, and
-each accepted overtime banner now
+The real first-period PRETIP-to-LIVE handoff and each accepted P2-P4/OT banner
 perform the surviving Bank06 `$86D2/$85EA` transaction after role/foundation
 synchronization and before the first ordered LIVE update. Fixed `$E74F`
 selects Bank06 before calling `$85EA`; Bank05 `$85EA` is repeated data and is
-pinned separately. The regulation target sequence from the initial side `S`
-is P2 `S^1`, P3 `S`, P4 `S^1`. Each transaction selects the holder as primary,
+pinned separately. Each exact transaction selects the holder as primary,
 scans the four same-side nonprimary actors in descending slot order, derives
 the first two streams with `$8774` from their immutable pre-seed depths,
 assigns fixed `$0208/$0195` to the last two, writes state 4, and publishes the
@@ -548,12 +546,25 @@ One public transaction owns role resolution and seed together, so callers
 cannot publish or replay a half-entry. It does not broadly clear typed target,
 direction, route, or wait planes. P1 alone writes the initial primary wait 0;
 P2-P4 and overtime preserve every wait byte, including the newly selected
-primary. After P4 the persistent selector is `S^1`. For 1-based overtime `n`,
-odd `n` observes raw-equivalent `(S^1)^$A9 = $A8|S`, which cannot equal a
-binary side and therefore forces the exact mismatch swap regardless of current
-offense. Even `n` observes `S^1`; equality keeps the roles when current offense
-already equals `S^1`, otherwise the mismatch route swaps. Thus the diagnostic
-sequences are `A8,01,A8,01` for `S=0` and `A9,00,A9,00` for `S=1`.
+primary.
+
+`$0758` is a distinct binary selector `R`, not the P1 holder/offense side.
+Fixed `$E537-$E542` derives it from `$04FC&$80`. The source chain begins at the
+tip claimant `$A2A4/$A2B5`, follows coordinate selection `$A2B8-$A2C6`, solver
+`$A2C8-$A2CA`, the `$A2CD->$AA84` halving path and state-17 publish
+`$A2D0-$A2D2`, then fixed `$E51B-$E52F` waits for state 17 before
+`$E537-$E53F` projects the bit. Together with two natural no-write outcomes
+(P1 offense 0: `$04FC=FF,R=1`; P1 offense 1: `$04FC=00,R=0`), this proves the
+typed production mapping `R = P1 tip winner/offense ^ 1`.
+
+At fixed `$E71B`, `$035C` indexes the bytes beginning at `$E740`. P1 increments
+`$035C` to 1 but seeds separately. P2 uses X=2 and XOR 0, P3 uses X=3 and XOR
+0, and P4 uses X=4 and XOR 1, yielding targets `R,R,R^1`. Fixed `$E5E9` writes
+`$035C=5` on every overtime entry, so X=5 always reads `$E745=01`; each OT
+toggles the cumulative selector. Therefore odd OT targets `R` and even OT
+targets `R^1`. Every period takes ordinary equality when that binary selector
+equals current offense and ordinary mismatch otherwise; there is no parity
+force-swap and no `$A8/$A9` selector state.
 
 The public OT transaction uses `(period=5,overtime_count)` as its epoch key.
 The last applied OT count and shared monotonic seed serial reject duplicate,
@@ -563,6 +574,10 @@ atomic role/reset/seed API, so no caller can publish a half-entry.
 
 `Run-GameplayCpuSteeringTests.ps1` pins the canonical Rev1 raw anchors
 independently of the copied TGAI payload: fixed `$E5E9-$E61D` (`5B32743D`),
+Bank05 `$A2A4-$A2D5` (`ED9BAB3B`) and fixed `$E51B-$E548`
+(`145DE16E`) for the two-outcome P1 selector source contract,
+fixed direct index bytes `$E73F-$E747` (`6447E4ED`, exactly
+`4C 47 E7 00 00 01 01 01 A9`),
 fixed `$E71B-$E756` including the
 `$E740` JMP-operand/table overlap (`63D4F5A3`), Bank05 `$8F97-$8FAC`
 (`62809A8D`), `$8FAD-$8FE7` (`7C94E5EA`), `$8FE8-$902D` (`FFA12025`), and

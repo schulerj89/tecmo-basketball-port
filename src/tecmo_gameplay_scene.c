@@ -1860,7 +1860,7 @@ static bool scene_apply_period_banner_entry(
     size_t controller;
     if (scene == NULL || scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
         scene->state.period < 2U || scene->state.period > 5U ||
-        scene->live_foundation.regulation_entry_initial_offense_side >= 2U ||
+        scene->live_foundation.period_entry_selector >= 2U ||
         (scene->state.period < 5U
              ? scene->live_foundation.regulation_entry_seeded_period !=
                    scene->state.period - 1U ||
@@ -1876,16 +1876,13 @@ static bool scene_apply_period_banner_entry(
     candidate = *scene;
     if (candidate.state.period < 5U) {
         target_offense = (uint8_t)(candidate.live_foundation
-            .regulation_entry_initial_offense_side ^
-            ((candidate.state.period & 1U) == 0U ? 1U : 0U));
+            .period_entry_selector ^
+            (candidate.state.period == 4U ? 1U : 0U));
         side_swap =
             candidate.live_foundation.offense_side != target_offense;
-    } else if ((candidate.state.overtime_count & 1U) != 0U) {
-        target_offense = candidate.live_foundation.defense_side;
-        side_swap = true;
     } else {
-        target_offense = (uint8_t)(candidate.live_foundation
-            .regulation_entry_initial_offense_side ^ 1U);
+        target_offense =
+            (uint8_t)(candidate.live_foundation.period_entry_selector ^ 1U);
         side_swap =
             candidate.live_foundation.offense_side != target_offense;
     }
