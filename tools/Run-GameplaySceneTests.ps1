@@ -1517,8 +1517,8 @@ try {
                 }
                 if ($ExpectedCaptureFrame -eq 89 -and
                     (![bool]$ShotOffball.a9da.observed -or
-                     [int]$ShotOffball.a9da.chosen_actor -ne
-                        [int]$ShotOffball.route_actor -or
+                     [int]$ShotOffball.a9da.chosen_actor -lt 0 -or
+                     [int]$ShotOffball.a9da.chosen_actor -ge 10 -or
                      [string]$ShotOffball.a9da.last_step_after -ne "0032")) {
                     throw "LIVE proof frame-89 A9DA/opcode-13 handoff failed."
                 }

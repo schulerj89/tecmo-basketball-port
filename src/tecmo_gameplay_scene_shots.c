@@ -142,6 +142,10 @@ static void scene_shot_clear_raw_launch(TecmoGameplayScene *scene)
     scene->shot_a0f3_raw_x = 0U;
     scene->shot_a0f3_raw_depth = 0U;
     scene->shot_a0f3_tick_count = 0U;
+    scene->shot_global_latch_initialized = false;
+    scene->shot_global_ba_low2_known_zero = false;
+    memset(&scene->shot_global_latch, 0,
+           sizeof(scene->shot_global_latch));
     scene->shot_a8e9_normalized_valid = false;
     scene->shot_a8e9_raw_006a = 0U;
     memset(&scene->shot_a8e9_normalized, 0,
@@ -2630,6 +2634,32 @@ static bool scene_update_jump_miss_mutating(
             scene->shot_a0f3_raw_x = scene->shot_a0f3_origin_x;
             scene->shot_a0f3_raw_depth = scene->shot_a0f3_origin_depth;
             scene->shot_a0f3_tick_count = 0U;
+            {
+                TecmoGameplayCpuGlobalLatchWrite latch_write;
+                memset(&scene->shot_global_latch, 0,
+                       sizeof(scene->shot_global_latch));
+                memset(&latch_write, 0, sizeof(latch_write));
+                if (!tecmo_gameplay_cpu_global_latch_init(
+                        &scene->shot_global_latch)) {
+                    return false;
+                }
+                latch_write.contract_tag =
+                    TECMO_GAMEPLAY_CPU_GLOBAL_LATCH_WRITE_TAG;
+                latch_write.expected_serial =
+                    scene->shot_global_latch.write_serial;
+                latch_write.raw_x_038d_038e = launch_result.target_x_95_94;
+                latch_write.raw_depth_038f_0390 =
+                    launch_result.target_depth_97_96;
+                latch_write.producer =
+                    TECMO_GAMEPLAY_CPU_GLOBAL_LATCH_PRODUCER_A0F3;
+                if (!tecmo_gameplay_cpu_global_latch_write(
+                        &scene->shot_global_latch, &latch_write)) {
+                    return false;
+                }
+                scene->shot_global_latch_initialized = true;
+                /* The launch solver owns the target writer, not `$BA`. */
+                scene->shot_global_ba_low2_known_zero = false;
+            }
         }
         scene->jump_b_released = true;
         scene->jump_outcome = outcome;
@@ -2855,6 +2885,27 @@ static bool scene_update_jump_miss_rim_rattle(
             incoming_x = (int16_t)scene->shot_a0f3_motion.velocity_x_q6;
             incoming_depth =
                 (int16_t)scene->shot_a0f3_motion.velocity_depth_q6;
+            {
+                TecmoGameplayCpuGlobalLatchWrite latch_write;
+                memset(&latch_write, 0, sizeof(latch_write));
+                latch_write.contract_tag =
+                    TECMO_GAMEPLAY_CPU_GLOBAL_LATCH_WRITE_TAG;
+                latch_write.expected_serial =
+                    scene->shot_global_latch.write_serial;
+                latch_write.raw_x_038d_038e = scene->shot_a0f3_raw_x;
+                latch_write.raw_depth_038f_0390 =
+                    scene->shot_a0f3_raw_depth;
+                latch_write.producer =
+                    TECMO_GAMEPLAY_CPU_GLOBAL_LATCH_PRODUCER_A790;
+                if (!scene->shot_global_latch_initialized ||
+                    !tecmo_gameplay_cpu_global_latch_write(
+                        &scene->shot_global_latch, &latch_write)) {
+                    return false;
+                }
+                /* Successful `$A7A9` traces reach `$A790` with `$BA&3==0`.
+                   This owns only the low-two-bit admission used by opcode 13. */
+                scene->shot_global_ba_low2_known_zero = true;
+            }
         }
         if (!tecmo_gameplay_shot_resolution_resolve_rim_route(
                 &scene->shot_resolution,

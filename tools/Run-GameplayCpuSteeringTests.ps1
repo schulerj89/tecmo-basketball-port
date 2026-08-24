@@ -452,7 +452,7 @@ try {
             [bool]$Map.dependency.same_pack_required -and
             @($Map.source_spans).Count -eq 12 -and
             $Map.opcode13_global_latch_contract.scope -eq
-                'typed persistent provenance plus bounded frame-89 A9DA LIVE event; general global target remains unavailable' -and
+                'typed persistent provenance plus bounded A0F3/A790/A9DA shot LIVE chain; general global target remains unavailable' -and
             @($Map.opcode13_global_latch_contract.writers).Count -eq 5 -and
             $Map.opcode13_global_latch_contract.consumer -eq
                 'Bank06 $9125-$9145' -and
@@ -477,7 +477,7 @@ try {
                 '\$046E=0.*\$0458.*preserved.*\$0587=3' -and
             @($Map.opcode13_global_latch_contract.a9da_assignment.omitted_a9da_effects).Count -eq 3 -and
             $Map.opcode13_global_latch_contract.a9da_assignment.production_boundary -match
-                'authoritative TGLS.*event-local TGGL.*same-update.*\$002D.*\$0041 remains unbound' -and
+                'authoritative TGLS.*persistent A0F3.*A790.*A8E9/A9DA.*same update.*\$0041 remains unbound' -and
             $Map.opcode13_global_latch_contract.a8e9_velocity_normalizer.scope -match
                 'bounded TGLS-to-rattle LIVE input owner' -and
             @($Map.opcode13_global_latch_contract.a8e9_velocity_normalizer.anchors).Count -eq 2 -and

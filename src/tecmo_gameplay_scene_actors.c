@@ -3897,14 +3897,19 @@ bool scene_apply_a9da_landing_assignment(TecmoGameplayScene *scene)
         scene->live_foundation.primary_actor ==
             scene->live_foundation.defender_actor ||
         scene->shot_a9da_assignment_valid ||
-        scene->shot_a9da_opcode13_pending) {
+        scene->shot_a9da_opcode13_pending ||
+        !scene->shot_global_latch_initialized ||
+        !scene->shot_global_ba_low2_known_zero ||
+        !scene->shot_global_latch.valid ||
+        scene->shot_global_latch.producer !=
+            TECMO_GAMEPLAY_CPU_GLOBAL_LATCH_PRODUCER_A790) {
         return false;
     }
     memset(&latch, 0, sizeof(latch));
     memset(&input, 0, sizeof(input));
     memset(&output, 0, sizeof(output));
     memset(&result, 0, sizeof(result));
-    if (!tecmo_gameplay_cpu_global_latch_init(&latch)) return false;
+    latch = scene->shot_global_latch;
     input.contract_tag = TECMO_GAMEPLAY_CPU_A9DA_INPUT_TAG;
     input.expected_latch_serial = latch.write_serial;
     input.ball_x = scene->shot_a0f3_raw_x;
@@ -3974,6 +3979,7 @@ bool scene_apply_a9da_landing_assignment(TecmoGameplayScene *scene)
         return false;
     }
     scene->live_foundation = foundation;
+    scene->shot_global_latch = latch;
     scene->shot_a9da_latch = latch;
     scene->shot_a9da_input = input;
     scene->shot_a9da_output = output;
@@ -4054,6 +4060,7 @@ bool scene_update_shot_cpu_offball(TecmoGameplayScene *scene)
         bool source_direction;
         bool source_direction_target = false;
         bool movement_target;
+        bool global_authorized;
         bool a9da_authorized;
         if (scene_actor_is_controlled(scene, actor) ||
             scene_actor_in_pretip_recovery(scene, actor) ||
@@ -4086,6 +4093,13 @@ bool scene_update_shot_cpu_offball(TecmoGameplayScene *scene)
         }
         scene_cpu_opcode12_context_begin(
             &candidate_foundation, actor, &play_input);
+        global_authorized = scene->shot_global_latch_initialized &&
+            scene->shot_global_ba_low2_known_zero &&
+            scene->shot_global_latch.valid &&
+            (scene->shot_global_latch.producer ==
+                 TECMO_GAMEPLAY_CPU_GLOBAL_LATCH_PRODUCER_A790 ||
+             scene->shot_global_latch.producer ==
+                 TECMO_GAMEPLAY_CPU_GLOBAL_LATCH_PRODUCER_A9DA);
         a9da_authorized = scene->shot_a9da_assignment_valid &&
             scene->shot_a9da_opcode13_pending &&
             actor == scene->shot_a9da_result.chosen_actor_002d &&
@@ -4095,12 +4109,12 @@ bool scene_update_shot_cpu_offball(TecmoGameplayScene *scene)
             scene->shot_a9da_latch.valid &&
             scene->shot_a9da_latch.producer ==
                 TECMO_GAMEPLAY_CPU_GLOBAL_LATCH_PRODUCER_A9DA;
-        play_input.global_target_available = a9da_authorized;
-        if (a9da_authorized) {
+        play_input.global_target_available = global_authorized;
+        if (global_authorized) {
             play_input.global_target.x =
-                scene->shot_a9da_latch.raw_x_038d_038e;
+                scene->shot_global_latch.raw_x_038d_038e;
             play_input.global_target.depth =
-                scene->shot_a9da_latch.raw_depth_038f_0390;
+                scene->shot_global_latch.raw_depth_038f_0390;
             play_input.common_tail_ba_available = true;
             play_input.flags_ba = 0U;
         }
@@ -4116,15 +4130,26 @@ bool scene_update_shot_cpu_offball(TecmoGameplayScene *scene)
         play_input.common_tail_ba_available = false;
         play_input.flags_ba = 0U;
         scene_cpu_opcode12_context_end(&play_input);
+        if (global_authorized && play_result.fetched &&
+            play_result.command.opcode == 13U) {
+            if (play_result.deferred || !play_result.advanced ||
+                !play_result.raw_target_valid ||
+                play_result.raw_target_x !=
+                    scene->shot_global_latch.raw_x_038d_038e ||
+                play_result.raw_target_depth !=
+                    scene->shot_global_latch.raw_depth_038f_0390) {
+                return false;
+            }
+        }
         if (a9da_authorized) {
             if (!play_result.fetched || play_result.command.opcode != 13U ||
                 play_result.deferred || !play_result.advanced ||
                 play_result.next_offset != 0x0032U ||
                 !play_result.raw_target_valid ||
                 play_result.raw_target_x !=
-                    scene->shot_a9da_latch.raw_x_038d_038e ||
+                    scene->shot_global_latch.raw_x_038d_038e ||
                 play_result.raw_target_depth !=
-                    scene->shot_a9da_latch.raw_depth_038f_0390) {
+                    scene->shot_global_latch.raw_depth_038f_0390) {
                 return false;
             }
             a9da_consumed = true;

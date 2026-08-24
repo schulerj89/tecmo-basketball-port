@@ -54,14 +54,16 @@ representation with five producer kinds (`$A0F3`, `$A790`, `$A9DA`, `$B721`,
 `$B783`), atomic last-writer-wins updates, immutable snapshots, monotonic
 serial admission, full-reset-only clear, and explicit retention across periods
 and possessions. Construction is one-shot and accepts only byte-zero virgin
-storage, so it cannot bypass reset serial admission. The general ledger remains
-a provenance model, but production now owns one bounded event: on the ordinary
-nonlegacy shot's frame-89 landing path, `$A9DA` creates a virgin event-local
-latch and the chosen actor consumes the `$002D` opcode-13 record in that same
-descending 9-to-0 traversal. Other object/event schedulers, `$A214` gates,
-opcode 15, and exact `$0041` latest-writer timing remain unowned. Outside that
-event, the current ball and TGCA's one-frame opcode-20 capability are not
-substitutes, so opcode 13 still reports `missing-global-target`.
+storage, so it cannot bypass reset serial admission. Production now owns the
+ordinary nonlegacy MISS writer chain: `$A0F3` writes its solved launch target,
+`$A7A9->$A790` overwrites that with raw slot-10 X/depth, and frame-89 `$A9DA`
+overwrites it with the projected landing target. Successful `$A790` traces own
+`$BA&3==0`; eligible off-ball opcode-13 records consume the latest persistent
+value, and the `$A993` actor consumes `$002D` in that same descending 9-to-0
+traversal. `$A214` state gates, opcode 15, and exact `$0041` latest-writer
+timing remain unowned. Outside that shot chain, the current rendered ball and
+TGCA's one-frame opcode-20 capability are not substitutes, so opcode 13 still
+reports `missing-global-target`.
 
 The `$002D` opcode-13 record is source-linked to the anchored
 `$A9DA->$A993` family. TGA9-1 models only its typed target/assignment subset:
@@ -88,8 +90,9 @@ to `$049A/$04A5`, and the `$4010/$4012/$4013/$4015` presentation/audio tail are
 outside the helper. TGLS raw flight state is authoritative through rattle and
 TGVN normalization; rendered flight never seeds this calculation. The bounded
 frame-89 event commits `$A9DA`, applies its stream/state/action assignments, and
-authorizes only an ordinary-loop-eligible selected actor's immediate `$002D`
-consume. The later
+guarantees the selected ordinary actor's immediate `$002D` consume. Other
+eligible shot actors can consume the current `$A790/$A9DA` latch according to
+their own command stream. The later
 `$0041` record retains an explicit latest-writer/scheduling boundary. Other
 opcode-13 contexts remain `missing-global-target`; opcode 15 remains
 `missing-opcode15-raw-lifecycle`.

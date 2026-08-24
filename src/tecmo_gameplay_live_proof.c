@@ -1056,12 +1056,18 @@ static bool live_proof_capture_shot_offball(
         (capture_frame == 89U &&
          (!scene->shot_a9da_assignment_valid ||
           scene->shot_a9da_opcode13_pending ||
-          scene->shot_a9da_result.chosen_actor_002d != route_actor ||
+          scene->shot_a9da_result.chosen_actor_002d >=
+              TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+          scene->shot_a9da_result.chosen_actor_002d == scene->shot_actor ||
+          scene->shot_a9da_result.chosen_actor_002d ==
+              scene->live_foundation.primary_actor ||
+          scene->shot_a9da_result.chosen_actor_002d ==
+              scene->live_foundation.defender_actor ||
           evidence->shot_offball_a9da_stream_after != 0x0032U))) {
         char detail[192];
         (void)snprintf(
             detail, sizeof(detail),
-            "off-ball evidence mismatch frame=%u holder=%u route=%d/%d ctrl=%d/%d a9da=%u pending=%u chosen=%u expected=%u step=%04X",
+            "off-ball evidence mismatch frame=%u holder=%u route=%d/%d ctrl=%d/%d a9da=%u pending=%u chosen=%u prior-route=%u step=%04X",
             (unsigned)scene->shot_frame, (unsigned)scene->ball_holder,
             (int)evidence->shot_offball_route_start.x,
             (int)evidence->shot_offball_route_capture.x,

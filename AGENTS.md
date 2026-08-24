@@ -1599,18 +1599,24 @@ producers, not as per-frame scratch. TGGL-1 types the last-writer families
 `$A0F3`, `$A790`, `$A9DA`, `$B721`, and `$B783`, their monotonic provenance
 serial, full-reset clear, and period/possession retention. Its one-shot
 constructor accepts only byte-zero virgin storage; never call construction to
-clear or recover a tagged latch. That bounded representation is not a LIVE
-producer: `$A0DD` object scheduling, `$A790`
-events, `$A9DA` scheduling, `$A214` gates, opcode 15, and latest-writer timing
-at opcode-13 record `$0041` remain unowned. The production scene builder must
-leave `global_target_available` false and report `missing-global-target`;
-never substitute the current ball, an actor position, or a raw shadow byte.
+clear or recover a tagged latch. Ordinary nonlegacy MISS playback is a bounded
+LIVE producer chain: `$A0F3` writes its solved launch target, `$A7A9->$A790`
+overwrites it with current raw slot-10 X/depth and owns traced `$BA&3==0`, and
+`$A9DA` overwrites it with the projected landing target. After `$A790`, the
+shot off-ball traversal may expose this exact persistent latch to opcode 13;
+the `$A993` actor must still consume `$002D` in the same update. Outside this
+chain, leave `global_target_available` false and report
+`missing-global-target`; never substitute the rendered ball, an actor position,
+or a raw shadow byte. `$A0DD` scheduling beyond the bound launch/RNG edge,
+`$A214` state-specific gates, opcode 15, and latest-writer timing at record
+`$0041` remain unowned.
 Tests may bind an intentional typed fixture, which must still provide the
 separate `$BA` owner. TGCA's `$B721/$B783` same-frame opcode-20 capability is
 separate and cannot snapshot, persist, or authorize TGGL-1 for opcode 13.
 
-TGA9-1 is a pure `$A9DA` target plus `$AAB8/$A993` assignment subset, never a
-LIVE producer. Its inputs are normalized A9DA-time signed object-10 velocity,
+TGA9-1 is a pure `$A9DA` target plus `$AAB8/$A993` assignment subset. It is a
+LIVE producer only inside the admitted shot writer chain. Its inputs are
+normalized A9DA-time signed object-10 velocity,
 fixed multiplier `$002C`, raw ball X16/zero-extended depth8, actor raw X16 and
 court depth8, orientation, roles, fixed links, and current command planes.
 `$AAB8` never reads altitude. Scan 9 down to 0 excluding primary/defender;
@@ -1626,8 +1632,8 @@ write. Preserve `$0458` and the linked actor's `$046E`. The subset omits
 `$0478=$10`, `$B3DD->$049A/$04A5`, and `$4010/$4012/$4013/$4015` presentation/
 audio effects. Synthetic/frozen native rattle values cannot substitute for
 dynamic flight velocity, actor-motion freeze, embedded TGGL, or same-loop
-Bank06 traversal. Keep `missing-global-target`, `$0041` latest-writer, and
-`missing-opcode15-raw-lifecycle` boundaries intact.
+Bank06 traversal. Keep `missing-global-target` outside the shot chain, `$0041`
+latest-writer, and `missing-opcode15-raw-lifecycle` boundaries intact.
 
 TGVN-1 directly translates Bank05 `$A8E9-$A976` plus `$AA87-$AA9E` as a
 raw16 planar velocity transaction. Define arithmetic-right-one on
@@ -1642,10 +1648,10 @@ Bound non-legacy ordinary MISS owns scene planar velocity/accumulator state
 from TGLS, passes it through rattle save/restore, then normalizes it with TGVN.
 Never infer raw state from rendered lerps. Keep synthetic sentinels isolated to
 legacy/debug fixtures. Ordinary active shots run the no-possession controlled
-and descending 9-to-0 CPU actor phases; frame 89 alone binds A9DA's event-local
-latch to an ordinary-loop-eligible chosen actor's same-update `$002D`
-opcode-13 consume. Keep `$0041`
-and other global-target scheduling unbound.
+and descending 9-to-0 CPU actor phases. The shot chain binds `$A0F3`, `$A790`,
+and `$A9DA` as persistent serial-admitted writes; frame 89 still requires
+A9DA's chosen actor to consume `$002D` in the same update. Keep `$0041` and
+non-shot global-target scheduling unbound.
 
 TGLS-1 is the pure typed Bank05 `$A0F3-$A158` direct-launch solver. Keep raw
 `$0463` direction distinct from raw `$006A`; apply `$A15C` remap only when

@@ -536,6 +536,12 @@ typedef struct TecmoGameplayScene {
     uint16_t shot_a0f3_raw_x;
     uint8_t shot_a0f3_raw_depth;
     uint16_t shot_a0f3_tick_count;
+    /* Persistent raw `$038D-$0390` shot-lifecycle latch. `$A0F3` writes the
+       launch target, `$A7A9->$A790` overwrites it with slot-10 position, and
+       `$A9DA` overwrites it again with the projected landing target. */
+    bool shot_global_latch_initialized;
+    bool shot_global_ba_low2_known_zero;
+    TecmoGameplayCpuGlobalLatch shot_global_latch;
     bool shot_a8e9_normalized_valid;
     uint8_t shot_a8e9_raw_006a;
     TecmoGameplayCpuA8e9VelocityResult shot_a8e9_normalized;
