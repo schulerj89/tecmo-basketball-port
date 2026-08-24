@@ -293,9 +293,9 @@ try {
         $Opcode15Harness.mode -ne 'harness-only' -or
         (@($Opcode15Harness.canonical_records) -join ',') -ne '0037,004B' -or
         $Opcode15Harness.branches.gate_noop -ne 'gate-noop' -or
-        $Opcode15Harness.branches.primary_retry -ne 'deferred-primary-retry' -or
+        $Opcode15Harness.branches.primary_bit2_return -ne 'primary-bit2-return-9179' -or
         $Opcode15Harness.branches.primary_swap -ne 'deferred-primary-swap' -or
-        $Opcode15Harness.branches.mark_other -ne 'deferred-mark-other' -or
+        $Opcode15Harness.branches.qualified_bit3_return -ne 'qualified-bit3-return-9179' -or
         $Opcode15Harness.branches.selected_defender -ne 'defender-replaced' -or
         ![bool]$Opcode15Harness.selected_defender.committed -or
         (@($Opcode15Harness.selected_defender.raw_0308) -join ',') -ne '4,4' -or
@@ -407,6 +407,10 @@ try {
             $Map.opcode15_source_contract.lifted_source_discrepancy.authority -eq
                 'canonical Rev1 ROM' -and
             $Map.opcode15_source_contract.lifted_source_discrepancy.lifted_listing_omits -eq '$9208-$9211' -and
+            (@($Map.opcode15_source_contract.exact_no_advance_returns) -join '|') -eq
+                '$9185 D0 F2 -> $9179 RTS|$91C6 D0 B1 -> $9179 RTS' -and
+            (@($Map.opcode15_source_contract.classified_deferred) -join '|') -eq
+                '$9187 primary swap|missing raw owner|invalid $0463 direction' -and
             $Map.opcode15_source_contract.c711.selector -eq 4 -and
             [bool]$Map.opcode15_source_contract.c711.observed_unexecuted -and
             $Map.opcode15_source_contract.conditional_06d5.gate -eq

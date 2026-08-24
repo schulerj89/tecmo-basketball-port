@@ -1446,7 +1446,10 @@ named RAM owner is captured at that exact command point. In particular,
 `$91F1-$91F5` compares new X to `$06D5`; only equality reaches
 `$91F6-$91F8` and replaces `$06D5` with old Y, otherwise `$06D5` is preserved.
 The canonical Rev1 `$9208-$9216` tail sets new `$057C=07` and `$059E=X` before
-selector 4 reaches `$C711`; the selector is observed, not executed. LIVE keeps
+selector 4 reaches `$C711`; the selector is observed, not executed. Canonical
+raw `$9185 D0 F2` and `$91C6 D0 B1` both branch to `$9179 RTS`
+without command-stream advance or mutation. Never label the former an altitude
+retry or the latter an opcode-14 mark-other branch. LIVE keeps
 opcode 15 deferred because `$0499` and the related raw lifecycle owners are not
 faithfully retained. Do not add shadow mirrors or claim the deterministic
 harness is a natural FCEUX `$91C8` capture; that capture remains open research.

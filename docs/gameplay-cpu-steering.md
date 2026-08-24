@@ -270,8 +270,11 @@ sets the new defender's `$0479=81`, `$057C=07`, `$059E=X`, `$06D6=09`, and the
 side-indexed `$000E=X`. At `$91F1-$91F5`, the newly selected X is compared to
 `$06D5`; only the equality path falls through to `$91F6-$91F8` and stores the
 old defender Y into `$06D5`. A non-equal X preserves `$06D5`; `$06D6=09` is
-then unconditional. Gate-noop is exact below `$0499 < $46`; primary-retry,
-primary-swap, mark-other, invalid-direction, and missing-owner paths are
+then unconditional. Gate-noop is exact below `$0499 < $46`. Canonical raw
+branches `$9185 D0 F2` and `$91C6 D0 B1` both target `$9179 RTS`, so the
+typed harness classifies them as exact bit-2/bit-3 no-advance returns with no
+mutation; neither retries the altitude gate nor enters opcode 14's `$9146`
+mark-other loop. Primary-swap, invalid-direction, and missing-owner paths remain
 classified/deferred without mutation.
 
 LIVE intentionally still defers opcode 15. It has no faithful owner at the

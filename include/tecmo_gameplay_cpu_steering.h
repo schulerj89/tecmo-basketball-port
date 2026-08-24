@@ -488,9 +488,9 @@ typedef enum TecmoGameplayCpuSteeringOpcode15Branch {
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_NONE = 0,
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_GATE_NOOP,
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MISSING_RAW,
-    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_RETRY,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_PRIMARY_BIT2_RETURN,
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_SWAP,
-    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MARK_OTHER,
+    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_QUALIFIED_BIT3_RETURN,
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_INVALID_DIRECTION,
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFENDER_REPLACED
 } TecmoGameplayCpuSteeringOpcode15Branch;
@@ -596,6 +596,9 @@ typedef struct TecmoGameplayCpuSteeringOpcode15RawResult {
     uint8_t c711_y_actor;
     TecmoGameplayCpuSteeringOpcode15Branch branch;
     bool committed;
+    /* Exact only on source branches proven to reach `$9179 RTS` without the
+       command-stream advance helper. */
+    bool returned_9179_without_advance;
     /* The resolver captures the immediately preceding selector/X/Y state;
        it does not claim to execute or translate Bank07 $C711. */
     bool c711_selector_observed_unexecuted;
@@ -793,7 +796,7 @@ const char *tecmo_gameplay_cpu_steering_deferred_reason_name(
 
 /* Harness-only Bank06 $9172-$9216 source contract. This resolver never reads
    or writes LIVE scene state. It copies input to output transactionally,
-   classifies gate/primary/mark-other branches without inventing their missing
+   classifies gate/primary/qualified-return branches without inventing missing
    owners, and applies the exact selected-defender stores only when the raw
    snapshot explicitly observes every required field. */
 bool tecmo_gameplay_cpu_steering_opcode15_resolve_raw(

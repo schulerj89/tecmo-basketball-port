@@ -452,13 +452,21 @@ static const char *opcode15_contract_error(const uint8_t *payload)
                "\xA9\x23\x99\x47\x05\xA9\x00"
                "\x99\x51\x05\xA9\x04\x99\x7C\x05",
                30U) != 0) {
-        return "TGAI-3 opcode-15 mark-other anchor rejected";
+        return "TGAI-3 neighboring opcode-14 anchor rejected";
     }
     if (memcmp(handlers + (0x9172U - 0x8BE1U),
                "\xAD\x99\x04\xC9\x46\xB0\x01\x60"
                "\xBD\xB0\x04\x29\x10\xD0\x41",
                15U) != 0) {
         return "TGAI-3 opcode-15 gate anchor rejected";
+    }
+    if (memcmp(handlers + (0x9181U - 0x8BE1U),
+               "\xA5\x7E\x29\x04\xD0\xF2", 6U) != 0) {
+        return "TGAI-3 opcode-15 $9185->$9179 return rejected";
+    }
+    if (memcmp(handlers + (0x91C2U - 0x8BE1U),
+               "\xA5\x7E\x29\x08\xD0\xB1", 6U) != 0) {
+        return "TGAI-3 opcode-15 $91C6->$9179 return rejected";
     }
     if (memcmp(handlers + (0x91C8U - 0x8BE1U),
                "\xAC\x09\x03\x8E\x09\x03\xA9\x04"
@@ -916,12 +924,12 @@ const char *tecmo_gameplay_cpu_steering_opcode15_branch_name(
         return "gate-noop";
     case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MISSING_RAW:
         return "deferred-missing-raw";
-    case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_RETRY:
-        return "deferred-primary-retry";
+    case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_PRIMARY_BIT2_RETURN:
+        return "primary-bit2-return-9179";
     case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_SWAP:
         return "deferred-primary-swap";
-    case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MARK_OTHER:
-        return "deferred-mark-other";
+    case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_QUALIFIED_BIT3_RETURN:
+        return "qualified-bit3-return-9179";
     case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_INVALID_DIRECTION:
         return "deferred-invalid-direction";
     case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFENDER_REPLACED:
@@ -1692,6 +1700,7 @@ bool tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
     if (input->raw_0499_slot10 < 0x46U) {
         result.branch =
             TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_GATE_NOOP;
+        result.returned_9179_without_advance = true;
         *output = candidate;
         *result_out = result;
         return true;
@@ -1710,11 +1719,11 @@ bool tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
             result.branch =
                 TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MISSING_RAW;
         } else if ((input->raw_007e & 0x04U) != 0U) {
-            /* $9181-$9185 branches back to the raw $0499 gate. The bounded
-               harness records the retry rather than iterating or mutating
-               primary ownership. */
+            /* Canonical `$9185 D0 F2` targets `$9179 RTS`; it does not retry
+               the altitude gate and does not reach the stream advance. */
             result.branch =
-                TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_RETRY;
+                TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_PRIMARY_BIT2_RETURN;
+            result.returned_9179_without_advance = true;
         } else {
             result.branch =
                 TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_SWAP;
@@ -1732,10 +1741,11 @@ bool tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
         return true;
     }
     if ((input->raw_007e & 0x08U) != 0U) {
-        /* $91C2-$91C7 selects the $9146 mark-other path. Its full actor-loop
-           ownership and $8FD9/$9070 tails are intentionally not inferred. */
+        /* Canonical `$91C6 D0 B1` targets `$9179 RTS`; it does not branch to
+           opcode 14's `$9146` mark-other loop or advance the stream. */
         result.branch =
-            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MARK_OTHER;
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_QUALIFIED_BIT3_RETURN;
+        result.returned_9179_without_advance = true;
         *output = candidate;
         *result_out = result;
         return true;
@@ -3061,7 +3071,8 @@ static bool opcode15_raw_resolver_self_test(
             TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_RESULT_TAG ||
         result.branch !=
             TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_GATE_NOOP ||
-        result.committed || memcmp(&output, &before, sizeof(output)) != 0) {
+        result.committed || !result.returned_9179_without_advance ||
+        memcmp(&output, &before, sizeof(output)) != 0) {
         return false;
     }
 
@@ -3072,8 +3083,9 @@ static bool opcode15_raw_resolver_self_test(
     if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
             assets, &input, &output, &result) ||
         result.branch !=
-            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_RETRY ||
-        result.committed || memcmp(&output, &before, sizeof(output)) != 0) {
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_PRIMARY_BIT2_RETURN ||
+        result.committed || !result.returned_9179_without_advance ||
+        memcmp(&output, &before, sizeof(output)) != 0) {
         return false;
     }
     input.raw_007e = 0U;
@@ -3082,7 +3094,8 @@ static bool opcode15_raw_resolver_self_test(
             assets, &input, &output, &result) ||
         result.branch !=
             TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_SWAP ||
-        result.committed || memcmp(&output, &before, sizeof(output)) != 0) {
+        result.committed || result.returned_9179_without_advance ||
+        memcmp(&output, &before, sizeof(output)) != 0) {
         return false;
     }
     input.raw_04b0_actor_x = 0x10U;
@@ -3091,8 +3104,9 @@ static bool opcode15_raw_resolver_self_test(
     if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
             assets, &input, &output, &result) ||
         result.branch !=
-            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MARK_OTHER ||
-        result.committed || memcmp(&output, &before, sizeof(output)) != 0) {
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_QUALIFIED_BIT3_RETURN ||
+        result.committed || !result.returned_9179_without_advance ||
+        memcmp(&output, &before, sizeof(output)) != 0) {
         return false;
     }
 
@@ -3101,7 +3115,8 @@ static bool opcode15_raw_resolver_self_test(
             assets, &input, &output, &result) ||
         result.branch !=
             TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFENDER_REPLACED ||
-        !result.committed || result.raw_0308_before != 4U ||
+        !result.committed || result.returned_9179_without_advance ||
+        result.raw_0308_before != 4U ||
         result.raw_0308_after != 4U || result.raw_0309_before != 9U ||
         result.raw_0309_after != 6U || result.defender_stream_before != 0x1234U ||
         result.defender_stream_after != 0x005AU ||

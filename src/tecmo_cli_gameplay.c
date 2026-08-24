@@ -238,9 +238,9 @@ static int tecmo_cli_run_gameplay_cpu_steering_opcode15_harness(
     TecmoGameplayCpuSteeringOpcode15RawInput input;
     TecmoGameplayCpuSteeringOpcode15RawInput output;
     TecmoGameplayCpuSteeringOpcode15RawResult gate;
-    TecmoGameplayCpuSteeringOpcode15RawResult retry;
+    TecmoGameplayCpuSteeringOpcode15RawResult primary_return;
     TecmoGameplayCpuSteeringOpcode15RawResult primary_swap;
-    TecmoGameplayCpuSteeringOpcode15RawResult mark_other;
+    TecmoGameplayCpuSteeringOpcode15RawResult qualified_return;
     TecmoGameplayCpuSteeringOpcode15RawResult selected;
     const char *pack_path;
 
@@ -266,14 +266,14 @@ static int tecmo_cli_run_gameplay_cpu_steering_opcode15_harness(
     input.raw_04b0_actor_x = 0U;
     input.raw_007e = 0x04U;
     if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
-            &assets, &input, &output, &retry)) goto rejected;
+            &assets, &input, &output, &primary_return)) goto rejected;
     input.raw_007e = 0U;
     if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
             &assets, &input, &output, &primary_swap)) goto rejected;
     input.raw_04b0_actor_x = 0x10U;
     input.raw_007e = 0x08U;
     if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
-            &assets, &input, &output, &mark_other)) goto rejected;
+            &assets, &input, &output, &qualified_return)) goto rejected;
     tecmo_cli_opcode15_raw_fixture(&input);
     if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
             &assets, &input, &output, &selected)) goto rejected;
@@ -282,8 +282,8 @@ static int tecmo_cli_run_gameplay_cpu_steering_opcode15_harness(
            "\"mode\":\"harness-only\","
            "\"canonical_records\":[\"0037\",\"004B\"],"
            "\"branches\":{\"gate_noop\":\"%s\","
-           "\"primary_retry\":\"%s\",\"primary_swap\":\"%s\","
-           "\"mark_other\":\"%s\",\"selected_defender\":\"%s\"},"
+           "\"primary_bit2_return\":\"%s\",\"primary_swap\":\"%s\","
+           "\"qualified_bit3_return\":\"%s\",\"selected_defender\":\"%s\"},"
            "\"selected_defender\":{\"committed\":%s,"
            "\"raw_0308\":[%u,%u],\"raw_0309\":[%u,%u],"
            "\"old_defender_stream\":[%u,%u],"
@@ -293,9 +293,9 @@ static int tecmo_cli_run_gameplay_cpu_steering_opcode15_harness(
            "\"c711\":{\"selector\":%u,\"x\":%u,\"y\":%u,"
            "\"observed_unexecuted\":%s}}}\n",
            tecmo_gameplay_cpu_steering_opcode15_branch_name(gate.branch),
-           tecmo_gameplay_cpu_steering_opcode15_branch_name(retry.branch),
+           tecmo_gameplay_cpu_steering_opcode15_branch_name(primary_return.branch),
            tecmo_gameplay_cpu_steering_opcode15_branch_name(primary_swap.branch),
-           tecmo_gameplay_cpu_steering_opcode15_branch_name(mark_other.branch),
+           tecmo_gameplay_cpu_steering_opcode15_branch_name(qualified_return.branch),
            tecmo_gameplay_cpu_steering_opcode15_branch_name(selected.branch),
            selected.committed ? "true" : "false",
            (unsigned)selected.raw_0308_before,
