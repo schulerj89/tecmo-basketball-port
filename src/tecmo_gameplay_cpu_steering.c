@@ -3529,8 +3529,11 @@ static bool opcode15_parser_anchor_self_test(
     return valid;
 }
 
-static bool play_formation_graph_reaches_opcode12_record(
-    const TecmoGameplayCpuSteeringAssets *assets)
+static bool play_formation_graph_reaches_records(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    const uint16_t *target_offsets,
+    size_t target_count,
+    bool opcode15_holds_record)
 {
     bool visited[TECMO_GAMEPLAY_CPU_STEERING_COMMAND_COUNT] = {false};
     uint16_t queue[TECMO_GAMEPLAY_CPU_STEERING_COMMAND_COUNT];
@@ -3557,8 +3560,8 @@ static bool play_formation_graph_reaches_opcode12_record(
         uint16_t edges[3U];
         size_t edge_count = 0U;
         uint16_t offset = queue[head++];
-        if (offset == 0x0069U || offset == 0x006EU || offset == 0x0073U) {
-            return true;
+        for (size_t target = 0U; target < target_count; ++target) {
+            if (offset == target_offsets[target]) return true;
         }
         if (!tecmo_gameplay_cpu_steering_decode_command(
                 assets, offset, &command)) {
@@ -3567,7 +3570,7 @@ static bool play_formation_graph_reaches_opcode12_record(
         if (command.opcode == 1U) {
             edges[edge_count++] = (uint16_t)command.arguments[0U] |
                 ((uint16_t)command.arguments[1U] << 8U);
-        } else {
+        } else if (!(opcode15_holds_record && command.opcode == 15U)) {
             edges[edge_count++] = play_next_offset(offset, 5U);
             if (command.opcode == 7U) {
                 edges[edge_count++] = play_next_offset(
@@ -3595,6 +3598,24 @@ static bool play_formation_graph_reaches_opcode12_record(
         }
     }
     return false;
+}
+
+static bool play_formation_graph_reaches_opcode12_record(
+    const TecmoGameplayCpuSteeringAssets *assets)
+{
+    static const uint16_t targets[3U] = {0x0069U, 0x006EU, 0x0073U};
+    return play_formation_graph_reaches_records(
+        assets, targets, 3U, false);
+}
+
+static bool play_formation_graph_reaches_opcode13_record_0041(
+    const TecmoGameplayCpuSteeringAssets *assets)
+{
+    static const uint16_t target = 0x0041U;
+    /* `$9172` returns without advancing for both successful replacement and
+       no-op/gate outcomes. Therefore `$0037->$003C` is not a legal edge. */
+    return play_formation_graph_reaches_records(
+        assets, &target, 1U, true);
 }
 
 bool tecmo_gameplay_cpu_steering_self_test(
@@ -5616,6 +5637,33 @@ bool tecmo_gameplay_cpu_steering_self_test(
                        (unsigned int)command.opcode);
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
+    }
+    /* `$0041` is decodable but not production-reachable from the imported
+       formation scheduler. Exhaustive source-pinned starts contain no direct
+       seed, and the over-approximating command graph still cannot reach it
+       once opcode 15's exact no-advance return removes `$0037->$003C`. */
+    {
+        size_t count_0041 = 0U;
+        for (size_t formation = 0U;
+             formation < assets.formation_source_pinned_count; ++formation) {
+            for (size_t formation_actor = 0U;
+                 formation_actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT;
+                 ++formation_actor) {
+                if (assets.formation_stream_offsets[formation]
+                        [formation_actor] == 0x0041U) {
+                    ++count_0041;
+                }
+            }
+        }
+        if (count_0041 != 0U ||
+            play_formation_graph_reaches_opcode13_record_0041(&assets)) {
+            (void)snprintf(message, message_size,
+                           "TGAI-3 opcode-13 $0041 bounded "
+                           "nonreachability changed (%u).",
+                           (unsigned int)count_0041);
+            tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+            return false;
+        }
     }
 
     /* Missing latch input fails before the later BA gate and cannot mutate

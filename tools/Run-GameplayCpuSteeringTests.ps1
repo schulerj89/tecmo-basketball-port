@@ -462,10 +462,10 @@ try {
             $Map.opcode13_global_latch_contract.record_002d -match
                 '\$A9DA->\$A993.*frame-89.*same-update traversal' -and
             $Map.opcode13_global_latch_contract.record_0041 -match
-                'latest-writer.*unbound' -and
+                'bounded unreachable.*zero direct seeds.*46 pinned formations.*opcode15 exact no-advance' -and
             $Map.opcode13_global_latch_contract.tgca_separation -match
                 'cannot authorize opcode13' -and
-            @($Map.opcode13_global_latch_contract.missing_live_owners).Count -eq 4 -and
+            @($Map.opcode13_global_latch_contract.missing_live_owners).Count -eq 2 -and
             $Map.opcode13_global_latch_contract.a9da_assignment.scope -eq
                 'pure transactional helper bound to the frame-89 ordinary shot landing event' -and
             @($Map.opcode13_global_latch_contract.a9da_assignment.anchors).Count -eq 5 -and
@@ -477,7 +477,7 @@ try {
                 '\$046E=0.*\$0458.*preserved.*\$0587=3' -and
             @($Map.opcode13_global_latch_contract.a9da_assignment.omitted_a9da_effects).Count -eq 3 -and
             $Map.opcode13_global_latch_contract.a9da_assignment.production_boundary -match
-                'authoritative TGLS.*persistent A0F3.*A790.*A8E9/A9DA.*same update.*\$0041 remains unbound' -and
+                'authoritative TGLS.*persistent A0F3.*A790.*A8E9/A9DA.*reachable ordinary shot off-ball.*same update' -and
             $Map.opcode13_global_latch_contract.a8e9_velocity_normalizer.scope -match
                 'bounded TGLS-to-rattle LIVE input owner' -and
             @($Map.opcode13_global_latch_contract.a8e9_velocity_normalizer.anchors).Count -eq 2 -and
@@ -496,7 +496,7 @@ try {
             $Map.opcode13_global_latch_contract.fixed_rng_live_checkpoint.parity_boundary -match
                 'call ledger remains noncanonical.*bounded native stream' -and
             $Map.opcode15_source_contract.scope -eq
-                'harness-only; LIVE opcode 15 remains deferred' -and
+                'exact harness plus bounded shot/off-ball LIVE opcode 15 lifecycle' -and
             $Map.opcode15_source_contract.dispatch.bank -eq 6 -and
             $Map.opcode15_source_contract.dispatch.address -eq '$8B90-$8BE0' -and
             $Map.opcode15_source_contract.dispatch.handler -eq '$9172' -and
@@ -543,9 +543,9 @@ try {
             $Map.opcode15_source_contract.conditional_06d5.'otherwise' -eq
                 'preserve $06D5' -and
             $Map.opcode15_source_contract.live_missing_raw_reason -match
-                'deferred_missing_raw_0499' -and
+                'generic play-step callers.*shot scheduler defer' -and
             $Map.opcode15_source_contract.natural_fceux_capture -match
-                'synthetic.*not a natural \$91C8 capture' -and
+                'shot-scoped opcode15.*slot-10-height.*both replacement branches' -and
             (@($Map.opcode15_source_contract.required_memory_watch) -join '|') -match
                 '\$0499 slot 10.*\$059E' -and
             $Map.native_contract.actor_slots -eq 10 -and

@@ -1167,7 +1167,7 @@ try {
         throw "Production TGAI-3 LIVE adapter provenance is incomplete."
     }
     if ($null -eq $Opcode15Contract -or
-        $Opcode15Contract.scope -ne "harness-only; LIVE opcode 15 remains deferred" -or
+        $Opcode15Contract.scope -ne "exact harness plus bounded shot/off-ball LIVE opcode 15 lifecycle" -or
         $Opcode15Contract.dispatch.bank -ne 6 -or
         $Opcode15Contract.dispatch.address -ne '$8B90-$8BE0' -or
         $Opcode15Contract.dispatch.handler -ne '$9172' -or
@@ -1190,9 +1190,10 @@ try {
         $Opcode15Contract.conditional_06d5.'when' -ne 'new X == $06D5' -or
         $Opcode15Contract.conditional_06d5.'then' -ne '$06D5=old Y' -or
         $Opcode15Contract.conditional_06d5.'otherwise' -ne 'preserve $06D5' -or
-        $Opcode15Contract.live_missing_raw_reason -notmatch 'deferred_missing_raw_0499' -or
+        $Opcode15Contract.live_missing_raw_reason -notmatch
+            'generic play-step callers.*shot scheduler defer' -or
         $Opcode15Contract.natural_fceux_capture -notmatch
-            'synthetic.*not a natural \$91C8 capture') {
+            'shot-scoped opcode15.*slot-10-height.*both replacement branches') {
         throw "TGAI-3 opcode-15 raw-owner provenance is incomplete."
     }
     if ($BallDribbleMaps.Count -ne 1 -or
@@ -1892,7 +1893,7 @@ try {
             force_possession = "deterministic test fixture; not original or normal-policy evidence"
             source_offset_injection = "deterministic test fixture; not original or normal-policy evidence"
             close_position_injection = "deterministic test fixture; not original or normal-policy evidence"
-            actor_command_assignment = "ordinary pretip-to-LIVE observation remains a missing-input diagnostic; shot-offball frames 33/65/89 separately prove the production A0DD-countdown/state17/A214/B775/B783/A023 path"
+            actor_command_assignment = "ordinary pretip-to-LIVE observation remains a missing-input diagnostic; shot-offball frames 33/65/89 separately prove the production slot10-height/state17/A214/B775/B783/A023 path"
             lineup_binding = "bound production-style scene launch; game.c bridge separately proven by flow tests"
             cpu_auto_pass_stream = "selected primary reset to state4/wait0/action0 with cursor parked at `$017C and all other actors suspended at state6/waitFF; execution/presentation isolation only, not production play selection; object-slot-10 `$13 is inferred from separate canonical executor/state-flow tests and is not scene-observed"
         }

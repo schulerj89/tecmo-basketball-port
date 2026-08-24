@@ -60,10 +60,12 @@ ordinary nonlegacy MISS writer chain: `$A0F3` writes its solved launch target,
 overwrites it with the projected landing target. Successful `$A790` traces own
 `$BA&3==0`; eligible off-ball opcode-13 records consume the latest persistent
 value, and the `$A993` actor consumes `$002D` in that same descending 9-to-0
-traversal. The same shot lifecycle now binds `$A0DD` remaining ticks `<4` and
+traversal. The same shot lifecycle now binds object-slot-10 vertical height
+`<4` and
 the selected-rattle bit to exact `$A214->$B775->$B783->$A023`; its masked
 opcode-20 consumer is available for that update only. Other `$A214` state
-gates, opcode 15, and exact `$0041` latest-writer timing remain unowned.
+gates remain unowned. Shot/off-ball production also owns opcode 15's exact
+height, automatic-side, role, formation, and retained-`$059E` inputs.
 Outside that shot chain, the current rendered ball and TGCA's one-frame
 opcode-20 capability are not substitutes, so opcode 13 still reports
 `missing-global-target`.
@@ -94,11 +96,13 @@ outside the helper. TGLS raw flight state is authoritative through rattle and
 TGVN normalization; rendered flight never seeds this calculation. The bounded
 frame-89 event commits `$A9DA`, applies its stream/state/action assignments, and
 guarantees the selected ordinary actor's immediate `$002D` consume. Other
-eligible shot actors can consume the current `$A790/$A9DA` latch according to
-their own command stream. The later
-`$0041` record retains an explicit latest-writer/scheduling boundary. Other
-opcode-13 contexts remain `missing-global-target`; opcode 15 remains
-`missing-opcode15-raw-lifecycle`.
+eligible shot actors consume the current `$A790/$A9DA` latch according to
+their own reachable command stream. `$0041` is now closed as bounded
+unreachable: none of all 46 pinned formation rows seeds it, and an
+over-approximating command graph cannot reach it after applying opcode 15's
+exact no-advance return. Other opcode-13 contexts remain
+`missing-global-target`; opcode 15 defers only for generic callers outside its
+bounded shot scheduler.
 Exact importer anchors cover `$A8E9-$A9D9`, `$A9DA-$AA44`, `$AAB8-$AB35`,
 `$BDEF-$BDF4`, `$A993-$A9C4`, the other TGGL writers, Bank06 consumer, and
 fixed reset/page clear, with independent mutation rejection for every span.
