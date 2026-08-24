@@ -117,6 +117,7 @@ $Sources = @(
     "src\tecmo_gameplay_live_foundation.c",
     "src\tecmo_gameplay_candidate_selection.c",
     "src\tecmo_gameplay_defense_contact.c",
+    "src\tecmo_gameplay_defense_interaction.c",
     "src\tecmo_gameplay_live_proof.c",
     "src\tecmo_gameplay_cpu_possession_proof.c",
     "src\tecmo_gameplay_hud.c",

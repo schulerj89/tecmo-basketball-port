@@ -5,6 +5,7 @@
 #include "tecmo_gameplay_cpu_a9da_assignment.h"
 #include "tecmo_gameplay_cpu_a0f3_launch.h"
 #include "tecmo_gameplay_fixed_rng.h"
+#include "tecmo_gameplay_defense_interaction.h"
 #include "tecmo_gameplay_cpu_a8e9_velocity.h"
 #include "tecmo_gameplay_cpu_opcode15_selection.h"
 
@@ -3624,6 +3625,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     size_t message_size)
 {
     char fixed_rng_message[192];
+    char defense_interaction_message[192];
     TecmoGameplayCpuSteeringAssets assets;
     TecmoGameplayCpuSteeringCommand command;
     TecmoGameplayCpuSteeringCommand before;
@@ -6474,6 +6476,15 @@ bool tecmo_gameplay_cpu_steering_self_test(
         (void)snprintf(message, message_size,
                        "TGAI-3 fixed RNG failed: %.160s",
                        fixed_rng_message);
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    if (!tecmo_gameplay_defense_interaction_self_test(
+            defense_interaction_message,
+            sizeof(defense_interaction_message))) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 defense interaction failed: %.150s",
+                       defense_interaction_message);
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
