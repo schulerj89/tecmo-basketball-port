@@ -3099,6 +3099,7 @@ static bool scene_test_live_foundation_regressions(
     TecmoGameplayCpuSteeringCommand command;
     TecmoGameplayCpuSteeringShotInput shot_input;
     TecmoGameplayCpuSteeringShotResult shot_result;
+    TecmoGameplaySceneOpcode10FrameContext shot_frame_context;
     TecmoGameplayCpuSteeringMovementInput movement_input;
     TecmoGameplayCpuSteeringMovementResult movement_result;
     TecmoGameplayCourtCoordinate positions[10];
@@ -3135,6 +3136,14 @@ static bool scene_test_live_foundation_regressions(
         p2_input == NULL) {
         LIVE_FAIL("LIVE regression context missing");
     }
+    memset(&shot_frame_context, 0, sizeof(shot_frame_context));
+    shot_frame_context.contract_tag =
+        TECMO_GAMEPLAY_SCENE_OPCODE10_FRAME_CONTEXT_TAG;
+    shot_frame_context.available = true;
+    shot_frame_context.sample_6a = 1U;
+    shot_frame_context.timer_0798 = 1U;
+    shot_frame_context.rate_index_075f = 0U;
+    shot_frame_context.timer_bias_0760 = 0U;
     legacy_launch = *launch_input;
     legacy_p1 = *p1_input;
     legacy_p2 = *p2_input;
@@ -7953,6 +7962,10 @@ static bool scene_test_live_foundation_regressions(
     if (!tecmo_gameplay_scene_launch(scene, &cpu_only)) {
         LIVE_FAIL("LIVE unsupported-shot fixture launch rejected");
     }
+    if (!tecmo_gameplay_scene_bind_opcode10_frame_context(
+            scene, &shot_frame_context)) {
+        LIVE_FAIL("LIVE unsupported-shot fixed-frame bind rejected");
+    }
     scene->actors[0U].position.x =
         scene->orientation_state.offensive_hoop.x;
     scene->actors[0U].position.y = TECMO_GAMEPLAY_COURT_WORLD_MAX_Y;
@@ -7982,13 +7995,31 @@ static bool scene_test_live_foundation_regressions(
        existing shots.c action serial remains untouched. */
     for (size_t far_case = 0U; far_case < TECMO_GAMEPLAY_TEAM_COUNT;
          ++far_case) {
-        uint8_t far_holder = far_case == TECMO_GAMEPLAY_TEAM_AWAY ? 0U : 5U;
+        uint8_t far_holder = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
         uint32_t action_before;
         TecmoGameplayTeam far_team = (TecmoGameplayTeam)far_case;
         tecmo_gameplay_scene_test_set_skip_pretip(true);
-        if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
+        if (!tecmo_gameplay_scene_launch(scene, &cpu_only)) {
+            LIVE_FAIL(far_case == TECMO_GAMEPLAY_TEAM_AWAY
+                          ? "LIVE away far-shot launch setup rejected"
+                          : "LIVE home far-shot launch setup rejected");
+        }
+        for (actor = far_case == TECMO_GAMEPLAY_TEAM_AWAY ? 0U : 5U;
+             actor < (far_case == TECMO_GAMEPLAY_TEAM_AWAY ? 5U : 10U);
+             ++actor) {
+            player = scene_actor_player(scene, &scene->actors[actor]);
+            if (player != NULL &&
+                (uint8_t)(player->profile[4U] >> 5U) >=
+                    shot_frame_context.sample_6a) {
+                far_holder = (uint8_t)actor;
+                break;
+            }
+        }
+        if (far_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
             !scene_handoff_possession(scene, far_team, far_holder) ||
-            !scene_sync_live_foundation(scene)) {
+            !scene_sync_live_foundation(scene) ||
+            !tecmo_gameplay_scene_bind_opcode10_frame_context(
+                scene, &shot_frame_context)) {
             LIVE_FAIL(far_case == TECMO_GAMEPLAY_TEAM_AWAY
                           ? "LIVE away far-shot setup rejected"
                           : "LIVE home far-shot setup rejected");
@@ -8039,8 +8070,9 @@ static bool scene_test_live_foundation_regressions(
     /* A separate close-range CPU fixture proves the positive scene adapter:
        the deterministic TGAI predicate requests once, the existing shots.c
        playback accepts it once, and a repeat while the shot is active cannot
-       create a second action. The caller workspaces remain native
-       approximations; the playback/classification seam itself is tested. */
+       create a second action. The bound fixed-frame gate inputs are exact;
+       `$8545` target geometry remains the native approximation, while the
+       playback/classification seam itself is tested. */
     {
         TecmoGameplaySceneLaunch close_shot_launch = bound;
         TecmoControlFrame repeat_p1;
@@ -8057,7 +8089,9 @@ static bool scene_test_live_foundation_regressions(
         if (!tecmo_gameplay_scene_launch(scene, &close_shot_launch) ||
             !scene_handoff_possession(
                 scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
-            !scene_sync_live_foundation(scene)) {
+            !scene_sync_live_foundation(scene) ||
+            !tecmo_gameplay_scene_bind_opcode10_frame_context(
+                scene, &shot_frame_context)) {
             LIVE_FAIL("LIVE supported close-shot setup rejected");
         }
         close_position.x = (int16_t)(
@@ -8138,6 +8172,10 @@ static bool scene_test_live_foundation_regressions(
         memset(&sustained_p1, 0, sizeof(sustained_p1));
         memset(&sustained_p2, 0, sizeof(sustained_p2));
         for (update = 0U; update < 120U; ++update) {
+            if (!tecmo_gameplay_scene_bind_opcode10_frame_context(
+                    scene, &shot_frame_context)) {
+                LIVE_FAIL("LIVE sustained fixed-frame bind rejected");
+            }
             action_before = scene->action_serial;
             if (!tecmo_gameplay_scene_update(
                     scene, &sustained_p1, &sustained_p2)) {

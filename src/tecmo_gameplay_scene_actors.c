@@ -3300,6 +3300,7 @@ static bool scene_cpu_shot_input(
     const TecmoTeamDataPlayer *player,
     TecmoGameplayCpuSteeringShotInput *input)
 {
+    const TecmoGameplaySceneOpcode10FrameContext *context;
     int32_t delta;
     if (scene == NULL || holder == NULL || player == NULL || input == NULL ||
         scene->orientation_state.offensive_hoop.x <
@@ -3308,13 +3309,21 @@ static bool scene_cpu_shot_input(
             TECMO_GAMEPLAY_COURT_WORLD_MAX_X) {
         return false;
     }
+    context = &scene->opcode10_frame_context;
+    if (context->contract_tag !=
+            TECMO_GAMEPLAY_SCENE_OPCODE10_FRAME_CONTEXT_TAG ||
+        !context->available || context->sample_6a == 0U ||
+        context->rate_index_075f >=
+            TECMO_GAMEPLAY_CPU_STEERING_DIFFICULTY_COUNT) {
+        return false;
+    }
     memset(input, 0, sizeof(*input));
     input->contract_tag = TECMO_GAMEPLAY_CPU_STEERING_SHOT_INPUT_TAG;
-    /* State/gate zero is the supported neutral live-action mapping. The
-       target delta is the exact scene holder-to-TGOR offensive hoop delta;
-       timer_0798=1, timer_0760=shot clock, and random_byte=0 are deterministic
-       native approximations because their original caller workspace is not
-       proven. Bank02 $A8CC-$A8D0 proves that TTDT profile[4] supplies $0533. */
+    /* State/gate zero is the supported ordinary live-action mapping. The
+       target delta remains the bounded holder-to-TGOR adapter. Fixed-frame
+       capture supplies the exact pre-movement `$0798`, `$075F`, `$0760`, and
+       `$006A` values consumed at `$8450-$8473`; Bank02 `$A8CC-$A8D0` proves
+       that TTDT profile[4] supplies `$0533`. */
     input->state_0588 = 0U;
     input->flags_ba = 0U;
     delta = (int32_t)scene->orientation_state.offensive_hoop.x -
@@ -3324,11 +3333,11 @@ static bool scene_cpu_shot_input(
     input->target_delta_low = (uint8_t)delta;
     input->target_delta_high = (uint8_t)((uint32_t)delta >> 8U);
     input->gate_0478 = 0U;
-    input->timer_0798 = 1U;
-    input->difficulty = scene->launch.difficulty;
-    input->timer_0760 = scene->state.shot_clock;
+    input->timer_0798 = context->timer_0798;
+    input->difficulty = context->rate_index_075f;
+    input->timer_0760 = context->timer_bias_0760;
     input->rating_0533 = player->profile[4];
-    input->random_byte = 0U;
+    input->random_byte = context->sample_6a;
     return true;
 }
 
@@ -4205,6 +4214,7 @@ bool scene_update_ai(
     if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
         !scene_team_has_controller(scene, scene->state.possession) &&
         !candidate_foundation.score_restart_selection_active &&
+        candidate_opcode10_context.available &&
         !candidate_actors[scene->ball_holder].movement_boundary_latched) {
         TecmoGameplaySceneActor *holder =
             &candidate_actors[scene->ball_holder];

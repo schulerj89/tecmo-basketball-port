@@ -2246,7 +2246,7 @@ static int append_gameplay_movement_source_map_entry(
         "\"boundary_latch_reset_and_settlement\":\"offensive primary latch consumes TPNL selector 1, clears the latch, and restarts with the other team; other violation detection remains unported\","
         "\"pose_half_selection\":\"exact $8F02 signed comparison against the explicit linked actor\","
         "\"matchup_link\":\"Bank04 fixed-link seed values are exact startup evidence; native LIVE attachment uses scene-owned fixed links while dynamic matchup remains inferred and separate\","
-        "\"cpu_target_and_shot_policy\":\"accepted TGAI target/direction lifecycle is live-wired; deferred or unproven targets produce no movement, and shot requests are native approximation with explicit deferred/non-launch playback\"},"
+        "\"cpu_target_and_shot_policy\":\"exact fixed-frame $842E gate; $8545 target geometry remains native approximation; unsupported playback is deferred\"},"
         "\"developer_harness\":{\"deterministic\":true,"
         "\"normal_game_flow_exposed\":false},"
         "\"runtime_inputs\":\"TGMO-1 plus same-pack TGPL-1, TGCP-2, and TTDT-1; no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
@@ -2691,7 +2691,7 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "\"fixed_opposing_link_use\":\"exact Bank04 fixed links; native matchup is inferred metadata and is not claimed as ROM dynamic assignment\","
         "\"classifications\":{\"formation_source_pinned\":true,\"native_matchup_inferred\":true,"
         "\"workspace_native_approximation\":true,\"shot_request_native_approximation\":true},"
-        "\"shot_request_adapter\":\"accepted deterministic predicate with native random/workspace approximation; unsupported shots.c playback is explicit deferred/non-launch\","
+        "\"shot_request_adapter\":\"exact $842E fixed-frame inputs; native $8545 target approximation; unsupported playback deferred/non-launch\","
         "\"serial_contract\":\"adapter observation counters wrap modulo 2^32; accepted CPU step_serial wraps modulo 2^16\"},"
         "\"runtime_inputs\":\"TGAI-3 plus same-pack TGMO-1 and TGRB-1; LIVE routes use typed profile/condition/clock owners, with no ROM, decompilation, ASM, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}");
 }
