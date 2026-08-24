@@ -111,14 +111,16 @@ cover `$A8E9-$A976` (FNV `815E6881`) and `$AA87-$AA9E` (FNV `6D37E9A0`).
 
 TGLS-1 now owns the pure direct-launch arithmetic immediately upstream. It
 pins `$A0F3-$A158`, `$B32C-$B390`, `$BCF4-$BD68`, `$80A9-$815A`, direction
-tables `$A15C-$A183`, and sanitized lift LUT `$BDF7-$BEF6`. Inputs are raw ball
-base X/depth, current object-10 X/depth, pre-remap `$0463`, and independent
+tables `$A15C-$A183`, and sanitized lift LUT `$BDF7-$BEF6`. At object index
+`X=$0A`, base `$7D/$F2/$FD` aliases object coordinate `$73+X/$E8+X/$F3+X`.
+The API therefore accepts one raw X/depth coordinate, pre-remap `$0463`, and independent
 `$006A`. Duration uses `BDF7[current_depth]`, the exact horizontal-distance
 branch and `$003C` cap. Division is signed `(delta*64)/duration`, truncating
 toward zero into the full raw16 quotient and restoring sign with wrap. Only
 divisor zero uses the `0000/7FFF/8001` sentinel path, followed by the source's
 wrapping double. The resulting raw16 velocities and Q6 accumulators are
-helper-only; `$BD6E-$BDC6` pins integrate-then-publish order. The explicit
+helper-only; `$B522-$B52D` pins zero-gate, integrate/publish call, and decrement,
+while `$BD6E-$BDC6` pins integrate-then-publish arithmetic. The explicit
 `$006A` is the second `$C05D` result after `$9FA1->$A0DD`; no scene scheduler,
 launch-policy, RNG owner, or LIVE A9DA binding is implied.
 

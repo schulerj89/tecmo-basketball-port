@@ -402,7 +402,8 @@ try {
         @{ label="Bank05 80A9-815A signed divider"; bank=5; fixed=$false; start=0x80A9; size=0xB2; hash="F5998EDB" },
         @{ label="Bank05 A15C-A183 direction tables"; bank=5; fixed=$false; start=0xA15C; size=0x28; hash="56696FEF" },
         @{ label="Bank05 BDF7-BEF6 lift LUT"; bank=5; fixed=$false; start=0xBDF7; size=0x100; hash="93FCF6CB" },
-        @{ label="Bank05 BD6E-BDC6 Q6 tick/publish"; bank=5; fixed=$false; start=0xBD6E; size=0x59; hash="3F4FB637" }
+        @{ label="Bank05 BD6E-BDC6 Q6 tick/publish"; bank=5; fixed=$false; start=0xBD6E; size=0x59; hash="3F4FB637" },
+        @{ label="Bank05 B522-B52D tick gate/decrement"; bank=5; fixed=$false; start=0xB522; size=0x0C; hash="EF77B509" }
     )
     # The first entry below is a separately copied raw helper. The remaining
     # handler/tail anchors overlap the retained command-handler source span;
@@ -477,7 +478,7 @@ try {
                 '035A 0.*nonnegative.*1.*negative' -and
             $Map.opcode13_global_latch_contract.a0f3_launch_solver.scope -eq
                 'pure typed direct-launch helper only; no LIVE binding' -and
-            @($Map.opcode13_global_latch_contract.a0f3_launch_solver.anchors).Count -eq 7 -and
+            @($Map.opcode13_global_latch_contract.a0f3_launch_solver.anchors).Count -eq 8 -and
             $Map.opcode13_global_latch_contract.a0f3_launch_solver.direction -match
                 'raw \$0463.*\$006A.*remap.*separate' -and
             $Map.opcode13_global_latch_contract.a0f3_launch_solver.asset_dependency -match
@@ -1220,7 +1221,7 @@ try {
         "source spans plus eight lifecycle anchor/table spans, nine exact " +
         "regulation-entry spans, five auto-pass spans, and twelve opcode-15 " +
         "source/semantic-anchor spans, eight global-latch producer/reset/" +
-        "consumer anchors, five A9DA/AAB8/A993 spans, two A8E9 velocity spans, seven A0F3 launch spans, 680 aligned " +
+        "consumer anchors, five A9DA/AAB8/A993 spans, two A8E9 velocity spans, eight A0F3 launch spans, 680 aligned " +
         "commands, 24 handlers, eight exact " +
         "direction codes, deterministic ten-coordinate/context harness, " +
         "transactional TGMO direction/movement composition, " +

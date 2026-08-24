@@ -18,10 +18,10 @@ typedef struct TecmoGameplayCpuA0f3Assets {
 
 typedef struct TecmoGameplayCpuA0f3Input {
     uint32_t contract_tag;
-    uint16_t ball_base_x_f2_7d;
-    uint8_t ball_base_depth_fd;
-    uint16_t object10_x_e8_73;
-    uint8_t object10_depth_f3;
+    /* At X=$0A these are simultaneously `$7D/$F2/$FD` and
+     * `$73+X/$E8+X/$F3+X`; the source has one coordinate, not two. */
+    uint16_t raw_x_7d_f2;
+    uint8_t raw_depth_fd;
     uint8_t raw_direction;
     uint8_t raw_006a;
 } TecmoGameplayCpuA0f3Input;
@@ -71,8 +71,9 @@ bool tecmo_gameplay_cpu_a0f3_assets_load(
 uint16_t tecmo_gameplay_cpu_a0f3_divide_q6(int32_t numerator_q6,
                                            uint16_t divisor);
 
-/* Pure `$A0F3/$B32C/$BCF4` launch transaction. Rejected calls preserve the
- * destination byte-for-byte; raw direction is intentionally not a scene enum. */
+/* Pure `$A0F3/$B32C/$BCF4` launch transaction. The single input coordinate
+ * encodes the object-10/base RAM alias. Rejected calls preserve the destination
+ * byte-for-byte; raw direction is intentionally not a scene enum. */
 bool tecmo_gameplay_cpu_a0f3_solve(
     const TecmoGameplayCpuA0f3Assets *assets,
     const TecmoGameplayCpuA0f3Input *input,

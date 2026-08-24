@@ -114,16 +114,16 @@ bool tecmo_gameplay_cpu_a0f3_solve(
         result.direction_remapped = true;
     }
     result.resolved_direction = direction;
-    result.target_x_95_94 = (uint16_t)(input->ball_base_x_f2_7d +
+    result.target_x_95_94 = (uint16_t)(input->raw_x_7d_f2 +
                                                 x_offset[direction]);
-    result.target_depth_97_96 = (uint16_t)(input->ball_base_depth_fd +
+    result.target_depth_97_96 = (uint16_t)(input->raw_depth_fd +
                                             depth_offset[direction]);
     result.delta_x_raw = (uint16_t)(result.target_x_95_94 -
-                                    input->object10_x_e8_73);
+                                    input->raw_x_7d_f2);
     result.delta_depth_raw = (uint16_t)(result.target_depth_97_96 -
-                                        input->object10_depth_f3);
+                                        input->raw_depth_fd);
     result.abs_delta_x = raw_abs(result.delta_x_raw);
-    result.lift_bdf7 = assets->lift_by_depth[input->object10_depth_f3];
+    result.lift_bdf7 = assets->lift_by_depth[input->raw_depth_fd];
     if ((result.abs_delta_x & 0xFF00U) == 0U &&
         (uint8_t)result.abs_delta_x < 0x20U) {
         duration = result.lift_bdf7;
@@ -142,9 +142,9 @@ bool tecmo_gameplay_cpu_a0f3_solve(
     result.velocity_depth_q6 = (uint16_t)(
         tecmo_gameplay_cpu_a0f3_divide_q6(
             (int32_t)(int16_t)result.delta_depth_raw * 64, duration) << 1U);
-    result.accumulator_x_q6 = (uint16_t)(input->object10_x_e8_73 << 6U);
+    result.accumulator_x_q6 = (uint16_t)(input->raw_x_7d_f2 << 6U);
     result.accumulator_depth_q6 = (uint16_t)(
-        (uint16_t)input->object10_depth_f3 << 6U);
+        (uint16_t)input->raw_depth_fd << 6U);
     *result_out = result;
     return true;
 }
@@ -203,10 +203,8 @@ static bool fixture(const TecmoGameplayCpuA0f3Assets *assets,
     TecmoGameplayCpuA0f3Result result;
     memset(&input, 0, sizeof(input));
     input.contract_tag = TECMO_GAMEPLAY_CPU_A0F3_INPUT_TAG;
-    input.ball_base_x_f2_7d = 0x00A0U;
-    input.ball_base_depth_fd = 0x8FU;
-    input.object10_x_e8_73 = 0x00A0U;
-    input.object10_depth_f3 = 0x8FU;
+    input.raw_x_7d_f2 = 0x00A0U;
+    input.raw_depth_fd = 0x8FU;
     input.raw_direction = direction;
     input.raw_006a = raw_6a;
     return tecmo_gameplay_cpu_a0f3_solve(assets, &input, &result) &&
@@ -225,6 +223,7 @@ bool tecmo_gameplay_cpu_a0f3_launch_self_test(const char *asset_pack_path,
     TecmoGameplayCpuA0f3Assets assets;
     TecmoGameplayCpuA0f3Assets assets_before;
     TecmoGameplayCpuA0f3Input input;
+    TecmoGameplayCpuA0f3Input input_before;
     TecmoGameplayCpuA0f3Result result;
     TecmoGameplayCpuA0f3Result result_before;
     TecmoGameplayCpuA0f3Motion motion;
@@ -251,10 +250,8 @@ bool tecmo_gameplay_cpu_a0f3_launch_self_test(const char *asset_pack_path,
 
     memset(&input, 0, sizeof(input));
     input.contract_tag = TECMO_GAMEPLAY_CPU_A0F3_INPUT_TAG;
-    input.ball_base_x_f2_7d = 0x00A0U;
-    input.ball_base_depth_fd = 0x8FU;
-    input.object10_x_e8_73 = 0x00A0U;
-    input.object10_depth_f3 = 0x8FU;
+    input.raw_x_7d_f2 = 0x00A0U;
+    input.raw_depth_fd = 0x8FU;
     input.raw_direction = 2U;
     input.raw_006a = 0x40U;
     if (!tecmo_gameplay_cpu_a0f3_solve(&assets, &input, &result) ||
@@ -282,20 +279,27 @@ bool tecmo_gameplay_cpu_a0f3_launch_self_test(const char *asset_pack_path,
     memset(&result, 0xA5, sizeof(result));
     result_before = result;
     input.raw_direction = 8U;
+    input_before = input;
     assets_before = assets;
     if (tecmo_gameplay_cpu_a0f3_solve(&assets, &input, &result) ||
-        tecmo_gameplay_cpu_a0f3_solve(
-            &assets, &input,
-            (TecmoGameplayCpuA0f3Result *)(void *)&input) ||
-        tecmo_gameplay_cpu_a0f3_solve(
-            &assets, &input,
-            (TecmoGameplayCpuA0f3Result *)(void *)&assets) ||
+        memcmp(&input, &input_before, sizeof(input)) != 0 ||
         memcmp(&assets, &assets_before, sizeof(assets)) != 0 ||
         memcmp(&result, &result_before, sizeof(result)) != 0 ||
         tecmo_gameplay_cpu_a0f3_assets_load(&assets, asset_pack_path)) goto fail;
 
+    input.raw_direction = 0U;
+    input_before = input;
+    if (tecmo_gameplay_cpu_a0f3_solve(
+            &assets, &input,
+            (TecmoGameplayCpuA0f3Result *)(void *)&input) ||
+        memcmp(&input, &input_before, sizeof(input)) != 0 ||
+        tecmo_gameplay_cpu_a0f3_solve(
+            &assets, &input,
+            (TecmoGameplayCpuA0f3Result *)(void *)&assets) ||
+        memcmp(&assets, &assets_before, sizeof(assets)) != 0) goto fail;
+
     (void)snprintf(message, message_size,
-                   "TGLS-1 A0F3 launch: raw direction/LUT duration divide Q6 tick live=unbound");
+                   "TGLS-1 A0F3 launch: aliased-coordinate direction/LUT duration divide Q6 tick live=unbound");
     return true;
 fail:
     (void)snprintf(message, message_size,

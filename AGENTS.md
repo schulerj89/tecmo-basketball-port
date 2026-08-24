@@ -1647,15 +1647,18 @@ motion reconstruction.
 TGLS-1 is the pure typed Bank05 `$A0F3-$A158` direct-launch solver. Keep raw
 `$0463` direction distinct from raw `$006A`; apply `$A15C` remap only when
 `$006A >= $40`. Load `$BDF7-$BEF6` only through the sanitized TGJS distance
-source and preserve `$B32C` wrapping duration/cap, full `$80A9-$815A` signed
+source. At `X=$0A`, `$7D/$F2/$FD` and `$73+X/$E8+X/$F3+X` are the same
+object-10 coordinate; keep a single typed value so divergence is impossible.
+Preserve `$B32C` wrapping duration/cap, full `$80A9-$815A` signed
 division (ordinary full raw16 quotient plus divisor-zero `0000/7FFF/8001`),
-`$A0F3` quotient doubling, and raw16 Q6
-accumulator/tick order at `$BD6E-$BDC6`. `$006A` is the explicit second
+`$A0F3` quotient doubling, and raw16 Q6 accumulator/tick order across
+`$B522-$B52D` and `$BD6E-$BDC6`. `$006A` is the explicit second
 `$C05D` result following `$9FA1->$A0DD`, not an inferred RNG value. The
 non-legacy scene jump direction is proven to equal
 pre-remap `$0463`, but this helper must not bind LIVE scheduling or infer raw
 launch state from rendered positions. Exact anchors also cover `$B32C-$B390`,
-`$BCF4-$BD68`, `$BD6E-$BDC6`, `$80A9-$815A`, and `$A15C-$A183`.
+`$BCF4-$BD68`, `$B522-$B52D`, `$BD6E-$BDC6`, `$80A9-$815A`, and
+`$A15C-$A183`.
 
 Opcode 20 has a source-exact bounded executor for Bank06 `$9032-$9052`. Its
 only records are `$000F` / CPU `$9F3D` and `$0019` / CPU `$9F47`, both

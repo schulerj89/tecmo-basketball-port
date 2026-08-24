@@ -516,9 +516,11 @@ sanitized TGJS source span, computes `$B32C` duration/cap, and reproduces
 `$80A9-$815A` signed-numerator/unsigned-duration truncation. Nonzero divisors
 retain the full raw16 quotient before wrapped sign restoration; divisor zero
 alone yields `0000/7FFF/8001`. The solver then
-applies `$A0F3`'s wrapping quotient double. Q6 motion seeds from current raw
-object-10 X/depth and the `$BD6E-$BDC6` typed tick integrates before
-publishing. The proven
+applies `$A0F3`'s wrapping quotient double. `$7D/$F2/$FD` is the same RAM as
+object-10 `$73+X/$E8+X/$F3+X` at `X=$0A`, so one typed source coordinate owns
+target base, delta origin, LUT index, and Q6 seed. `$B522-$B52D` proves the
+zero-duration gate, `$BD6E-$BDC6` integrate/publish call, and post-call
+decrement. The proven
 non-legacy scene jump direction equals pre-remap raw `$0463`, but scheduling
 and incoming launch ownership are outside this slice, so LIVE remains unbound.
 
