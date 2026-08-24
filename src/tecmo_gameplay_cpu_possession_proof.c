@@ -1570,8 +1570,11 @@ bool tecmo_gameplay_cpu_possession_proof(
                 outcome = "score-restart-lineage-marker-reappeared";
                 break;
             }
-            if (restart_capture_retirement_matched &&
-                scene_pass_active(scene) &&
+            /* Every active pass visible inside the captured window belongs
+               to the snapshotted transaction, including any pass that could
+               appear before the marker retirement edge. Counting and terminal
+               admission remain gated by the matched retirement below. */
+            if (scene_pass_active(scene) &&
                 !proof_restart_pass_matches(
                     scene, restart_expected_passer,
                     restart_expected_receiver)) {

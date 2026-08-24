@@ -489,7 +489,8 @@ output.
 The capture snapshots the selected primary/passer and published candidate
 receiver on its first frame. Marker retirement is accepted only on an active
 pass carrying that exact pair; swapped and self-pair negatives must reject.
-Every subsequent active pass frame retains the pair, and completion requires
+Every active pass frame in the entire captured window retains the pair, even
+before the retirement edge, and completion requires
 ball holder, selected primary, and foundation last holder to equal the
 snapshotted receiver. A global pass counter cannot satisfy this lineage.
 
