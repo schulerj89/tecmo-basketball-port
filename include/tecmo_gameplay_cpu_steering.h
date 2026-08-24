@@ -432,8 +432,9 @@ typedef struct TecmoGameplayCpuSteeringPlayResult {
     uint8_t target_object;
     int16_t target_x;
     int16_t target_depth;
-    /* Opcode 13 retains the exact raw latch words separately from the signed
-       target-storage bit patterns; they are not necessarily court-valid. */
+    /* Opcodes 13 and 20 retain the exact raw latch words as subtraction
+       evidence; they are not necessarily court-valid. Only opcode 13 writes
+       those bit patterns into the actor target-storage planes. */
     bool raw_target_valid;
     uint16_t raw_target_x;
     uint16_t raw_target_depth;
@@ -442,9 +443,9 @@ typedef struct TecmoGameplayCpuSteeringPlayResult {
     bool opcode6_action10_written;
     bool opcode6_object10_state_written;
     uint8_t opcode6_object10_state;
-    /* Exact opcode-4/opcode-13 subtraction evidence. Opcode 4 uses its
-       16-bit-X/8-bit-depth object coordinate. Opcode 13 subtracts the actor's
-       16-bit X and zero-extended 8-bit depth from two raw 16-bit latch words. */
+    /* Exact opcode-4/opcode-13/opcode-20 subtraction evidence. Opcode 4 uses
+       its 16-bit-X/8-bit-depth object coordinate. Opcodes 13 and 20 subtract
+       the actor's 16-bit X and zero-extended 8-bit depth from the raw latch. */
     int16_t target_horizontal_delta;
     int16_t target_depth_delta;
     bool fetched;

@@ -1285,12 +1285,17 @@ bool tecmo_gameplay_live_foundation_play_step(
     if (result.fetched && !result.deferred &&
         (result.command.opcode == 0U || result.command.opcode == 2U ||
          result.command.opcode == 4U || result.command.opcode == 10U ||
-         result.command.opcode == 13U || result.command.opcode == 16U)) {
+         result.command.opcode == 13U || result.command.opcode == 16U ||
+         result.command.opcode == 20U)) {
         TecmoGameplayCourtCoordinate target = {
             next_state.target_x[actor], next_state.target_depth[actor]};
         candidate.source_target_valid[actor] = false;
         candidate.source_raw_target_valid[actor] = false;
-        if (result.command.opcode == 13U) {
+        if (result.command.opcode == 20U) {
+            /* `$9032-$9052` computes direction from the raw latch without
+               publishing an actor target plane or raw-target provenance. */
+            validated_target_write = false;
+        } else if (result.command.opcode == 13U) {
             validated_target_write =
                 result.raw_target_valid &&
                 next_state.target_object[actor] ==

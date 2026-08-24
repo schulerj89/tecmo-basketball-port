@@ -395,7 +395,7 @@ duration/interpolation, shot proximity, and cadence remain native policy.
 
 The bounded executor accepts explicit captured inputs for opcode 10's
 `$8CD0` branch context and `$8D59-$8E21` relative workspace, plus opcode
-16's `$0309` / `$036E/$0370` workspace and opcode 13's persistent raw
+16's `$0309` / `$036E/$0370` workspace and opcodes 13/20's persistent raw
 `$038D:$038E/$038F:$0390` latch words. Opcode 13 performs complete wrapping
 16-bit subtraction against actor X and zero-extended actor depth, preserves
 both raw latch words as typed evidence, and then uses the same
@@ -457,6 +457,7 @@ in deterministic LIVE proof JSON.
 | `$8BF6-$8C17` opcode 21, `$058A/$0357/$0358/$007E` | Exact typed `shot_clock/clock_minutes/clock_seconds` own `$058A/$0357/$0358`; raw `$007E` bit 1 is unowned and explicitly approximated clear for ordinary LIVE | Executes the source +5/+10 branch from the typed clocks; whole-gate parity is not claimed. |
 | `$92CA` common target tail, `$BA` | `scene_cpu_common_tail_has_ordinary_live_zero`: exact `LIVE`, no result/abort, violation, free throw, shot, pass, lineup, or dunk lifecycle | Supplies only typed `flags_ba=0`, so Bank06 `$92CA-$92D0` takes its five-byte `$8FD9` increment. Every other path remains `missing-ba-lifecycle`. |
 | `$9125` opcode 13, raw `$038D:$038E/$038F:$0390` latch words | Typed harness/test input only. Both high bytes are live; the persistent latch has five source producers whose complete lifecycle is not yet retained. The scene deliberately supplies no ball or current-position substitute. | `missing-global-target`. A supplied raw latch still separately requires the ordinary-LIVE `$BA&3==0` seam. |
+| `$9032-$9052` opcode 20, raw `$038D:$038E/$038F:$0390` latch words | Typed harness/test input only, shared with opcode 13. Exact records are `$000F` / CPU `$9F3D` and `$0019` / `$9F47`, both `14 00 00 00 00`; actor-command assignment naturally supplies the preceding `$000A` or `$0019` stream, but not the latch. | `missing-global-target` in production. With a typed test latch it computes wrapping raw deltas, preserves target planes, applies the exact zero-vector/state-4 or nonzero-direction behavior, and unconditionally advances +5 without reading `$BA`. |
 | `$9172-$9216` opcode 15 raw lifecycle | None; harness-only capture contract | `missing-opcode15-raw-lifecycle`. |
 
 The TGLP native proof now renders four deterministic automatic-pass

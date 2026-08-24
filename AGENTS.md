@@ -1558,6 +1558,19 @@ substitute the current ball, an actor position, or a raw shadow byte. Tests may
 bind an intentional typed fixture, which must still provide the separate `$BA`
 owner. Do not add a scene latch or any producer as part of the executor slice.
 
+Opcode 20 has a source-exact bounded executor for Bank06 `$9032-$9052`. Its
+only records are `$000F` / CPU `$9F3D` and `$0019` / CPU `$9F47`, both
+`14 00 00 00 00` and each followed by a goto `$0000`. Reuse only the typed raw
+16-bit global latch: subtract actor X and zero-extended actor depth with 16-bit
+wrap, preserve the raw words/deltas as evidence, write state 4 without changing
+direction for the zero vector, and otherwise use the exact direction helper.
+It never reads `$BA` and never writes target object/coordinate provenance;
+unconditionally advance by five. Tests must obtain `$0019` and `$000A` through
+`tecmo_gameplay_actor_command_assignment_apply`, including opcode 3's ten-count
+wait before `$000F`, rather than parking those executor cursors. Production
+still leaves `global_target_available` false: never substitute the ball or add
+a persistent latch/producer in this bounded executor slice.
+
 Opcode 7's only canonical records are offset 315 / CPU `$A069`
 (`07 0A 00 36 01`) and offset 370 / CPU `$A0A0` (`07 0A 00 68 01`). Bank06
 `$8F12-$8F2C` interprets `C8=$0A` as object-slot-10 state `$0478`, not actor

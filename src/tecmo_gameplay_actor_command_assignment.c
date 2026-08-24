@@ -483,6 +483,9 @@ bool tecmo_gameplay_actor_command_assignment_self_test(
     TecmoGameplayActorCommandAssignmentInput input;
     TecmoGameplayActorCommandAssignmentResult result;
     TecmoGameplayActorCommandAssignmentResult result_before;
+    TecmoGameplayCpuSteeringPlayInput play_input;
+    TecmoGameplayCpuSteeringPlayState play_out;
+    TecmoGameplayCpuSteeringPlayResult play_result;
     uint8_t *payload = NULL;
     uint8_t *mutated_payload = NULL;
     uint64_t payload_size = 0U;
@@ -525,6 +528,75 @@ bool tecmo_gameplay_actor_command_assignment_self_test(
         result.defender_stream_after != 0x0019U ||
         result.primary_state_after != 0x04U ||
         result.defender_state_after != 0x04U) {
+        goto cleanup;
+    }
+
+    /* Consume the two exact streams from the real assignment result, never a
+       parked cursor. Defender selector `$10` starts at `$0019` and executes
+       opcode 20 immediately; primary selector `$00` starts at `$000A`, runs
+       opcode 3's ten-count wait, and only then reaches `$000F`. */
+    memset(&play_input, 0, sizeof(play_input));
+    play_input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG;
+    play_input.step_budget = 1U;
+    play_input.global_target_available = true;
+    memcpy(play_input.actor_position, foundation.actor_position,
+           sizeof(play_input.actor_position));
+    play_input.ball_position.x = 255;
+    play_input.ball_position.y = 0;
+    play_input.actor = foundation.defender_actor;
+    play_input.global_target.x =
+        (uint16_t)play_input.actor_position[play_input.actor].x;
+    play_input.global_target.depth =
+        (uint16_t)(uint8_t)play_input.actor_position[play_input.actor].y;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &steering_assets, &foundation.play_state, &play_input,
+            &play_out, &play_result) || play_result.command.opcode != 20U ||
+        play_result.previous_offset != 0x0019U ||
+        play_result.next_offset != 0x001EU || !play_result.advanced ||
+        play_result.deferred || !play_result.target_vector_zero) {
+        goto cleanup;
+    }
+    foundation.play_state = play_out;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &steering_assets, &foundation.play_state, &play_input,
+            &play_out, &play_result) || !play_result.jumped ||
+        play_result.next_offset != 0x0000U) {
+        goto cleanup;
+    }
+    foundation.play_state = play_out;
+    play_input.actor = foundation.primary_actor;
+    play_input.global_target.x =
+        (uint16_t)play_input.actor_position[play_input.actor].x;
+    play_input.global_target.depth =
+        (uint16_t)(uint8_t)play_input.actor_position[play_input.actor].y;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &steering_assets, &foundation.play_state, &play_input,
+            &play_out, &play_result) || play_result.command.opcode != 3U ||
+        play_result.previous_offset != 0x000AU ||
+        play_result.next_offset != 0x000FU ||
+        play_out.actor_state[play_input.actor] != 0x06U ||
+        play_out.wait_counter[play_input.actor] != 10U) {
+        goto cleanup;
+    }
+    foundation.play_state = play_out;
+    for (uint8_t countdown = 10U; countdown != 0U; --countdown) {
+        if (!tecmo_gameplay_cpu_steering_play_step(
+                &steering_assets, &foundation.play_state, &play_input,
+                &play_out, &play_result) || play_result.fetched ||
+            play_out.wait_counter[play_input.actor] !=
+                (uint8_t)(countdown - 1U) ||
+            play_out.stream_offset[play_input.actor] != 0x000FU) {
+            goto cleanup;
+        }
+        foundation.play_state = play_out;
+    }
+    if (foundation.play_state.actor_state[play_input.actor] != 0x04U ||
+        !tecmo_gameplay_cpu_steering_play_step(
+            &steering_assets, &foundation.play_state, &play_input,
+            &play_out, &play_result) || play_result.command.opcode != 20U ||
+        play_result.previous_offset != 0x000FU ||
+        play_result.next_offset != 0x0014U || !play_result.advanced ||
+        play_result.deferred) {
         goto cleanup;
     }
 

@@ -4799,6 +4799,26 @@ static bool scene_test_live_foundation_regressions(
             scene->cpu_actors[target_actor].target_valid) {
             LIVE_FAIL("LIVE opcode-13 production input was fabricated");
         }
+        /* Opcode 20 shares only the unavailable raw latch. Production must
+           not substitute the current held/loose ball coordinate for it. */
+        scene->live_foundation.play_state.stream_offset[target_actor] =
+            0x000FU;
+        scene->live_foundation.last_step_offset[target_actor] = 0x000FU;
+        scene->live_foundation.deferred[target_actor] = false;
+        scene->live_foundation.deferred_reason[target_actor] =
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
+            !scene->live_foundation.deferred[target_actor] ||
+            scene->live_foundation.deferred_reason[target_actor] !=
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_GLOBAL_TARGET ||
+            scene->live_foundation.play_state.stream_offset[target_actor] !=
+                0x000FU ||
+            scene->live_foundation.source_target_valid[target_actor] ||
+            scene->live_foundation.source_raw_target_valid[target_actor] ||
+            scene->cpu_actors[target_actor].target_valid) {
+            LIVE_FAIL("LIVE opcode-20 production input was fabricated");
+        }
     }
 
     /* Bank05 $81F2 opcode-16 producer: capture primary position before one
