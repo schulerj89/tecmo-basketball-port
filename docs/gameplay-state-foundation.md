@@ -281,9 +281,11 @@ the frame attempt. Production binds three source-shaped callers: shot state
 is 0 or 1. The pass route performs `$B24F` first, retains the receiver as
 holder in state `$18`, then follows fixed `$F031` workspace capture and
 player movement, `$F03D->$A214->$B7B6->$B783`, and the same-update descending
-Bank06 traversal. The current 2-D pass adapter supplies typed `$0499=0`, so
-this bounded route reaches `$B783` on the next update; exact flight altitude
-remains part of the separately documented pass-trajectory gap.
+Bank06 traversal. The production pass now retains the exact `$B42F` duration,
+four `$B500` Q10.6 substeps, `$B6B1` in-flight height, and `$B678` state-18
+height. `$B783` runs immediately only when entry `$0499` is already zero;
+otherwise state 18 persists through landing and assigns on the following
+update, matching the source branch order.
 
 This is not a claim that every A023 predecessor is integrated. The native
 scene's defensive-contact path is `$9968/$9A24`-shaped rather than the

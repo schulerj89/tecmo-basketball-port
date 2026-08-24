@@ -85,8 +85,8 @@ typedef enum TecmoGameplaySceneShotKind {
    dispatches through $8695, $8999/$9C29 advances the captured packed-byte
    cadence, $86A8 releases only when the complete byte reaches $04, $B074
    locks the receiver, and genuine Bank05 $B24F transfers ownership at the
-   catch. The current flight interpolation remains a native adapter pending
-   strict $B42F/$BB9F/$BBA0 and $B1E7/$B500 assets. */
+   catch. Flight retains the exact $B42F/$BCF4 launch workspaces, the four
+   $B1E7->$B500 Q10.6 substeps per update, and the $B6B1/$B678 height phases. */
 typedef enum TecmoGameplayScenePassPhase {
     TECMO_GAMEPLAY_SCENE_PASS_NONE = 0,
     TECMO_GAMEPLAY_SCENE_PASS_GATHER,
@@ -117,6 +117,17 @@ typedef struct TecmoGameplayScenePassState {
     uint16_t flight_duration;
     TecmoGameplayCourtCoordinateQ8 start_position;
     TecmoGameplayCourtCoordinateQ8 target_position;
+    /* Slot-10 source workspaces. Planar values mirror $04E7/$04F2,
+       $04FD/$0508, $04DC/$04E7, and $04E7/$04F2 as signed Q10.6 words;
+       duration_remaining is post-$B074's two ASL/ROL pairs. Height and its
+       velocity mirror $0484/$048F and $049A/$04A5 as wrapping Q8.8 words. */
+    uint16_t source_x_q6;
+    uint16_t source_depth_q6;
+    int16_t source_velocity_x_q6;
+    int16_t source_velocity_depth_q6;
+    uint16_t source_duration_remaining;
+    uint16_t source_height_q8;
+    int16_t source_velocity_height_q8;
 } TecmoGameplayScenePassState;
 
 /*

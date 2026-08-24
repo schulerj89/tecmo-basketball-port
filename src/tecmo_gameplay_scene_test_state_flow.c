@@ -3163,6 +3163,7 @@ static bool scene_test_live_foundation_regressions(
         uint16_t x_accumulator;
         uint16_t y_accumulator;
         uint16_t x_position;
+        uint16_t base_duration;
         uint8_t y_position;
         uint8_t receiver;
         uint8_t opposing_controlled_actor;
@@ -3172,6 +3173,7 @@ static bool scene_test_live_foundation_regressions(
         int16_t expected_catch_target_x;
         size_t pass_updates;
         TecmoGameplayScene postcatch_scene;
+        TecmoGameplayScene airborne_ordered;
 
         /* Bank05 $BD6E-$BDC6 exact uint16 accumulation/Q10.6 extraction.
            Include captured-shape values, carry, wrap, and a high-byte $FF
@@ -3202,6 +3204,28 @@ static bool scene_test_live_foundation_regressions(
             x_accumulator != 0x2F80U || y_accumulator != 0x00C0U ||
             x_position != 0x00BEU || y_position != 0x03U) {
             LIVE_FAIL("LIVE pass BD6E high-delta vector failed");
+        }
+        /* $B42F's complete Rev-1 $BBA1 discontinuities. The 256-byte table
+           is independently pinned/mutated by Run-GameplayPassTrajectoryTests;
+           these vectors prove the production reduction uses the same index. */
+        if (!scene_pass_bank05_b42f_duration(
+                100U, 40U, 100U, 40U, &base_duration) ||
+            base_duration != 2U ||
+            !scene_pass_bank05_b42f_duration(
+                100U, 40U, 127U, 40U, &base_duration) ||
+            base_duration != 2U ||
+            !scene_pass_bank05_b42f_duration(
+                100U, 40U, 128U, 40U, &base_duration) ||
+            base_duration != 4U ||
+            !scene_pass_bank05_b42f_duration(
+                100U, 40U, 200U, 80U, &base_duration) ||
+            base_duration != 16U ||
+            !scene_pass_bank05_b42f_duration(
+                0U, 0U, 511U, 0U, &base_duration) ||
+            base_duration != 72U ||
+            scene_pass_bank05_b42f_duration(
+                0U, 0U, 512U, 0U, &base_duration)) {
+            LIVE_FAIL("LIVE pass B42F exact duration-table vectors failed");
         }
 
         cpu_only = bound;
@@ -3341,6 +3365,20 @@ static bool scene_test_live_foundation_regressions(
                 scene->live_foundation.offense_side] != passer) {
             LIVE_FAIL("LIVE CPU pass launch identity lock failed");
         }
+        if (scene->pass_state.flight_duration < 2U ||
+            scene->pass_state.flight_duration > 72U ||
+            scene->pass_state.flight_frame != 1U ||
+            scene->pass_state.source_duration_remaining !=
+                (uint16_t)((scene->pass_state.flight_duration - 1U) * 4U) ||
+            scene->ball_position.x_q8 !=
+                (int32_t)(scene->pass_state.source_x_q6 >> 6U) * 256 ||
+            scene->ball_position.y_q8 !=
+                (int32_t)(uint8_t)(scene->pass_state.source_depth_q6 >> 6U) *
+                    256 ||
+            scene->pass_state.reserved[1U] !=
+                (uint8_t)(scene->pass_state.source_height_q8 >> 8U)) {
+            LIVE_FAIL("LIVE CPU pass exact four-substep launch state failed");
+        }
         /* Stop immediately before `$B23B` so all three literal-1 compare
            outcomes are covered from the same exact flight candidate. */
         for (pass_updates = 0U;
@@ -3359,6 +3397,43 @@ static bool scene_test_live_foundation_regressions(
             LIVE_FAIL("LIVE CPU pass terminal flight frame unavailable");
         }
         before = *scene;
+        /* Force a source-valid airborne terminal frame so state $18's
+           B7F7->B678 path is exercised even when this short fixture's normal
+           B6B1 arc has already grounded. The first state-18 update must use
+           gravity $28 and must not run B783 in that same update. */
+        snapshot = before;
+        snapshot.pass_state.source_height_q8 = 0x0200U;
+        snapshot.pass_state.source_velocity_height_q8 = (int16_t)0x0100U;
+        snapshot.pass_state.reserved[1U] = 0x02U;
+        snapshot.fixed_rng.raw_006a = 1U;
+        if (!scene_pass_state_valid(&snapshot) ||
+            !scene_update_pass(&snapshot) ||
+            snapshot.pass_state.phase !=
+                TECMO_GAMEPLAY_SCENE_PASS_STATE18 ||
+            snapshot.pass_state.reserved[1U] != 0x02U ||
+            !scene_update_pass(&snapshot) ||
+            snapshot.pass_state.phase !=
+                TECMO_GAMEPLAY_SCENE_PASS_STATE18 ||
+            snapshot.pass_state.source_velocity_height_q8 !=
+                (int16_t)0x00D8U ||
+            snapshot.pass_state.source_height_q8 != 0x02D8U ||
+            snapshot.pass_state.reserved[1U] != 0x02U ||
+            snapshot.a023_latch_frame_context.available) {
+            LIVE_FAIL("LIVE pass state-18 B678 airborne update failed");
+        }
+        airborne_ordered = snapshot;
+        memset(&neutral_one, 0, sizeof(neutral_one));
+        memset(&neutral_two, 0, sizeof(neutral_two));
+        if (!tecmo_gameplay_scene_update(
+                &airborne_ordered, &neutral_one, &neutral_two) ||
+            airborne_ordered.pass_state.phase !=
+                TECMO_GAMEPLAY_SCENE_PASS_STATE18 ||
+            airborne_ordered.pass_state.source_velocity_height_q8 !=
+                (int16_t)0x00B0U ||
+            airborne_ordered.pass_state.source_height_q8 != 0x0388U ||
+            airborne_ordered.a023_latch_frame_context.available) {
+            LIVE_FAIL("LIVE airborne state-18 ordered scheduler rejected");
+        }
         scene->fixed_rng.raw_006a = 2U;
         if (!scene_update_pass(scene) || scene_pass_active(scene)) {
             LIVE_FAIL("LIVE pass `$6A>1` catch did not finish directly");

@@ -3081,7 +3081,11 @@ static int append_gameplay_actor_command_assignment_source_map_entry(
         "\"owned_writes\":[\"$0547/$0551 stream offset\",\"$057C state\"]},"
         "\"production_attachment\":true,"
         "\"production_callers\":[\"state10-B721 after A9DA\",\"state17-B783 during shot\",\"pass-state18-B7B6 after rare catch\"],"
-        "\"unsupported_effects\":[\"$046E\",\"$0484/$048F\",\"$C711\",\"$9DF6 scratch\"],"
+        "\"resolver_unsupported_effects\":[\"$046E\",\"$0484/$048F\",\"$C711\",\"$9DF6 scratch\"],"
+        "\"pass_state18_trajectory\":{\"production_owner\":true,"
+        "\"planar\":\"exact $B42F/$BCF4/$9A69 plus four $B500/$BD6E substeps\","
+        "\"height\":\"exact $B6B1 flight gravity $12 and $B678 state18 gravity $28\","
+        "\"source_gate\":\"Run-GameplayPassTrajectoryTests: Rev1 SHA, seven FNV spans, exhaustive BBA1 table, 263 mutations\"},"
         "\"runtime_inputs\":\"strict TGCA-1 plus typed LIVE state10/state17/pass-state18 production owners; interaction remains fixture-only; no ROM, decompilation, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}",
         (unsigned)TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_RAW_SIZE,
         (unsigned)

@@ -188,8 +188,12 @@ $ObjectArgs = $Sources | ForEach-Object {
     [System.Text.Encoding]::ASCII)
 $BuildSteps = @(
     "cl /nologo @`"$CompileResponsePath`"",
-    "link /nologo /out:`"$ConsoleExePath`" @`"$ObjectResponsePath`" user32.lib gdi32.lib winmm.lib",
-    "link /nologo /subsystem:windows /entry:mainCRTStartup /out:`"$GameExePath`" @`"$ObjectResponsePath`" user32.lib gdi32.lib winmm.lib"
+    # The in-process scene regression suite intentionally retains several
+    # full transactional scene snapshots. Keep Windows at the same 8 MiB
+    # stack budget used by the supported Unix build instead of MSVC's 1 MiB
+    # default; production gameplay does not otherwise change its allocation.
+    "link /nologo /stack:8388608 /out:`"$ConsoleExePath`" @`"$ObjectResponsePath`" user32.lib gdi32.lib winmm.lib",
+    "link /nologo /stack:8388608 /subsystem:windows /entry:mainCRTStartup /out:`"$GameExePath`" @`"$ObjectResponsePath`" user32.lib gdi32.lib winmm.lib"
 )
 foreach ($BuildStep in $BuildSteps) {
     $Command = "call `"$VcVars`" >nul && cd /d `"$Root`" && $BuildStep"

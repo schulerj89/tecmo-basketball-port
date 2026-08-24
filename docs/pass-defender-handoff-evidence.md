@@ -40,11 +40,22 @@ passes share one actor-neutral transport rather than teleporting possession:
 - `$B074-$B0FD` locks `$037F[$030A]` as receiver and swaps the
   `$000E/$037F`-shaped side roles at launch. The `$0308`-shaped primary and
   native `ball_holder` remain the passer until catch.
-- Bank05 `$B1E7/$B500` owns the original five-substep flight scheduler, and
-  `$B500->$BD6E` advances two uint16 fixed-point accumulators with wrap/carry,
-  then performs six logical 16-bit shifts. Native C locks that portable
-  arithmetic in isolation, but current scene coordinates remain the bounded
-  interpolation adapter because their launch solver/table inputs are unowned.
+- Bank05 `$B42F` reduces `max(abs(dx),abs(depth)) + min/2`, halves that sum,
+  and indexes the 256 bytes at `$BBA1-$BCA0`. Every Rev1 entry reduces to
+  `max(1,floor(index/7))`; the source doubles it to a base duration. `$BCF4`
+  divides signed deltas shifted by six by that duration, `$B074->$9A69`
+  arithmetic-halves both velocities twice, and two ASL/ROL pairs multiply the
+  remaining planar count by four.
+- Bank05 `$B1E7/$B500` owns exactly four flight substeps per update, not five.
+  Each `$B500->$BD6E` advances two uint16 Q10.6 accumulators with wrap/carry,
+  decrements the source count, and exposes integer coordinates with six
+  logical shifts. Native C now preserves those accumulators, velocities,
+  duration, and four intermediate coordinates in production.
+- A nonterminal flight update tails through `$B2F2->$B6B1`, subtracting `$12`
+  from the Q8.8 vertical velocity before adding height. Catch state `$18`
+  instead follows `$B7B6->$B7F7->$B678`, using gravity `$28` until `$0499`
+  reaches zero; a landing update returns and `$B783->$A023` runs on the next
+  update. Native C retains that exact phase distinction.
 - Genuine Bank05 `$B24F` begins `AC 0A 03`. The captured actor-2 pass locks
   offense-side raw `$037F[0]=4`, and `$B24F` later reads `$000E[0]=4` and
   stores actor 4 to `$0308`; this is the only point where native
@@ -69,13 +80,14 @@ passes share one actor-neutral transport rather than teleporting possession:
   and fetches on the following update. Ordinary and inbound catches share
   this atomic endpoint.
 
-The current Q8 flight duration and linear interpolation are explicitly native
-adapters because `$B42F`, the Bank05 `$BB9F/$BBA0` trajectory lookup, and the
-five-`$B500` substep scheduler are not yet a strict pass asset. The source
-gather order, launch-time receiver lock/role swap, multi-update ball ownership,
-and catch-only handoff are preserved. General pass desirability, `$B13F`
-interception/contact semantics, and the
-complete Bank06 inbound formation route remain deferred/fail-closed.
+The former Q8 linear interpolation adapter is removed. Production flight uses
+the exact `$B42F/$BCF4/$9A69`, four-`$B500` Q10.6, and `$B6B1/$B678` height
+contracts. `tools/Run-GameplayPassTrajectoryTests.ps1` pins seven decoded
+Bank05 spans, exhaustively validates all 256 `$BBA1` bytes, and rejects 263
+independent source mutations; the scene suite covers table boundaries,
+four-step state, and airborne state-18 gravity. General pass desirability,
+`$B13F` interception/contact semantics, and the complete Bank06 inbound
+formation route remain deferred/fail-closed.
 The exact `$96B6` automatic lifecycle invariant is closed, while its route
 branch remains approximate. Opcode 21 now owns `$058A/$0357/$0358` through
 typed scene clocks but approximates unowned `$007E` bit 1 as clear.

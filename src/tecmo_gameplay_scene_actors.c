@@ -625,8 +625,9 @@ bool scene_attach_ball(TecmoGameplayScene *scene)
     return true;
 }
 
-#define TECMO_GAMEPLAY_PASS_MIN_FLIGHT_UPDATES 8U
-#define TECMO_GAMEPLAY_PASS_MAX_FLIGHT_UPDATES 24U
+#define TECMO_GAMEPLAY_PASS_MIN_FLIGHT_UPDATES 2U
+#define TECMO_GAMEPLAY_PASS_MAX_FLIGHT_UPDATES 72U
+#define TECMO_GAMEPLAY_PASS_PLANAR_SUBSTEPS 4U
 
 bool scene_pass_active(const TecmoGameplayScene *scene)
 {
@@ -662,6 +663,120 @@ bool scene_pass_bank05_bd6e_step(
     return true;
 }
 
+static int16_t scene_pass_signed_half_16(int16_t value)
+{
+    /* $AA84/$AA93 use CMP #$80 followed by ROR high/low, which is an
+       arithmetic right shift and therefore rounds negative odd words down. */
+    if (value >= 0) return (int16_t)(value / 2);
+    return (int16_t)-(((-(int32_t)value) + 1) / 2);
+}
+
+bool scene_pass_bank05_b42f_duration(uint16_t source_x,
+                                     uint8_t source_depth,
+                                     uint16_t target_x,
+                                     uint8_t target_depth,
+                                     uint16_t *base_duration_out)
+{
+    uint16_t absolute_x;
+    uint16_t absolute_depth;
+    uint16_t larger;
+    uint16_t smaller;
+    uint16_t table_index;
+    uint16_t table_value;
+    if (base_duration_out == NULL) return false;
+    absolute_x = source_x >= target_x
+        ? (uint16_t)(source_x - target_x)
+        : (uint16_t)(target_x - source_x);
+    absolute_depth = source_depth >= target_depth
+        ? (uint16_t)(source_depth - target_depth)
+        : (uint16_t)(target_depth - source_depth);
+    larger = absolute_x >= absolute_depth ? absolute_x : absolute_depth;
+    smaller = absolute_x >= absolute_depth ? absolute_depth : absolute_x;
+    /* $B432-$B468: halve the smaller magnitude, add, then halve the sum. */
+    table_index = (uint16_t)(larger + (smaller >> 1U));
+    table_index >>= 1U;
+    /* Rev-1 Bank05 $BBA1-$BCA0 is exactly max(1,floor(index/7)) for all
+       256 entries. The source's high-index pointer path is outside legal
+       gameplay geometry and is rejected instead of reading invented bytes. */
+    if (table_index > UINT8_MAX) return false;
+    table_value = (uint16_t)(table_index / 7U);
+    if (table_value == 0U) table_value = 1U;
+    *base_duration_out = (uint16_t)(table_value << 1U);
+    return *base_duration_out >= TECMO_GAMEPLAY_PASS_MIN_FLIGHT_UPDATES &&
+           *base_duration_out <= TECMO_GAMEPLAY_PASS_MAX_FLIGHT_UPDATES;
+}
+
+static bool scene_pass_bank05_launch_trajectory(
+    TecmoGameplayScenePassState *pass)
+{
+    int32_t delta_x;
+    int32_t delta_depth;
+    int16_t velocity_x;
+    int16_t velocity_depth;
+    uint16_t source_x;
+    uint8_t source_depth;
+    uint16_t target_x;
+    uint8_t target_depth;
+    uint16_t base_duration;
+    if (pass == NULL || pass->start_position.x_q8 < 0 ||
+        pass->start_position.y_q8 < 0 || pass->target_position.x_q8 < 0 ||
+        pass->target_position.y_q8 < 0) return false;
+    source_x = (uint16_t)(pass->start_position.x_q8 / 256);
+    source_depth = (uint8_t)(pass->start_position.y_q8 / 256);
+    target_x = (uint16_t)(pass->target_position.x_q8 / 256);
+    target_depth = (uint8_t)(pass->target_position.y_q8 / 256);
+    if (!scene_pass_bank05_b42f_duration(
+            source_x, source_depth, target_x, target_depth,
+            &base_duration)) return false;
+    delta_x = (int32_t)target_x - (int32_t)source_x;
+    delta_depth = (int32_t)target_depth - (int32_t)source_depth;
+    /* $BCF4 shifts each signed delta six times and $80A9 divides toward
+       zero by the pre-$B074 base duration. $9A69 then invokes $AA84 twice. */
+    velocity_x = (int16_t)((delta_x * 64) / (int32_t)base_duration);
+    velocity_depth =
+        (int16_t)((delta_depth * 64) / (int32_t)base_duration);
+    velocity_x = scene_pass_signed_half_16(
+        scene_pass_signed_half_16(velocity_x));
+    velocity_depth = scene_pass_signed_half_16(
+        scene_pass_signed_half_16(velocity_depth));
+    pass->source_x_q6 = (uint16_t)(source_x << 6U);
+    pass->source_depth_q6 = (uint16_t)((uint16_t)source_depth << 6U);
+    pass->source_velocity_x_q6 = velocity_x;
+    pass->source_velocity_depth_q6 = velocity_depth;
+    pass->source_duration_remaining =
+        (uint16_t)(base_duration * TECMO_GAMEPLAY_PASS_PLANAR_SUBSTEPS);
+    pass->source_height_q8 = 0U;
+    /* $B48D-$B4AD invokes $8006 with 8 and the base duration. Its low
+       product word seeds $049A/$04A5. */
+    pass->source_velocity_height_q8 =
+        (int16_t)(uint16_t)(base_duration * 8U);
+    pass->flight_frame = 0U;
+    pass->flight_duration = base_duration;
+    return true;
+}
+
+static void scene_pass_bank05_height_step(uint16_t *height_io,
+                                          int16_t *velocity_io,
+                                          uint8_t gravity)
+{
+    uint16_t velocity;
+    uint16_t height;
+    uint8_t height_high;
+    if (height_io == NULL || velocity_io == NULL) return;
+    velocity = (uint16_t)*velocity_io;
+    velocity = (uint16_t)(velocity - gravity);
+    height = (uint16_t)(*height_io + velocity);
+    height_high = (uint8_t)(height >> 8U);
+    /* $B69C/$B6D0 treats high byte 0 and the signed-underflow range F6-FF
+       as ground, clearing both workspaces atomically. */
+    if (height_high == 0U || height_high >= 0xF6U) {
+        height = 0U;
+        velocity = 0U;
+    }
+    *height_io = height;
+    *velocity_io = (int16_t)velocity;
+}
+
 void scene_pass_clear(TecmoGameplayScene *scene)
 {
     if (scene == NULL) return;
@@ -688,7 +803,13 @@ bool scene_pass_state_valid(const TecmoGameplayScene *scene)
                pass->start_position.x_q8 == 0 &&
                pass->start_position.y_q8 == 0 &&
                pass->target_position.x_q8 == 0 &&
-               pass->target_position.y_q8 == 0;
+               pass->target_position.y_q8 == 0 &&
+               pass->source_x_q6 == 0U && pass->source_depth_q6 == 0U &&
+               pass->source_velocity_x_q6 == 0 &&
+               pass->source_velocity_depth_q6 == 0 &&
+               pass->source_duration_remaining == 0U &&
+               pass->source_height_q8 == 0U &&
+               pass->source_velocity_height_q8 == 0;
     }
     if (pass->phase >= TECMO_GAMEPLAY_SCENE_PASS_PHASE_COUNT ||
         pass->passer >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
@@ -701,8 +822,6 @@ bool scene_pass_state_valid(const TecmoGameplayScene *scene)
         (pass->phase == TECMO_GAMEPLAY_SCENE_PASS_STATE18
              ? scene->ball_holder != pass->receiver
              : scene->ball_holder != pass->passer) ||
-        pass->flight_duration < TECMO_GAMEPLAY_PASS_MIN_FLIGHT_UPDATES ||
-        pass->flight_duration > TECMO_GAMEPLAY_PASS_MAX_FLIGHT_UPDATES ||
         pass->flight_frame > pass->flight_duration) {
         return false;
     }
@@ -725,6 +844,13 @@ bool scene_pass_state_valid(const TecmoGameplayScene *scene)
     }
     if (pass->phase == TECMO_GAMEPLAY_SCENE_PASS_GATHER) {
         return !pass->receiver_locked &&
+               pass->flight_frame == 0U && pass->flight_duration == 0U &&
+               pass->source_x_q6 == 0U && pass->source_depth_q6 == 0U &&
+               pass->source_velocity_x_q6 == 0 &&
+               pass->source_velocity_depth_q6 == 0 &&
+               pass->source_duration_remaining == 0U &&
+               pass->source_height_q8 == 0U &&
+               pass->source_velocity_height_q8 == 0 &&
                (pass->packed_animation_state == 0x32U ||
                 pass->packed_animation_state == 0x22U ||
                 pass->packed_animation_state == 0x12U ||
@@ -733,12 +859,18 @@ bool scene_pass_state_valid(const TecmoGameplayScene *scene)
     }
     if ((pass->phase != TECMO_GAMEPLAY_SCENE_PASS_FLIGHT &&
          pass->phase != TECMO_GAMEPLAY_SCENE_PASS_STATE18) ||
-        pass->packed_animation_state != 0x04U || !pass->receiver_locked) {
+        pass->packed_animation_state != 0x04U || !pass->receiver_locked ||
+        pass->flight_duration < TECMO_GAMEPLAY_PASS_MIN_FLIGHT_UPDATES ||
+        pass->flight_duration > TECMO_GAMEPLAY_PASS_MAX_FLIGHT_UPDATES ||
+        pass->source_duration_remaining !=
+            (uint16_t)((pass->flight_duration - pass->flight_frame) *
+                       TECMO_GAMEPLAY_PASS_PLANAR_SUBSTEPS) ||
+        pass->reserved[1U] !=
+            (uint8_t)(pass->source_height_q8 >> 8U)) {
         return false;
     }
     if (pass->phase == TECMO_GAMEPLAY_SCENE_PASS_STATE18) {
         return pass->reserved[0U] <= 1U &&
-            pass->reserved[1U] == 0U &&
             pass->flight_frame == pass->flight_duration &&
             pass->target_position.x_q8 % 256 == 0 &&
             pass->target_position.y_q8 % 256 == 0 &&
@@ -767,10 +899,6 @@ bool scene_begin_actor_pass(TecmoGameplayScene *scene, uint8_t passer,
     TecmoGameplayScenePassState pass;
     TecmoGameplayCourtCoordinateQ8 start;
     TecmoGameplayCourtCoordinateQ8 target;
-    int32_t dx;
-    int32_t dy;
-    uint32_t distance;
-    uint16_t duration;
     if (scene == NULL || scene_pass_active(scene) ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
@@ -780,7 +908,8 @@ bool scene_begin_actor_pass(TecmoGameplayScene *scene, uint8_t passer,
         receiver == passer ||
         scene->actors[receiver].team != scene->state.possession ||
         !scene_attached_ball_position(&scene->actors[passer], &start) ||
-        !scene_attached_ball_position(&scene->actors[receiver], &target)) {
+        !tecmo_gameplay_court_coordinate_to_q8(
+            &scene->actors[receiver].position, &target)) {
         return false;
     }
     if (controller_or_none == TECMO_GAMEPLAY_SCENE_NO_ACTOR) {
@@ -798,17 +927,6 @@ bool scene_begin_actor_pass(TecmoGameplayScene *scene, uint8_t passer,
                scene->controlled_actor[controller_or_none] != passer) {
         return false;
     }
-    dx = target.x_q8 - start.x_q8;
-    dy = target.y_q8 - start.y_q8;
-    distance = (uint32_t)((dx < 0 ? -dx : dx) +
-                          (dy < 0 ? -dy : dy)) / 256U;
-    /* The source duration comes from $B42F's $BB9F/$BBA0 lookup. That table
-       is not yet a strict pass asset, so only this duration mapping is a
-       native adapter; release/flight/catch ownership follows the ROM order. */
-    duration = (uint16_t)(TECMO_GAMEPLAY_PASS_MIN_FLIGHT_UPDATES +
-                          distance / 12U);
-    if (duration > TECMO_GAMEPLAY_PASS_MAX_FLIGHT_UPDATES)
-        duration = TECMO_GAMEPLAY_PASS_MAX_FLIGHT_UPDATES;
     memset(&pass, 0, sizeof(pass));
     pass.phase = TECMO_GAMEPLAY_SCENE_PASS_GATHER;
     pass.passer = passer;
@@ -819,7 +937,6 @@ bool scene_begin_actor_pass(TecmoGameplayScene *scene, uint8_t passer,
        CPU admission to $89D7 is documented at the exact action-$21 helper
        below without imposing that upstream route on human NES-A passing. */
     pass.packed_animation_state = 0x32U;
-    pass.flight_duration = duration;
     pass.start_position = start;
     pass.target_position = target;
     candidate = *scene;
@@ -975,7 +1092,7 @@ bool scene_update_pass(TecmoGameplayScene *scene)
     TecmoGameplayScene candidate;
     TecmoGameplayScenePassState *pass;
     bool receiver_facing_right;
-    uint32_t step;
+    size_t substep;
     if (scene == NULL || !scene_pass_active(scene) ||
         !scene_pass_state_valid(scene)) return false;
     candidate = *scene;
@@ -987,6 +1104,20 @@ bool scene_update_pass(TecmoGameplayScene *scene)
         TecmoGameplayActorCommandAssignmentSameFrameLatch latch;
         TecmoGameplaySceneA023LatchFrameContext context;
         TecmoGameplayLiveFoundation foundation;
+        /* $B7B6 branches to $B7F7 while the live $0499 high byte is
+           nonzero. That path retains state $18, performs the now-exhausted
+           $B500 planar step, then applies the steeper $B678 gravity. Even a
+           landing update returns; $B783 assignment begins next update. */
+        if (pass->reserved[1U] != 0U) {
+            scene_pass_bank05_height_step(
+                &pass->source_height_q8,
+                &pass->source_velocity_height_q8, 0x28U);
+            pass->reserved[1U] =
+                (uint8_t)(pass->source_height_q8 >> 8U);
+            if (!scene_pass_state_valid(&candidate)) return false;
+            *scene = candidate;
+            return true;
+        }
         memset(&dispatch, 0, sizeof(dispatch));
         memset(&input, 0, sizeof(input));
         memset(&assignment, 0, sizeof(assignment));
@@ -1012,14 +1143,14 @@ bool scene_update_pass(TecmoGameplayScene *scene)
         input.raw_0499 = pass->reserved[1U];
         input.object10_target_valid = true;
         input.object10_target.x =
-            (int16_t)(pass->target_position.x_q8 / 256);
+            (int16_t)(candidate.ball_position.x_q8 / 256);
         input.object10_target.y =
-            (int16_t)(pass->target_position.y_q8 / 256);
+            (int16_t)(candidate.ball_position.y_q8 / 256);
         input.object10_raw_target_valid = true;
         input.object10_raw_target.x =
-            (uint16_t)(pass->target_position.x_q8 / 256);
+            (uint16_t)(candidate.ball_position.x_q8 / 256);
         input.object10_raw_target.depth =
-            (uint16_t)(pass->target_position.y_q8 / 256);
+            (uint16_t)(candidate.ball_position.y_q8 / 256);
         foundation = candidate.live_foundation;
         if (!tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
                 candidate.actor_command_assignment_assets,
@@ -1077,9 +1208,20 @@ bool scene_update_pass(TecmoGameplayScene *scene)
                     &candidate.live_foundation)) {
                 return false;
             }
+            /* $B074 samples both slot-10's current attached coordinate and
+               the receiver's current raw actor coordinate at release—not
+               their positions from the start of the gather animation. */
+            if (!scene_attached_ball_position(
+                    &candidate.actors[pass->passer],
+                    &pass->start_position) ||
+                !tecmo_gameplay_court_coordinate_to_q8(
+                    &candidate.actors[pass->receiver].position,
+                    &pass->target_position) ||
+                !scene_pass_bank05_launch_trajectory(pass)) {
+                return false;
+            }
             pass->receiver_locked = true;
             pass->phase = TECMO_GAMEPLAY_SCENE_PASS_FLIGHT;
-            pass->flight_frame = 0U;
         }
         if (pass->phase == TECMO_GAMEPLAY_SCENE_PASS_GATHER) {
             if (!scene_attached_ball_position(
@@ -1090,21 +1232,32 @@ bool scene_update_pass(TecmoGameplayScene *scene)
             return true;
         }
     }
-    if (pass->flight_frame < pass->flight_duration)
-        ++pass->flight_frame;
-    step = pass->flight_frame;
-    /* Bank05 $B1E7 schedules five $B500->$BD6E fixed-point substeps. Its
-       $B42F/$BB9F/$BBA0 trajectory asset is not imported yet, so this shared
-       human/CPU interpolation remains a deliberately local native adapter;
-       gather, launch lock, holder lifetime, and catch ordering are source-
-       proven and do not depend on pretending these coordinates are exact. */
-    candidate.ball_position.x_q8 = pass->start_position.x_q8 + (int32_t)(
-        ((int64_t)(pass->target_position.x_q8 - pass->start_position.x_q8) *
-         step) / pass->flight_duration);
-    candidate.ball_position.y_q8 = pass->start_position.y_q8 + (int32_t)(
-        ((int64_t)(pass->target_position.y_q8 - pass->start_position.y_q8) *
-         step) / pass->flight_duration);
-    if (pass->flight_frame < pass->flight_duration) {
+    /* $B1E7 executes exactly four B500->BD6E substeps and tests B13F after
+       each one. B13F interception is wired separately; retaining each exact
+       intermediate coordinate here makes that later owner insertion local. */
+    for (substep = 0U; substep < TECMO_GAMEPLAY_PASS_PLANAR_SUBSTEPS;
+         ++substep) {
+        uint16_t raw_x;
+        uint8_t raw_depth;
+        if (pass->source_duration_remaining == 0U ||
+            !scene_pass_bank05_bd6e_step(
+                &pass->source_x_q6,
+                (uint16_t)pass->source_velocity_x_q6,
+                &pass->source_depth_q6,
+                (uint16_t)pass->source_velocity_depth_q6,
+                &raw_x, &raw_depth)) return false;
+        --pass->source_duration_remaining;
+        candidate.ball_position.x_q8 = (int32_t)raw_x * 256;
+        candidate.ball_position.y_q8 = (int32_t)raw_depth * 256;
+    }
+    ++pass->flight_frame;
+    if (pass->source_duration_remaining != 0U) {
+        /* Nonterminal state-$04 flight tails through $B2F2->$B6B1. */
+        scene_pass_bank05_height_step(
+            &pass->source_height_q8,
+            &pass->source_velocity_height_q8, 0x12U);
+        pass->reserved[1U] =
+            (uint8_t)(pass->source_height_q8 >> 8U);
         if (!scene_pass_state_valid(&candidate)) return false;
         *scene = candidate;
         return true;
@@ -1133,8 +1286,8 @@ bool scene_update_pass(TecmoGameplayScene *scene)
     /* `$B23B` compares literal 1 with the live `$6A`. Values 0/1 call the
        same `$B24F` handoff above and then fall through `$B244`, storing
        object state `$18`; all other values finish the catch immediately.
-       The current 2-D pass adapter owns no vertical height, so its explicit
-       typed `$0499` is zero and `$B7B6` reaches `$B783` next update. */
+       State $18 retains the exact live `$0484/$048F` height and continues
+       with `$B678` until it lands; `$B783` then runs on the following update. */
     if (!candidate.legacy_direct_launch &&
         candidate.fixed_rng.raw_006a <= 1U) {
         int32_t raw_x = pass->target_position.x_q8 / 256;
@@ -1142,7 +1295,9 @@ bool scene_update_pass(TecmoGameplayScene *scene)
         if (raw_x < 0 || raw_x > INT16_MAX || raw_depth < 0 ||
             raw_depth > UINT8_MAX) return false;
         pass->reserved[0U] = candidate.fixed_rng.raw_006a;
-        pass->reserved[1U] = 0U;
+        pass->reserved[1U] =
+            (uint8_t)(pass->source_height_q8 >> 8U);
+        pass->target_position = candidate.ball_position;
         pass->phase = TECMO_GAMEPLAY_SCENE_PASS_STATE18;
         if (!scene_pass_state_valid(&candidate)) return false;
         *scene = candidate;

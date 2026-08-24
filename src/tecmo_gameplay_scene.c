@@ -2343,7 +2343,14 @@ static bool scene_update_live_action_ordered(
             }
             if (accepted) accepted = scene_update_pass(candidate);
             if (accepted) {
-                accepted = !scene_pass_active(candidate) &&
+                bool state18_waiting = scene_pass_active(candidate) &&
+                    candidate->pass_state.phase ==
+                        TECMO_GAMEPLAY_SCENE_PASS_STATE18;
+                /* Airborne B7B6 takes B7F7/B678 and emits no A023 latch;
+                   landed B7B6 takes B783 and clears the pass. Both continue
+                   into Bank06 later in the same fixed scheduler pass. */
+                accepted = (!scene_pass_active(candidate) ||
+                            state18_waiting) &&
                     candidate->ball_holder <
                         TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
                     scene_update_ai(candidate, cpu_shot_request) &&
