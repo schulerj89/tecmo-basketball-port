@@ -391,6 +391,10 @@ try {
         @{ label="Bank05 BDEF-BDF4 target table"; bank=5; fixed=$false; start=0xBDEF; size=6; hash="F4F6458F" },
         @{ label="Bank05 A993-A9C4 assignment stores"; bank=5; fixed=$false; start=0xA993; size=0x32; hash="0E85BBD7" }
     )
+    $A8e9VelocityAnchorSpans = @(
+        @{ label="Bank05 A8E9-A976 velocity normalizer"; bank=5; fixed=$false; start=0xA8E9; size=0x8E; hash="815E6881" },
+        @{ label="Bank05 AA87-AA9E raw ASR helpers"; bank=5; fixed=$false; start=0xAA87; size=0x18; hash="6D37E9A0" }
+    )
     # The first entry below is a separately copied raw helper. The remaining
     # handler/tail anchors overlap the retained command-handler source span;
     # they are semantic anchors, not additional copied source entries.
@@ -457,6 +461,11 @@ try {
             @($Map.opcode13_global_latch_contract.a9da_assignment.omitted_a9da_effects).Count -eq 3 -and
             $Map.opcode13_global_latch_contract.a9da_assignment.production_boundary -match
                 'synthetic/frozen.*not substitutes' -and
+            $Map.opcode13_global_latch_contract.a8e9_velocity_normalizer.scope -eq
+                'pure typed raw16 helper only; LIVE input unowned' -and
+            @($Map.opcode13_global_latch_contract.a8e9_velocity_normalizer.anchors).Count -eq 2 -and
+            $Map.opcode13_global_latch_contract.a8e9_velocity_normalizer.orientation -match
+                '035A 0.*nonnegative.*1.*negative' -and
             $Map.opcode15_source_contract.scope -eq
                 'harness-only; LIVE opcode 15 remains deferred' -and
             $Map.opcode15_source_contract.dispatch.bank -eq 6 -and
@@ -990,6 +999,14 @@ try {
             throw "Canonical A9DA assignment anchor changed at $($Span.label)."
         }
     }
+    foreach ($Span in $A8e9VelocityAnchorSpans) {
+        $Offset = $Prg + $Span.bank * 0x4000 + ($Span.start - 0x8000)
+        $Raw = New-Object byte[] ([int]$Span.size)
+        [Array]::Copy($RomBytes, $Offset, $Raw, 0, [int]$Span.size)
+        if ((Get-Fnv1a32 $Raw) -ne $Span.hash) {
+            throw "Canonical A8E9 velocity anchor changed at $($Span.label)."
+        }
+    }
     $RomMutationCount = 0
     foreach ($Span in $ExpectedSpans) {
         $CpuBase = if ($Span.fixed) { 0xC000 } else { 0x8000 }
@@ -1135,11 +1152,31 @@ try {
         ++$A9daAssignmentRomMutationCount
     }
 
+    $A8e9VelocityRomMutationCount = 0
+    foreach ($Span in $A8e9VelocityAnchorSpans) {
+        $Offset = $Prg + $Span.bank * 0x4000 + ($Span.start - 0x8000)
+        $MutatedRom = Join-Path $Scratch `
+            ("rom-a8e9-velocity-{0:X4}.nes" -f $Span.start)
+        $Bytes = [byte[]]$RomBytes.Clone()
+        $Bytes[$Offset] = $Bytes[$Offset] -bxor 1
+        [IO.File]::WriteAllBytes($MutatedRom, $Bytes)
+        $Output = @(& $Executable --gameplay-cpu-steering-source-test `
+            $MutatedRom 2>&1)
+        if ($LASTEXITCODE -eq 0 -or
+            ($Output -join [Environment]::NewLine) -notmatch
+                'TGAI-3 import requires the exact Rev1 ROM fingerprint') {
+            throw ("Rev1 A8E9 velocity anchor mutation at $($Span.label) " +
+                "was accepted.`n$(Get-ShortTail $Output)")
+        }
+        ++$RomMutationCount
+        ++$A8e9VelocityRomMutationCount
+    }
+
     Write-Host ("TGAI-3 focused tests passed: exact Rev1 importer and twelve " +
         "source spans plus eight lifecycle anchor/table spans, nine exact " +
         "regulation-entry spans, five auto-pass spans, and twelve opcode-15 " +
         "source/semantic-anchor spans, eight global-latch producer/reset/" +
-        "consumer anchors, five A9DA/AAB8/A993 spans, 680 aligned " +
+        "consumer anchors, five A9DA/AAB8/A993 spans, two A8E9 velocity spans, 680 aligned " +
         "commands, 24 handlers, eight exact " +
         "direction codes, deterministic ten-coordinate/context harness, " +
         "transactional TGMO direction/movement composition, " +
@@ -1148,7 +1185,8 @@ try {
         "anchor/table; $RegulationEntryRomMutationCount regulation entry; " +
         "$Opcode15RomMutationCount opcode-15; $AutoPassRomMutationCount " +
         "auto-pass; $GlobalLatchRomMutationCount global-latch; " +
-        "$A9daAssignmentRomMutationCount A9DA assignment), bounded live scene " +
+        "$A9daAssignmentRomMutationCount A9DA assignment; " +
+        "$A8e9VelocityRomMutationCount A8E9 velocity), bounded live scene " +
         "adapter enabled")
     $global:LASTEXITCODE = 0
 } finally {

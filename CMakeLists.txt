@@ -87,6 +87,7 @@ set(TECMO_PORT_SOURCES
     src/tecmo_gameplay_cpu_opcode15_selection.c
     src/tecmo_gameplay_cpu_global_latch.c
     src/tecmo_gameplay_cpu_a9da_assignment.c
+    src/tecmo_gameplay_cpu_a8e9_velocity.c
     src/tecmo_gameplay_cpu_opcode_workspaces.c
     src/tecmo_gameplay_candidate_selection.c
     src/tecmo_gameplay_defense_contact.c

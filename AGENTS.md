@@ -1629,6 +1629,21 @@ dynamic flight velocity, actor-motion freeze, embedded TGGL, or same-loop
 Bank06 traversal. Keep `missing-global-target`, `$0041` latest-writer, and
 `missing-opcode15-raw-lifecycle` boundaries intact.
 
+TGVN-1 directly translates Bank05 `$A8E9-$A976` plus `$AA87-$AA9E` as a
+helper-only raw16 planar velocity transaction. Define arithmetic-right-one on
+uint16 bits by preserving bit 15; define negate with 16-bit wrap. Negative
+incoming Z shifts Z twice and X twice, then clamps X only when its absolute
+high byte is zero and low byte is below `$30`. Use magnitude
+`$30+($006A&$0F)` and restore the sign captured before clamp. Nonnegative Z
+shifts X twice only and never clamps. Raw `$035A=0` finally forces X
+nonnegative; raw 1 forces it negative. Keep exact natural contracts
+`FED7/FFEF -> 004B/FFFB` and `FF65/FFC3`, `$006A` low E, `-> 003E/FFF0`.
+Do not add scene planar velocity/accumulator ownership, infer it from lerped
+positions, seed synthetic sentinels, or enable LIVE A9DA until the launch
+solver owns incoming values. The intended eventual bridge is a typed
+save/temp/normalize/restore transaction around rim-rattle state, not a shadow
+motion reconstruction.
+
 Opcode 20 has a source-exact bounded executor for Bank06 `$9032-$9052`. Its
 only records are `$000F` / CPU `$9F3D` and `$0019` / CPU `$9F47`, both
 `14 00 00 00 00` and each followed by a goto `$0000`. Reuse only the typed raw

@@ -92,6 +92,23 @@ Exact importer anchors cover `$A8E9-$A9D9`, `$A9DA-$AA44`, `$AAB8-$AB35`,
 `$BDEF-$BDF4`, `$A993-$A9C4`, the other TGGL writers, Bank06 consumer, and
 fixed reset/page clear, with independent mutation rejection for every span.
 
+TGVN-1 directly translates the preceding `$A8E9-$A976` planar-velocity
+normalizer and `$AA87-$AA9E` raw shift helpers. It treats X/Z velocity as
+uint16 bit patterns: arithmetic-right-one preserves bit 15, and negate wraps.
+When incoming Z is negative, source shifts Z twice and X twice, then clamps
+only an X absolute value whose high byte is zero and low byte is below `$30`.
+The replacement magnitude is `$30+($006A&$0F)`, restoring the sign observed
+before clamp. Nonnegative Z shifts X twice, preserves Z, and never clamps.
+Finally raw `$035A=0` forces nonnegative X and `$035A=1` forces negative X.
+Natural no-write inputs reproduce `FED7/FFEF -> 004B/FFFB` and, with `$006A`
+low nibble E, `FF65/FFC3 -> 003E/FFF0`.
+
+This remains a pure save/temp/normalize/restore-shaped helper. The scene has no
+source-shaped owner for incoming launch velocity, so it does not add planar
+velocity/accumulator fields, derive velocity from lerped positions, seed a
+synthetic sentinel, or enable LIVE A9DA. Exact importer and mutation anchors
+cover `$A8E9-$A976` (FNV `815E6881`) and `$AA87-$AA9E` (FNV `6D37E9A0`).
+
 ## What the harness proves
 
 | Area | Exact bounded conversion | First missing live dependency | LIVE disposition |

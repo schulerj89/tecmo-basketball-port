@@ -497,6 +497,16 @@ Natural no-write values corroborate projections `009D + (004B*002C >> 6) =
 Native rattle inputs remain synthetic/frozen, so they cannot authorize a LIVE
 TGGL write or same-loop opcode-13 consume.
 
+TGVN-1 is the direct raw16 C translation of `$A8E9-$A976/$AA87-$AA9E`.
+Negative Z shifts both planar components twice and alone admits the exact
+absolute-X clamp; nonnegative Z shifts X only. Clamp uses
+`$30+($006A&$0F)` and restores the pre-clamp sign before raw `$035A` forces X
+nonnegative for 0 or negative for 1. The API defines arithmetic shift and
+wrapping negate on uint16 bits, so host signed-shift behavior is irrelevant.
+It remains helper-only because launch-solver ownership of incoming planar
+velocity is absent; rendered/lerped positions and synthetic rattle sentinels
+are forbidden substitutes.
+
 Production automatic-pass selection now enters from made-score restart:
 Bank05 `$901F` state 1 reaches Bank06 `$8661-$8727`, publishes the selected
 primary at `$0168`, and `$8728-$8773` refreshes the other four offense streams

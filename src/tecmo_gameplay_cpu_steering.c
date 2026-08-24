@@ -3,6 +3,7 @@
 #include "tecmo_gameplay_cpu_steering.h"
 #include "tecmo_gameplay_cpu_global_latch.h"
 #include "tecmo_gameplay_cpu_a9da_assignment.h"
+#include "tecmo_gameplay_cpu_a8e9_velocity.h"
 #include "tecmo_gameplay_cpu_opcode15_selection.h"
 
 #include "asset_pack/tecmo_asset_pack_gameplay_cpu_steering.h"
@@ -3592,6 +3593,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     TecmoGameplayCpuSteeringPlayResult play_result_before;
     char global_latch_message[192];
     char a9da_assignment_message[192];
+    char a8e9_velocity_message[192];
     char opcode15_selection_message[192];
     TecmoGameplayCpuSteeringShotInput shot_input;
     TecmoGameplayCpuSteeringShotResult shot_result;
@@ -6364,6 +6366,14 @@ bool tecmo_gameplay_cpu_steering_self_test(
         (void)snprintf(message, message_size,
                        "TGAI-3 A9DA assignment failed: %.160s",
                        a9da_assignment_message);
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    if (!tecmo_gameplay_cpu_a8e9_velocity_self_test(
+            a8e9_velocity_message, sizeof(a8e9_velocity_message))) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 A8E9 velocity failed: %.160s",
+                       a8e9_velocity_message);
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
