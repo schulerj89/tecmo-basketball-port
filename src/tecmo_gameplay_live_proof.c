@@ -3,7 +3,6 @@
 #include "png_writer.h"
 #include "tecmo_game.h"
 #include "tecmo_gameplay_cpu_steering.h"
-#include "tecmo_gameplay_cpu_opcode_workspaces.h"
 #include "tecmo_gameplay_scene_internal.h"
 
 #include <stdarg.h>
@@ -365,28 +364,6 @@ static bool live_proof_find_offset(
     return false;
 }
 
-static bool live_proof_find_opcode_offset(
-    const TecmoGameplayCpuSteeringAssets *assets,
-    uint8_t opcode,
-    uint16_t *offset_out)
-{
-    uint16_t offset;
-    if (assets == NULL || offset_out == NULL || !assets->available) return false;
-    for (offset = 0U;
-         offset < (uint16_t)(assets->command_record_count *
-                             TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE);
-         offset = (uint16_t)(offset +
-                             TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE)) {
-        TecmoGameplayCpuSteeringCommand command;
-        if (tecmo_gameplay_cpu_steering_decode_command(
-                assets, offset, &command) && command.opcode == opcode) {
-            *offset_out = offset;
-            return true;
-        }
-    }
-    return false;
-}
-
 /* Choose the canonical Bank04 opcode-4 ball-object record. The selected-primary
    exclusion fixture parks this otherwise supported record on `$0308` and
    proves the ordinary Bank06 actor loop cannot execute it. */
@@ -433,14 +410,11 @@ static bool live_proof_prepare_cpu_fixture(TecmoGameplayScene *scene)
     TecmoGameplayLiveFoundation candidate;
     uint16_t target_offset;
     uint16_t deferred_offset;
-    uint16_t opcode10_offset;
     if (scene == NULL ||
         !live_proof_find_offset(&scene->cpu_steering_assets, true,
                                 &target_offset) ||
         !live_proof_find_offset(&scene->cpu_steering_assets, false,
                                 &deferred_offset) ||
-        !live_proof_find_opcode_offset(
-            &scene->cpu_steering_assets, 10U, &opcode10_offset) ||
         !live_proof_force_possession(scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U)) {
         return false;
     }
@@ -469,17 +443,6 @@ static bool live_proof_prepare_cpu_fixture(TecmoGameplayScene *scene)
     candidate.play_state.target_x[2U] = 0;
     candidate.play_state.target_depth[2U] = 0;
     candidate.source_target_valid[2U] = false;
-    /* Actor 3 is a bit-clear ordinary actor and its typed dynamic link 8 is
-       not the primary actor 0. This makes the narrow opcode-10 LIVE branch
-       source-owned and visible in the rendered CPU proof event. */
-    candidate.play_state.stream_offset[3U] = opcode10_offset;
-    candidate.last_step_offset[3U] = opcode10_offset;
-    candidate.play_state.target_object[3U] =
-        TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
-    candidate.play_state.target_x[3U] = 0;
-    candidate.play_state.target_depth[3U] = 0;
-    candidate.source_target_valid[3U] = false;
-    candidate.dynamic_link[3U] = 9U;
     if (!tecmo_gameplay_live_foundation_valid(
             &scene->cpu_steering_assets, &candidate)) {
         return false;
@@ -1920,8 +1883,6 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
     }
     if (strcmp(event, "cpu-target-deferred") == 0) {
         TecmoGameplayCpuSteeringCommand opcode4;
-        TecmoGameplayCpuOpcode10LiveProjection opcode10_projection;
-        TecmoGameplayCourtCoordinate opcode10_expected;
         size_t target_count = 0U;
         size_t deferred_count = 0U;
         size_t actor;
@@ -1934,39 +1895,9 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
                 TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT ||
             !tecmo_gameplay_court_coordinate_q8_floor(
                 &scene->ball_position, &evidence->opcode4_ball_snapshot) ||
-            !tecmo_gameplay_cpu_opcode10_live_projection(
-                3U, scene->live_foundation.primary_actor,
-                scene->live_foundation.actor_selector_flags[3U],
-                scene->live_foundation.dynamic_link[3U],
-                scene->orientation_state.attack_direction,
-                scene->live_foundation.actor_position,
-                &opcode10_projection) ||
-            !opcode10_projection.branch_context_available ||
-            !opcode10_projection.relative_workspace_available ||
             !tecmo_gameplay_scene_update(scene, &p1, &p2)) {
             return live_proof_reject(message, message_size,
                                      "CPU target/deferred fixture update failed");
-        }
-        opcode10_expected.x = (int16_t)(
-            (uint16_t)scene->live_foundation.actor_position[
-                opcode10_projection.linked_actor].x +
-            (uint16_t)opcode10_projection.linked_relative_x);
-        opcode10_expected.y = (int16_t)(
-            (uint16_t)scene->live_foundation.actor_position[
-                opcode10_projection.linked_actor].y +
-            (uint16_t)opcode10_projection.linked_relative_depth);
-        if (scene->live_foundation.deferred[3U] ||
-            !scene->live_foundation.source_target_valid[3U] ||
-            scene->live_foundation.play_state.target_object[3U] !=
-                opcode10_projection.linked_actor ||
-            scene->live_foundation.play_state.target_x[3U] !=
-                opcode10_expected.x ||
-            scene->live_foundation.play_state.target_depth[3U] !=
-                opcode10_expected.y ||
-            !scene->cpu_actors[3U].target_valid) {
-            return live_proof_reject(
-                message, message_size,
-                "CPU opcode-10 dynamic-link target was not retained");
         }
         for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
             if (scene->live_foundation.source_target_valid[actor]) {

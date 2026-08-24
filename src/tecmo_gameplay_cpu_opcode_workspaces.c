@@ -193,78 +193,6 @@ bool tecmo_gameplay_cpu_opcode10_workspace_harness(
     return true;
 }
 
-bool tecmo_gameplay_cpu_opcode10_live_projection(
-    uint8_t actor,
-    uint8_t primary_actor,
-    uint8_t actor_selector_04b0,
-    uint8_t dynamic_link_06cb,
-    uint8_t orientation_035a,
-    const TecmoGameplayCourtCoordinate actor_position[
-        TECMO_GAMEPLAY_CPU_OPCODE_WORKSPACE_ACTOR_COUNT],
-    TecmoGameplayCpuOpcode10LiveProjection *projection_out)
-{
-    TecmoGameplayCpuOpcode10LiveProjection projection;
-    TecmoGameplayCpuOpcode10WorkspaceInput input;
-    TecmoGameplayCpuOpcode10WorkspaceResult workspace;
-    size_t index;
-    if (!workspace_actor_valid(actor) || !workspace_actor_valid(primary_actor) ||
-        !workspace_actor_valid(dynamic_link_06cb) || orientation_035a > 1U ||
-        actor_position == NULL || projection_out == NULL) {
-        return false;
-    }
-    for (index = 0U; index < TECMO_GAMEPLAY_CPU_OPCODE_WORKSPACE_ACTOR_COUNT;
-         ++index) {
-        if (!workspace_coordinate_valid(&actor_position[index]) ||
-            actor_position[index].y > UINT8_MAX) {
-            return false;
-        }
-    }
-    memset(&projection, 0, sizeof(projection));
-    projection.contract_tag =
-        TECMO_GAMEPLAY_CPU_OPCODE10_LIVE_PROJECTION_TAG;
-    projection.linked_actor = 0xFFU;
-
-    /* Bank02 $BF87-$BF8C admits only bit-$10 candidates before $BFD5 can
-       write $07DF. Its no-candidate exits write/retain the $FF sentinel.
-       A bit-clear actor therefore cannot equal a live $07DF actor. */
-    if ((actor_selector_04b0 & 0x10U) != 0U) {
-        *projection_out = projection;
-        return true;
-    }
-    projection.branch_context_available = true;
-    projection.linked_actor = dynamic_link_06cb;
-
-    /* $8DBC selects the timer-dependent primary scaling branch by comparing
-       the resolved link with $0308. LIVE has no exact $0798/$075F/$006A/$0760
-       owner, so preserve branch ownership but defer the relative workspace. */
-    if (dynamic_link_06cb == primary_actor) {
-        *projection_out = projection;
-        return true;
-    }
-
-    memset(&input, 0, sizeof(input));
-    input.contract_tag = TECMO_GAMEPLAY_CPU_OPCODE10_WORKSPACE_INPUT_TAG;
-    input.actor_index = actor;
-    input.special_actor_07df = 0xFFU;
-    input.primary_actor_0308 = primary_actor;
-    input.dynamic_link_06cb = dynamic_link_06cb;
-    input.orientation_035a = orientation_035a;
-    input.linked_target_x = (uint16_t)actor_position[dynamic_link_06cb].x;
-    input.linked_target_depth =
-        (uint8_t)actor_position[dynamic_link_06cb].y;
-    /* These bytes are not read on the proven non-primary $8DDD branch. */
-    input.rate_index_075f = 0U;
-    if (!tecmo_gameplay_cpu_opcode10_workspace_harness(&input, &workspace) ||
-        workspace.linked_actor != dynamic_link_06cb) {
-        return false;
-    }
-    projection.relative_workspace_available = true;
-    projection.linked_relative_x = workspace.linked_relative_x;
-    projection.linked_relative_depth = workspace.linked_relative_depth;
-    *projection_out = projection;
-    return true;
-}
-
 bool tecmo_gameplay_cpu_opcode16_workspace_harness(
     const TecmoGameplayCpuOpcode16WorkspaceInput *input,
     TecmoGameplayCpuOpcode16WorkspaceResult *result_out)
@@ -503,66 +431,6 @@ static bool workspace_test_opcode16(char *message, size_t message_size)
     return true;
 }
 
-static bool workspace_test_opcode10_live_projection(char *message,
-                                                     size_t message_size)
-{
-    TecmoGameplayCourtCoordinate position[
-        TECMO_GAMEPLAY_CPU_OPCODE_WORKSPACE_ACTOR_COUNT];
-    TecmoGameplayCpuOpcode10LiveProjection projection;
-    TecmoGameplayCpuOpcode10LiveProjection before;
-    size_t actor;
-    for (actor = 0U; actor < TECMO_GAMEPLAY_CPU_OPCODE_WORKSPACE_ACTOR_COUNT;
-         ++actor) {
-        position[actor].x = (int16_t)(80 + actor * 40);
-        position[actor].y = (int16_t)(80 + actor * 4);
-    }
-    /* A bit-clear ordinary actor cannot be Bank02's $07DF candidate. Its
-       non-primary dynamic link therefore owns both the branch and workspace. */
-    if (!tecmo_gameplay_cpu_opcode10_live_projection(
-            1U, 4U, 0x00U, 7U, 0U, position, &projection) ||
-        projection.contract_tag !=
-            TECMO_GAMEPLAY_CPU_OPCODE10_LIVE_PROJECTION_TAG ||
-        !projection.branch_context_available ||
-        !projection.relative_workspace_available ||
-        projection.linked_actor != 7U ||
-        projection.linked_relative_x != -25 ||
-        projection.linked_relative_depth != 5) {
-        (void)snprintf(message, message_size,
-                       "opcode-10 LIVE dynamic-link projection failed");
-        return false;
-    }
-    /* A bit-$10 actor may be $07DF, so both owners remain unavailable. */
-    if (!tecmo_gameplay_cpu_opcode10_live_projection(
-            6U, 4U, 0x10U, 1U, 0U, position, &projection) ||
-        projection.branch_context_available ||
-        projection.relative_workspace_available ||
-        projection.linked_actor != 0xFFU) {
-        (void)snprintf(message, message_size,
-                       "opcode-10 LIVE special-actor defer failed");
-        return false;
-    }
-    /* The bit-clear branch is resolved, but a $0308 link needs unowned timer
-       inputs for the $8DC1-$8DDA primary scaling path. */
-    if (!tecmo_gameplay_cpu_opcode10_live_projection(
-            1U, 4U, 0x00U, 4U, 0U, position, &projection) ||
-        !projection.branch_context_available ||
-        projection.relative_workspace_available ||
-        projection.linked_actor != 4U) {
-        (void)snprintf(message, message_size,
-                       "opcode-10 LIVE primary-timer defer failed");
-        return false;
-    }
-    before = projection;
-    if (tecmo_gameplay_cpu_opcode10_live_projection(
-            1U, 4U, 0x00U, 7U, 2U, position, &projection) ||
-        memcmp(&before, &projection, sizeof(projection)) != 0) {
-        (void)snprintf(message, message_size,
-                       "opcode-10 LIVE malformed transaction failed");
-        return false;
-    }
-    return true;
-}
-
 bool tecmo_gameplay_cpu_opcode_workspace_self_test(char *message,
                                                    size_t message_size)
 {
@@ -570,7 +438,6 @@ bool tecmo_gameplay_cpu_opcode_workspace_self_test(char *message,
     message[0] = '\0';
     if (!workspace_test_assessment(message, message_size) ||
         !workspace_test_opcode10(message, message_size) ||
-        !workspace_test_opcode10_live_projection(message, message_size) ||
         !workspace_test_opcode16(message, message_size)) {
         return false;
     }

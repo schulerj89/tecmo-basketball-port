@@ -16,11 +16,10 @@ defensive `$B104`, before an A-button pass/switch consumes either result.
 | `$06DA-$06DD` | candidate actor/score result |
 | `$06CB-$06D4` | existing `dynamic_link[10]` handoff input |
 
-The same typed `dynamic_link` now feeds the bounded opcode-10 LIVE projection
-for bit-clear, non-primary actors. This is not a fixed-link alias: Bank02
-`$BEE7-$BFD8` proves those actors cannot be `$07DF`, and Bank06
-`$8D59-$8E4E` supplies the exact linked-relative workspace. Bit-`$10` and
-primary-link cases remain explicitly deferred.
+This typed `dynamic_link` does not by itself enable opcode 10. Bank02
+`$BFD1-$BFD8` can retain a prior `$07DF` value when no new candidate is
+stored, so current selector bits do not prove the same-cadence Bank06 branch.
+Opcode 10 remains explicitly deferred until that lifecycle has a typed owner.
 
 `tecmo_gameplay_candidate_directional_select()` reproduces `$B183-$B326`:
 descending scan, current-actor/polarity/viewport/sign filters, the five exact
