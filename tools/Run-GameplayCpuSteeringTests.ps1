@@ -465,7 +465,7 @@ try {
                 'bounded unreachable.*zero direct seeds.*46 pinned formations.*opcode15 exact no-advance' -and
             $Map.opcode13_global_latch_contract.tgca_separation -match
                 'cannot authorize opcode13' -and
-            @($Map.opcode13_global_latch_contract.missing_live_owners).Count -eq 2 -and
+            @($Map.opcode13_global_latch_contract.missing_live_owners).Count -eq 1 -and
             $Map.opcode13_global_latch_contract.a9da_assignment.scope -eq
                 'pure transactional helper bound to the frame-89 ordinary shot landing event' -and
             @($Map.opcode13_global_latch_contract.a9da_assignment.anchors).Count -eq 5 -and

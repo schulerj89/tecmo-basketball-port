@@ -2031,6 +2031,43 @@ bool scene_ownership_valid(const TecmoGameplayScene *scene)
                 !scene->last_defense_contact_94c6.sets_05a1 ||
                 scene->last_defense_contact_94c6
                     .motion_duration_0513_051e != 0x002FU)) ||
+        (scene->defense_contact_94c6_serial == 0U
+             ? (scene->defense_contact_motion_active ||
+                scene->defense_contact_motion_actor !=
+                    TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+                scene->defense_contact_motion_tick_count != 0U ||
+                scene->defense_contact_motion.contract_tag != 0U ||
+                scene->defense_contact_vertical_accumulator_q8 != 0U ||
+                scene->defense_contact_vertical_velocity_q8 != 0U ||
+                scene->defense_contact_pose_counter_05a4 != 0U ||
+                scene->defense_contact_phase_counter_05a1 != 0U)
+             : (scene->defense_contact_motion_active
+                    ? (scene->defense_contact_motion_actor >=
+                           TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+                       scene->defense_contact_motion.contract_tag !=
+                           TECMO_GAMEPLAY_CPU_A0F3_MOTION_TAG ||
+                       scene->defense_contact_motion.remaining_ticks == 0U ||
+                       scene->defense_contact_motion_tick_count +
+                               scene->defense_contact_motion.remaining_ticks !=
+                           0x002FU ||
+                       (uint8_t)(scene
+                                     ->defense_contact_vertical_accumulator_q8 >>
+                                 8U) >= 0xF6U ||
+                       scene->defense_contact_pose_counter_05a4 >= 8U ||
+                       scene->defense_contact_phase_counter_05a1 < 1U ||
+                       scene->defense_contact_phase_counter_05a1 > 2U)
+                    : (scene->defense_contact_motion.contract_tag ==
+                               TECMO_GAMEPLAY_CPU_A0F3_MOTION_TAG &&
+                           (scene->defense_contact_motion_actor !=
+                                TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+                            scene->defense_contact_motion.remaining_ticks !=
+                                0U ||
+                            scene->defense_contact_motion_tick_count !=
+                                0x002FU ||
+                            scene->defense_contact_vertical_accumulator_q8 !=
+                                0U ||
+                            scene->defense_contact_vertical_velocity_q8 !=
+                                0U)))) ||
         scene->defense_possession_state.contract_tag !=
             TECMO_GAMEPLAY_DEFENSE_POSSESSION_STATE_TAG ||
         (scene->defense_possession_transaction_serial == 0U

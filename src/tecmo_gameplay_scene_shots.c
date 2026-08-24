@@ -3965,6 +3965,27 @@ static bool scene_try_defense_interaction_actor(
         candidate.defense_contact_94c6_serial =
             candidate.defense_contact_94c6_serial == UINT32_MAX
                 ? 1U : candidate.defense_contact_94c6_serial + 1U;
+        candidate.defense_contact_motion_active = true;
+        candidate.defense_contact_motion_actor = candidate.ball_holder;
+        candidate.defense_contact_motion_tick_count = 0U;
+        candidate.defense_contact_motion.contract_tag =
+            TECMO_GAMEPLAY_CPU_A0F3_MOTION_TAG;
+        candidate.defense_contact_motion.accumulator_x_q6 =
+            contact_94c6.target_accumulator_x_q6;
+        candidate.defense_contact_motion.accumulator_depth_q6 =
+            contact_94c6.target_accumulator_depth_q6;
+        candidate.defense_contact_motion.velocity_x_q6 =
+            (uint16_t)contact_94c6.target_velocity_x_q6;
+        candidate.defense_contact_motion.velocity_depth_q6 =
+            (uint16_t)contact_94c6.target_velocity_depth_q6;
+        candidate.defense_contact_motion.remaining_ticks =
+            contact_94c6.motion_duration_0513_051e;
+        candidate.defense_contact_vertical_accumulator_q8 =
+            contact_94c6.target_vertical_accumulator_q8;
+        candidate.defense_contact_vertical_velocity_q8 =
+            contact_94c6.target_vertical_velocity_q8;
+        candidate.defense_contact_pose_counter_05a4 = 0U;
+        candidate.defense_contact_phase_counter_05a1 = 1U;
         candidate.live_foundation.play_state.action_state_046e[
             candidate.live_foundation.primary_actor] =
                 contact_94c6.target_action_046e;

@@ -478,6 +478,17 @@ typedef struct TecmoGameplayScene {
        scratch outputs. This is gameplay state evidence, not a frame timer. */
     TecmoGameplayDefense94c6Result last_defense_contact_94c6;
     uint32_t defense_contact_94c6_serial;
+    /* Exact player-action `$1F->$9E64->$B500->$BD6E` planar knockback
+       consumer.  The source initializes this after the current frame's
+       B500 call, so the first published step belongs to the next update. */
+    bool defense_contact_motion_active;
+    uint8_t defense_contact_motion_actor;
+    uint16_t defense_contact_motion_tick_count;
+    TecmoGameplayCpuA0f3Motion defense_contact_motion;
+    uint16_t defense_contact_vertical_accumulator_q8;
+    uint16_t defense_contact_vertical_velocity_q8;
+    uint8_t defense_contact_pose_counter_05a4;
+    uint8_t defense_contact_phase_counter_05a1;
     /* Exact scalar state and raw counter plane for the production
        `$9FC3->$9FF1->$BA65` defense-possession transaction. The raw plane is
        intentionally separate from the season ledger until all original

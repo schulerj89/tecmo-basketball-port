@@ -149,6 +149,10 @@ bool tecmo_gameplay_defense_94c6_direct_plan(
             (int32_t)contact_motion_depth_9696[input->actor_direction_0463]
                 * 64,
             result.motion_duration_0513_051e);
+    /* `$95E8-$95FD` seeds `$0484/$048F=0` and the signed vertical velocity
+       pair `$049A/$04A5=$02F0`; `$B678` owns its later gravity steps. */
+    result.target_vertical_accumulator_q8 = 0U;
+    result.target_vertical_velocity_q8 = 0x02F0U;
     if (result.route_replaced_with_19) {
         result.object10_motion_initialized = true;
         result.object10_accumulator_x_q6 =
@@ -449,6 +453,8 @@ bool tecmo_gameplay_defense_interaction_self_test(
         contact_result.target_accumulator_depth_q6 != 0U ||
         contact_result.target_velocity_x_q6 != -87 ||
         contact_result.target_velocity_depth_q6 != 0 ||
+        contact_result.target_vertical_accumulator_q8 != 0U ||
+        contact_result.target_vertical_velocity_q8 != 0x02F0U ||
         !contact_result.object10_motion_initialized ||
         contact_result.object10_accumulator_x_q6 != 0U ||
         contact_result.object10_accumulator_depth_q6 != 0U ||

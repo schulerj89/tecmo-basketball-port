@@ -112,6 +112,8 @@ typedef struct TecmoGameplayDefense94c6Result {
     uint16_t target_accumulator_depth_q6;
     int16_t target_velocity_x_q6;
     int16_t target_velocity_depth_q6;
+    uint16_t target_vertical_accumulator_q8;
+    uint16_t target_vertical_velocity_q8;
     uint16_t object10_accumulator_x_q6;
     uint16_t object10_accumulator_depth_q6;
     int16_t object10_velocity_x_q6;

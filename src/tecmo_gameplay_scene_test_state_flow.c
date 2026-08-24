@@ -8854,7 +8854,17 @@ static bool scene_test_foul_and_away_free_throws(
         scene->last_defense_contact_94c6.target_velocity_depth_q6 != 0 ||
         !scene->last_defense_contact_94c6.object10_motion_initialized ||
         scene->last_defense_contact_94c6.object10_accumulator_x_q6 !=
-            (uint16_t)(400U << 6U)) {
+            (uint16_t)(400U << 6U) ||
+        !scene->defense_contact_motion_active ||
+        scene->defense_contact_motion_actor != scene->ball_holder ||
+        scene->defense_contact_motion_tick_count != 0U ||
+        scene->defense_contact_motion.contract_tag !=
+            TECMO_GAMEPLAY_CPU_A0F3_MOTION_TAG ||
+        scene->defense_contact_motion.remaining_ticks != 0x002FU ||
+        scene->defense_contact_vertical_accumulator_q8 != 0U ||
+        scene->defense_contact_vertical_velocity_q8 != 0x02F0U ||
+        scene->defense_contact_pose_counter_05a4 != 0U ||
+        scene->defense_contact_phase_counter_05a1 != 1U) {
         (void)snprintf(
             message, message_size,
             "ordinary live pushing foul mismatch phase=%u team=%u individual=%u attempts=%u serial=%u rng=%u/%u clock=%u wait=%u primary_action=%u defender_action=%u presentation=%u",
@@ -8887,6 +8897,26 @@ static bool scene_test_foul_and_away_free_throws(
                 "ordinary live foul did not reach release handoff");
             return false;
         }
+    }
+    if (!scene->defense_contact_motion_active ||
+        scene->defense_contact_motion_tick_count !=
+            TECMO_GAMEPLAY_PRESENTATION_LEAD_IN_FRAMES ||
+        scene->defense_contact_motion.remaining_ticks !=
+            0x002FU - TECMO_GAMEPLAY_PRESENTATION_LEAD_IN_FRAMES ||
+        scene->actors[scene->defense_contact_motion_actor].position.x !=
+            394 ||
+        scene->actors[scene->defense_contact_motion_actor].position.y !=
+            (int16_t)(scene->last_defense_contact_94c6
+                          .target_accumulator_depth_q6 /
+                      64U) ||
+        scene->defense_contact_vertical_accumulator_q8 != 0x0A30U ||
+        scene->defense_contact_vertical_velocity_q8 != 0x0250U ||
+        scene->live_foundation.play_state.action[
+            scene->defense_contact_motion_actor] != 0x33U) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "ordinary live foul did not consume exact $B500 planar motion");
+        return false;
     }
     p1.released.shoot = true;
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
@@ -9030,8 +9060,18 @@ static bool scene_test_foul_and_away_free_throws(
         scene->free_throw_frame != 0U || scene->action_serial != 2U ||
         scene->audio_player.sfx_pending ||
         !tecmo_gameplay_state_valid(&scene->state)) {
-        tecmo_gameplay_scene_test_message(message, message_size,
-                           "non-owner/free-throw non-B input launched");
+        (void)snprintf(
+            message, message_size,
+            "non-owner/free-throw non-B input launched phase=%u attempts=%u frame=%u serial=%u sfx=%u valid=%u status=%s motion=%u/%u",
+            (unsigned)scene->state.phase,
+            (unsigned)scene->state.free_throws.attempts_remaining,
+            (unsigned)scene->free_throw_frame,
+            (unsigned)scene->action_serial,
+            scene->audio_player.sfx_pending ? 1U : 0U,
+            tecmo_gameplay_state_valid(&scene->state) ? 1U : 0U,
+            scene->status,
+            scene->defense_contact_motion_active ? 1U : 0U,
+            (unsigned)scene->defense_contact_motion.remaining_ticks);
         return false;
     }
     memset(&p1, 0, sizeof(p1));

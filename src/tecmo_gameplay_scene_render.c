@@ -1922,7 +1922,14 @@ bool tecmo_gameplay_scene_draw(const TecmoGameplayScene *scene,
            and encoded poses retain their prior orientation path. */
         scene_draw_pose(scene, &view, &actor_poses[index],
                         court_frame.projection.players[index].screen_x,
-                        court_frame.projection.players[index].screen_y,
+                        court_frame.projection.players[index].screen_y -
+                            (scene->defense_contact_motion_active &&
+                                     scene->defense_contact_motion_actor ==
+                                         index
+                                 ? (int)(scene
+                                             ->defense_contact_vertical_accumulator_q8 >>
+                                         8U)
+                                 : 0),
                         0, 0, scale,
                         scene_actor_needs_goal_mirror(
                             scene, &scene->actors[index],

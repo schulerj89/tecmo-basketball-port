@@ -259,9 +259,13 @@ the exact `$9CEA->$BF6C` eight-way quantizer, `$9B03` defender pose/action/
 flags, and `$C045/CC00` individual-foul saturation at six. `$B3DD/$B3EA`
 object-10 initialization and `$B4D0/BCF4` primary knockback are retained as
 exact Q10.6 accumulators, Q10.6 velocity, and duration `$002F`, using the
-shared exact `$80A9-$815A` divider. The native presentation still needs to
-consume that stored knockback frame by frame before the complete
-`$94C6-$9674` visual lifecycle can be declared complete.
+shared exact `$80A9-$815A` divider. Player action `$1F->$9E64` now consumes
+that state through the exact `$B500->$BD6E` wrapped planar integration and
+duration clear, `$B678` gravity/height clamp, `$9F11/$9F20` rise/fall pose
+tables, and the landed `$05A4/$05A1` cadence/velocity halving. The source
+height byte offsets the rendered actor while the motion remains active, so
+the complete reachable `$94C6-$9674` contact-motion lifecycle now has a
+production consumer rather than a stored-only trace.
 
 For opt-in diagnosis, `TGPS-1` snapshots expose typed raw labels
 `$0308/$0309`, `$030A/$030B`, `$030C/$030D`, `$000E/$000F`, `$037F/$0380`,

@@ -994,6 +994,15 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
     memset(&scene->last_defense_contact_94c6, 0,
            sizeof(scene->last_defense_contact_94c6));
     scene->defense_contact_94c6_serial = 0U;
+    scene->defense_contact_motion_active = false;
+    scene->defense_contact_motion_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    scene->defense_contact_motion_tick_count = 0U;
+    memset(&scene->defense_contact_motion, 0,
+           sizeof(scene->defense_contact_motion));
+    scene->defense_contact_vertical_accumulator_q8 = 0U;
+    scene->defense_contact_vertical_velocity_q8 = 0U;
+    scene->defense_contact_pose_counter_05a4 = 0U;
+    scene->defense_contact_phase_counter_05a1 = 0U;
     memset(&scene->defense_possession_state, 0,
            sizeof(scene->defense_possession_state));
     scene->defense_possession_state.contract_tag =
@@ -2616,6 +2625,108 @@ static bool scene_update_post_action_phases(
     return true;
 }
 
+static bool scene_tick_defense_contact_motion(TecmoGameplayScene *scene)
+{
+    static const uint8_t rising_pose_9f11[15] = {
+        0x01U, 0x02U, 0x03U, 0x03U, 0x03U,
+        0x03U, 0x03U, 0x03U, 0x03U, 0x03U,
+        0x03U, 0x03U, 0x03U, 0x03U, 0x03U
+    };
+    static const uint8_t falling_pose_9f20[15] = {
+        0x06U, 0x05U, 0x05U, 0x04U, 0x04U,
+        0x04U, 0x04U, 0x04U, 0x04U, 0x04U,
+        0x04U, 0x04U, 0x04U, 0x04U, 0x04U
+    };
+    TecmoGameplayCpuA0f3PublishedPosition published;
+    uint8_t actor;
+    if (scene == NULL) return false;
+    if (!scene->defense_contact_motion_active) return true;
+    actor = scene->defense_contact_motion_actor;
+    if (actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        !scene->actors[actor].active ||
+        scene->defense_contact_motion.contract_tag !=
+            TECMO_GAMEPLAY_CPU_A0F3_MOTION_TAG ||
+        scene->defense_contact_motion.remaining_ticks == 0U) {
+        return false;
+    }
+    memset(&published, 0, sizeof(published));
+    if (!tecmo_gameplay_cpu_a0f3_motion_tick_publish(
+            &scene->defense_contact_motion, &published)) {
+        return false;
+    }
+    /* `$BD6E-$BDC4` publishes the upper ten X bits and upper eight depth
+       bits after the wrapped Q10.6 additions. */
+    scene->actors[actor].position.x = (int16_t)published.raw_x;
+    scene->actors[actor].position.y = (int16_t)published.raw_depth;
+    ++scene->defense_contact_motion_tick_count;
+    if (!published.complete) {
+        uint8_t altitude;
+        uint8_t pose_index;
+        uint8_t packed_action;
+        /* `$9E70` skips `$B678` when B500 cleared the action.  Otherwise
+           B678 subtracts gravity `$0028`, integrates the wrapped Q8 pair,
+           and clamps height/velocity when the high byte is zero or F6-FF. */
+        scene->defense_contact_vertical_velocity_q8 = (uint16_t)(
+            scene->defense_contact_vertical_velocity_q8 - 0x0028U);
+        scene->defense_contact_vertical_accumulator_q8 = (uint16_t)(
+            scene->defense_contact_vertical_accumulator_q8 +
+            scene->defense_contact_vertical_velocity_q8);
+        altitude = (uint8_t)(
+            scene->defense_contact_vertical_accumulator_q8 >> 8U);
+        if (altitude == 0U || altitude >= 0xF6U) {
+            scene->defense_contact_vertical_accumulator_q8 = 0U;
+            scene->defense_contact_vertical_velocity_q8 = 0U;
+        }
+        packed_action = scene->live_foundation.play_state.action[actor];
+        if (scene->defense_contact_vertical_velocity_q8 != 0U) {
+            altitude = (uint8_t)(
+                scene->defense_contact_vertical_accumulator_q8 >> 8U);
+            pose_index = (uint8_t)(altitude >> 2U);
+            if (pose_index >= 15U) return false;
+            packed_action = (uint8_t)((packed_action & 0xF0U) |
+                (((int16_t)scene->defense_contact_vertical_velocity_q8 < 0)
+                     ? falling_pose_9f20[pose_index]
+                     : rising_pose_9f11[pose_index]));
+        } else {
+            scene->defense_contact_pose_counter_05a4 = (uint8_t)(
+                (scene->defense_contact_pose_counter_05a4 + 1U) & 0x07U);
+            if (scene->defense_contact_pose_counter_05a4 == 0U) {
+                uint16_t velocity;
+                ++scene->defense_contact_phase_counter_05a1;
+                velocity = scene->defense_contact_motion.velocity_x_q6;
+                scene->defense_contact_motion.velocity_x_q6 =
+                    (uint16_t)((velocity >> 1U) | (velocity & 0x8000U));
+                velocity = scene->defense_contact_motion.velocity_depth_q6;
+                scene->defense_contact_motion.velocity_depth_q6 =
+                    (uint16_t)((velocity >> 1U) | (velocity & 0x8000U));
+            }
+            packed_action = (uint8_t)(
+                (packed_action & 0xF0U) | falling_pose_9f20[0]);
+        }
+        scene->live_foundation.play_state.action[actor] = packed_action;
+    }
+    if (published.complete) {
+        scene->defense_contact_motion_active = false;
+        scene->defense_contact_motion_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+        scene->live_foundation.play_state.action_state_046e[actor] = 0U;
+    }
+    return true;
+}
+
+static void scene_cancel_defense_contact_motion(TecmoGameplayScene *scene)
+{
+    if (scene == NULL) return;
+    scene->defense_contact_motion_active = false;
+    scene->defense_contact_motion_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    scene->defense_contact_motion_tick_count = 0U;
+    memset(&scene->defense_contact_motion, 0,
+           sizeof(scene->defense_contact_motion));
+    scene->defense_contact_vertical_accumulator_q8 = 0U;
+    scene->defense_contact_vertical_velocity_q8 = 0U;
+    scene->defense_contact_pose_counter_05a4 = 0U;
+    scene->defense_contact_phase_counter_05a1 = 0U;
+}
+
 static bool scene_dispatch_update_audio(
     TecmoGameplayScene *scene,
     TecmoGameplayPhase phase_before,
@@ -2714,6 +2825,19 @@ static bool scene_update_bound_frame(TecmoGameplayScene *scene,
             scene, &input, &live_context, &phase_before,
             &free_throw_team_captured, &captured_free_throw_team,
             &restart_frame)) {
+        return false;
+    }
+    /* Player action `$1F` initializes after B500 on the admitting frame;
+       ticking here therefore begins on the following bound update and keeps
+       running through the native foul presentation just as the source
+       per-player dispatcher does. */
+    if (phase_before == TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION &&
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_FOUL_PRESENTATION) {
+        /* The source restart/free-throw setup reinitializes player action
+           workspaces before their next dispatcher pass. */
+        scene_cancel_defense_contact_motion(scene);
+    } else if (!scene_tick_defense_contact_motion(scene)) {
+        scene_set_status(scene, "defense contact motion update rejected");
         return false;
     }
     if (scene_phase_allows_live_action(scene->state.phase) &&
