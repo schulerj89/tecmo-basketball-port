@@ -1128,9 +1128,12 @@ play_missing_live_input_reason(
         if (!input->linked_relative_valid) {
             return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_RELATIVE_WORKSPACE;
         }
-        return input->common_tail_ba_available
+        if (!input->common_tail_ba_available) {
+            return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA;
+        }
+        return (input->flags_ba & 0x03U) == 0U
             ? TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE
-            : TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA;
+            : TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE12_UNSAFE_CONTEXT;
     case 15U:
         /* $9172-$9216 owns a wider raw lifecycle than this LIVE contract. */
         return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE15_RAW_LIFECYCLE;
@@ -4197,6 +4200,23 @@ bool tecmo_gameplay_cpu_steering_self_test(
     }
     play_state = play_before;
     play_input.opcode12_actor_eligible = true;
+    for (uint8_t ba = 1U; ba <= 3U; ++ba) {
+        play_input.flags_ba = ba;
+        if (!tecmo_gameplay_cpu_steering_play_step(
+                &assets, &play_state, &play_input, &play_out, &play_result) ||
+            !play_result.fetched || !play_result.deferred ||
+            play_result.deferred_reason !=
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE12_UNSAFE_CONTEXT ||
+            play_result.advanced || play_result.next_offset != 0x006EU ||
+            memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
+            (void)snprintf(message, message_size,
+                           "TGAI-3 opcode-12 BA=%u rollback failed.",
+                           (unsigned)ba);
+            tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+            return false;
+        }
+    }
+    play_input.flags_ba = 0U;
     play_input.opcode12_linked_actor_06cb =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     play_out = play_before;

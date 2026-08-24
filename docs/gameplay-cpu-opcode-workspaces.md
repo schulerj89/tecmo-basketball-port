@@ -163,7 +163,8 @@ The standalone test executable checks:
 - opcode-12 `$006E/$9F9C` record identity, exact close `-8..+7` axes,
   close/non-close and linked-primary-state-5 cursor outcomes, opcode-11 pose
   composition, scoped automatic-offense/defender admission, target publication,
-  timer commit, missing-context defer, and late-scene rollback. The exhaustive
+  timer commit, transactional `BA&3` values 1/2/3, missing-context defer, and
+  late-scene rollback. The exhaustive
   formation command graph records that upstream reachability is not owned;
 - opcode-16 left/right absolute workspace arithmetic, transactional invalid
   coordinates, exact dual canonical-record execution from one pre-motion
