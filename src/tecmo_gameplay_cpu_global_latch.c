@@ -21,11 +21,17 @@ static bool latch_valid(const TecmoGameplayCpuGlobalLatch *latch)
              latch->raw_depth_038f_0390 == 0U));
 }
 
-void tecmo_gameplay_cpu_global_latch_init(TecmoGameplayCpuGlobalLatch *latch)
+bool tecmo_gameplay_cpu_global_latch_init(TecmoGameplayCpuGlobalLatch *latch)
 {
-    if (latch == NULL) return;
-    memset(latch, 0, sizeof(*latch));
-    latch->contract_tag = TECMO_GAMEPLAY_CPU_GLOBAL_LATCH_TAG;
+    static const TecmoGameplayCpuGlobalLatch virgin = {0};
+    TecmoGameplayCpuGlobalLatch candidate;
+    if (latch == NULL || memcmp(latch, &virgin, sizeof(*latch)) != 0) {
+        return false;
+    }
+    candidate = virgin;
+    candidate.contract_tag = TECMO_GAMEPLAY_CPU_GLOBAL_LATCH_TAG;
+    *latch = candidate;
+    return true;
 }
 
 bool tecmo_gameplay_cpu_global_latch_write(
@@ -121,7 +127,27 @@ bool tecmo_gameplay_cpu_global_latch_self_test(char *message,
     TecmoGameplayCpuGlobalLatchSnapshot snapshot_before;
     unsigned producer;
     if (message == NULL || message_size == 0U) return false;
-    tecmo_gameplay_cpu_global_latch_init(&latch);
+    memset(&latch, 0, sizeof(latch));
+    if (!tecmo_gameplay_cpu_global_latch_init(&latch)) {
+        (void)snprintf(message, message_size, "one-shot construction failed");
+        return false;
+    }
+    before = latch;
+    if (tecmo_gameplay_cpu_global_latch_init(&latch) ||
+        memcmp(&latch, &before, sizeof(latch)) != 0 ||
+        tecmo_gameplay_cpu_global_latch_init(NULL)) {
+        (void)snprintf(message, message_size,
+                       "initialized-latch reinit rejection failed");
+        return false;
+    }
+    memset(&malformed, 0xA5, sizeof(malformed));
+    before = malformed;
+    if (tecmo_gameplay_cpu_global_latch_init(&malformed) ||
+        memcmp(&malformed, &before, sizeof(malformed)) != 0) {
+        (void)snprintf(message, message_size,
+                       "malformed construction rollback failed");
+        return false;
+    }
     if (!tecmo_gameplay_cpu_global_latch_retain_period(&latch) ||
         !tecmo_gameplay_cpu_global_latch_retain_possession(&latch)) {
         (void)snprintf(message, message_size, "empty latch validation failed");
@@ -147,8 +173,15 @@ bool tecmo_gameplay_cpu_global_latch_self_test(char *message,
         }
     }
     before = latch;
+    if (tecmo_gameplay_cpu_global_latch_init(&latch) ||
+        memcmp(&latch, &before, sizeof(latch)) != 0) {
+        (void)snprintf(message, message_size,
+                       "populated-latch reinit rejection failed");
+        return false;
+    }
     write.expected_serial--;
-    if (tecmo_gameplay_cpu_global_latch_write(&latch, &write) ||
+    if (tecmo_gameplay_cpu_global_latch_init(&latch) ||
+        tecmo_gameplay_cpu_global_latch_write(&latch, &write) ||
         memcmp(&latch, &before, sizeof(latch)) != 0) {
         (void)snprintf(message, message_size,
                        "stale writer rollback failed");

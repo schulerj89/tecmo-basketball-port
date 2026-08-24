@@ -44,8 +44,10 @@ typedef struct TecmoGameplayCpuGlobalLatchSnapshot {
     bool valid;
 } TecmoGameplayCpuGlobalLatchSnapshot;
 
-/* Initializes the native representation of the fixed full-reset clear. */
-void tecmo_gameplay_cpu_global_latch_init(
+/* One-shot construction from byte-zero virgin storage. A tagged, populated,
+ * malformed, or exhausted object is rejected byte-for-byte; initialization is
+ * never a substitute for the serial-admitted full-reset operation. */
+bool tecmo_gameplay_cpu_global_latch_init(
     TecmoGameplayCpuGlobalLatch *latch);
 
 /* Atomic last-writer-wins update. The serial admission prevents a stale

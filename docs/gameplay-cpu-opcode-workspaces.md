@@ -53,7 +53,9 @@ by opcode 14 and opcode 15. TGGL-1 now owns a dedicated four-byte raw16
 representation with five producer kinds (`$A0F3`, `$A790`, `$A9DA`, `$B721`,
 `$B783`), atomic last-writer-wins updates, immutable snapshots, monotonic
 serial admission, full-reset-only clear, and explicit retention across periods
-and possessions. This is a provenance model, not a production binding. Unit
+and possessions. Construction is one-shot and accepts only byte-zero virgin
+storage, so it cannot bypass reset serial admission. This is a provenance
+model, not a production binding. Unit
 fixtures may supply its raw words; LIVE does not, because the object/event
 schedulers, `$A214` gates, opcode 15, and exact latest-writer timing remain
 unowned. The current ball and TGCA's one-frame opcode-20 capability are not

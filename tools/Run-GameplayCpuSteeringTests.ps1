@@ -423,6 +423,8 @@ try {
             $Map.opcode13_global_latch_contract.consumer -eq
                 'Bank06 $9125-$9145' -and
             @($Map.opcode13_global_latch_contract.reset).Count -eq 2 -and
+            $Map.opcode13_global_latch_contract.construction -match
+                'one-shot.*byte-zero virgin.*byte-identical' -and
             $Map.opcode13_global_latch_contract.record_002d -match
                 '\$A9DA->\$A993.*scheduler remains unbound' -and
             $Map.opcode13_global_latch_contract.record_0041 -match

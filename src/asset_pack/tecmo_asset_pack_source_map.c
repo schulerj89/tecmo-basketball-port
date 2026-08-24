@@ -2487,6 +2487,7 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "\"consumer\":\"Bank06 $9125-$9145\","
         "\"reset\":[\"fixed $CC30-$CC57\",\"fixed $CC58-$CC85\"],"
         "\"retention\":\"period and possession transitions retain all four raw bytes\","
+        "\"construction\":\"one-shot; byte-zero virgin storage only; rejection byte-identical\","
         "\"overwrite\":\"atomic last-writer-wins with monotonic serial admission\","
         "\"record_002d\":\"anchored $A9DA->$A993 assignment linkage; scheduler remains unbound\","
         "\"record_0041\":\"latest-writer and scheduling boundary unbound\","

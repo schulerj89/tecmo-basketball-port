@@ -1582,8 +1582,10 @@ exact direction through the bounded direction adapter, never fabricate a
 semantic court target. Treat the words as a persistent latch with five source
 producers, not as per-frame scratch. TGGL-1 types the last-writer families
 `$A0F3`, `$A790`, `$A9DA`, `$B721`, and `$B783`, their monotonic provenance
-serial, full-reset clear, and period/possession retention. That bounded
-representation is not a LIVE producer: `$A0DD` object scheduling, `$A790`
+serial, full-reset clear, and period/possession retention. Its one-shot
+constructor accepts only byte-zero virgin storage; never call construction to
+clear or recover a tagged latch. That bounded representation is not a LIVE
+producer: `$A0DD` object scheduling, `$A790`
 events, `$A9DA` scheduling, `$A214` gates, opcode 15, and latest-writer timing
 at opcode-13 record `$0041` remain unowned. The production scene builder must
 leave `global_target_available` false and report `missing-global-target`;
