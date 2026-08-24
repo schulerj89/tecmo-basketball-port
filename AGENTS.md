@@ -1529,9 +1529,14 @@ state/flags, pass duration/interpolation, and shot timing explicitly
 approximate/fail-closed. Keep the compatibility `cpu_actors[].command_offset`
 sentinel separate from the accepted `live_foundation.play_state` cursor owner;
 do not duplicate command advancement in both structures. Do not claim a
-complete CPU play, pass, shot, steal, or ROM actor-link policy. `$B081-$B32E`
-is converted separately as the per-frame candidate selector and must not be
-classified as ordinary targeting.
+complete CPU play, pass, shot, or steal policy. Bank04 `$ACD9-$ACE3`
+(FNV1a32 `A3A51667`) loads `$ADD6-$ADDF` (`0583D1C0`) into `$06CB`, proving
+the fixed startup cross-team pairing `{5,6,7,8,9,0,1,2,3,4}`. Keep its legacy
+native field name separate from dynamic `$037F/$07DF`. Bank04 `$AD26-$AD58`
+(`10B5F01A`) owns primary timer/rate scaling, and Bank06 `$8CD0-$8E21`
+(`AD7C511E`) consumes these distinct inputs. `$B081-$B32E` is converted
+separately as the per-frame candidate selector and must not be classified as
+ordinary targeting.
 
 Opcode 10's primary-link workspace has one exact production lifecycle:
 `TecmoRuntime` owns persistent `$0798` plus fixed `$54:$53/$6A`, ticks the

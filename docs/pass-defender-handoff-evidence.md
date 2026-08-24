@@ -95,7 +95,7 @@ contract at Bank06 `$81F7-$82D3`.
   `$030C/$030D` as a zero-human/nonzero-automatic encoding, so C does not use
   those raw bytes for ownership classification.
   Automatic opposition scans slots 9 down to 0 and requires both explicit
-  `$04B0 & $10` eligibility and `$06CB` dynamic link equality. The selected
+  `$04B0 & $10` eligibility and fixed `$06CB` link equality. The selected
   defender follows the new holder; the prior defender resumes its ordinary
   TGAI command path.
 - `$B317-$B32B`: a match commits transactionally. The raw 6502 no-match loop
@@ -105,8 +105,9 @@ contract at Bank06 `$81F7-$82D3`.
 
 The eligibility and link arrays are validated live inputs, not imported
 asset-pack claims and not labeled ROM-exact. Their scan and state-transition
-semantics are exact within the verified bounded path; population from the
-original runtime's complete `$04B0/$06CB` producers remains outside scope.
+semantics are exact within the verified bounded path. `$06CB` population is
+the source-pinned startup pairing `{5,6,7,8,9,0,1,2,3,4}`; dynamic
+`$037F/$07DF` population remains a separate selector lifecycle.
 
 `scene_update_ai()` preserves the Bank06 selected-defender exclusion by giving
 the selected defender the on-ball holder target while all other actors,

@@ -4955,7 +4955,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_result.target_depth !=
             play_input.actor_position[7U].y - 2) {
         (void)snprintf(message, message_size,
-                       "TGAI-3 opcode-10 resolved dynamic-link failed.");
+                       "TGAI-3 opcode-10 resolved fixed-link failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }

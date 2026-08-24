@@ -51,7 +51,7 @@ player coordinates while slot `10` is the separately initialized ball object.
 The native port therefore represents slot `10` as
 `TecmoGameplayCpuSteeringPlayInput.ball_position` and records its identity in
 `TecmoGameplayCpuSteeringPlayState.target_object`. It is not an eleventh actor,
-does not receive a command stream, and is not used by dynamic `$06CB` or full
+does not receive a command stream, and is not used by fixed `$06CB` or full
 play-selection policy.
 
 The handler subtracts the selected actor from the target object as a 16-bit X
@@ -305,9 +305,11 @@ The core API, with CLI-only inspection wrappers, provides:
 
 The snapshot evaluator deliberately composes exact and native-owned pieces.
 Default and explicit targets are deterministic harness inputs, not live CPU
-policy. The linked/matchup actor is likewise a typed harness input, not a claim
-that the ROM's `$06CB,X` assignment policy has been reconstructed. Only the
-final TGAI target-minus-actor octant is ROM-exact.
+policy. The fixed `$06CB,X` startup pairing is source-pinned as
+`{5,6,7,8,9,0,1,2,3,4}`; dynamic `$037F/$07DF` selection remains a separate
+lifecycle. A caller-supplied linked/matchup actor is still only a typed harness
+input unless it is bound through one of those exact owners. Only the final
+TGAI target-minus-actor octant is ROM-exact.
 
 Every coordinate must be in TGCT canonical X `0..767`, Y `0..239`; the holder
 must belong to the possession team, and the linked/matchup actor must be on the
@@ -519,9 +521,12 @@ immutable ball snapshot coordinate as the stored source target. The screenshot
 is integration evidence only; the handler semantics remain anchored by the
 TGAI source span, focused executor tests, and source-map provenance above.
 
-The unported `$8D59-$8E21` caller-specific scaling inputs and remaining
-dynamic `$06CB` assignment policy stay explicitly bounded as unresolved; the
-native port does not invent them.
+Opcode 10's `$8D59-$8E21` scaling inputs have the typed production owner
+described above. Bank04 `$ACD9-$ACE3` loads fixed table `$ADD6-$ADDF` into
+`$06CB`; `$AD26-$AD58` owns the primary timer/rate scaling. Dynamic
+`$037F/$07DF` remains separate. The remaining nearby exact boundary is opcode 12's upstream command
+reachability: its bounded executor is exact, but the imported formation graph
+does not establish how normal play selection reaches its sole record.
 
 ## Regulation and overtime `$85EA` entry lifecycle
 

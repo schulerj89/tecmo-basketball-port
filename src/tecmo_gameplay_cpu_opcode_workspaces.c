@@ -63,7 +63,8 @@ bool tecmo_gameplay_cpu_opcode_workspace_assess(
     case 10U:
         /* Bank06 $8CD0-$8CE2 chooses the branch/context, $8D59-$8E21
            creates the relative window, and $8E4F/$92A8 own the continuation.
-           Existing scene fixed links do not establish any of those callers. */
+           Fixed `$06CB` establishes the ordinary linked actor; dynamic
+           `$07DF` and the primary timing context remain separate owners. */
         assessment.handler_cpu = 0x8CD0U;
         assessment.required_mask =
             TECMO_GAMEPLAY_CPU_OPCODE_WORKSPACE_10_ENTRY_LINK |
@@ -423,6 +424,50 @@ static bool workspace_test_opcode10(char *message, size_t message_size)
     TecmoGameplayCpuOpcode10WorkspaceResult before;
     memset(&input, 0, sizeof(input));
     input.contract_tag = TECMO_GAMEPLAY_CPU_OPCODE10_WORKSPACE_INPUT_TAG;
+    /* Fixed `$06CB[1]=6` takes the nonexceptional `$8CE7` branch. The
+       vector/shift/timer assertions cover the complete native projection,
+       not merely the linked-actor identity. */
+    input.actor_index = 1U;
+    input.special_actor_07df = 7U;
+    input.primary_actor_0308 = 4U;
+    input.dynamic_link_06cb = 6U;
+    input.orientation_035a = 0U;
+    input.linked_target_x = 0x0120U;
+    input.linked_target_depth = TECMO_GAMEPLAY_COURT_HOOP_Y;
+    input.timer_0798 = 9U;
+    input.rate_index_075f = 1U;
+    input.sample_006a = 2U;
+    if (!tecmo_gameplay_cpu_opcode10_workspace_harness(&input, &result) ||
+        result.linked_actor != 6U || result.linked_relative_x != -16 ||
+        result.linked_relative_depth != 0 ||
+        result.right_shift_count != 3U ||
+        result.timer_0798_after != 9U || result.timer_reloaded ||
+        result.timer_decremented) {
+        (void)snprintf(message, message_size,
+                       "opcode-10 fixed-link nonprimary $8CE7 vector failed");
+        return false;
+    }
+    /* Fixed `$06CB[2]=7`; `$07DF=2` selects the primary `$8E51` route.
+       Rate 1/sample 0 reloads `$0798` to $1E+5 then decrements once. */
+    input.actor_index = 2U;
+    input.special_actor_07df = 2U;
+    input.primary_actor_0308 = 7U;
+    input.dynamic_link_06cb = 7U;
+    input.timer_0798 = 0U;
+    input.rate_index_075f = 1U;
+    input.sample_006a = 0U;
+    input.timer_0760 = 5U;
+    if (!tecmo_gameplay_cpu_opcode10_workspace_harness(&input, &result) ||
+        result.linked_actor != 7U || result.linked_relative_x != -8 ||
+        result.linked_relative_depth != 0 ||
+        result.right_shift_count != 4U ||
+        result.timer_0798_after != 0x22U || !result.timer_reloaded ||
+        !result.timer_decremented) {
+        (void)snprintf(message, message_size,
+                       "opcode-10 fixed-link primary $8E51 vector failed");
+        return false;
+    }
+
     input.actor_index = 2U;
     input.special_actor_07df = 2U;
     input.primary_actor_0308 = 4U;

@@ -4055,7 +4055,7 @@ static bool scene_test_live_foundation_regressions(
     /* Bank05 $B24F-$B32B / Bank06 $81F7-$82D: Mark Jackson slot 0
        passes to John Starks slot 1; the old holder resumes ordinary command
        state 4/$0B63 and automatic defense selects by descending eligibility
-       plus dynamic link, not receiver+5 arithmetic. */
+       plus configured `$06CB` link, not receiver+5 arithmetic. */
     candidate_foundation = foundation_before;
     candidate_foundation.control_mode[TECMO_GAMEPLAY_TEAM_HOME] = 1U;
     candidate_foundation.dynamic_link[9U] = 1U;
@@ -5404,12 +5404,13 @@ static bool scene_test_live_foundation_regressions(
         for (actor = 0U; actor < 10U; ++actor) {
             positions[actor].x = boundary_ball.x;
             positions[actor].y = 100;
-            candidate_foundation.dynamic_link[actor] = 1U;
+            candidate_foundation.dynamic_link[actor] =
+                actor < 5U ? (uint8_t)(actor + 5U)
+                           : (uint8_t)(actor - 5U);
         }
-        positions[9U].x = (int16_t)(boundary_ball.x + 40);
+        positions[5U].x = (int16_t)(boundary_ball.x + 40);
         positions[7U].x = (int16_t)(boundary_ball.x + 20);
-        candidate_foundation.actor_selector_flags[9U] = 0x10U;
-        candidate_foundation.dynamic_link[9U] = 0U;
+        candidate_foundation.actor_selector_flags[5U] = 0x10U;
         candidate_foundation.actor_selector_flags[7U] = 0x10U;
         memset(&selector_play_input, 0, sizeof(selector_play_input));
         selector_play_input.contract_tag =
@@ -5428,17 +5429,15 @@ static bool scene_test_live_foundation_regressions(
             LIVE_FAIL("LIVE opcode-10 current-boundary selector regressed");
         }
 
-        /* Actor 6 resolves through its exact dynamic link 2 and therefore
+        /* Actor 6 resolves through fixed `$06CB[6]=1` and therefore
            owns the non-primary workspace. The exceptional actor 7 resolves
-           to primary 0 and must retain the next honest missing-workspace
-           boundary because its timer/rate/sample inputs remain unowned. */
-        candidate_foundation.dynamic_link[6U] = 2U;
+           to primary 0; `$07DF` is dynamic and distinct from `$06CB`. */
         memset(&opcode10_context, 0, sizeof(opcode10_context));
         if (!scene_cpu_opcode10_workspace_project(
                 6U, &candidate_foundation, &opcode10_context,
                 &selector_play_input, &opcode10_projection) ||
             !selector_play_input.linked_actor_resolved_valid ||
-            selector_play_input.linked_actor != 2U ||
+            selector_play_input.linked_actor != 1U ||
             !selector_play_input.linked_relative_valid) {
             LIVE_FAIL("LIVE opcode-10 non-primary workspace regressed");
         }
@@ -5727,7 +5726,7 @@ static bool scene_test_live_foundation_regressions(
         }
 
         /* Production proof: park the canonical opcode-10 record on the
-           actual selector candidate whose dynamic link resolves primary.
+           actual selector candidate whose fixed `$06CB` link resolves primary.
            The real scene dispatcher must fetch it, publish its source target,
            compose that target through TGMO, and consume exactly one pending
            timer result. */

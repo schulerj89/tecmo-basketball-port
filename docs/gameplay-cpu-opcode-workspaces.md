@@ -79,13 +79,15 @@ previewed violation. The same current snapshot supplies PlayInput's ball
 coordinate, so opcode-4 ball targeting cannot observe the older attached Q8.
 
 The production selector supports only ordinary `$0478==0`. It supplies typed
-foundation roles, flags, dynamic links, and positions to the pure Bank02
+foundation roles, flags, fixed `$06CB` links, and positions to the pure Bank02
 harness. A candidate or explicit-`$FF` store becomes a LIVE owner; final
 `$99==$FF` no-store/retention remains unavailable, so no fabricated prior
 `$07DF` can leak into Bank06. Nonordinary `$0478=$13,BA=$24` is outside this
 seam even though its source path explicitly stores `$FF`.
 
-For each actor, LIVE resolves the exact `$0308/$06CB` branch. When that link is
+For each actor, LIVE resolves the exact `$0308/$06CB` branch using the fixed
+startup pairing `{5,6,7,8,9,0,1,2,3,4}`. Dynamic `$07DF` remains a distinct
+selector result. When the fixed link is
 not primary, Bank06 chooses its shift solely from hoop-distance thresholds and
 does not read `$0798/$075F/$6A/$0760`; the existing harness supplies the exact
 signed relative workspace without consuming a timer.

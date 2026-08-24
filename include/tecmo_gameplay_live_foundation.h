@@ -9,10 +9,9 @@
 
 /*
  * LIVE owns the adapter state around the accepted TGAI play contract.  The
- * fixed links and startup seeds are source-backed; fixed_link_target is a
- * native fixed projection rather than live ownership of the incomplete ROM
- * dynamic $037F candidate or $06CB link vectors. Caller workspaces are also
- * explicitly classified below.
+ * fixed `$06CB` links and startup seeds are source-backed; fixed_link_target
+ * is a native projection separate from dynamic `$037F/$07DF`. Caller
+ * workspaces are also explicitly classified below.
  */
 #define TECMO_GAMEPLAY_LIVE_FOUNDATION_TAG 0x4C564631U
 #define TECMO_GAMEPLAY_LIVE_CLAIMANT_SETTLEMENT_TAG 0x4C435331U
@@ -103,7 +102,8 @@ typedef struct TecmoGameplayLiveFoundation {
        classified as a zero-human/nonzero-automatic mirror, so these bytes
        deliberately carry no raw-RAM identity. */
     uint8_t control_mode[TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT];
-    /* Explicit live mirrors of the $04B0 bit-$10 predicate and $06CB link. */
+    /* Explicit live mirrors of `$04B0&$10` and exact fixed `$06CB` pairing.
+       The legacy field name predates proof that `$06CB` is not dynamic. */
     bool defender_eligible[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t dynamic_link[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     /* Typed equivalents of $030A/$030B, $0E/$0F, $037F/$0380 and $04B0. */

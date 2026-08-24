@@ -294,8 +294,8 @@ bool scene_cpu_common_tail_has_ordinary_live_zero(
 uint8_t scene_bank06_ordinary_actor_at(size_t source_index);
 /* Exact ordinary-LIVE opcode-10 projection seams. The selector trusts only
    actual Bank02 stores; retained/no-store results remain unavailable. The
-   workspace seam owns only non-primary links, whose Bank06 branch does not
-   consume the unowned timer/rate/sample lifecycle. */
+   workspace seam owns fixed `$06CB` links. Non-primary branches do not read
+   timer/rate/sample; primary branches require the tagged runtime owner. */
 bool scene_cpu_opcode10_selector_project(
     const TecmoGameplayScene *scene,
     const TecmoGameplayCourtCoordinate

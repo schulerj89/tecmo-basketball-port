@@ -908,7 +908,8 @@ These are provenance only and are not runtime inputs.
   live `$AD6E` launch inputs or admits the route. No semantic rebound,
   block, steal, or player-stat event is claimed.
 - Post-handoff live actor layout and fixed five-player roster-slot binding,
-  live CPU command selection, dynamic link/spacing policy, original active-
+  live CPU command selection, dynamic `$037F/$07DF` selection and spacing
+  policy, original active-
   lineup/substitution ownership, exact intra-frame fatigue caller ordering,
   violation detectors beyond the TGMO movement boundary,
   jump-ball interpolation, unsupported jump routes, general

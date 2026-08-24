@@ -561,7 +561,8 @@ static void live_seed_fixed_link_projection(
     TecmoGameplayLiveFoundation *foundation)
 {
     size_t actor;
-    /* Native adapter only: fixed_link is not live $037F/$06CB ownership. */
+    /* Mirror the exact fixed `$06CB` pairing into native facing metadata;
+       dynamic `$037F/$07DF` selection remains separate. */
     for (actor = 0U;
          actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
         foundation->play_state.fixed_link_target[actor] =

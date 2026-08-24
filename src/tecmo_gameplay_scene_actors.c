@@ -3455,7 +3455,8 @@ bool scene_update_ai(
             scene->orientation_state.attack_direction;
         input.steering.ball_holder = scene->ball_holder;
         input.steering.difficulty = scene->launch.difficulty;
-        /* Native fixed projection; never expose it as live $037F/$06CB. */
+        /* Native facing adapter; `$06CB` itself is the fixed pairing in
+           foundation->dynamic_link, while `$037F/$07DF` stays separate. */
         input.steering.matchup_actor = candidate_foundation.play_state
             .fixed_link_target[actor];
         if (selected_defender) {

@@ -77,6 +77,8 @@ typedef struct TecmoGameplayCpuOpcode10WorkspaceInput {
     uint8_t actor_index;
     uint8_t special_actor_07df;
     uint8_t primary_actor_0308;
+    /* Legacy field name retained for source compatibility; canonical Rev1
+       `$06CB[0..9]` is the fixed startup cross-team pairing, not dynamic. */
     uint8_t dynamic_link_06cb;
     uint8_t orientation_035a;
     uint16_t linked_target_x;
@@ -112,6 +114,7 @@ typedef struct TecmoGameplayCpuOpcode10SelectorInput {
     uint8_t orientation_035a;
     uint8_t prior_special_actor_07df;
     uint8_t actor_selector_04b0[10U];
+    /* Legacy field name; exact fixed pairing `{5,6,7,8,9,0,1,2,3,4}`. */
     uint8_t dynamic_link_06cb[10U];
     TecmoGameplayCourtCoordinate actor_position[10U];
 } TecmoGameplayCpuOpcode10SelectorInput;

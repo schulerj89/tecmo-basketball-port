@@ -320,10 +320,8 @@ typedef struct TecmoGameplayCpuSteeringPlayState {
     int16_t target_x[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     int16_t target_depth[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t fixed_link[TECMO_GAMEPLAY_CPU_STEERING_FIXED_LINK_COUNT];
-    /* Native fixed-link projection used by bounded integration. This is not
-       live ownership of the ROM's dynamic $037F candidate or $06CB link
-       vectors. Exact startup seeds remain separate in matchup_seed and
-       fixed_link. */
+    /* Native target projection used by bounded integration. Exact fixed
+       `$06CB` remains in fixed_link; dynamic `$037F/$07DF` stays separate. */
     uint8_t fixed_link_target[
         TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t primary_actor;
@@ -410,8 +408,8 @@ typedef struct TecmoGameplayCpuSteeringPlayInput {
        value for slot zero. */
     bool special_actor_07df_available;
     uint8_t special_actor_07df;
-    /* Bank06 $8CD0 also consumes $0478/$06CB/$0308 before $8D59. This bit
-       requires that exact branch context; a fixed matchup actor is not it. */
+    /* Bank06 $8CD0 consumes `$0478`, fixed `$06CB`, dynamic `$07DF`, and
+       `$0308` before $8D59. This bit requires that complete branch context. */
     bool linked_actor_branch_context_available;
     /* A caller may provide the already resolved $0308/$06CB result when it
        can prove the $07DF branch without mirroring $07DF. */

@@ -82,6 +82,10 @@ if ($Rom.Length -ne 393232 -or $Rom[0] -ne 0x4E -or
 # These hashes are provenance checks only. The harness never embeds, loads,
 # or emits ROM code/table bytes.
 Assert-CanonicalRange $Rom 6 0x8F12 0x8F29 "495E0788"
+Assert-CanonicalRange $Rom 4 0xACD9 0xACE3 "A3A51667"
+Assert-CanonicalRange $Rom 4 0xADD6 0xADDF "0583D1C0"
+Assert-CanonicalRange $Rom 4 0xAD26 0xAD58 "10B5F01A"
+Assert-CanonicalRange $Rom 6 0x8CD0 0x8E21 "AD7C511E"
 Assert-CanonicalRange $Rom 6 0x8CD0 0x8ED3 "5661731D"
 Assert-CanonicalRange $Rom 6 0x9C97 0x9C9A "A27B0F6F"
 Assert-CanonicalRange $Rom 2 0xBEE7 0xBFD8 "C1B08476"
@@ -162,6 +166,6 @@ if ($LASTEXITCODE -ne 0 -or $Text -ne $ExpectedHarnessLine) {
            ($Output -join [Environment]::NewLine))
 }
 
-Write-Host "CPU opcode workspace provenance: canonical=Rev1 command_table=71331A96 opcode7=2 opcode10=1 opcode16=2"
+Write-Host "CPU opcode workspace provenance: canonical=Rev1 fixed_06CB_code=A3A51667 fixed_06CB_table=0583D1C0 opcode10_helper=AD7C511E rate_owner=10B5F01A command_table=71331A96 opcode7=2 opcode10=1 opcode16=2"
 Write-Host $Text
 Write-Host "CPU opcode workspace runner: PASS (exact harness; LIVE opcode 10 primary links require typed runtime frame context)"
