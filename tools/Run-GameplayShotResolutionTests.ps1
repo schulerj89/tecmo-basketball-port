@@ -113,7 +113,8 @@ function Get-EntryBytes {
 }
 
 function Invoke-ShotResolutionTest {
-    param([string]$AssetPack, [bool]$ExpectSuccess)
+    param([string]$AssetPack, [bool]$ExpectSuccess,
+          [string]$ExpectedFailureOwner = "TGSR-4")
     $Output = @(& $Executable --gameplay-shot-resolution-test `
         $AssetPack 2>&1)
     $ExitCode = $LASTEXITCODE
@@ -124,9 +125,8 @@ function Invoke-ShotResolutionTest {
             throw "TGSR-4 loader/API golden failed.`n$(Get-ShortTail $Output)"
         }
     } elseif ($ExitCode -eq 0 -or
-              @($Output | Where-Object {
-                  $_ -match "TGSR-4|Shot-resolution asset"
-              }).Count -eq 0) {
+              ($Output -join [Environment]::NewLine) -notmatch
+                  [regex]::Escape($ExpectedFailureOwner)) {
         throw "Malformed TGSR-4 pack was accepted.`n$(Get-ShortTail $Output)"
     }
 }
@@ -164,7 +164,7 @@ function Write-WrongSizeAndReject {
 
 function Invoke-RejectedRomMutation {
     param([byte[]]$Original, [string]$Id, [int]$Offset,
-          [string]$ExpectedRange, [string]$ExpectedOwner = "TGSR-4")
+          [string]$ExpectedOwner, [string]$ExpectedDiagnostic)
     $MutatedRom = Join-Path $Scratch ("rom-" + $Id + ".nes")
     $MutatedPack = Join-Path $Scratch ("rom-" + $Id + ".assetpack")
     $Bytes = [byte[]]$Original.Clone()
@@ -175,7 +175,7 @@ function Invoke-RejectedRomMutation {
     $Text = $Output -join [Environment]::NewLine
     if ($LASTEXITCODE -eq 0 -or
         $Text -notmatch [regex]::Escape($ExpectedOwner) -or
-        $Text -notmatch [regex]::Escape($ExpectedRange)) {
+        $Text -notmatch [regex]::Escape($ExpectedDiagnostic)) {
         throw "Rev1 source mutation '$Id' was not rejected.`n$(Get-ShortTail $Output)"
     }
 }
@@ -366,25 +366,26 @@ try {
             $MutationCpu = 0xB7AD
         }
         $Offset = $PrgOffset + 5 * 0x4000 + ($MutationCpu - 0x8000)
-        $Range = '${0:X4}-${1:X4}' -f $Span.start, $Span.end
-        $Owner = "TGSR-4"
+        # These are compound whole-pack imports. TGCA-1 deliberately checks
+        # the exact whole-ROM fingerprint before TGSR-4 can report its local
+        # span. Earlier overlapping TGJS/TGCS importers still own three cases.
+        # TGSR-local mutation coverage remains independent above: mutations in
+        # the TGSR payload are loaded by --gameplay-shot-resolution-test and
+        # must be rejected specifically by TGSR-4.
+        $Owner = "TGCA-1"
+        $Diagnostic = "import requires the exact Rev1 ROM fingerprint"
         if ($Index -eq 8) {
-            # The launch-target routine is already inside TGJS's larger
-            # revision span, so the compound builder rejects there first.
             $Owner = "TGJS-2"
-            $Range = '$AD41-$AF21'
+            $Diagnostic = '$AD41-$AF21 fingerprint mismatch'
         } elseif ($Index -eq 9) {
-            # The four-byte snap table is already inside TGCS's larger
-            # revision span, so the compound builder rejects there first.
             $Owner = "TGCS-1"
-            $Range = '$BDEF-$BDF6'
+            $Diagnostic = '$BDEF-$BDF6 fingerprint mismatch'
         } elseif ($Index -eq 10) {
-            # TGJS-2's logical distance table owns the overlapping prefix.
             $Owner = "TGJS-2"
-            $Range = '$BDF7-$BEF6'
+            $Diagnostic = '$BDF7-$BEF6 fingerprint mismatch'
         }
         Invoke-RejectedRomMutation $RomBytes ("source-{0}" -f $Index) `
-            $Offset $Range $Owner
+            $Offset $Owner $Diagnostic
     }
 
     Write-Host $ExpectedOutput
