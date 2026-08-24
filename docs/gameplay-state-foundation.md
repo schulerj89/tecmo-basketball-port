@@ -254,9 +254,12 @@ wrapping `$0420` increment, direction-property overlap at 36 ticks, and the
 direct-entry `$9675[2]=$0E` post-`$C05D` threshold. Accepted LIVE contact
 projects the exact `$07E3` save, conditional `$0478=$19`, primary action
 `$1F`, defender action `$14`, and `$05A1` interrupt into the existing native
-consequence bridge. The external helper/motion sequence beginning at `$95AE`
-still requires full raw-state ownership before all of `$94C6-$9674` can be
-declared complete.
+consequence bridge. The accepted tail also owns `$96A6` primary pose/action,
+the exact `$9CEA->$BF6C` eight-way quantizer, `$9B03` defender pose/action/
+flags, and `$C045/CC00` individual-foul saturation at six. The transient
+`$B3DD/$B3EA/$B4D0/BCF4` object-motion workspaces and their native visual
+consumer still require full ownership before every byte of `$94C6-$9674` can
+be declared complete.
 
 For opt-in diagnosis, `TGPS-1` snapshots expose typed raw labels
 `$0308/$0309`, `$030A/$030B`, `$030C/$030D`, `$000E/$000F`, `$037F/$0380`,

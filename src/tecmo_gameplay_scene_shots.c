@@ -3938,6 +3938,14 @@ static bool scene_try_defense_interaction_actor(
     contact_94c6_input.primary_direction_0463 =
         holder->movement_direction;
     contact_94c6_input.raw_006a = post_9fa1;
+    contact_94c6_input.absolute_delta_x = input.absolute_delta_x;
+    contact_94c6_input.absolute_delta_depth = input.absolute_delta_depth;
+    contact_94c6_input.delta_x_negative_0373 =
+        input.delta_x_negative_0373;
+    contact_94c6_input.delta_depth_negative_0375 =
+        input.delta_depth_negative_0375;
+    contact_94c6_input.individual_fouls_before = candidate.state
+        .individual_fouls[defending_team][defender_actor->roster_index];
     if (!tecmo_gameplay_defense_94c6_direct_plan(
             &contact_94c6_input, &contact_94c6)) {
         return false;
@@ -3952,6 +3960,30 @@ static bool scene_try_defense_interaction_actor(
                 contact_94c6.target_action_046e;
         candidate.live_foundation.play_state.action_state_046e[defender] =
             contact_94c6.defender_action_046e;
+        candidate.live_foundation.play_state.pose[
+            candidate.live_foundation.primary_actor] =
+                contact_94c6.target_pose_low_0442;
+        candidate.live_foundation.play_state.action[
+            candidate.live_foundation.primary_actor] =
+                contact_94c6.target_packed_action_0458;
+        candidate.live_foundation.raw_pose_high_044d[
+            candidate.live_foundation.primary_actor] =
+                contact_94c6.target_pose_high_044d;
+        candidate.live_foundation.play_state.direction[defender] =
+            contact_94c6.defender_direction_after_9cea;
+        candidate.live_foundation.source_direction_valid[defender] = true;
+        candidate.live_foundation.source_direction[defender] =
+            contact_94c6.defender_direction_after_9cea;
+        candidate.live_foundation.play_state.pose[defender] =
+            contact_94c6.defender_pose_low_0442;
+        candidate.live_foundation.play_state.action[defender] =
+            contact_94c6.defender_packed_action_0458;
+        candidate.live_foundation.raw_pose_high_044d[defender] =
+            contact_94c6.defender_pose_high_044d;
+        candidate.live_foundation.raw_sprite_flags_0479[defender] =
+            contact_94c6.defender_sprite_flags_0479;
+        candidate.actors[defender].movement_direction =
+            contact_94c6.defender_direction_after_9cea;
         if (contact_94c6.sets_target_state_057c_08) {
             candidate.live_foundation.play_state.actor_state[
                 candidate.live_foundation.primary_actor] = 0x08U;
@@ -3960,6 +3992,12 @@ static bool scene_try_defense_interaction_actor(
     if (contact_94c6.external_tail_requested && allow_human_94c6 &&
         !scene_try_live_defensive_foul_bridge(
             &candidate, defending_team, defender, &foul_committed)) {
+        return false;
+    }
+    if (foul_committed &&
+        candidate.state.individual_fouls[defending_team]
+            [defender_actor->roster_index] !=
+                contact_94c6.individual_fouls_after) {
         return false;
     }
     input.value_05a1_after_94c6 = contact_94c6.sets_05a1;

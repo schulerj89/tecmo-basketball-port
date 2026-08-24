@@ -6,6 +6,36 @@
 static const uint8_t direction_property_bfa0[8] = {
     0x01U, 0x02U, 0x04U, 0x05U, 0x06U, 0x08U, 0x09U, 0x0AU
 };
+static const uint8_t contact_direction_bf6c[8] = {
+    0x07U, 0x04U, 0x06U, 0x03U, 0x01U, 0x00U, 0x05U, 0x02U
+};
+static const uint8_t contact_target_pose_96a6[8] = {
+    0xB6U, 0x76U, 0x96U, 0xA6U, 0x86U, 0x56U, 0xC6U, 0x66U
+};
+static const uint8_t contact_defender_pose_9b3f[8] = {
+    0xEEU, 0xDEU, 0xE6U, 0xEAU, 0xE2U, 0xD6U, 0xF2U, 0xDAU
+};
+
+static uint8_t contact_direction_9cea(
+    uint16_t absolute_x, uint16_t absolute_depth,
+    bool x_negative, bool depth_negative)
+{
+    uint8_t octant;
+    if (absolute_x >= absolute_depth) {
+        if (absolute_x >= (uint16_t)(absolute_depth << 2U)) {
+            octant = (uint8_t)(4U + (x_negative ? 1U : 0U));
+        } else {
+            octant = (uint8_t)((x_negative ? 2U : 0U) +
+                               (depth_negative ? 1U : 0U));
+        }
+    } else if (absolute_depth >= (uint16_t)(absolute_x << 2U)) {
+        octant = (uint8_t)(6U + (depth_negative ? 1U : 0U));
+    } else {
+        octant = (uint8_t)((x_negative ? 2U : 0U) +
+                           (depth_negative ? 1U : 0U));
+    }
+    return contact_direction_bf6c[octant];
+}
 
 bool tecmo_gameplay_defense_94c6_direct_plan(
     const TecmoGameplayDefense94c6Input *input,
@@ -22,7 +52,8 @@ bool tecmo_gameplay_defense_94c6_direct_plan(
         input->side_control_030c > 1U ||
         input->opposing_control_030c > 1U ||
         input->actor_direction_0463 >= 8U ||
-        input->primary_direction_0463 >= 8U) {
+        input->primary_direction_0463 >= 8U ||
+        input->individual_fouls_before > 6U) {
         return false;
     }
     memset(&result, 0, sizeof(result));
@@ -87,6 +118,26 @@ bool tecmo_gameplay_defense_94c6_direct_plan(
     result.sets_05a1 = true;
     result.target_action_046e = 0x1FU;
     result.defender_action_046e = 0x14U;
+    result.raw_ba_or_mask = 0x04U;
+    result.target_pose_low_0442 =
+        contact_target_pose_96a6[input->actor_direction_0463];
+    result.target_pose_high_044d = 0x08U;
+    result.target_packed_action_0458 = 0x30U;
+    result.target_velocity_low_049a = 0xF0U;
+    result.target_velocity_high_04a5 = 0x02U;
+    result.defender_direction_after_9cea = contact_direction_9cea(
+        input->absolute_delta_x, input->absolute_delta_depth,
+        input->delta_x_negative_0373, input->delta_depth_negative_0375);
+    result.defender_pose_low_0442 = contact_defender_pose_9b3f[
+        result.defender_direction_after_9cea];
+    result.defender_pose_high_044d = 0x08U;
+    result.defender_sprite_flags_0479 = 0x81U;
+    result.defender_packed_action_0458 = 0U;
+    result.individual_fouls_after = input->individual_fouls_before;
+    if (result.individual_fouls_after < 6U) {
+        ++result.individual_fouls_after;
+        result.individual_foul_incremented = true;
+    }
     result.sets_target_state_057c_08 = input->opposing_control_030c != 0U;
     *result_out = result;
     return true;
@@ -346,6 +397,19 @@ bool tecmo_gameplay_defense_interaction_self_test(
         contact_result.route_0478_after != 0x19U ||
         contact_result.target_action_046e != 0x1FU ||
         contact_result.defender_action_046e != 0x14U ||
+        contact_result.target_pose_low_0442 != 0x76U ||
+        contact_result.target_pose_high_044d != 0x08U ||
+        contact_result.target_packed_action_0458 != 0x30U ||
+        contact_result.target_velocity_low_049a != 0xF0U ||
+        contact_result.target_velocity_high_04a5 != 0x02U ||
+        contact_result.defender_direction_after_9cea != 0x01U ||
+        contact_result.defender_pose_low_0442 != 0xDEU ||
+        contact_result.defender_pose_high_044d != 0x08U ||
+        contact_result.defender_sprite_flags_0479 != 0x81U ||
+        contact_result.defender_packed_action_0458 != 0U ||
+        contact_result.individual_fouls_after != 1U ||
+        !contact_result.individual_foul_incremented ||
+        contact_result.raw_ba_or_mask != 0x04U ||
         !contact_result.sets_target_state_057c_08) {
         (void)snprintf(message, message_size,
                        "TGDI $94C6 direct random admission failed");
@@ -374,6 +438,15 @@ bool tecmo_gameplay_defense_interaction_self_test(
         contact_result.route_replaced_with_19) {
         (void)snprintf(message, message_size,
                        "TGDI $94C6 direction-overlap admission failed");
+        return false;
+    }
+    contact_input.individual_fouls_before = 6U;
+    if (!tecmo_gameplay_defense_94c6_direct_plan(
+            &contact_input, &contact_result) ||
+        contact_result.individual_fouls_after != 6U ||
+        contact_result.individual_foul_incremented) {
+        (void)snprintf(message, message_size,
+                       "TGDI $94C6 capped individual foul failed");
         return false;
     }
     contact_input.side_control_030c = 1U;

@@ -8828,7 +8828,22 @@ static bool scene_test_foul_and_away_free_throws(
         scene->foul_presentation.team_fouls_after != 1U ||
         scene->foul_presentation.free_throw_attempts != 0U ||
         scene->foul_presentation.team_in_bonus ||
-        scene->foul_presentation.fouled_out) {
+        scene->foul_presentation.fouled_out ||
+        scene->live_foundation.play_state.action_state_046e[
+            scene->ball_holder] != 0x1FU ||
+        scene->live_foundation.play_state.pose[scene->ball_holder] != 0x76U ||
+        scene->live_foundation.play_state.action[scene->ball_holder] != 0x30U ||
+        scene->live_foundation.raw_pose_high_044d[scene->ball_holder] != 0x08U ||
+        scene->live_foundation.play_state.action_state_046e[
+            scene->controlled_actor[1U]] != 0x14U ||
+        scene->live_foundation.play_state.direction[
+            scene->controlled_actor[1U]] != 0x01U ||
+        scene->live_foundation.play_state.pose[
+            scene->controlled_actor[1U]] != 0xDEU ||
+        scene->live_foundation.raw_pose_high_044d[
+            scene->controlled_actor[1U]] != 0x08U ||
+        scene->live_foundation.raw_sprite_flags_0479[
+            scene->controlled_actor[1U]] != 0x81U) {
         (void)snprintf(
             message, message_size,
             "ordinary live pushing foul mismatch phase=%u team=%u individual=%u attempts=%u serial=%u rng=%u/%u clock=%u wait=%u primary_action=%u defender_action=%u presentation=%u",

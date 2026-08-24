@@ -138,6 +138,13 @@ typedef struct TecmoGameplayLiveFoundation {
     uint8_t selected_actor_by_side[TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT];
     uint8_t candidate_actor_by_side[TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT];
     uint8_t actor_selector_flags[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    /* Exact presentation partners for play_state.pose's `$0442` low byte.
+       Most command handlers still leave these raw planes unchanged; contact
+       `$94C6` owns both writes for its primary/defender pair. */
+    uint8_t raw_pose_high_044d[
+        TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    uint8_t raw_sprite_flags_0479[
+        TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint16_t candidate_score_by_side[TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT];
     uint8_t candidate_sector_by_side[TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT];
     uint8_t actor_team[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];

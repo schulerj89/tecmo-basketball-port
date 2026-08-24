@@ -71,6 +71,11 @@ typedef struct TecmoGameplayDefense94c6Input {
     uint8_t actor_direction_0463;
     uint8_t primary_direction_0463;
     uint8_t raw_006a;
+    uint16_t absolute_delta_x;
+    uint16_t absolute_delta_depth;
+    bool delta_x_negative_0373;
+    bool delta_depth_negative_0375;
+    uint8_t individual_fouls_before;
 } TecmoGameplayDefense94c6Input;
 
 typedef struct TecmoGameplayDefense94c6Result {
@@ -86,6 +91,18 @@ typedef struct TecmoGameplayDefense94c6Result {
     uint8_t route_0478_after;
     uint8_t target_action_046e;
     uint8_t defender_action_046e;
+    uint8_t target_pose_low_0442;
+    uint8_t target_pose_high_044d;
+    uint8_t target_packed_action_0458;
+    uint8_t target_velocity_low_049a;
+    uint8_t target_velocity_high_04a5;
+    uint8_t defender_direction_after_9cea;
+    uint8_t defender_pose_low_0442;
+    uint8_t defender_pose_high_044d;
+    uint8_t defender_sprite_flags_0479;
+    uint8_t defender_packed_action_0458;
+    uint8_t individual_fouls_after;
+    uint8_t raw_ba_or_mask;
     bool entry_writes_applied;
     bool wait_incremented;
     bool direction_overlap_admitted;
@@ -94,6 +111,7 @@ typedef struct TecmoGameplayDefense94c6Result {
     bool external_tail_requested;
     bool sets_05a1;
     bool sets_target_state_057c_08;
+    bool individual_foul_incremented;
 } TecmoGameplayDefense94c6Result;
 
 /* Persistent scalar RAM owned by the admitted `$9FC3-$9FE1` possession
