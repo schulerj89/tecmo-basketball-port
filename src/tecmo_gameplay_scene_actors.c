@@ -2516,6 +2516,29 @@ static bool scene_cpu_build_play_input(
         scene, actor_position, foundation, input);
 }
 
+static void scene_cpu_selected_primary_opcode7_probe_begin(
+    const TecmoGameplayScene *scene,
+    TecmoGameplayCpuSteeringPlayInput *input)
+{
+    if (input == NULL) return;
+    input->actor_046e_probe_available = false;
+    memset(input->actor_046e_probe, 0, sizeof(input->actor_046e_probe));
+    if (!scene_cpu_common_tail_has_ordinary_live_zero(scene)) return;
+    /* Bank06's selected-primary prepass is still in the proven ordinary
+       `$0478==0` seam. Canonical opcode-7 records index only slot 10, so this
+       scoped capture represents exactly `$046E[$0A] == $0478 == 0`. */
+    input->actor_046e_probe[0x0AU] = 0U;
+    input->actor_046e_probe_available = true;
+}
+
+static void scene_cpu_selected_primary_opcode7_probe_end(
+    TecmoGameplayCpuSteeringPlayInput *input)
+{
+    if (input == NULL) return;
+    input->actor_046e_probe_available = false;
+    memset(input->actor_046e_probe, 0, sizeof(input->actor_046e_probe));
+}
+
 static bool scene_cpu_shot_input(
     const TecmoGameplayScene *scene,
     const TecmoGameplaySceneActor *holder,
@@ -2910,11 +2933,15 @@ bool scene_update_ai(
         !scene_team_has_controller(scene, scene->state.possession) &&
         candidate_foundation.play_state.actor_state[actor] == 0x06U) {
         TecmoGameplayCpuSteeringPlayResult primary_result;
+        bool primary_step_ok;
         memset(&primary_result, 0, sizeof(primary_result));
         play_input.actor = (uint8_t)actor;
-        if (!tecmo_gameplay_live_foundation_play_step(
-                &scene->cpu_steering_assets, &play_input,
-                &candidate_foundation, &primary_result) ||
+        scene_cpu_selected_primary_opcode7_probe_begin(scene, &play_input);
+        primary_step_ok = tecmo_gameplay_live_foundation_play_step(
+            &scene->cpu_steering_assets, &play_input,
+            &candidate_foundation, &primary_result);
+        scene_cpu_selected_primary_opcode7_probe_end(&play_input);
+        if (!primary_step_ok ||
             !scene_cpu_opcode10_projection_commit(
                 &primary_opcode10_projection, &primary_result,
                 &candidate_opcode10_context.timer_0798) ||
@@ -2931,12 +2958,16 @@ bool scene_update_ai(
         const TecmoTeamDataPlayer *primary_player =
             scene_actor_player(scene, &scene->actors[actor]);
         bool route_owned = false;
+        bool primary_step_ok;
         memset(&primary_result, 0, sizeof(primary_result));
         play_input.actor = (uint8_t)actor;
-        if (primary_player == NULL ||
-            !tecmo_gameplay_live_foundation_play_step(
+        scene_cpu_selected_primary_opcode7_probe_begin(scene, &play_input);
+        primary_step_ok = primary_player != NULL &&
+            tecmo_gameplay_live_foundation_play_step(
                 &scene->cpu_steering_assets, &play_input,
-                &candidate_foundation, &primary_result) ||
+                &candidate_foundation, &primary_result);
+        scene_cpu_selected_primary_opcode7_probe_end(&play_input);
+        if (!primary_step_ok ||
             !scene_cpu_opcode10_projection_commit(
                 &primary_opcode10_projection, &primary_result,
                 &candidate_opcode10_context.timer_0798)) {
@@ -3024,6 +3055,10 @@ bool scene_update_ai(
             selected_primary_route_owned = route_owned;
         }
     }
+
+    /* Opcode 6 may change `$0478` during the descending traversal. The
+       selected-primary zero capture must never escape into ordinary actors. */
+    scene_cpu_selected_primary_opcode7_probe_end(&play_input);
 
     /* Bank06 $8284 loads X=$09 and $82A4 decrements through actor 0. Ordinary
        non-selected decisions consume one immutable post-human-input court

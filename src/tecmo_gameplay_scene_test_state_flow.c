@@ -3726,6 +3726,147 @@ static bool scene_test_live_foundation_regressions(
         LIVE_FAIL("LIVE Bank06 actor-order sentinel regressed");
     }
 
+    /* Exact selected-primary opcode-7 zero subset. At this prepass the
+       ordinary selector seam proves slot 10 `$0478==0`, so each canonical
+       record advances and returns state 4. An ordinary actor parked on the
+       same handler in the later 9..0 traversal must still defer: opcode 6 can
+       change `$0478` between those source phases. */
+    {
+        static const uint16_t selected_offset[2U] = {0x013BU, 0x0172U};
+        static const uint16_t selected_next[2U] = {0x0140U, 0x0177U};
+        for (size_t item = 0U; item < 2U; ++item) {
+            TecmoGameplaySceneCpuShotRequest no_shot;
+            uint8_t primary;
+            uint8_t ordinary_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+            if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
+                !scene_handoff_possession(
+                    scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+                !scene_sync_live_foundation(scene)) {
+                LIVE_FAIL("LIVE opcode-7 selected-primary setup rejected");
+            }
+            candidate_foundation = scene->live_foundation;
+            primary = candidate_foundation.primary_actor;
+            for (int scan = 9; scan >= 0; --scan) {
+                if ((uint8_t)scan != primary &&
+                    (uint8_t)scan != candidate_foundation.defender_actor) {
+                    ordinary_actor = (uint8_t)scan;
+                    break;
+                }
+            }
+            if (primary != scene->ball_holder || ordinary_actor >= 10U) {
+                LIVE_FAIL("LIVE opcode-7 selected-primary actors unavailable");
+            }
+            for (actor = 0U; actor < 10U; ++actor) {
+                candidate_foundation.play_state.actor_state[actor] = 0x06U;
+                candidate_foundation.play_state.wait_counter[actor] = 0xFFU;
+                candidate_foundation.deferred[actor] = false;
+                candidate_foundation.deferred_reason[actor] =
+                    TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+            }
+            candidate_foundation.play_state.actor_state[primary] = 0x04U;
+            candidate_foundation.play_state.wait_counter[primary] = 0U;
+            candidate_foundation.play_state.stream_offset[primary] =
+                selected_offset[item];
+            candidate_foundation.last_step_offset[primary] =
+                selected_offset[item];
+            candidate_foundation.play_state.actor_state[ordinary_actor] =
+                0x04U;
+            candidate_foundation.play_state.wait_counter[ordinary_actor] = 0U;
+            candidate_foundation.play_state.stream_offset[ordinary_actor] =
+                0x0172U;
+            candidate_foundation.last_step_offset[ordinary_actor] = 0x0172U;
+            if (!tecmo_gameplay_live_foundation_valid(
+                    &scene->cpu_steering_assets, &candidate_foundation)) {
+                LIVE_FAIL("LIVE opcode-7 selected-primary fixture rejected");
+            }
+            scene->live_foundation = candidate_foundation;
+            if (item == 1U) {
+                TecmoGameplayScene failed = *scene;
+                TecmoGameplayScene before_failed;
+                failed.cpu_actors[ordinary_actor].decision_serial = UINT32_MAX;
+                before_failed = failed;
+                memset(&no_shot, 0, sizeof(no_shot));
+                if (scene_update_ai(&failed, &no_shot) ||
+                    memcmp(&failed, &before_failed, sizeof(failed)) != 0) {
+                    LIVE_FAIL("LIVE opcode-7 late failure was not atomic");
+                }
+            }
+            memset(&no_shot, 0, sizeof(no_shot));
+            if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
+                scene->live_foundation.play_state.stream_offset[primary] !=
+                    selected_next[item] ||
+                scene->live_foundation.play_state.actor_state[primary] !=
+                    0x04U ||
+                scene->live_foundation.deferred[primary] ||
+                scene->live_foundation.play_state
+                        .stream_offset[ordinary_actor] != 0x0172U ||
+                !scene->live_foundation.deferred[ordinary_actor] ||
+                scene->live_foundation.deferred_reason[ordinary_actor] !=
+                    TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_ACTOR_046E_PROBE) {
+                LIVE_FAIL("LIVE opcode-7 selected probe leaked to ordinary actor");
+            }
+        }
+    }
+
+    /* Synthetic traversal ordering: an earlier ordinary opcode 6 is the
+       source writer that can make `$0478=$13`; a later opcode 7 therefore
+       remains unavailable rather than reusing the selected-primary zero. */
+    {
+        TecmoGameplaySceneCpuShotRequest no_shot;
+        uint8_t earlier_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+        uint8_t later_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+        if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
+            !scene_handoff_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+            !scene_sync_live_foundation(scene)) {
+            LIVE_FAIL("LIVE opcode-6/7 traversal setup rejected");
+        }
+        candidate_foundation = scene->live_foundation;
+        for (int scan = 9; scan >= 0; --scan) {
+            if ((uint8_t)scan == candidate_foundation.primary_actor ||
+                (uint8_t)scan == candidate_foundation.defender_actor) {
+                continue;
+            }
+            if (earlier_actor >= 10U) earlier_actor = (uint8_t)scan;
+            else {
+                later_actor = (uint8_t)scan;
+                break;
+            }
+        }
+        if (earlier_actor >= 10U || later_actor >= 10U ||
+            earlier_actor <= later_actor) {
+            LIVE_FAIL("LIVE opcode-6/7 traversal actors unavailable");
+        }
+        for (actor = 0U; actor < 10U; ++actor) {
+            candidate_foundation.play_state.actor_state[actor] = 0x06U;
+            candidate_foundation.play_state.wait_counter[actor] = 0xFFU;
+            candidate_foundation.deferred[actor] = false;
+            candidate_foundation.deferred_reason[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+        }
+        candidate_foundation.play_state.actor_state[earlier_actor] = 0x04U;
+        candidate_foundation.play_state.wait_counter[earlier_actor] = 0U;
+        candidate_foundation.play_state.stream_offset[earlier_actor] = 0x0190U;
+        candidate_foundation.last_step_offset[earlier_actor] = 0x0190U;
+        candidate_foundation.play_state.actor_state[later_actor] = 0x04U;
+        candidate_foundation.play_state.wait_counter[later_actor] = 0U;
+        candidate_foundation.play_state.stream_offset[later_actor] = 0x013BU;
+        candidate_foundation.last_step_offset[later_actor] = 0x013BU;
+        scene->live_foundation = candidate_foundation;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
+            !scene->live_foundation.deferred[earlier_actor] ||
+            scene->live_foundation.play_state.stream_offset[earlier_actor] !=
+                0x0190U ||
+            !scene->live_foundation.deferred[later_actor] ||
+            scene->live_foundation.deferred_reason[later_actor] !=
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_ACTOR_046E_PROBE ||
+            scene->live_foundation.play_state.stream_offset[later_actor] !=
+                0x013BU) {
+            LIVE_FAIL("LIVE opcode-6/7 ordinary traversal leaked probe");
+        }
+    }
+
     /* Exact ordinary-LIVE opcode-10 ownership. Preview TGBC with the current
        ball snapshot: the stored state is deliberately zero at the boundary,
        yet the selector must see the just-established frontcourt bit without

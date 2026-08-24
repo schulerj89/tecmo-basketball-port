@@ -51,7 +51,7 @@ substitute, so LIVE remains `missing-global-target`.
 
 | Area | Exact bounded conversion | First missing live dependency | LIVE disposition |
 | --- | --- | --- | --- |
-| Opcode 7 | Bank06 `$8F12-$8F29`: compare `C9` with `$046E[C8]`, then choose current `+5` or `CA/CB +5`; canonical records use object slot `C8=$0A`. | Slot-10/ball-object `$046E` lifecycle at the exact command point. Actor timers and ball coordinates are not substitutes. | Deferred/diagnostic-only. |
+| Opcode 7 | Bank06 `$8F12-$8F2C`: compare `C9` with `$046E[C8]`, then choose current `+5` or `CA/CB +5`. The only records are offset 315 / `$A069` (`07 0A 00 36 01`) and offset 370 / `$A0A0` (`07 0A 00 68 01`); slot `$0A` means object-slot-10 state `$0478`. | `$0478` at the exact command point. Actor timers and ball coordinates are not substitutes. | Selected-primary prepass only: ordinary selector context proves `$0478==0`, so both records take current `+5` and state 4. Ordinary 9..0 dispatch remains unavailable because opcode 6 can change `$0478` mid-traversal. |
 | Opcode 10 | Bank06 `$8D59-$8E21` plus `$8E22-$8E4E`: orientation hoop delta, signed normalization, primary/non-primary threshold branches, and exact 1/2/3/4-bit shift entries. Canonical `$8DCE` is `BCC $8E03` (`90 33`): the zero-`$0798`, threshold-`<$6A` primary branch takes three shifts with no reload/decrement, despite a misleading lifted label. The harness names the Bank06 CPU X-register actor selector `actor_index`, so it cannot be mistaken for a court X coordinate. | Primary links require a valid single-frame runtime binding of `$0798/$075F/$6A/$0760`; the non-primary branch does not read them. | Ordinary LIVE projects both branches when their typed owners are available. Missing/malformed primary context remains fail-closed. |
 | Opcode 10 selector | Bank02 `$BEE7-$BFD8`: seed `$99=$FF`; apply the `$0588` and `$0478/BA` gates; find the first descending bit-`$10` actor whose `$06CB==$0308`; form the source-width X/depth window; then scan actors 9..0, excluding `$0309` and the initial actor. Equal distances replace the prior candidate, so the lowest tied slot wins. | Nonordinary `$0478` contexts and any selector no-store/retained lifecycle. | Ordinary `$0478==0` LIVE uses TGBC `frontcourt_established` for the sole `$0588` bit-`$10` producer and typed foundation roles/flags/links/positions. Only actual source stores are projected. |
 | Opcode 16 | Bank05 `$9054-$90AF`: absolute primary-to-hoop-X/depth workspaces. Fixed `$F031` calls Bank05 `$81F2` once per gameplay loop; `$8209-$8217/$833B` snapshots `$0308` before source player movement, and every later Bank06 `$9085-$90D7` invocation shares the result. | A tagged pre-motion scene-frame capture plus typed `$0309` play-state ownership. | Ordinary LIVE captures once before controlled movement and binds the immutable workspace once before selected/descending dispatch. Absent input defers; malformed input rejects transactionally. |
@@ -136,8 +136,10 @@ silently becoming a production-parity claim.
 
 The standalone test executable checks:
 
-- opcode-7 missing `$046E` evidence defers, including transactional rejection
-  of malformed availability bits;
+- opcode-7 exact records/arguments, both selected-primary zero advances,
+  nonzero loop/rewind harness branches, ordinary missing-probe deferral,
+  selected-capture nonleakage, opcode-6-before-opcode-7 traversal isolation,
+  and transactional late-scene failure;
 - opcode-10 primary reload/decrement, the canonical three-shift sample branch,
   large-window scaling, `$50` and sub-`$50` branches, non-actor `$07DF`
   sentinel routing, signed restoration, and transactional invalid input;

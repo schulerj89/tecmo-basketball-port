@@ -3672,7 +3672,25 @@ bool tecmo_gameplay_cpu_steering_self_test(
     memcpy(play_input.actor_position, harness_positions,
            sizeof(harness_positions));
 
-    /* Bank06 $8F11 cannot treat a zeroed native array as $046E,C8. An
+    /* The only canonical opcode-7 records pin the selected-primary subset:
+       C8=$0A indexes object slot 10 `$0478`, and C9=0 selects current+5. */
+    if (!tecmo_gameplay_cpu_steering_decode_command(
+            &assets, 0x013BU, &command) || command.opcode != 7U ||
+        command.cpu_address != 0xA069U ||
+        memcmp(command.arguments,
+               (const uint8_t[4U]){0x0AU,0x00U,0x36U,0x01U}, 4U) != 0 ||
+        !tecmo_gameplay_cpu_steering_decode_command(
+            &assets, 0x0172U, &command) || command.opcode != 7U ||
+        command.cpu_address != 0xA0A0U ||
+        memcmp(command.arguments,
+               (const uint8_t[4U]){0x0AU,0x00U,0x68U,0x01U}, 4U) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-7 canonical records failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+
+    /* Bank06 $8F12 cannot treat a zeroed native array as $046E,C8. An
        unavailable probe reports its owner and leaves the fetched lifecycle
        byte-for-byte unchanged. */
     if (!tecmo_gameplay_cpu_steering_play_state_initialize(
@@ -3717,6 +3735,24 @@ bool tecmo_gameplay_cpu_steering_self_test(
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
+    play_state.stream_offset[0U] = 0x0172U;
+    play_input.actor_046e_probe[0x0AU] = 0U;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.command.opcode != 7U || play_result.jumped ||
+        play_result.next_offset != 0x0177U ||
+        play_out.stream_offset[0U] != 0x0177U ||
+        play_out.actor_state[0U] != 0x04U) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-7 second equal-probe golden failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+            &assets, 0U, &play_state)) {
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
     play_state.stream_offset[0U] = 0x013BU;
     play_input.actor_046e_probe[0x0AU] = 1U;
     if (!tecmo_gameplay_cpu_steering_play_step(
@@ -3727,6 +3763,26 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.stream_offset[0U] != 0x013BU) {
         (void)snprintf(message, message_size,
                        "TGAI-3 opcode-7 mismatch-probe golden failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+
+    if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+            &assets, 0U, &play_state)) {
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_state.stream_offset[0U] = 0x0172U;
+    play_input.actor_046e_probe[0x0AU] = 1U;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.command.opcode != 7U || !play_result.jumped ||
+        play_result.jump_offset != 0x0168U ||
+        play_result.next_offset != 0x016DU || !play_result.advanced ||
+        play_out.stream_offset[0U] != 0x016DU ||
+        play_out.actor_state[0U] != 0x04U) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-7 second mismatch rewind failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }

@@ -1558,6 +1558,17 @@ substitute the current ball, an actor position, or a raw shadow byte. Tests may
 bind an intentional typed fixture, which must still provide the separate `$BA`
 owner. Do not add a scene latch or any producer as part of the executor slice.
 
+Opcode 7's only canonical records are offset 315 / CPU `$A069`
+(`07 0A 00 36 01`) and offset 370 / CPU `$A0A0` (`07 0A 00 68 01`). Bank06
+`$8F12-$8F2C` interprets `C8=$0A` as object-slot-10 state `$0478`, not actor
+slot 10 or a coordinate. The selected-primary prepass may bind exactly the
+ordinary selector proof `$0478==0`, execute the current+5/state-4 branch, and
+must clear that capture before ordinary `9..0` traversal. Never enable the
+probe in the shared builder: opcode 6 can write `$0478=$13` mid-traversal, so
+ordinary, pass, shot, loose-ball, and other unowned contexts retain
+`missing-actor-046e-probe`. Harness-only nonzero captures retain the exact
+first-record loop and second-record rewind branches.
+
 `--gameplay-cpu-steering-test`,
 `--gameplay-cpu-steering-inspect`, `--gameplay-cpu-steering-harness`, and
 `--gameplay-cpu-steering-movement-harness` are console-only and must not
