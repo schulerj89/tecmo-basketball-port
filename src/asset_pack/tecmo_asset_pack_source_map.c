@@ -2522,7 +2522,7 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "\"ordering\":\"one transactional NMI tick per accepted bound LIVE scene frame; ordinary MISS release calls tagged $9FA1 then $A0DD; admitted pass substeps call tagged $B13F\","
         "\"rollback\":\"rejected scene update restores RNG bytes/serials\","
         "\"parity_boundary\":\"LIVE $C05D call ledger remains noncanonical; shot raw $006A is a bounded native stream, not canonical global parity\"},"
-        "\"missing_live_owners\":[\"$94C6 transient $B3DD/$B3EA/$B4D0/BCF4 object-motion workspaces\",\"$A214 states other than bound state10 B721, state17 B783, and pass state18 B7B6\"]},"
+        "\"missing_live_owners\":[\"$94C6 stored Q6 knockback visual consumer\",\"$A214 states other than bound state10 B721, state17 B783, and pass state18 B7B6\"]},"
         "\"opcode15_source_contract\":{"
         "\"scope\":\"exact harness plus bounded shot/off-ball LIVE opcode 15 lifecycle\","
         "\"dispatch\":{\"bank\":6,\"address\":\"$8B90-$8BE0\",\"opcode\":15,\"handler\":\"$9172\"},"

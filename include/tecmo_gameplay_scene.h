@@ -474,6 +474,10 @@ typedef struct TecmoGameplayScene {
     TecmoGameplaySceneOpcode16FrameContext opcode16_frame_context;
     TecmoGameplaySceneA023LatchFrameContext a023_latch_frame_context;
     TecmoGameplaySceneClaimantSettlementTrace claimant_settlement_trace;
+    /* Last accepted direct `$94C6` tail, including exact B3EA/BCF4 Q6
+       scratch outputs. This is gameplay state evidence, not a frame timer. */
+    TecmoGameplayDefense94c6Result last_defense_contact_94c6;
+    uint32_t defense_contact_94c6_serial;
     /* Exact scalar state and raw counter plane for the production
        `$9FC3->$9FF1->$BA65` defense-possession transaction. The raw plane is
        intentionally separate from the season ledger until all original

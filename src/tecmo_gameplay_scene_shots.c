@@ -3946,6 +3946,12 @@ static bool scene_try_defense_interaction_actor(
         input.delta_depth_negative_0375;
     contact_94c6_input.individual_fouls_before = candidate.state
         .individual_fouls[defending_team][defender_actor->roster_index];
+    contact_94c6_input.primary_x = (uint16_t)holder->position.x;
+    contact_94c6_input.primary_depth = (uint8_t)holder->position.y;
+    contact_94c6_input.object10_x =
+        (uint16_t)(candidate.ball_position.x_q8 / 256);
+    contact_94c6_input.object10_depth =
+        (uint8_t)(candidate.ball_position.y_q8 / 256);
     if (!tecmo_gameplay_defense_94c6_direct_plan(
             &contact_94c6_input, &contact_94c6)) {
         return false;
@@ -3955,6 +3961,10 @@ static bool scene_try_defense_interaction_actor(
             contact_94c6.wait_0420_after;
     }
     if (contact_94c6.external_tail_requested) {
+        candidate.last_defense_contact_94c6 = contact_94c6;
+        candidate.defense_contact_94c6_serial =
+            candidate.defense_contact_94c6_serial == UINT32_MAX
+                ? 1U : candidate.defense_contact_94c6_serial + 1U;
         candidate.live_foundation.play_state.action_state_046e[
             candidate.live_foundation.primary_actor] =
                 contact_94c6.target_action_046e;

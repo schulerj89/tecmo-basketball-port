@@ -1,4 +1,5 @@
 #include "tecmo_gameplay_defense_interaction.h"
+#include "tecmo_gameplay_cpu_a0f3_launch.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -14,6 +15,14 @@ static const uint8_t contact_target_pose_96a6[8] = {
 };
 static const uint8_t contact_defender_pose_9b3f[8] = {
     0xEEU, 0xDEU, 0xE6U, 0xEAU, 0xE2U, 0xD6U, 0xF2U, 0xDAU
+};
+static const int16_t contact_motion_x_9686[8] = {
+    0x0040, -0x0040, 0x0000, 0x0030,
+    -0x0030, 0x0000, 0x0030, -0x0030
+};
+static const int16_t contact_motion_depth_9696[8] = {
+    0x0000, 0x0000, 0x0030, 0x0030,
+    0x0030, -0x0030, -0x0030, -0x0030
 };
 
 static uint8_t contact_direction_9cea(
@@ -125,6 +134,31 @@ bool tecmo_gameplay_defense_94c6_direct_plan(
     result.target_packed_action_0458 = 0x30U;
     result.target_velocity_low_049a = 0xF0U;
     result.target_velocity_high_04a5 = 0x02U;
+    result.motion_duration_0513_051e = 0x002FU;
+    result.target_accumulator_x_q6 =
+        (uint16_t)(input->primary_x << 6U);
+    result.target_accumulator_depth_q6 =
+        (uint16_t)((uint16_t)input->primary_depth << 6U);
+    result.target_velocity_x_q6 = (int16_t)
+        tecmo_gameplay_cpu_a0f3_divide_q6(
+            (int32_t)contact_motion_x_9686[input->actor_direction_0463]
+                * 64,
+            result.motion_duration_0513_051e);
+    result.target_velocity_depth_q6 = (int16_t)
+        tecmo_gameplay_cpu_a0f3_divide_q6(
+            (int32_t)contact_motion_depth_9696[input->actor_direction_0463]
+                * 64,
+            result.motion_duration_0513_051e);
+    if (result.route_replaced_with_19) {
+        result.object10_motion_initialized = true;
+        result.object10_accumulator_x_q6 =
+            (uint16_t)(input->object10_x << 6U);
+        result.object10_accumulator_depth_q6 =
+            (uint16_t)((uint16_t)input->object10_depth << 6U);
+        /* `$9598-$95A1` clears both planar object velocities before B3EA. */
+        result.object10_velocity_x_q6 = 0;
+        result.object10_velocity_depth_q6 = 0;
+    }
     result.defender_direction_after_9cea = contact_direction_9cea(
         input->absolute_delta_x, input->absolute_delta_depth,
         input->delta_x_negative_0373, input->delta_depth_negative_0375);
@@ -410,6 +444,16 @@ bool tecmo_gameplay_defense_interaction_self_test(
         contact_result.individual_fouls_after != 1U ||
         !contact_result.individual_foul_incremented ||
         contact_result.raw_ba_or_mask != 0x04U ||
+        contact_result.motion_duration_0513_051e != 0x002FU ||
+        contact_result.target_accumulator_x_q6 != 0U ||
+        contact_result.target_accumulator_depth_q6 != 0U ||
+        contact_result.target_velocity_x_q6 != -87 ||
+        contact_result.target_velocity_depth_q6 != 0 ||
+        !contact_result.object10_motion_initialized ||
+        contact_result.object10_accumulator_x_q6 != 0U ||
+        contact_result.object10_accumulator_depth_q6 != 0U ||
+        contact_result.object10_velocity_x_q6 != 0 ||
+        contact_result.object10_velocity_depth_q6 != 0 ||
         !contact_result.sets_target_state_057c_08) {
         (void)snprintf(message, message_size,
                        "TGDI $94C6 direct random admission failed");

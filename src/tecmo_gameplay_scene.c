@@ -991,6 +991,9 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
            sizeof(scene->foul_presentation));
     memset(&scene->claimant_settlement_trace, 0,
            sizeof(scene->claimant_settlement_trace));
+    memset(&scene->last_defense_contact_94c6, 0,
+           sizeof(scene->last_defense_contact_94c6));
+    scene->defense_contact_94c6_serial = 0U;
     memset(&scene->defense_possession_state, 0,
            sizeof(scene->defense_possession_state));
     scene->defense_possession_state.contract_tag =

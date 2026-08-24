@@ -8843,7 +8843,18 @@ static bool scene_test_foul_and_away_free_throws(
         scene->live_foundation.raw_pose_high_044d[
             scene->controlled_actor[1U]] != 0x08U ||
         scene->live_foundation.raw_sprite_flags_0479[
-            scene->controlled_actor[1U]] != 0x81U) {
+            scene->controlled_actor[1U]] != 0x81U ||
+        scene->defense_contact_94c6_serial != 1U ||
+        scene->last_defense_contact_94c6.contract_tag !=
+            TECMO_GAMEPLAY_DEFENSE_94C6_RESULT_TAG ||
+        scene->last_defense_contact_94c6.motion_duration_0513_051e != 0x002FU ||
+        scene->last_defense_contact_94c6.target_accumulator_x_q6 !=
+            (uint16_t)(400U << 6U) ||
+        scene->last_defense_contact_94c6.target_velocity_x_q6 != -87 ||
+        scene->last_defense_contact_94c6.target_velocity_depth_q6 != 0 ||
+        !scene->last_defense_contact_94c6.object10_motion_initialized ||
+        scene->last_defense_contact_94c6.object10_accumulator_x_q6 !=
+            (uint16_t)(400U << 6U)) {
         (void)snprintf(
             message, message_size,
             "ordinary live pushing foul mismatch phase=%u team=%u individual=%u attempts=%u serial=%u rng=%u/%u clock=%u wait=%u primary_action=%u defender_action=%u presentation=%u",
