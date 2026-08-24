@@ -1668,12 +1668,20 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                     TecmoGameplayLiveFoundation fixture =
                         scene->live_foundation;
                     TecmoGameplayLiveFoundation before_reject;
+                    TecmoGameplayLiveFoundation malformed_fixture;
                     uint8_t primary = (uint8_t)(side * 5U + slot);
                     uint8_t expected_candidate =
                         (uint8_t)(side * 5U + (slot == 0U ? 1U : 0U));
+                    uint16_t expected_stream[
+                        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT] = {0U};
+                    uint8_t stream_choice_state = 0U;
+                    int scan_y = 3;
+                    int scan_actor;
                     size_t fixture_actor;
                     fixture.first_period_entry_seeded = false;
                     fixture.first_period_entry_clamp_exemption_active = false;
+                    fixture.first_period_entry_clamp_exempt_actor =
+                        TECMO_GAMEPLAY_SCENE_NO_ACTOR;
                     fixture.first_period_entry_seed_serial = 0U;
                     fixture.orientation = orientation;
                     fixture.last_possession = side;
@@ -1700,10 +1708,55 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                         fixture.source_raw_target_valid[fixture_actor] = false;
                         fixture.source_inactive_target_storage[fixture_actor] =
                             false;
+                        fixture.source_direction_valid[fixture_actor] = false;
+                        fixture.source_direction[fixture_actor] =
+                            TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+                        fixture.play_state.direction[fixture_actor] =
+                            TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
                         fixture.play_state.route_motion[fixture_actor].active =
                             false;
+                        if (fixture.actor_team[fixture_actor] == side) {
+                            fixture.actor_position[fixture_actor].y =
+                                ((fixture_actor + slot + orientation) & 1U) != 0U
+                                    ? 0x0095 : 0x0096;
+                        }
+                    }
+                    expected_stream[primary] = 0x017CU;
+                    for (scan_actor = side == 0U ? 4 : 9;
+                         scan_actor >= (side == 0U ? 0 : 5);
+                         --scan_actor) {
+                        bool choose_023a;
+                        if ((uint8_t)scan_actor == primary) continue;
+                        if (scan_y >= 2) {
+                            choose_023a =
+                                (fixture.actor_position[scan_actor].y >= 0x0096 &&
+                                 stream_choice_state != 1U) ||
+                                (fixture.actor_position[scan_actor].y < 0x0096 &&
+                                 stream_choice_state == 2U);
+                            expected_stream[scan_actor] =
+                                choose_023a ? 0x023AU : 0x0226U;
+                            stream_choice_state = choose_023a ? 1U : 2U;
+                        } else {
+                            expected_stream[scan_actor] =
+                                scan_y == 1 ? 0x0208U : 0x0195U;
+                        }
+                        --scan_y;
                     }
                     before_reject = fixture;
+                    malformed_fixture = fixture;
+                    malformed_fixture.source_direction_valid[primary] = true;
+                    malformed_fixture.source_direction[primary] = 0U;
+                    malformed_fixture.play_state.direction[primary] = 0U;
+                    fixture = malformed_fixture;
+                    if (tecmo_gameplay_live_foundation_first_period_entry_seed(
+                            &scene->cpu_steering_assets, 1U, true, &fixture) ||
+                        memcmp(&fixture, &malformed_fixture,
+                               sizeof(fixture)) != 0) {
+                        (void)snprintf(failure, sizeof(failure),
+                            "first-period stale-direction rollback failed");
+                        goto failed;
+                    }
+                    fixture = before_reject;
                     if (!tecmo_gameplay_live_foundation_valid(
                             &scene->cpu_steering_assets, &fixture) ||
                         tecmo_gameplay_live_foundation_first_period_entry_seed(
@@ -1721,12 +1774,27 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                         fixture.play_state.candidate_actor !=
                             expected_candidate ||
                         !fixture.first_period_entry_seeded ||
-                        !fixture.first_period_entry_clamp_exemption_active) {
+                        !fixture.first_period_entry_clamp_exemption_active ||
+                        fixture.first_period_entry_clamp_exempt_actor !=
+                            primary) {
                         (void)snprintf(failure, sizeof(failure),
                             "first-period seed slot vector failed s%u o%u p%u",
                             (unsigned)side, (unsigned)orientation,
                             (unsigned)primary);
                         goto failed;
+                    }
+                    for (fixture_actor = (size_t)side * 5U;
+                         fixture_actor < (size_t)side * 5U + 5U;
+                         ++fixture_actor) {
+                        if (fixture.play_state.stream_offset[fixture_actor] !=
+                                expected_stream[fixture_actor] ||
+                            fixture.play_state.actor_state[fixture_actor] !=
+                                0x04U) {
+                            (void)snprintf(failure, sizeof(failure),
+                                "first-period stream pairing failed a%u",
+                                (unsigned)fixture_actor);
+                            goto failed;
+                        }
                     }
                     before_reject = fixture;
                     if (tecmo_gameplay_live_foundation_first_period_entry_seed(
@@ -1834,6 +1902,35 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
             (unsigned)scene->live_foundation.play_state
                 .stream_offset[holder]);
         goto failed;
+    }
+    {
+        uint8_t receiver = scene->pass_state.receiver;
+        for (update = 0U; update < 240U &&
+             scene->pass_state.phase != TECMO_GAMEPLAY_SCENE_PASS_NONE;
+             ++update) {
+            memset(&away, 0, sizeof(away));
+            memset(&home, 0, sizeof(home));
+            if (!tecmo_gameplay_scene_update(scene, &away, &home)) {
+                (void)snprintf(failure, sizeof(failure),
+                    "PRETIP CPU pass catch update %u rejected: %s",
+                    (unsigned)update, scene->status);
+                goto failed;
+            }
+        }
+        if (scene->pass_state.phase != TECMO_GAMEPLAY_SCENE_PASS_NONE ||
+            scene->ball_holder != receiver || receiver == holder ||
+            scene->live_foundation.first_period_entry_clamp_exemption_active ||
+            scene->live_foundation.first_period_entry_clamp_exempt_actor !=
+                TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+            scene->live_foundation.primary_actor != receiver ||
+            !scene_actor_world_position_valid(&scene->actors[holder]) ||
+            scene->actors[holder].anchor.x != scene->actors[holder].position.x ||
+            scene->actors[holder].anchor.y != scene->actors[holder].position.y ||
+            !scene_actor_position_valid_for_scene(scene, holder)) {
+            (void)snprintf(failure, sizeof(failure),
+                "PRETIP CPU catch did not retire seed exemption");
+            goto failed;
+        }
     }
     tecmo_gameplay_scene_end(scene);
     return true;

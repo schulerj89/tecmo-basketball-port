@@ -1753,6 +1753,12 @@ static bool scene_apply_first_period_entry_seed(TecmoGameplayScene *scene)
         scene_set_status(scene, "first-period seed foundation rejected");
         return false;
     }
+    /* `$85EA` begins with `ORA #$0B / AND #$EB`: the newly established
+       bit-$08 clamp exemption cannot inherit a prior selected-holder
+       boundary latch. Clear only this exact primary at the atomic seed seam;
+       later ordinary TGMO violations remain independently owned. */
+    candidate.actors[candidate.live_foundation.primary_actor]
+        .movement_boundary_latched = false;
     for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
         bool source_state_changed =
             candidate.live_foundation.actor_team[actor] ==

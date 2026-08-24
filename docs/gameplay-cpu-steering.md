@@ -541,8 +541,9 @@ first two descending teammates from the exact side table. Those primary
 points intentionally lie just beyond the ordinary trapezoid. A typed
 first-entry exemption owns source bit `$0588&08` only for that selected
 primary, admits only the narrow seed-to-boundary re-entry corridor, and feeds
-TGMO flag `$08`. It expires on natural re-entry or primary change; the former
-primary then takes the ordinary secondary clamp. Automatic opcode-5 facing is
+TGMO flag `$08`. Human movement expires it on natural re-entry; the automatic
+opcode-5/pass route stays at the staging coordinate until catch changes the
+primary, when the former primary takes the ordinary secondary clamp. Opcode-5 facing is
 not composed into native locomotion during this staging lifecycle, matching
 the retained source position through opcode 6/pass. Periods 2-4, generic
 possession changes, restarts, fouls, inbounds, malformed flags, and reseed

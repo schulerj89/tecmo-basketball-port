@@ -415,6 +415,9 @@ static bool scene_test_concurrent_tip_simulation(
             malformed = *scene;
             malformed.live_foundation
                 .first_period_entry_clamp_exemption_active = false;
+            malformed.live_foundation
+                .first_period_entry_clamp_exempt_actor =
+                    TECMO_GAMEPLAY_SCENE_NO_ACTOR;
             if (scene_actor_position_valid_for_scene(&malformed, primary))
                 goto failed;
             malformed = *scene;
@@ -437,6 +440,60 @@ static bool scene_test_concurrent_tip_simulation(
            sizeof(actors_before_handoff));
     holder_after_handoff = scene->ball_holder;
     holder_start = scene->actors[holder_after_handoff].position;
+    failure = "first-period neutral seed staging triggered a violation";
+    for (frame = 0U; frame < 8U; ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+            scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+            scene->actors[holder_after_handoff].movement_boundary_latched ||
+            !scene->live_foundation
+                .first_period_entry_clamp_exemption_active ||
+            scene->actors[holder_after_handoff].position.x != holder_start.x ||
+            scene->actors[holder_after_handoff].position.y != holder_start.y) {
+            goto failed;
+        }
+    }
+    /* The F3 user-game checkpoint can award the tip to the automatic side.
+       Exercise that exact compatibility-AI seam from the organic seed: a
+       controller remains on defense while the exempt automatic holder must
+       stay staged, LIVE, and unlatchable under neutral input. */
+    {
+        TecmoGameplayScene *legacy_probe =
+            (TecmoGameplayScene *)malloc(sizeof(*legacy_probe));
+        TecmoControlFrame neutral_one;
+        TecmoControlFrame neutral_two;
+        uint8_t offense = (uint8_t)scene->state.possession;
+        uint8_t defense = (uint8_t)(offense ^ 1U);
+        uint8_t defense_actor = (uint8_t)(defense * 5U);
+        if (legacy_probe == NULL) goto failed;
+        *legacy_probe = *scene;
+        memset(&neutral_one, 0, sizeof(neutral_one));
+        memset(&neutral_two, 0, sizeof(neutral_two));
+        legacy_probe->legacy_direct_launch = true;
+        legacy_probe->launch.controller_team[0U] = defense;
+        legacy_probe->launch.controller_team[1U] =
+            TECMO_GAMEPLAY_SCENE_NO_TEAM;
+        legacy_probe->controlled_actor[0U] = defense_actor;
+        legacy_probe->controlled_actor[1U] = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+        for (frame = 0U; frame < 8U; ++frame) {
+            if (!tecmo_gameplay_scene_update(
+                    legacy_probe, &neutral_one, &neutral_two) ||
+                legacy_probe->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+                legacy_probe->ball_holder != holder_after_handoff ||
+                legacy_probe->actors[holder_after_handoff]
+                    .movement_boundary_latched ||
+                !legacy_probe->live_foundation
+                    .first_period_entry_clamp_exemption_active ||
+                legacy_probe->actors[holder_after_handoff].position.x !=
+                    holder_start.x ||
+                legacy_probe->actors[holder_after_handoff].position.y !=
+                    holder_start.y) {
+                free(legacy_probe);
+                failure = "user-game automatic tip winner left LIVE staging";
+                goto failed;
+            }
+        }
+        free(legacy_probe);
+    }
     p1.held.right = scene->actors[holder_after_handoff].position.x < 0x0180;
     p1.held.left = !p1.held.right;
     failure = "first live movement did not continue from seeded position";

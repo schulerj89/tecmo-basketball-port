@@ -133,6 +133,10 @@ typedef struct TecmoGameplayLiveFoundation {
        typed lifecycle marker, not a raw-RAM mirror or restart counter. */
     bool first_period_entry_seeded;
     bool first_period_entry_clamp_exemption_active;
+    /* Exact actor carrying the typed `$0588&$08` staging exemption. Keeping
+       this identity explicit lets a catch rebind primary before the old
+       primary is clamped and the exemption is retired. */
+    uint8_t first_period_entry_clamp_exempt_actor;
     uint32_t first_period_entry_seed_serial;
     uint16_t formation_start_offset[
         TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];

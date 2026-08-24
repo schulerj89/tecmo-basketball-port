@@ -315,6 +315,12 @@ static bool live_play_state_valid(
          foundation->first_period_entry_seed_serial != 0U) ||
         (foundation->first_period_entry_clamp_exemption_active &&
          !foundation->first_period_entry_seeded) ||
+        (foundation->first_period_entry_clamp_exemption_active &&
+         foundation->first_period_entry_clamp_exempt_actor >=
+             TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT) ||
+        (!foundation->first_period_entry_clamp_exemption_active &&
+         foundation->first_period_entry_clamp_exempt_actor !=
+             TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR) ||
         (foundation->first_period_entry_seeded &&
          foundation->first_period_entry_seed_serial == 0U) ||
         !live_actor_team_valid(foundation->actor_team) ||
@@ -463,6 +469,8 @@ void tecmo_gameplay_live_foundation_init(
     foundation->primary_actor =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     foundation->defender_actor =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    foundation->first_period_entry_clamp_exempt_actor =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     foundation->prior_selected_actor = 4U;
     foundation->prior_defender_actor = 9U;
@@ -641,7 +649,12 @@ bool tecmo_gameplay_live_foundation_first_period_entry_seed(
             (foundation_io->play_state.route_motion[actor].active ||
              foundation_io->source_target_valid[actor] ||
              foundation_io->source_raw_target_valid[actor] ||
-             foundation_io->source_inactive_target_storage[actor])) {
+             foundation_io->source_inactive_target_storage[actor] ||
+             foundation_io->source_direction_valid[actor] ||
+             foundation_io->source_direction[actor] !=
+                 TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION ||
+             foundation_io->play_state.direction[actor] !=
+                 TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION)) {
             return false;
         }
     }
@@ -704,6 +717,7 @@ bool tecmo_gameplay_live_foundation_first_period_entry_seed(
     if (teammate != 2U) return false;
     candidate.first_period_entry_seeded = true;
     candidate.first_period_entry_clamp_exemption_active = true;
+    candidate.first_period_entry_clamp_exempt_actor = primary;
     candidate.first_period_entry_seed_serial = 1U;
     candidate.sync_serial = live_serial_next(candidate.sync_serial);
     if (!tecmo_gameplay_live_foundation_valid(assets, &candidate)) {
@@ -932,8 +946,10 @@ bool tecmo_gameplay_live_foundation_synchronize(
     candidate.last_possession = possession;
     candidate.last_ball_holder = ball_holder;
     if (candidate.first_period_entry_clamp_exemption_active &&
-        ball_holder != candidate.primary_actor) {
+        ball_holder != candidate.first_period_entry_clamp_exempt_actor) {
         candidate.first_period_entry_clamp_exemption_active = false;
+        candidate.first_period_entry_clamp_exempt_actor =
+            TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     }
     if (changed) {
         bool seed_selection = candidate.first_sync_pending ||

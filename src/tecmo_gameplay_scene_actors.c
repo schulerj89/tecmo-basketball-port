@@ -182,12 +182,14 @@ bool scene_actor_position_valid_for_scene(
     /* `$85EA` seeds the selected primary 16/17 pixels beyond the ordinary
        `$F106` trapezoid at depth `$94`, while `$0588&$08` makes selected
        movement bypass that clamp. Admit only the typed one-shot owner and
-       its narrow source-to-boundary corridor. The human and CPU movement
-       callers retire the tag transactionally after natural re-entry; a
-       later primary change also retires it during foundation sync. */
+       its narrow source-to-boundary corridor. Human movement retires the tag
+       transactionally after natural re-entry. The automatic opcode-5/pass
+       staging remains stationary and retires it when the catch changes the
+       primary during foundation sync. */
     return scene->live_foundation.first_period_entry_clamp_exemption_active &&
            orientation < 2U &&
-           actor == scene->live_foundation.primary_actor &&
+           actor == scene->live_foundation
+               .first_period_entry_clamp_exempt_actor &&
            item->position.y == seed_position[orientation].y &&
            item->anchor.x == seed_position[orientation].x &&
            item->anchor.y == seed_position[orientation].y &&
@@ -266,10 +268,12 @@ bool scene_sync_live_foundation(TecmoGameplayScene *scene)
     }
     memcpy(candidate_actors, scene->actors, sizeof(candidate_actors));
     if (scene->live_foundation.first_period_entry_clamp_exemption_active &&
-        scene->live_foundation.primary_actor <
+        scene->live_foundation.first_period_entry_clamp_exempt_actor <
             TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
-        scene->ball_holder != scene->live_foundation.primary_actor) {
-        uint8_t old_primary = scene->live_foundation.primary_actor;
+        scene->ball_holder != scene->live_foundation
+            .first_period_entry_clamp_exempt_actor) {
+        uint8_t old_primary = scene->live_foundation
+            .first_period_entry_clamp_exempt_actor;
         /* A primary change ends `$0588&$08`; the old primary immediately
            becomes a secondary actor and therefore takes the ordinary exact
            trapezoid clamp before the new LIVE binding is published. */
@@ -495,7 +499,8 @@ bool scene_move_controlled_actor(TecmoGameplayScene *scene,
     input.global_object_state = 0U;
     input.movement_flags =
         scene->live_foundation.first_period_entry_clamp_exemption_active &&
-        actor_index == scene->live_foundation.primary_actor
+        actor_index == scene->live_foundation
+            .first_period_entry_clamp_exempt_actor
             ? 0x08U : 0U;
     input.primary_selected_actor = actor_index == scene->ball_holder;
     if (!tecmo_gameplay_movement_step(
@@ -506,12 +511,15 @@ bool scene_move_controlled_actor(TecmoGameplayScene *scene,
         return false;
     }
     if (scene->live_foundation.first_period_entry_clamp_exemption_active &&
-        actor_index == scene->live_foundation.primary_actor &&
+        actor_index == scene->live_foundation
+            .first_period_entry_clamp_exempt_actor &&
         scene_actor_world_position_valid(&scene->actors[actor_index])) {
         scene->actors[actor_index].anchor =
             scene->actors[actor_index].position;
         scene->live_foundation.first_period_entry_clamp_exemption_active =
             false;
+        scene->live_foundation.first_period_entry_clamp_exempt_actor =
+            TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     }
     return true;
 }
@@ -2878,7 +2886,16 @@ static bool scene_update_ai_legacy(
         const TecmoTeamDataPlayer *player;
         if (scene_actor_is_controlled(scene, actor) ||
             scene_actor_in_pretip_recovery(scene, actor) ||
-            actor == scene->shot_actor) {
+            actor == scene->shot_actor ||
+            (scene->live_foundation
+                 .first_period_entry_clamp_exemption_active &&
+             actor == scene->live_foundation
+                 .first_period_entry_clamp_exempt_actor)) {
+            /* The compatibility AI adapter must honor the same exact
+               `$0588&$08` staging lifecycle as the source-stream path.
+               Natural automatic opcode-5/pass staging leaves this holder
+               stationary until catch; a legacy hoop target must not invent
+               locomotion and immediately latch an out-of-bounds call. */
             continue;
         }
         player = scene_actor_player(scene, &scene->actors[actor]);
@@ -3507,7 +3524,8 @@ bool scene_update_ai(
            Do not compose the opcode-5 facing direction into adapter TGMO
            locomotion while that exact clamp-exemption lifecycle is active. */
         if (candidate_foundation.first_period_entry_clamp_exemption_active &&
-            actor == candidate_foundation.primary_actor) {
+            actor == candidate_foundation
+                .first_period_entry_clamp_exempt_actor) {
             movement_target = false;
         }
         input.steering.has_explicit_target = movement_target;
@@ -3522,7 +3540,8 @@ bool scene_update_ai(
         input.global_object_state = 0U;
         input.movement_flags =
             candidate_foundation.first_period_entry_clamp_exemption_active &&
-            actor == candidate_foundation.primary_actor ? 0x08U : 0U;
+            actor == candidate_foundation
+                .first_period_entry_clamp_exempt_actor ? 0x08U : 0U;
         input.primary_selected_actor = actor == scene->ball_holder;
         if (!movement_target) {
             /* A deferred/no-target source step is intentionally inert. Clear
@@ -3568,10 +3587,13 @@ bool scene_update_ai(
             }
         } else if (
             candidate_foundation.first_period_entry_clamp_exemption_active &&
-            actor == candidate_foundation.primary_actor) {
+            actor == candidate_foundation
+                .first_period_entry_clamp_exempt_actor) {
             candidate_actors[actor].anchor = candidate_actors[actor].position;
             candidate_foundation.first_period_entry_clamp_exemption_active =
                 false;
+            candidate_foundation.first_period_entry_clamp_exempt_actor =
+                TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
         }
         if (result.steering.writes_direction) {
             uint8_t expected_direction;
