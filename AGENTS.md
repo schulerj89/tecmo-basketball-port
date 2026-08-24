@@ -1580,12 +1580,17 @@ common tail. Both high bytes are live and may make the raw words invalid as
 court coordinates. Preserve them as raw target evidence; publish only their
 exact direction through the bounded direction adapter, never fabricate a
 semantic court target. Treat the words as a persistent latch with five source
-producers, not as per-frame scratch. Until all five producers and their reset/
-retention lifecycle are converted, the production scene builder must leave
-`global_target_available` false and report `missing-global-target`; never
-substitute the current ball, an actor position, or a raw shadow byte. Tests may
-bind an intentional typed fixture, which must still provide the separate `$BA`
-owner. Do not add a scene latch or any producer as part of the executor slice.
+producers, not as per-frame scratch. TGGL-1 types the last-writer families
+`$A0F3`, `$A790`, `$A9DA`, `$B721`, and `$B783`, their monotonic provenance
+serial, full-reset clear, and period/possession retention. That bounded
+representation is not a LIVE producer: `$A0DD` object scheduling, `$A790`
+events, `$A9DA` scheduling, `$A214` gates, opcode 15, and latest-writer timing
+at opcode-13 record `$0041` remain unowned. The production scene builder must
+leave `global_target_available` false and report `missing-global-target`;
+never substitute the current ball, an actor position, or a raw shadow byte.
+Tests may bind an intentional typed fixture, which must still provide the
+separate `$BA` owner. TGCA's `$B721/$B783` same-frame opcode-20 capability is
+separate and cannot snapshot, persist, or authorize TGGL-1 for opcode 13.
 
 Opcode 20 has a source-exact bounded executor for Bank06 `$9032-$9052`. Its
 only records are `$000F` / CPU `$9F3D` and `$0019` / CPU `$9F47`, both

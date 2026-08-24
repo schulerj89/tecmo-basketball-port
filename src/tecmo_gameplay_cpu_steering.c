@@ -1,6 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "tecmo_gameplay_cpu_steering.h"
+#include "tecmo_gameplay_cpu_global_latch.h"
 
 #include "asset_pack/tecmo_asset_pack_gameplay_cpu_steering.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_movement.h"
@@ -3373,6 +3374,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     TecmoGameplayCpuSteeringPlayInput play_input_before;
     TecmoGameplayCpuSteeringPlayResult play_result;
     TecmoGameplayCpuSteeringPlayResult play_result_before;
+    char global_latch_message[192];
     TecmoGameplayCpuSteeringShotInput shot_input;
     TecmoGameplayCpuSteeringShotResult shot_result;
     TecmoGameplayCpuSteeringShotResult shot_before;
@@ -6128,6 +6130,14 @@ bool tecmo_gameplay_cpu_steering_self_test(
     }
     if (!movement_composition_self_test(
             asset_pack_path, &assets, message, message_size)) {
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    if (!tecmo_gameplay_cpu_global_latch_self_test(
+            global_latch_message, sizeof(global_latch_message))) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 global latch failed: %.180s",
+                       global_latch_message);
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }

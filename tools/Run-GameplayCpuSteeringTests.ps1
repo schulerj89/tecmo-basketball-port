@@ -374,6 +374,16 @@ try {
         @{ label="Bank06 8728-8773 refresh"; bank=6; fixed=$false; start=0x8728; size=0x4C; hash="4DD31C29" },
         @{ label="Bank06 88B0-88D9 old-primary reset"; bank=6; fixed=$false; start=0x88B0; size=0x2A; hash="AD834719" }
     )
+    $GlobalLatchAnchorSpans = @(
+        @{ label="Bank05 A0F3-A11A producer"; bank=5; fixed=$false; start=0xA0F3; size=0x28; hash="7134D834" },
+        @{ label="Bank05 A790-A7A5 producer"; bank=5; fixed=$false; start=0xA790; size=0x16; hash="77750DED" },
+        @{ label="Bank05 A9DA-AA44 producer"; bank=5; fixed=$false; start=0xA9DA; size=0x6B; hash="75FB9A30" },
+        @{ label="Bank05 B721-B736 producer"; bank=5; fixed=$false; start=0xB721; size=0x16; hash="4389D5CD" },
+        @{ label="Bank05 B783-B792 producer"; bank=5; fixed=$false; start=0xB783; size=0x10; hash="874306A5" },
+        @{ label="Bank06 9125-9145 consumer"; bank=6; fixed=$false; start=0x9125; size=0x21; hash="9729F068" },
+        @{ label="Fixed CC30-CC57 full reset"; bank=7; fixed=$true; start=0xCC30; size=0x28; hash="10BDB98E" },
+        @{ label="Fixed CC58-CC85 page clear"; bank=7; fixed=$true; start=0xCC58; size=0x2E; hash="AEF866A8" }
+    )
     # The first entry below is a separately copied raw helper. The remaining
     # handler/tail anchors overlap the retained command-handler source span;
     # they are semantic anchors, not additional copied source entries.
@@ -407,6 +417,19 @@ try {
             $Map.dependency.fingerprint_fnv1a32 -eq "6C82A137" -and
             [bool]$Map.dependency.same_pack_required -and
             @($Map.source_spans).Count -eq 12 -and
+            $Map.opcode13_global_latch_contract.scope -eq
+                'typed persistent provenance only; LIVE global_target_available remains false' -and
+            @($Map.opcode13_global_latch_contract.writers).Count -eq 5 -and
+            $Map.opcode13_global_latch_contract.consumer -eq
+                'Bank06 $9125-$9145' -and
+            @($Map.opcode13_global_latch_contract.reset).Count -eq 2 -and
+            $Map.opcode13_global_latch_contract.record_002d -match
+                '\$A9DA->\$A993.*scheduler remains unbound' -and
+            $Map.opcode13_global_latch_contract.record_0041 -match
+                'latest-writer.*unbound' -and
+            $Map.opcode13_global_latch_contract.tgca_separation -match
+                'cannot authorize opcode13' -and
+            @($Map.opcode13_global_latch_contract.missing_live_owners).Count -eq 5 -and
             $Map.opcode15_source_contract.scope -eq
                 'harness-only; LIVE opcode 15 remains deferred' -and
             $Map.opcode15_source_contract.dispatch.bank -eq 6 -and
@@ -914,6 +937,15 @@ try {
             throw "Canonical auto-pass anchor changed at $($Span.label)."
         }
     }
+    foreach ($Span in $GlobalLatchAnchorSpans) {
+        $CpuBase = if ([bool]$Span.fixed) { 0xC000 } else { 0x8000 }
+        $Offset = $Prg + $Span.bank * 0x4000 + ($Span.start - $CpuBase)
+        $Raw = New-Object byte[] ([int]$Span.size)
+        [Array]::Copy($RomBytes, $Offset, $Raw, 0, [int]$Span.size)
+        if ((Get-Fnv1a32 $Raw) -ne $Span.hash) {
+            throw "Canonical global-latch anchor changed at $($Span.label)."
+        }
+    }
     $RomMutationCount = 0
     foreach ($Span in $ExpectedSpans) {
         $CpuBase = if ($Span.fixed) { 0xC000 } else { 0x8000 }
@@ -1018,10 +1050,32 @@ try {
         ++$AutoPassRomMutationCount
     }
 
+    $GlobalLatchRomMutationCount = 0
+    foreach ($Span in $GlobalLatchAnchorSpans) {
+        $CpuBase = if ([bool]$Span.fixed) { 0xC000 } else { 0x8000 }
+        $Offset = $Prg + $Span.bank * 0x4000 + ($Span.start - $CpuBase)
+        $MutatedRom = Join-Path $Scratch `
+            ("rom-global-latch-{0}-{1:X4}.nes" -f $Span.bank, $Span.start)
+        $Bytes = [byte[]]$RomBytes.Clone()
+        $Bytes[$Offset] = $Bytes[$Offset] -bxor 1
+        [IO.File]::WriteAllBytes($MutatedRom, $Bytes)
+        $Output = @(& $Executable --gameplay-cpu-steering-source-test `
+            $MutatedRom 2>&1)
+        if ($LASTEXITCODE -eq 0 -or
+            ($Output -join [Environment]::NewLine) -notmatch
+                'TGAI-3 import requires the exact Rev1 ROM fingerprint') {
+            throw ("Rev1 global-latch anchor mutation at $($Span.label) was " +
+                "accepted.`n$(Get-ShortTail $Output)")
+        }
+        ++$RomMutationCount
+        ++$GlobalLatchRomMutationCount
+    }
+
     Write-Host ("TGAI-3 focused tests passed: exact Rev1 importer and twelve " +
         "source spans plus eight lifecycle anchor/table spans, nine exact " +
         "regulation-entry spans, five auto-pass spans, and six opcode-15 " +
-        "source/semantic-anchor spans, 680 aligned " +
+        "source/semantic-anchor spans, eight global-latch producer/reset/" +
+        "consumer anchors, 680 aligned " +
         "commands, 24 handlers, eight exact " +
         "direction codes, deterministic ten-coordinate/context harness, " +
         "transactional TGMO direction/movement composition, " +
@@ -1029,7 +1083,7 @@ try {
         "$RomMutationCount ROM mutations ($LifecycleRomMutationCount lifecycle " +
         "anchor/table; $RegulationEntryRomMutationCount regulation entry; " +
         "$Opcode15RomMutationCount opcode-15; $AutoPassRomMutationCount " +
-        "auto-pass), bounded live scene " +
+        "auto-pass; $GlobalLatchRomMutationCount global-latch), bounded live scene " +
         "adapter enabled")
     $global:LASTEXITCODE = 0
 } finally {

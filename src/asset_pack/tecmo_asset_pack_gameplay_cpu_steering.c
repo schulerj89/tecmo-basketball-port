@@ -136,6 +136,44 @@ static const uint8_t cpu_steering_anchor_opcode15_record_sha256[32] = {
     0xC9U,0x27U,0xF0U,0x1BU,0x37U,0xA2U,0xD9U,0x3EU
 };
 
+/* Persistent `$038D-$0390` latch provenance. These are semantic anchors, not
+   copied TGAI payload: five Bank05 last-writer families, the Bank06 opcode-13
+   consumer, and the two halves of the fixed full-reset/page-clear routine. */
+static const uint8_t cpu_steering_anchor_global_latch_sha256[8][32] = {
+    {0x65U,0x1CU,0x28U,0x50U,0x57U,0xD2U,0x56U,0xF2U,
+     0x1FU,0xB4U,0x42U,0x02U,0x19U,0x68U,0xFEU,0x52U,
+     0xFAU,0x7EU,0x44U,0x60U,0xF5U,0xACU,0x44U,0x34U,
+     0x25U,0x8EU,0xEBU,0xF3U,0x79U,0x0FU,0x92U,0x19U},
+    {0x25U,0xF2U,0xDFU,0xFFU,0xF7U,0x3AU,0x39U,0xC1U,
+     0x9CU,0x8DU,0x19U,0x19U,0x65U,0xAEU,0x70U,0xA9U,
+     0x93U,0xC4U,0x77U,0x81U,0xEEU,0x07U,0x59U,0x5EU,
+     0x16U,0x6EU,0xC6U,0x09U,0xD3U,0x8FU,0xE9U,0x32U},
+    {0x6FU,0x0CU,0x64U,0x4BU,0xDAU,0x3FU,0x2FU,0xBFU,
+     0xF6U,0x50U,0xD0U,0xEAU,0xDCU,0xB6U,0xE0U,0x08U,
+     0x58U,0x4EU,0x74U,0x71U,0xD5U,0xCFU,0xD8U,0x79U,
+     0x89U,0x41U,0xAEU,0xFBU,0x24U,0x58U,0xB2U,0x18U},
+    {0xE4U,0xD5U,0xB8U,0x85U,0xDCU,0xC6U,0xA7U,0x83U,
+     0xD1U,0x21U,0x4FU,0x76U,0xBEU,0x95U,0x56U,0x2EU,
+     0x55U,0xC7U,0x9CU,0xC0U,0x6AU,0xBCU,0xC2U,0x24U,
+     0x6CU,0x37U,0xBBU,0xA5U,0xEFU,0xB2U,0xECU,0xB8U},
+    {0xADU,0xBEU,0x42U,0xA1U,0xEBU,0x93U,0x5DU,0x5AU,
+     0x4DU,0x85U,0x89U,0x2AU,0x6FU,0xC0U,0x4BU,0x75U,
+     0xA1U,0xAFU,0x28U,0x73U,0x9DU,0x17U,0xA7U,0x9BU,
+     0xECU,0x9BU,0xE8U,0xF6U,0xAAU,0x9AU,0x82U,0x55U},
+    {0x2FU,0x88U,0x92U,0x39U,0xABU,0x57U,0x54U,0x9BU,
+     0x30U,0xBEU,0xE9U,0xB5U,0xDEU,0x6AU,0x93U,0x77U,
+     0xACU,0x9DU,0x97U,0x78U,0x72U,0xB8U,0x76U,0xDDU,
+     0x0AU,0x98U,0x39U,0x6AU,0x1DU,0x4FU,0x3AU,0xE8U},
+    {0x19U,0xA8U,0x80U,0xC5U,0xF8U,0x56U,0x19U,0xA7U,
+     0x8BU,0x2FU,0xE9U,0xE8U,0x06U,0x92U,0x3DU,0x01U,
+     0x13U,0xB7U,0xC2U,0x60U,0x81U,0x6FU,0xC1U,0x45U,
+     0xE7U,0x80U,0xC4U,0x46U,0xF2U,0xA9U,0x9FU,0xD8U},
+    {0x49U,0xDEU,0x48U,0xE4U,0xC0U,0x85U,0xF6U,0xCDU,
+     0xEDU,0x1FU,0x16U,0x87U,0x37U,0x0BU,0xE2U,0x54U,
+     0xFFU,0xC1U,0x56U,0x1DU,0x9AU,0x85U,0x18U,0x7EU,
+     0x23U,0x6FU,0x96U,0x6EU,0x5CU,0xDFU,0x3EU,0x71U}
+};
+
 const TecmoGameplayCpuSteeringExpectedSource
     tecmo_gameplay_cpu_steering_expected_sources[
         TECMO_GAMEPLAY_CPU_STEERING_SOURCE_COUNT] = {
@@ -264,6 +302,28 @@ static int validate_lifecycle_anchor(
     return 1;
 }
 
+static int validate_fixed_lifecycle_anchor(
+    const uint8_t *rom,
+    uint64_t rom_size,
+    uint64_t prg_offset,
+    uint16_t cpu_start,
+    uint16_t cpu_end,
+    const uint8_t expected_sha256[32])
+{
+    uint8_t digest[32];
+    uint64_t byte_count = (uint64_t)cpu_end - cpu_start + 1U;
+    uint64_t offset;
+    if (rom == NULL || cpu_end < cpu_start || cpu_start < 0xC000U) return 0;
+    offset = prg_offset +
+             (uint64_t)(CPU_STEERING_PRG_BANK_COUNT - 1U) *
+                 TECMO_ASSET_PACK_PRG_BANK_BYTES +
+             (uint64_t)(cpu_start - 0xC000U);
+    return range_ok(offset, byte_count, rom_size) &&
+           tecmo_asset_pack_sha256_digest(
+               rom + (size_t)offset, (size_t)byte_count, digest) == 0 &&
+           memcmp(digest, expected_sha256, sizeof(digest)) == 0;
+}
+
 static int validate_lifecycle_anchors(
     const uint8_t *rom,
     uint64_t rom_size,
@@ -324,6 +384,30 @@ static int validate_lifecycle_anchors(
             rom, rom_size, prg_offset, 4U, 0x9F79U, 0x9F7DU,
             TECMO_ASSET_PACK_GAMEPLAY_CPU_STEERING_OPCODE15_RECORD_FNV1A32,
             cpu_steering_anchor_opcode15_record_sha256) ||
+        !validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 5U, 0xA0F3U, 0xA11AU, 0U,
+            cpu_steering_anchor_global_latch_sha256[0]) ||
+        !validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 5U, 0xA790U, 0xA7A5U, 0U,
+            cpu_steering_anchor_global_latch_sha256[1]) ||
+        !validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 5U, 0xA9DAU, 0xAA44U, 0U,
+            cpu_steering_anchor_global_latch_sha256[2]) ||
+        !validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 5U, 0xB721U, 0xB736U, 0U,
+            cpu_steering_anchor_global_latch_sha256[3]) ||
+        !validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 5U, 0xB783U, 0xB792U, 0U,
+            cpu_steering_anchor_global_latch_sha256[4]) ||
+        !validate_lifecycle_anchor(
+            rom, rom_size, prg_offset, 6U, 0x9125U, 0x9145U, 0U,
+            cpu_steering_anchor_global_latch_sha256[5]) ||
+        !validate_fixed_lifecycle_anchor(
+            rom, rom_size, prg_offset, 0xCC30U, 0xCC57U,
+            cpu_steering_anchor_global_latch_sha256[6]) ||
+        !validate_fixed_lifecycle_anchor(
+            rom, rom_size, prg_offset, 0xCC58U, 0xCC85U,
+            cpu_steering_anchor_global_latch_sha256[7]) ||
         !range_ok(route_table_offset, sizeof(route_table), rom_size) ||
         memcmp(rom + (size_t)route_table_offset,
                route_table, sizeof(route_table)) != 0) {
@@ -349,7 +433,9 @@ static int validate_independent_anchor_mutation_rejection(
         uint16_t cpu_start;
     } anchors[] = {
         {6U, 0x9BD8U}, {6U, 0x88B0U}, {6U, 0x8B90U}, {6U, 0x9146U},
-        {6U, 0x9208U}, {4U, 0x9F65U}, {4U, 0x9F79U}
+        {6U, 0x9208U}, {4U, 0x9F65U}, {4U, 0x9F79U},
+        {5U, 0xA0F3U}, {5U, 0xA790U}, {5U, 0xA9DAU},
+        {5U, 0xB721U}, {5U, 0xB783U}, {6U, 0x9125U}
     };
     uint8_t *mutated;
     size_t index;
@@ -360,6 +446,27 @@ static int validate_independent_anchor_mutation_rejection(
     if (rom_size > SIZE_MAX ||
         (mutated = (uint8_t *)malloc((size_t)rom_size)) == NULL) {
         return 0;
+    }
+    {
+        static const uint16_t fixed_anchors[] = {0xCC30U, 0xCC58U};
+        for (index = 0U;
+             index < sizeof(fixed_anchors) / sizeof(fixed_anchors[0U]);
+             ++index) {
+            uint64_t offset = prg_offset +
+                (uint64_t)(CPU_STEERING_PRG_BANK_COUNT - 1U) *
+                    TECMO_ASSET_PACK_PRG_BANK_BYTES +
+                (uint64_t)(fixed_anchors[index] - 0xC000U);
+            if (!range_ok(offset, 1U, rom_size)) {
+                free(mutated);
+                return 0;
+            }
+            memcpy(mutated, rom, (size_t)rom_size);
+            mutated[(size_t)offset] ^= 1U;
+            if (validate_lifecycle_anchors(mutated, rom_size, prg_offset)) {
+                free(mutated);
+                return 0;
+            }
+        }
     }
     for (index = 0U; index < sizeof(anchors) / sizeof(anchors[0U]); ++index) {
         uint64_t offset = cpu_steering_switchable_rom_offset(

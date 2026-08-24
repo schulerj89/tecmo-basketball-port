@@ -49,10 +49,22 @@ module. Bank06 `$9125-$9145` consumes persistent raw 16-bit words at
 depth with source wrapping, and then enters the shared `$92CB` tail. Neither
 high byte is a court-coordinate validity field. The command corpus contains the
 two exact zero-argument records at offsets 45/65 (`$9F5B/$9F6F`), each followed
-by opcode 14 and opcode 15. Unit fixtures may supply the typed raw words;
-production does not, because the latch's five source producers and persistence
-lifecycle remain unconverted. In particular, the current ball is not a valid
-substitute, so LIVE remains `missing-global-target`.
+by opcode 14 and opcode 15. TGGL-1 now owns a dedicated four-byte raw16
+representation with five producer kinds (`$A0F3`, `$A790`, `$A9DA`, `$B721`,
+`$B783`), atomic last-writer-wins updates, immutable snapshots, monotonic
+serial admission, full-reset-only clear, and explicit retention across periods
+and possessions. This is a provenance model, not a production binding. Unit
+fixtures may supply its raw words; LIVE does not, because the object/event
+schedulers, `$A214` gates, opcode 15, and exact latest-writer timing remain
+unowned. The current ball and TGCA's one-frame opcode-20 capability are not
+substitutes, so LIVE remains `missing-global-target`.
+
+The `$002D` opcode-13 record is source-linked to the anchored
+`$A9DA->$A993` family. The later `$0041` record retains an explicit
+latest-writer/scheduling boundary; neither relationship authorizes native
+scene input. Exact importer anchors cover all five writer spans, Bank06
+`$9125-$9145`, and fixed `$CC30-$CC85` reset/page clear, with independent
+mutation rejection for every span.
 
 ## What the harness proves
 

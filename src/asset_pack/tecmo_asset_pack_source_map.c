@@ -2481,7 +2481,18 @@ static int append_gameplay_cpu_steering_source_map_entry(
     }
     return tecmo_asset_pack_append_text(
         buffer, capacity, length,
-        "],\"opcode15_source_contract\":{"
+        "],\"opcode13_global_latch_contract\":{"
+        "\"scope\":\"typed persistent provenance only; LIVE global_target_available remains false\","
+        "\"writers\":[\"Bank05 $A0F3-$A11A\",\"Bank05 $A790-$A7A5\",\"Bank05 $A9DA-$AA44\",\"Bank05 $B721-$B736\",\"Bank05 $B783-$B792\"],"
+        "\"consumer\":\"Bank06 $9125-$9145\","
+        "\"reset\":[\"fixed $CC30-$CC57\",\"fixed $CC58-$CC85\"],"
+        "\"retention\":\"period and possession transitions retain all four raw bytes\","
+        "\"overwrite\":\"atomic last-writer-wins with monotonic serial admission\","
+        "\"record_002d\":\"anchored $A9DA->$A993 assignment linkage; scheduler remains unbound\","
+        "\"record_0041\":\"latest-writer and scheduling boundary unbound\","
+        "\"tgca_separation\":\"B721/B783 same-frame opcode20 capability cannot authorize opcode13\","
+        "\"missing_live_owners\":[\"$A0DD object scheduler\",\"$A790 events\",\"$A9DA workspace/scheduling\",\"$A214 gates\",\"opcode15\"]},"
+        "\"opcode15_source_contract\":{"
         "\"scope\":\"harness-only; LIVE opcode 15 remains deferred\","
         "\"dispatch\":{\"bank\":6,\"address\":\"$8B90-$8BE0\",\"opcode\":15,\"handler\":\"$9172\"},"
         "\"canonical_records\":[{\"bank\":4,\"address\":\"$9F65-$9F69\",\"stream_offset\":\"$0037\",\"fnv1a32\":\"735536DE\"},{\"bank\":4,\"address\":\"$9F79-$9F7D\",\"stream_offset\":\"$004B\",\"fnv1a32\":\"735536DE\"}],"
