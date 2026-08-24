@@ -11098,6 +11098,7 @@ static bool scene_test_production_terminal_scenarios(
             bool saw_authentic_rattle = false;
             bool saw_a8e9_normalized = false;
             bool saw_a9da_assignment = false;
+            bool saw_b73a_assignment = false;
             bool release_corruption_checked = false;
             bool terminal_corruption_checked = false;
             uint16_t miss_score_before[TECMO_GAMEPLAY_TEAM_COUNT];
@@ -11336,6 +11337,27 @@ static bool scene_test_production_terminal_scenarios(
                         terminal_corruption_checked = true;
                     }
                 }
+                if (scenario == 3U &&
+                    scene->shot_b73a_assignment_applied &&
+                    !saw_b73a_assignment) {
+                    if (scene->shot_b73a_raw_0499 != 0U ||
+                        scene->shot_b73a_handler_cpu != 0xB6E5U ||
+                        scene->shot_b73a_opcode20_actor_mask == 0U ||
+                        scene->jump_ball_state != 0x10U ||
+                        !scene->shot_a9da_result
+                            .state10_and_b3dd_committed ||
+                        scene->shot_a9da_result.raw_0067 != 0xF0U ||
+                        scene->shot_a9da_result.raw_0068 != 0x02U ||
+                        !scene->a023_latch_frame_context.available ||
+                        scene->a023_latch_frame_context.latch.producer_kind !=
+                            TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B721) {
+                        scene_test_terminal_failure = 239U;
+                        scene_test_terminal_detail = scene->shot_frame;
+                        tecmo_gameplay_scene_end(scene);
+                        return false;
+                    }
+                    saw_b73a_assignment = true;
+                }
                 trace = trace * 16777619U ^
                     (uint32_t)scene->ball_position.x_q8;
                 trace = trace * 16777619U ^
@@ -11391,7 +11413,7 @@ static bool scene_test_production_terminal_scenarios(
                 (scenario == 3U &&
                   (!saw_tgls_release || !saw_tgls_first_tick ||
                    !saw_authentic_rattle || !saw_a8e9_normalized ||
-                   !saw_a9da_assignment ||
+                   !saw_a9da_assignment || !saw_b73a_assignment ||
                   !release_corruption_checked ||
                   !terminal_corruption_checked)) ||
                 (scenario != 3U && !tail_corruption_checked) ||

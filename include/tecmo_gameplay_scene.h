@@ -545,6 +545,12 @@ typedef struct TecmoGameplayScene {
     uint8_t shot_b783_raw_0499;
     uint16_t shot_b783_handler_cpu;
     uint16_t shot_b783_opcode20_actor_mask;
+    /* Exact next-update `$A214->$B6E5->$B721->$A023` transaction enabled by
+       A9DA's persistent state-$10/B3DD/0588 side effects. */
+    bool shot_b73a_assignment_applied;
+    uint8_t shot_b73a_raw_0499;
+    uint16_t shot_b73a_handler_cpu;
+    uint16_t shot_b73a_opcode20_actor_mask;
     /* Persistent raw `$038D-$0390` shot-lifecycle latch. `$A0F3` writes the
        launch target, `$A7A9->$A790` overwrites it with slot-10 position, and
        `$A9DA` overwrites it again with the projected landing target. */

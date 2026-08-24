@@ -1129,8 +1129,10 @@ static bool scene_validation_jump_timeline_valid(
                    TECMO_GAMEPLAY_JUMP_SLOT0_INITIAL_ALTITUDE_Q8,
                    TECMO_GAMEPLAY_JUMP_SLOT0_ACTOR_VELOCITY_Q8);
     }
-    expected_ball_state = rattle_route && frame < 89U
-        ? scene->shot_resolution.rim_rattle.object_state
+    expected_ball_state = rattle_route
+        ? (frame < TECMO_GAMEPLAY_JUMP_RATTLE_HANDOFF_FRAME
+            ? scene->shot_resolution.rim_rattle.object_state
+            : 0x10U)
         : scene->jump_shots.constants.ball_state_route10;
     return scene->jump_actor_state ==
                scene->jump_shots.constants.actor_state_neutral &&
@@ -1260,6 +1262,10 @@ static bool scene_raw_launch_zero(const TecmoGameplayScene *scene)
         scene->shot_b783_raw_0499 == 0U &&
         scene->shot_b783_handler_cpu == 0U &&
         scene->shot_b783_opcode20_actor_mask == 0U &&
+        !scene->shot_b73a_assignment_applied &&
+        scene->shot_b73a_raw_0499 == 0U &&
+        scene->shot_b73a_handler_cpu == 0U &&
+        scene->shot_b73a_opcode20_actor_mask == 0U &&
         !scene->shot_a8e9_normalized_valid &&
         scene->shot_a8e9_raw_006a == 0U &&
         memcmp(&scene->shot_a8e9_normalized, &zero_normalized,
@@ -1430,6 +1436,24 @@ static bool scene_raw_launch_active_valid(const TecmoGameplayScene *scene)
                 scene->jump_rim_rattle.active &&
                 scene->jump_ball_state == 0x17U &&
                 (scene->jump_ball_altitude_q8 >> 8U) < 0x04U)) {
+        return false;
+    }
+    if (scene->shot_b73a_assignment_applied) {
+        if (!scene->shot_a9da_assignment_valid ||
+            scene->shot_b73a_raw_0499 != 0U ||
+            scene->shot_b73a_handler_cpu != 0xB6E5U ||
+            (scene->shot_b73a_opcode20_actor_mask & ~0x03FFU) != 0U ||
+            scene->shot_b73a_opcode20_actor_mask == 0U) {
+            return false;
+        }
+    } else if (scene->shot_b73a_raw_0499 != 0U ||
+               scene->shot_b73a_handler_cpu != 0U ||
+               scene->shot_b73a_opcode20_actor_mask != 0U ||
+               (scene->shot_a9da_assignment_valid &&
+                scene->shot_frame >
+                    TECMO_GAMEPLAY_JUMP_RATTLE_HANDOFF_FRAME &&
+                scene->jump_ball_state == 0x10U &&
+                (scene->jump_ball_altitude_q8 >> 8U) == 0U)) {
         return false;
     }
     terminal_normalized = scene->shot_rim_rattle_selected &&

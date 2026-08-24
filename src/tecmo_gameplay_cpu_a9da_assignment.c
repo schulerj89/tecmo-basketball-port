@@ -121,6 +121,12 @@ bool tecmo_gameplay_cpu_a9da_target_assignment_subset_apply(
     result.projected_x_038d_038e = write.raw_x_038d_038e;
     result.projected_depth_038f_0390 = write.raw_depth_038f_0390;
     result.latch_overwritten = true;
+    result.object_state_0478 = 0x10U;
+    result.raw_0067 = 0xF0U;
+    result.raw_0068 = 0x02U;
+    result.object10_049a = result.raw_0067;
+    result.object10_04af = result.raw_0068;
+    result.state10_and_b3dd_committed = true;
     if ((input->ba & 3U) != 0U) {
         result.outcome = TECMO_GAMEPLAY_CPU_A9DA_OUTCOME_ABORT_BA;
         *latch = latch_candidate;
@@ -219,6 +225,10 @@ bool tecmo_gameplay_cpu_a9da_target_assignment_subset_self_test(
         result.winning_metric != 0x0010U ||
         result.projected_x_038d_038e != 0x00D0U ||
         result.projected_depth_038f_0390 != 0x008FU ||
+        !result.state10_and_b3dd_committed ||
+        result.object_state_0478 != 0x10U ||
+        result.raw_0067 != 0xF0U || result.raw_0068 != 0x02U ||
+        result.object10_049a != 0xF0U || result.object10_04af != 0x02U ||
         output.stream_offset[9U] != 0x002DU ||
         output.last_step_offset[9U] != 0x002DU ||
         output.state[9U] != 4U || output.action_state_046e[9U] != 0U ||
@@ -264,6 +274,7 @@ bool tecmo_gameplay_cpu_a9da_target_assignment_subset_self_test(
         result.outcome != TECMO_GAMEPLAY_CPU_A9DA_OUTCOME_ABORT_BA ||
         result.projected_x_038d_038e != 0x001CU ||
         result.projected_depth_038f_0390 != 0xFFDCU ||
+        !result.state10_and_b3dd_committed ||
         output.global_0588 != input.global_0588 || latch.write_serial != 3U)
         goto fail;
     fixture(&input);
@@ -356,8 +367,8 @@ bool tecmo_gameplay_cpu_a9da_target_assignment_subset_self_test(
         memcmp(&result, &result_before, sizeof(result)) != 0) goto fail;
 
     (void)snprintf(message, message_size,
-                   "TGA9-1 helper: projection=asr6 latch=A9DA "
-                   "selector=AAB8 assignment=A993 live=unbound");
+                   "TGA9-1 helper: state10+B3DD projection=asr6 latch=A9DA "
+                   "selector=AAB8 assignment=A993 live=bound");
     return true;
 fail:
     (void)snprintf(message, message_size,

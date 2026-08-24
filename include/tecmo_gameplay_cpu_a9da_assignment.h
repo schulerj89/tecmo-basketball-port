@@ -56,18 +56,27 @@ typedef struct TecmoGameplayCpuA9daResult {
     uint16_t winning_metric;
     uint8_t chosen_actor_002d;
     uint8_t linked_actor;
+    /* `$A9DA-$A9E9` executes before every later BA/05A1 abort. `$B3DD` is
+       the fixed producer `$0067=$F0,$0068=$02`; X is slot `$0A`, so the
+       same bytes are stored at `$049A+$0A/$04A5+$0A`. */
+    uint8_t object_state_0478;
+    uint8_t raw_0067;
+    uint8_t raw_0068;
+    uint8_t object10_049a;
+    uint8_t object10_04af;
     TecmoGameplayCpuA9daOutcome outcome;
     bool latch_overwritten;
+    bool state10_and_b3dd_committed;
     bool flag_0588_set;
     bool same_loop_first_002d;
     bool linked_actor_exempt;
 } TecmoGameplayCpuA9daResult;
 
-/* Target/assignment subset only: `$A9DA` always commits its TGGL producer
- * before `$BA/$05A1` can abort the later `$AAB8->$A993` assignment. This does
- * not model `$0478=$10`, `$B3DD->$049A/$04A5`, or the `$4010/$4012/$4013/$4015`
- * presentation/audio tail. Rejection for malformed, aliased, stale, or
- * outside-source-domain input is byte-identical for latch/output/result. */
+/* Source transaction through `$A993`: `$A9DA` commits state `$10`, the fixed
+ * `$B3DD` motion bytes, and its TGGL producer before `$BA/$05A1` can abort the
+ * later `$AAB8->$A993` assignment. The `$4010/$4012/$4013/$4015` presentation
+ * tail remains outside this CPU/AI helper. Rejection for malformed, aliased,
+ * stale, or outside-source-domain input is byte-identical for all outputs. */
 bool tecmo_gameplay_cpu_a9da_target_assignment_subset_apply(
     TecmoGameplayCpuGlobalLatch *latch,
     const TecmoGameplayCpuA9daInput *input,

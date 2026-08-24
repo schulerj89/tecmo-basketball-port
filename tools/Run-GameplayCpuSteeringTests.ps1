@@ -475,9 +475,12 @@ try {
                 'raw X16.*depth8.*strict.*9->0' -and
             $Map.opcode13_global_latch_contract.a9da_assignment.writes -match
                 '\$046E=0.*\$0458.*preserved.*\$0587=3' -and
-            @($Map.opcode13_global_latch_contract.a9da_assignment.omitted_a9da_effects).Count -eq 3 -and
+            $Map.opcode13_global_latch_contract.a9da_assignment.a9da_object_side_effects -match
+                '\$0478=\$10.*\$0067=\$F0.*\$0068=\$02.*\$0588\|=\$80' -and
+            $Map.opcode13_global_latch_contract.a9da_assignment.presentation_tail_boundary -match
+                '\$4010.*audio/presentation' -and
             $Map.opcode13_global_latch_contract.a9da_assignment.production_boundary -match
-                'authoritative TGLS.*persistent A0F3.*A790.*A8E9/A9DA.*reachable ordinary shot off-ball.*same update' -and
+                'authoritative TGLS.*A0F3/A790/A9DA.*frame 89.*state10/B3DD/0588.*B6E5->B721->A023.*same-update' -and
             $Map.opcode13_global_latch_contract.a8e9_velocity_normalizer.scope -match
                 'bounded TGLS-to-rattle LIVE input owner' -and
             @($Map.opcode13_global_latch_contract.a8e9_velocity_normalizer.anchors).Count -eq 2 -and

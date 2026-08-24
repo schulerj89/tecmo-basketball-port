@@ -154,13 +154,13 @@
     ],
     "synthetic_no_candidate": "A valid LIVE foundation always has five actors on each $04B0 bit-$10 selector side. The no-candidate scan test is intentionally a direct invalid-selector fixture, not an organic scene claim."
     ,
-    "same_frame_latch": "Intentional exact-event scene fixtures cover masked $0019 consumption, unrelated-$0019 rejection, delayed $000A and opcode13 rejection, single-frame expiry, malformed provenance, and rollback. Production binds the context only for exact object-slot-10 height <4, state-$17, $0588&$20 through A214->$B775->$B783."
+    "same_frame_latch": "Intentional exact-event scene fixtures cover masked $0019 consumption, unrelated-$0019 rejection, delayed $000A and opcode13 rejection, single-frame expiry, malformed provenance, and rollback. Production binds exact state-$17/$0588&$20 through A214->$B775->$B783 and A9DA's state-$10/B3DD/$0588&$80 lifecycle through A214->$B6E5->$B721."
   },
   "native_caller_equivalence": [
     {
       "asm_caller": "$B6E5->$B73A->$A023",
-      "current_native_observation": "Normal jump miss exposes numeric jump_ball_state 0x17 then 0x10, but retains none of the object-slot-10 state/target or BA/05A1/0499/0588/67/68/04AF gate family.",
-      "status": "deferred-no-production-attachment"
+      "current_native_observation": "Ordinary selected-rattle MISS frame 89 commits A9DA state $10, fixed B3DD $67/$68=$F0/$02 copied to object slot 10, BA-low2/$05A1 zero, and $0588 bit $80. The grounded next A214 dispatch resolves $B6E5 and executes $B721->$A023 with the exact raw target and one-update latch.",
+      "status": "production-bound-source-shaped-state10"
     },
     {
       "asm_caller": "$B775->$B783->$A023",

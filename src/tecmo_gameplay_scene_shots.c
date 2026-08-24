@@ -146,6 +146,10 @@ static void scene_shot_clear_raw_launch(TecmoGameplayScene *scene)
     scene->shot_b783_raw_0499 = 0U;
     scene->shot_b783_handler_cpu = 0U;
     scene->shot_b783_opcode20_actor_mask = 0U;
+    scene->shot_b73a_assignment_applied = false;
+    scene->shot_b73a_raw_0499 = 0U;
+    scene->shot_b73a_handler_cpu = 0U;
+    scene->shot_b73a_opcode20_actor_mask = 0U;
     scene->shot_global_latch_initialized = false;
     scene->shot_global_ba_low2_known_zero = false;
     memset(&scene->shot_global_latch, 0,
@@ -254,6 +258,86 @@ static bool scene_apply_b783_state17_assignment(TecmoGameplayScene *scene)
         assignment.immediate_opcode20_actor_mask;
     scene->shot_b783_raw_0499 = raw_0499;
     scene->shot_b783_assignment_applied = true;
+    return true;
+}
+
+static bool scene_apply_b73a_state10_assignment(TecmoGameplayScene *scene)
+{
+    TecmoGameplayObject10DispatchResult dispatch;
+    TecmoGameplayActorCommandAssignmentInput input;
+    TecmoGameplayActorCommandAssignmentResult assignment;
+    TecmoGameplayActorCommandAssignmentSameFrameLatch latch;
+    TecmoGameplaySceneA023LatchFrameContext context;
+    TecmoGameplayLiveFoundation foundation;
+    TecmoGameplayLiveFoundation foundation_before;
+    uint8_t raw_0499;
+    if (scene == NULL || scene->legacy_direct_launch ||
+        scene->jump_rim_rattle_debug || scene->shot_b73a_assignment_applied ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+        scene->predicted_make_route || !scene->shot_rim_rattle_selected ||
+        !scene->shot_a9da_assignment_valid ||
+        !scene->shot_a9da_result.state10_and_b3dd_committed ||
+        !scene->shot_a9da_result.flag_0588_set ||
+        scene->jump_ball_state != 0x10U ||
+        scene->a023_latch_frame_context.available ||
+        !scene->shot_a0f3_raw_position_valid ||
+        scene->actor_command_assignment_assets == NULL ||
+        !scene->actor_command_assignment_assets->available) {
+        return false;
+    }
+    raw_0499 = (uint8_t)(scene->jump_ball_altitude_q8 >> 8U);
+    if (raw_0499 != 0U || scene->shot_a0f3_raw_x > INT16_MAX) return false;
+    memset(&dispatch, 0, sizeof(dispatch));
+    memset(&input, 0, sizeof(input));
+    memset(&assignment, 0, sizeof(assignment));
+    memset(&latch, 0, sizeof(latch));
+    memset(&context, 0, sizeof(context));
+    if (!tecmo_gameplay_object10_dispatch_resolve(
+            scene->actor_command_assignment_assets, 0x10U, &dispatch) ||
+        dispatch.contract_tag != TECMO_GAMEPLAY_OBJECT10_DISPATCH_RESULT_TAG ||
+        dispatch.handler_cpu != 0xB6E5U) {
+        return false;
+    }
+    input.contract_tag = TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_INPUT_TAG;
+    input.caller =
+        TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_CALLER_OBJECT_STATE10_B73A;
+    input.raw_object_state = scene->shot_a9da_result.object_state_0478;
+    input.raw_ba = scene->shot_a9da_input.ba;
+    input.raw_05a1 = scene->shot_a9da_input.value_05a1;
+    input.raw_0499 = raw_0499;
+    input.raw_04af = scene->shot_a9da_result.object10_04af;
+    input.raw_0588 = scene->shot_a9da_output.global_0588;
+    input.raw_0067 = scene->shot_a9da_result.raw_0067;
+    input.raw_0068 = scene->shot_a9da_result.raw_0068;
+    input.object10_target_valid = true;
+    input.object10_target.x = (int16_t)scene->shot_a0f3_raw_x;
+    input.object10_target.y = (int16_t)scene->shot_a0f3_raw_depth;
+    input.object10_raw_target_valid = true;
+    input.object10_raw_target.x = scene->shot_a0f3_raw_x;
+    input.object10_raw_target.depth = scene->shot_a0f3_raw_depth;
+    foundation_before = scene->live_foundation;
+    foundation = foundation_before;
+    if (!tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
+            scene->actor_command_assignment_assets,
+            &scene->cpu_steering_assets, &input, &foundation,
+            &assignment, &latch) || !assignment.applied ||
+        assignment.caller != input.caller ||
+        assignment.immediate_opcode20_actor_mask == 0U ||
+        latch.producer_kind !=
+            TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B721 ||
+        latch.b783_bit20_clear_follows_assignment) {
+        return false;
+    }
+    context.contract_tag = TECMO_GAMEPLAY_SCENE_A023_LATCH_FRAME_CONTEXT_TAG;
+    context.latch = latch;
+    context.available = true;
+    scene->live_foundation = foundation;
+    scene->a023_latch_frame_context = context;
+    scene->shot_b73a_handler_cpu = dispatch.handler_cpu;
+    scene->shot_b73a_opcode20_actor_mask =
+        assignment.immediate_opcode20_actor_mask;
+    scene->shot_b73a_raw_0499 = raw_0499;
+    scene->shot_b73a_assignment_applied = true;
     return true;
 }
 
@@ -2802,8 +2886,7 @@ static bool scene_update_jump_miss_mutating(
        B783's target is a one-update capability just like A9DA's: if the
        immediately following off-ball traversal did not consume it, expire
        it before advancing another shot update. */
-    if (scene->shot_b783_assignment_applied &&
-        scene->a023_latch_frame_context.available) {
+    if (scene->a023_latch_frame_context.available) {
         scene->a023_latch_frame_context.available = false;
     }
     /* Direct shot-step tests do not run the outer ordinary actor phase. The
@@ -2837,7 +2920,6 @@ static bool scene_update_jump_miss_mutating(
             return false;
         }
     }
-
     if (next_frame == 3U) {
         scene->jump_pose_frame = TECMO_GAMEPLAY_JUMP_FLIGHT_POSE_FRAME;
         actor->pose_index = scene_jump_playback_flight_pose(scene);
@@ -2915,8 +2997,25 @@ static bool scene_update_jump_miss_mutating(
                 scene->jump_shots.constants.bounce_decay_q8);
         }
     }
+    if (next_frame == TECMO_GAMEPLAY_JUMP_RATTLE_HANDOFF_FRAME &&
+        scene->shot_a9da_assignment_valid &&
+        scene->shot_a9da_result.state10_and_b3dd_committed) {
+        /* The native route-frame schedule previously restored state `$17`
+           here. Source order is decisive: `$A9DA`'s final write is `$0478=$10`. */
+        scene->jump_ball_state = scene->shot_a9da_result.object_state_0478;
+    }
     if (!rattle_position_owned) {
         scene_update_jump_ball_position(scene);
+    }
+    /* `$B6E5` calls `$B7C1` before testing the grounded `$0499` value. The
+       native rattle step above is the scene's owned equivalent of that
+       kinematic phase, so `$B721->$A023` must follow it in this update. */
+    if (scene->shot_a9da_assignment_valid &&
+        scene->jump_ball_state == 0x10U &&
+        (scene->jump_ball_altitude_q8 >> 8U) == 0U &&
+        !scene->shot_b73a_assignment_applied &&
+        !scene_apply_b73a_state10_assignment(scene)) {
+        return false;
     }
 
     if (next_frame < scene->shot_duration) return true;
