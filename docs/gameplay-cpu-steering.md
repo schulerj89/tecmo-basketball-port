@@ -503,9 +503,9 @@ absolute-X clamp; nonnegative Z shifts X only. Clamp uses
 `$30+($006A&$0F)` and restores the pre-clamp sign before raw `$035A` forces X
 nonnegative for 0 or negative for 1. The API defines arithmetic shift and
 wrapping negate on uint16 bits, so host signed-shift behavior is irrelevant.
-It remains helper-only because launch-solver ownership of incoming planar
-velocity is absent; rendered/lerped positions and synthetic rattle sentinels
-are forbidden substitutes.
+Bound non-legacy ordinary MISS playback now supplies TGLS launch velocity to
+rattle and runs this normalizer after the saved pair is restored. Legacy/debug
+fixtures retain an isolated synthetic sentinel. LIVE A9DA remains unbound.
 
 TGLS-1 translates the direct `$A0F3` object-10 launch as a pure typed helper.
 Raw `$0463` direction remains 0..7 and `$006A` remains a separate explicit
@@ -521,8 +521,16 @@ object-10 `$73+X/$E8+X/$F3+X` at `X=$0A`, so one typed source coordinate owns
 target base, delta origin, LUT index, and Q6 seed. `$B522-$B52D` proves the
 zero-duration gate, `$BD6E-$BDC6` integrate/publish call, and post-call
 decrement. The proven
-non-legacy scene jump direction equals pre-remap raw `$0463`, but scheduling
-and incoming launch ownership are outside this slice, so LIVE remains unbound.
+non-legacy scene jump direction equals pre-remap raw `$0463`. The scene
+captures object-10 from the pre-shot Q8 ball snapshot, calls tagged `$C05D`
+sites `$9FA1` then `$A0DD` at MISS release, performs no launch tick there, and
+first integrates on frame 3. Raw planar state is authoritative downstream;
+rendered flight remains presentation-only until altitude composition is owned.
+
+TGFR-1 pins fixed `$CD7A-$CD7F`, `$CD8F-$CD95`, and `$CD96-$CDAB`. It is a
+one-shot native LIVE continuity checkpoint seeded at accepted PRETIP handoff,
+not a claim that PRETIP reproduces the canonical earlier global stream.
+Rejected scene updates restore RNG bytes and serials byte-exactly.
 
 Production automatic-pass selection now enters from made-score restart:
 Bank05 `$901F` state 1 reaches Bank06 `$8661-$8727`, publishes the selected

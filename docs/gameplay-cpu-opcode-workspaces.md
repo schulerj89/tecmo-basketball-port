@@ -103,10 +103,10 @@ Finally raw `$035A=0` forces nonnegative X and `$035A=1` forces negative X.
 Natural no-write inputs reproduce `FED7/FFEF -> 004B/FFFB` and, with `$006A`
 low nibble E, `FF65/FFC3 -> 003E/FFF0`.
 
-This remains a pure save/temp/normalize/restore-shaped helper. The scene has no
-source-shaped owner for incoming launch velocity, so it does not add planar
-velocity/accumulator fields, derive velocity from lerped positions, seed a
-synthetic sentinel, or enable LIVE A9DA. Exact importer and mutation anchors
+Bound non-legacy ordinary MISS now owns the save/temp/normalize/restore bridge:
+TGLS supplies raw planar velocity, rattle restores it, and TGVN normalizes the
+restored pair. Rendered flight never seeds raw state; LIVE A9DA remains
+disabled. Exact importer and mutation anchors
 cover `$A8E9-$A976` (FNV `815E6881`) and `$AA87-$AA9E` (FNV `6D37E9A0`).
 
 TGLS-1 now owns the pure direct-launch arithmetic immediately upstream. It
@@ -119,10 +119,11 @@ branch and `$003C` cap. Division is signed `(delta*64)/duration`, truncating
 toward zero into the full raw16 quotient and restoring sign with wrap. Only
 divisor zero uses the `0000/7FFF/8001` sentinel path, followed by the source's
 wrapping double. The resulting raw16 velocities and Q6 accumulators are
-helper-only; `$B522-$B52D` pins zero-gate, integrate/publish call, and decrement,
+scene-owned for bound ordinary MISS; `$B522-$B52D` pins zero-gate, integrate/publish call, and decrement,
 while `$BD6E-$BDC6` pins integrate-then-publish arithmetic. The explicit
-`$006A` is the second `$C05D` result after `$9FA1->$A0DD`; no scene scheduler,
-launch-policy, RNG owner, or LIVE A9DA binding is implied.
+`$006A` is the second tagged `$C05D` result after `$9FA1->$A0DD`. TGFR-1 pins
+fixed `$CD7A-$CD7F/$CD8F-$CD95/$CD96-$CDAB`, checkpoints at accepted LIVE
+handoff, and rolls NMI back on rejected updates. No LIVE A9DA binding is implied.
 
 ## What the harness proves
 

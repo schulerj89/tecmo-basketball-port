@@ -152,6 +152,24 @@ void scene_shot_clear_jump_playback(TecmoGameplayScene *scene)
     scene->jump_family = TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0;
     scene->jump_profile = TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0;
     scene->jump_direction = TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_0;
+    scene->shot_a0f3_origin_valid = false;
+    scene->shot_a0f3_origin_x = 0U;
+    scene->shot_a0f3_origin_depth = 0U;
+    scene->shot_a0f3_preflight_valid = false;
+    scene->shot_a0f3_preflight_raw_006a = 0U;
+    scene->shot_a0f3_launch_raw_006a = 0U;
+    memset(&scene->shot_a0f3_result, 0,
+           sizeof(scene->shot_a0f3_result));
+    memset(&scene->shot_a0f3_motion, 0,
+           sizeof(scene->shot_a0f3_motion));
+    scene->shot_a0f3_motion_valid = false;
+    scene->shot_a0f3_raw_position_valid = false;
+    scene->shot_a0f3_raw_x = 0U;
+    scene->shot_a0f3_raw_depth = 0U;
+    scene->shot_a0f3_tick_count = 0U;
+    scene->shot_a8e9_normalized_valid = false;
+    memset(&scene->shot_a8e9_normalized, 0,
+           sizeof(scene->shot_a8e9_normalized));
     scene->close_shot_variant = TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0;
     scene->native_policy_sample = 0U;
     scene->shot_flags = 0U;
@@ -570,6 +588,10 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
     uint16_t entry_pose;
     uint16_t initial_pose = 0U;
     bool predicted_make;
+    bool a0f3_origin_valid = false;
+    uint16_t a0f3_origin_x = 0U;
+    uint8_t a0f3_origin_depth = 0U;
+    TecmoGameplayCourtCoordinateQ8 a0f3_origin_q8 = {0, 0};
     if (scene == NULL ||
         (owner != SCENE_SHOT_LAUNCH_HUMAN &&
          owner != SCENE_SHOT_LAUNCH_AUTOMATIC_CPU) ||
@@ -656,6 +678,18 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
     if (close && scene->legacy_direct_launch) {
         profile = 0U;
         direction_slot = TECMO_GAMEPLAY_SHOT_DIRECTION_RIGHT;
+    }
+    if (!close && !scene->legacy_direct_launch) {
+        /* `$7D/$F2/$FD` aliases object slot 10. The ball is still attached
+           here, before native presentation replaces it with shot_start_q8.
+           This follows the existing raw mapper: x>>8/x>>16 and depth>>8. */
+        a0f3_origin_x = (uint16_t)(
+            ((uint16_t)((uint32_t)scene->ball_position.x_q8 >> 16U) << 8U) |
+            (uint8_t)((uint32_t)scene->ball_position.x_q8 >> 8U));
+        a0f3_origin_depth = (uint8_t)(
+            (uint32_t)scene->ball_position.y_q8 >> 8U);
+        a0f3_origin_q8 = scene->ball_position;
+        a0f3_origin_valid = true;
     }
     scene_shot_clear_jump_playback(scene);
     scene->shot_launch_frame = scene->frame;
@@ -802,6 +836,9 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
             (TecmoGameplayJumpShotProfile)jump_profile;
         scene->jump_direction =
             (TecmoGameplayJumpShotDirection)jump_direction;
+        scene->shot_a0f3_origin_valid = a0f3_origin_valid;
+        scene->shot_a0f3_origin_x = a0f3_origin_x;
+        scene->shot_a0f3_origin_depth = a0f3_origin_depth;
         if (!scene_jump_pose_for_context(scene, &initial_pose)) {
             scene->shot_kind = TECMO_GAMEPLAY_SCENE_SHOT_NONE;
             scene_shot_clear_jump_playback(scene);
@@ -813,7 +850,8 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
     scene->shot_frame = close ? 0U : 1U;
     scene->shot_points = classified_points;
     scene->shot_flags = 0U;
-    scene->shot_start_position = shot_start_q8;
+    scene->shot_start_position = a0f3_origin_valid
+        ? a0f3_origin_q8 : shot_start_q8;
     /* Capture the TGOR-selected endpoint once at launch. A later possession
        transition may change orientation, but it must not retarget flight. */
     scene->shot_end_position = shot_end_q8;
@@ -2522,6 +2560,49 @@ static bool scene_update_jump_miss_mutating(
             outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) {
             return false;
         }
+        if (!scene->legacy_direct_launch) {
+            TecmoGameplayCpuA0f3Input launch_input;
+            TecmoGameplayCpuA0f3Result launch_result;
+            TecmoGameplayCpuA0f3Motion launch_motion;
+            uint8_t preflight_raw_006a;
+            uint8_t launch_raw_006a;
+            memset(&launch_input, 0, sizeof(launch_input));
+            if (!scene->shot_a0f3_origin_valid ||
+                !scene->cpu_a0f3_assets.available ||
+                !tecmo_gameplay_fixed_rng_c05d(
+                    &scene->fixed_rng,
+                    TECMO_GAMEPLAY_FIXED_RNG_CALL_9FA1,
+                    &preflight_raw_006a) ||
+                !tecmo_gameplay_fixed_rng_c05d(
+                    &scene->fixed_rng,
+                    TECMO_GAMEPLAY_FIXED_RNG_CALL_A0DD,
+                    &launch_raw_006a)) {
+                return false;
+            }
+            launch_input.contract_tag =
+                TECMO_GAMEPLAY_CPU_A0F3_INPUT_TAG;
+            launch_input.raw_x_7d_f2 = scene->shot_a0f3_origin_x;
+            launch_input.raw_depth_fd = scene->shot_a0f3_origin_depth;
+            launch_input.raw_direction = (uint8_t)scene->jump_direction;
+            launch_input.raw_006a = launch_raw_006a;
+            if (!tecmo_gameplay_cpu_a0f3_solve(
+                    &scene->cpu_a0f3_assets, &launch_input,
+                    &launch_result) ||
+                !tecmo_gameplay_cpu_a0f3_motion_begin(
+                    &launch_result, &launch_motion)) {
+                return false;
+            }
+            scene->shot_a0f3_preflight_valid = true;
+            scene->shot_a0f3_preflight_raw_006a = preflight_raw_006a;
+            scene->shot_a0f3_launch_raw_006a = launch_raw_006a;
+            scene->shot_a0f3_result = launch_result;
+            scene->shot_a0f3_motion = launch_motion;
+            scene->shot_a0f3_motion_valid = true;
+            scene->shot_a0f3_raw_position_valid = true;
+            scene->shot_a0f3_raw_x = scene->shot_a0f3_origin_x;
+            scene->shot_a0f3_raw_depth = scene->shot_a0f3_origin_depth;
+            scene->shot_a0f3_tick_count = 0U;
+        }
         scene->jump_b_released = true;
         scene->jump_outcome = outcome;
         scene->shot_frame = 2U;
@@ -2558,6 +2639,20 @@ static bool scene_update_jump_miss_mutating(
     }
     scene->shot_frame = next_frame;
     route_frame = next_frame;
+
+    if (!scene->legacy_direct_launch &&
+        scene->shot_a0f3_motion_valid &&
+        scene->shot_a0f3_motion.remaining_ticks != 0U) {
+        TecmoGameplayCpuA0f3PublishedPosition published;
+        if (!tecmo_gameplay_cpu_a0f3_motion_tick_publish(
+                &scene->shot_a0f3_motion, &published)) {
+            return false;
+        }
+        scene->shot_a0f3_raw_x = published.raw_x;
+        scene->shot_a0f3_raw_depth = published.raw_depth;
+        scene->shot_a0f3_raw_position_valid = true;
+        ++scene->shot_a0f3_tick_count;
+    }
 
     if (next_frame == 3U) {
         scene->jump_pose_frame = TECMO_GAMEPLAY_JUMP_FLIGHT_POSE_FRAME;
@@ -2700,6 +2795,8 @@ static bool scene_update_jump_miss_rim_rattle(
     {
         bool rattle_enabled = scene->jump_rim_rattle_debug ||
             scene->shot_rim_rattle_selected;
+        bool authentic_planar = !scene->legacy_direct_launch &&
+            !scene->jump_rim_rattle_debug;
         uint8_t raw_selector = scene->jump_rim_rattle_debug
             ? scene->jump_rim_rattle_raw_selector
             : scene->shot_rim_rattle_raw_selector;
@@ -2707,8 +2804,23 @@ static bool scene_update_jump_miss_rim_rattle(
         next_frame == TECMO_GAMEPLAY_JUMP_RATTLE_BEGIN_FRAME) {
         TecmoGameplayShotRimRoute route;
         uint8_t orientation;
+        int16_t incoming_x =
+            TECMO_GAMEPLAY_JUMP_RATTLE_NEGATIVE_INCOMING_X_SENTINEL_Q6;
+        int16_t incoming_depth = 0;
         if (!scene_shot_captured_rattle_orientation(scene, &orientation)) {
             return false;
+        }
+        if (authentic_planar) {
+            if (!scene->shot_a0f3_motion_valid ||
+                !scene->shot_a0f3_raw_position_valid ||
+                scene->shot_a0f3_motion.remaining_ticks != 0U ||
+                scene->shot_a0f3_tick_count !=
+                    scene->shot_a0f3_result.duration_051e_0513) {
+                return false;
+            }
+            incoming_x = (int16_t)scene->shot_a0f3_motion.velocity_x_q6;
+            incoming_depth =
+                (int16_t)scene->shot_a0f3_motion.velocity_depth_q6;
         }
         if (!tecmo_gameplay_shot_resolution_resolve_rim_route(
                 &scene->shot_resolution,
@@ -2719,8 +2831,7 @@ static bool scene_update_jump_miss_rim_rattle(
             !tecmo_gameplay_shot_rim_rattle_begin(
                 &scene->shot_resolution, &scene->jump_rim_rattle,
                 orientation, 3U, scene->jump_phase_counter,
-                TECMO_GAMEPLAY_JUMP_RATTLE_NEGATIVE_INCOMING_X_SENTINEL_Q6,
-                0)) {
+                incoming_x, incoming_depth)) {
             return false;
         }
         scene->jump_ball_state =
@@ -2768,6 +2879,34 @@ static bool scene_update_jump_miss_rim_rattle(
                 scene->jump_rim_rattle.vertical_velocity_q6 !=
                     scene->jump_rim_rattle.saved_vertical_velocity_q6) {
                 return false;
+            }
+            if (authentic_planar) {
+                TecmoGameplayCpuA8e9VelocityInput normalize_input;
+                TecmoGameplayCpuA8e9VelocityResult normalized;
+                memset(&normalize_input, 0, sizeof(normalize_input));
+                if ((uint16_t)scene->jump_rim_rattle
+                        .saved_horizontal_velocity_q6 !=
+                        scene->shot_a0f3_motion.velocity_x_q6 ||
+                    (uint16_t)scene->jump_rim_rattle
+                        .saved_vertical_velocity_q6 !=
+                        scene->shot_a0f3_motion.velocity_depth_q6) {
+                    return false;
+                }
+                normalize_input.contract_tag =
+                    TECMO_GAMEPLAY_CPU_A8E9_VELOCITY_INPUT_TAG;
+                normalize_input.raw_vx_04f1_04fc = (uint16_t)
+                    scene->jump_rim_rattle.horizontal_velocity_q6;
+                normalize_input.raw_vz_0507_0512 = (uint16_t)
+                    scene->jump_rim_rattle.vertical_velocity_q6;
+                normalize_input.raw_006a = scene->fixed_rng.raw_006a;
+                normalize_input.orientation_035a =
+                    scene->jump_rim_rattle.orientation;
+                if (!tecmo_gameplay_cpu_a8e9_velocity_normalize(
+                        &normalize_input, &normalized)) {
+                    return false;
+                }
+                scene->shot_a8e9_normalized = normalized;
+                scene->shot_a8e9_normalized_valid = true;
             }
             *route_frame = TECMO_GAMEPLAY_JUMP_RATTLE_BEGIN_FRAME;
         }

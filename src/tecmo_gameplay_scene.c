@@ -162,6 +162,7 @@ static void scene_release_owned(TecmoGameplayScene *scene)
         &scene->ball_dribble_assets);
     tecmo_gameplay_cpu_steering_assets_init(
         &scene->cpu_steering_assets);
+    tecmo_gameplay_cpu_a0f3_assets_init(&scene->cpu_a0f3_assets);
     tecmo_gameplay_penalties_init(&scene->penalty_assets);
     tecmo_gameplay_violation_referee_init(
         &scene->violation_referee_assets);
@@ -193,6 +194,7 @@ void tecmo_gameplay_scene_init(TecmoGameplayScene *scene)
         &scene->ball_dribble_assets);
     tecmo_gameplay_cpu_steering_assets_init(
         &scene->cpu_steering_assets);
+    tecmo_gameplay_cpu_a0f3_assets_init(&scene->cpu_a0f3_assets);
     tecmo_gameplay_penalties_init(&scene->penalty_assets);
     tecmo_gameplay_violation_referee_init(
         &scene->violation_referee_assets);
@@ -325,6 +327,12 @@ bool tecmo_gameplay_scene_load(TecmoGameplayScene *scene,
                        scene->cpu_steering_assets.status);
         scene_release_owned(scene);
         scene_set_status(scene, failure);
+        return false;
+    }
+    if (!tecmo_gameplay_cpu_a0f3_assets_load(
+            &scene->cpu_a0f3_assets, selected)) {
+        scene_release_owned(scene);
+        scene_set_status(scene, "TGLS-1 scene launch assets unavailable");
         return false;
     }
     if (!tecmo_gameplay_penalties_load(&scene->penalty_assets, selected)) {
@@ -945,6 +953,9 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
     scene->close_shot_profile = TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_0;
     scene->close_shot_direction = TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_0;
     scene_shot_clear_jump_playback(scene);
+    /* A new game is the sole reset boundary for the native LIVE checkpoint;
+       no RNG state may leak across scene launches. */
+    memset(&scene->fixed_rng, 0, sizeof(scene->fixed_rng));
     scene->frame = 0U;
     scene->action_serial = 0U;
     scene->camera_follow_count = 0U;
@@ -1023,6 +1034,17 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
         if (!scene_initialize_actors(scene)) {
             scene_set_status(scene,
                              "self-test actor movement initialization rejected");
+            scene->active = false;
+            return false;
+        }
+        /* The explicit skip harness bypasses scene_update_pretip_frame's
+           visible handoff, but still constructs the same one-shot checkpoint
+           from its fully advanced PRETIP state. */
+        if (!tecmo_gameplay_fixed_rng_live_checkpoint(
+                &scene->fixed_rng, scene->pretip_state.tip_rng_6a,
+                scene->pretip_state.tip_rng_53, 0U)) {
+            scene_set_status(scene,
+                             "self-test LIVE RNG checkpoint rejected");
             scene->active = false;
             return false;
         }
@@ -2026,6 +2048,7 @@ static bool scene_update_pretip_frame(
         TecmoGameplayBackcourtState backcourt_before;
         TecmoGameplayAudioPlayer audio_before;
         TecmoGameplayLiveFoundation foundation_before;
+        TecmoGameplayFixedRng rng_before;
         TecmoGameplaySceneActor actors_before[
             TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
         TecmoGameplaySceneCpuActor cpu_before[
@@ -2082,6 +2105,7 @@ static bool scene_update_pretip_frame(
         backcourt_before = scene->backcourt_state;
         audio_before = scene->audio_player;
         foundation_before = scene->live_foundation;
+        rng_before = scene->fixed_rng;
         memcpy(actors_before, scene->actors, sizeof(actors_before));
         memcpy(cpu_before, scene->cpu_actors, sizeof(cpu_before));
         memcpy(controlled_before, scene->controlled_actor,
@@ -2105,6 +2129,11 @@ static bool scene_update_pretip_frame(
                            scene->live_foundation.offense_side,
                            (uint8_t)(possession ^ 1U), true)) {
                 handoff_reject = scene->status;
+            } else if (!tecmo_gameplay_fixed_rng_live_checkpoint(
+                           &scene->fixed_rng,
+                           scene->pretip_state.tip_rng_6a,
+                           scene->pretip_state.tip_rng_53, 0U)) {
+                handoff_reject = "native LIVE RNG checkpoint rejected";
             } else if (!tecmo_gameplay_camera_settle_court(
                     &scene->camera_assets, &scene->camera_state,
                     &scene->ball_position,
@@ -2126,6 +2155,7 @@ static bool scene_update_pretip_frame(
             scene->backcourt_state = backcourt_before;
             scene->audio_player = audio_before;
             scene->live_foundation = foundation_before;
+            scene->fixed_rng = rng_before;
             memcpy(scene->actors, actors_before, sizeof(actors_before));
             memcpy(scene->cpu_actors, cpu_before, sizeof(cpu_before));
             memcpy(scene->controlled_actor, controlled_before,
@@ -2600,7 +2630,21 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
                                  const TecmoControlFrame *player_one,
                                  const TecmoControlFrame *player_two)
 {
-    bool result = scene_update_bound_frame(scene, player_one, player_two);
+    TecmoGameplayFixedRng rng_before = {0};
+    bool rng_ticked = false;
+    bool result;
+    if (scene != NULL &&
+        scene->lifecycle_tag == TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG &&
+        scene->fixed_rng.initialized &&
+        !tecmo_gameplay_pretip_is_presentation(&scene->pretip_state)) {
+        rng_before = scene->fixed_rng;
+        if (!tecmo_gameplay_fixed_rng_nmi_tick(&scene->fixed_rng)) {
+            return false;
+        }
+        rng_ticked = true;
+    }
+    result = scene_update_bound_frame(scene, player_one, player_two);
+    if (!result && rng_ticked) scene->fixed_rng = rng_before;
     /* A runtime sample is single-frame input. Publish timer output first,
        then consume availability on success or failure so direct callers
        cannot silently reuse stale `$6A`. */

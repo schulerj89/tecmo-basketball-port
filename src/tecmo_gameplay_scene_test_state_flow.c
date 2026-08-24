@@ -10736,6 +10736,10 @@ static bool scene_test_production_terminal_scenarios(
             uint8_t miss_stat_team;
             uint8_t miss_stat_roster;
             bool tail_corruption_checked = false;
+            bool saw_tgls_release = false;
+            bool saw_tgls_first_tick = false;
+            bool saw_authentic_rattle = false;
+            bool saw_a8e9_normalized = false;
             uint16_t miss_score_before[TECMO_GAMEPLAY_TEAM_COUNT];
             miss_score_before[TECMO_GAMEPLAY_TEAM_AWAY] =
                 scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY];
@@ -10786,14 +10790,58 @@ static bool scene_test_production_terminal_scenarios(
                 tecmo_gameplay_scene_end(scene);
                 return false;
             }
+            if (scenario == 3U) {
+                malformed = *scene;
+                malformed.fixed_rng.serial = UINT32_MAX;
+                snapshot = malformed;
+                if (scene_update_jump_miss(&malformed, &neutral) ||
+                    memcmp(&malformed, &snapshot,
+                           sizeof(malformed)) != 0) {
+                    scene_test_terminal_failure = 229U;
+                    tecmo_gameplay_scene_end(scene);
+                    return false;
+                }
+            }
             while (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
                    updates < 130U) {
                 if (!scene_update_shot(scene, &neutral)) {
                     scene_test_terminal_failure = 230U + scenario;
+                    scene_test_terminal_detail = scene->shot_frame;
                     tecmo_gameplay_scene_end(scene);
                     return false;
                 }
                 ++updates;
+                if (scenario == 3U && scene->shot_frame == 2U) {
+                    saw_tgls_release = scene->shot_a0f3_origin_valid &&
+                        scene->shot_a0f3_preflight_valid &&
+                        scene->shot_a0f3_motion_valid &&
+                        scene->shot_a0f3_raw_position_valid &&
+                        scene->shot_a0f3_tick_count == 0U &&
+                        scene->fixed_rng.last_callsite ==
+                            TECMO_GAMEPLAY_FIXED_RNG_CALL_A0DD &&
+                        scene->shot_a0f3_raw_x ==
+                            scene->shot_a0f3_origin_x &&
+                        scene->shot_a0f3_raw_depth ==
+                            scene->shot_a0f3_origin_depth;
+                } else if (scenario == 3U && scene->shot_frame == 3U) {
+                    saw_tgls_first_tick =
+                        scene->shot_a0f3_result.duration_051e_0513 == 0U
+                            ? scene->shot_a0f3_tick_count == 0U
+                            : scene->shot_a0f3_tick_count == 1U;
+                }
+                if (scenario == 3U && scene->jump_rim_rattle.active) {
+                    saw_authentic_rattle =
+                        (uint16_t)scene->jump_rim_rattle
+                            .saved_horizontal_velocity_q6 ==
+                            scene->shot_a0f3_motion.velocity_x_q6 &&
+                        (uint16_t)scene->jump_rim_rattle
+                            .saved_vertical_velocity_q6 ==
+                            scene->shot_a0f3_motion.velocity_depth_q6;
+                }
+                if (scenario == 3U &&
+                    scene->shot_a8e9_normalized_valid) {
+                    saw_a8e9_normalized = true;
+                }
                 trace = trace * 16777619U ^
                     (uint32_t)scene->ball_position.x_q8;
                 trace = trace * 16777619U ^
@@ -10846,6 +10894,9 @@ static bool scene_test_production_terminal_scenarios(
                     TECMO_PLAYER_STATS_COUNTER_THREE_PM] != 0U ||
                 updates != miss_expected_updates[scenario] ||
                 (scenario == 3U && max_repeats != 3U) ||
+                (scenario == 3U &&
+                 (!saw_tgls_release || !saw_tgls_first_tick ||
+                  !saw_authentic_rattle || !saw_a8e9_normalized)) ||
                 (scenario != 3U && !tail_corruption_checked) ||
                 !scene_shot_state_valid(scene) ||
                 !scene_ownership_valid(scene)) {
@@ -11276,14 +11327,25 @@ static bool scene_test_home_a7a9_orientation_one(
                     }
                     ++updates;
                 }
+                {
+                    bool incoming_negative = scene->jump_rim_rattle
+                        .saved_horizontal_velocity_q6 < 0;
+                    int16_t expected_x = (int16_t)(
+                        scene->shot_resolution.rim_rattle
+                            .orientation_start_x[1U] +
+                        (incoming_negative ? 1 : -1));
+                    size_t expected_render = incoming_negative ? 7U : 4U;
                 if (!scene->jump_rim_rattle.active ||
                     !scene_update_jump_miss(scene, &neutral) ||
                     scene->jump_rim_rattle.orientation != 1U ||
-                    scene->jump_rim_rattle.x != 0x0264 ||
-                    scene->jump_rim_rattle.render_script_address != 0xBAD7U) {
+                    scene->jump_rim_rattle.x != expected_x ||
+                    scene->jump_rim_rattle.render_script_address !=
+                        scene->shot_resolution.rim_rattle
+                            .render_script_addresses[expected_render]) {
                     scene_test_jump_orientation_failure = 5U + updates;
                     tecmo_gameplay_scene_end(scene);
                     return false;
+                }
                 }
                 {
                     TecmoGameplayScene orientation_probe = *scene;

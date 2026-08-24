@@ -1630,7 +1630,7 @@ Bank06 traversal. Keep `missing-global-target`, `$0041` latest-writer, and
 `missing-opcode15-raw-lifecycle` boundaries intact.
 
 TGVN-1 directly translates Bank05 `$A8E9-$A976` plus `$AA87-$AA9E` as a
-helper-only raw16 planar velocity transaction. Define arithmetic-right-one on
+raw16 planar velocity transaction. Define arithmetic-right-one on
 uint16 bits by preserving bit 15; define negate with 16-bit wrap. Negative
 incoming Z shifts Z twice and X twice, then clamps X only when its absolute
 high byte is zero and low byte is below `$30`. Use magnitude
@@ -1638,11 +1638,10 @@ high byte is zero and low byte is below `$30`. Use magnitude
 shifts X twice only and never clamps. Raw `$035A=0` finally forces X
 nonnegative; raw 1 forces it negative. Keep exact natural contracts
 `FED7/FFEF -> 004B/FFFB` and `FF65/FFC3`, `$006A` low E, `-> 003E/FFF0`.
-Do not add scene planar velocity/accumulator ownership, infer it from lerped
-positions, seed synthetic sentinels, or enable LIVE A9DA until the launch
-solver owns incoming values. The intended eventual bridge is a typed
-save/temp/normalize/restore transaction around rim-rattle state, not a shadow
-motion reconstruction.
+Bound non-legacy ordinary MISS owns scene planar velocity/accumulator state
+from TGLS, passes it through rattle save/restore, then normalizes it with TGVN.
+Never infer raw state from rendered lerps. Keep synthetic sentinels isolated to
+legacy/debug fixtures and do not enable LIVE A9DA or actor traversal.
 
 TGLS-1 is the pure typed Bank05 `$A0F3-$A158` direct-launch solver. Keep raw
 `$0463` direction distinct from raw `$006A`; apply `$A15C` remap only when
@@ -1654,11 +1653,14 @@ division (ordinary full raw16 quotient plus divisor-zero `0000/7FFF/8001`),
 `$A0F3` quotient doubling, and raw16 Q6 accumulator/tick order across
 `$B522-$B52D` and `$BD6E-$BDC6`. `$006A` is the explicit second
 `$C05D` result following `$9FA1->$A0DD`, not an inferred RNG value. The
-non-legacy scene jump direction is proven to equal
-pre-remap `$0463`, but this helper must not bind LIVE scheduling or infer raw
-launch state from rendered positions. Exact anchors also cover `$B32C-$B390`,
+non-legacy scene jump direction equals pre-remap `$0463`; capture object-10
+from the pre-shot ball Q8 snapshot, solve at MISS release with zero ticks, and
+first tick on frame 3. Raw motion feeds rattle while rendered altitude remains
+presentation-only. Exact anchors also cover `$B32C-$B390`,
 `$BCF4-$BD68`, `$B522-$B52D`, `$BD6E-$BDC6`, `$80A9-$815A`, and
-`$A15C-$A183`.
+`$A15C-$A183`. TGFR-1 is a virgin one-shot LIVE continuity checkpoint, not a
+canonical PRETIP-stream claim; pin `$CD7A-$CD7F/$CD8F-$CD95/$CD96-$CDAB`, tick
+once per accepted bound LIVE frame, and roll back RNG state on rejection.
 
 Opcode 20 has a source-exact bounded executor for Bank06 `$9032-$9052`. Its
 only records are `$000F` / CPU `$9F3D` and `$0019` / CPU `$9F47`, both

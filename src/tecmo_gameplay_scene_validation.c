@@ -98,8 +98,18 @@ static bool scene_shot_captured_target_delta(
     expected_start_y_q8 = (launch_y - 18) * 256;
     expected_end_x_q8 = target_x * 256;
     expected_end_y_q8 = TECMO_GAMEPLAY_SHOT_TARGET_Y * 256;
-    if (scene->shot_start_position.x_q8 != expected_start_x_q8 ||
-        scene->shot_start_position.y_q8 != expected_start_y_q8 ||
+    if ((!scene->legacy_direct_launch &&
+         scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP
+             ? (!scene->shot_a0f3_origin_valid ||
+                scene->shot_a0f3_origin_x != (uint16_t)(
+                    ((uint16_t)((uint32_t)scene->shot_start_position.x_q8 >>
+                                16U) << 8U) |
+                    (uint8_t)((uint32_t)scene->shot_start_position.x_q8 >>
+                              8U)) ||
+                scene->shot_a0f3_origin_depth != (uint8_t)(
+                    (uint32_t)scene->shot_start_position.y_q8 >> 8U))
+             : (scene->shot_start_position.x_q8 != expected_start_x_q8 ||
+                scene->shot_start_position.y_q8 != expected_start_y_q8)) ||
         scene->shot_end_position.x_q8 != expected_end_x_q8 ||
         scene->shot_end_position.y_q8 != expected_end_y_q8 ||
         (target_x != TECMO_GAMEPLAY_COURT_LEFT_HOOP_X &&
@@ -573,6 +583,9 @@ static bool scene_validation_expected_rattle(
     uint8_t orientation;
     bool repeat_dmc;
     bool completed;
+    int16_t incoming_x =
+        TECMO_GAMEPLAY_JUMP_RATTLE_NEGATIVE_INCOMING_X_SENTINEL_Q6;
+    int16_t incoming_depth = 0;
     if (scene == NULL || rattle_out == NULL || position_out == NULL ||
         !scene->shot_resolution.available) {
         return false;
@@ -582,11 +595,21 @@ static bool scene_validation_expected_rattle(
         return false;
     }
     memset(rattle_out, 0, sizeof(*rattle_out));
+    if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP &&
+        !scene->legacy_direct_launch && !scene->jump_rim_rattle_debug) {
+        if (!scene->shot_a0f3_motion_valid ||
+            scene->shot_a0f3_motion.remaining_ticks != 0U ||
+            scene->shot_a0f3_tick_count !=
+                scene->shot_a0f3_result.duration_051e_0513) {
+            return false;
+        }
+        incoming_x = (int16_t)scene->shot_a0f3_motion.velocity_x_q6;
+        incoming_depth =
+            (int16_t)scene->shot_a0f3_motion.velocity_depth_q6;
+    }
     if (!tecmo_gameplay_shot_rim_rattle_begin(
             &scene->shot_resolution, rattle_out, orientation, 3U,
-            animation_phase,
-            TECMO_GAMEPLAY_JUMP_RATTLE_NEGATIVE_INCOMING_X_SENTINEL_Q6,
-            0)) {
+            animation_phase, incoming_x, incoming_depth)) {
         return false;
     }
     for (uint8_t step = 0U; step < steps; ++step) {
@@ -1603,6 +1626,7 @@ bool scene_ownership_valid(const TecmoGameplayScene *scene)
         !scene->movement_assets.available ||
         !scene->ball_dribble_assets.available ||
         !scene->cpu_steering_assets.available ||
+        !scene->cpu_a0f3_assets.available ||
         !tecmo_gameplay_live_foundation_valid(
             &scene->cpu_steering_assets, &scene->live_foundation) ||
         !scene->penalty_assets.available ||

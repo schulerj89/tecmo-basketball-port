@@ -11,6 +11,9 @@
 #include "tecmo_gameplay_backcourt.h"
 #include "tecmo_gameplay_close_shots.h"
 #include "tecmo_gameplay_cpu_steering.h"
+#include "tecmo_gameplay_cpu_a0f3_launch.h"
+#include "tecmo_gameplay_cpu_a8e9_velocity.h"
+#include "tecmo_gameplay_fixed_rng.h"
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_court_orientation.h"
 #include "tecmo_gameplay_dunk_cutaway.h"
@@ -380,6 +383,7 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayMovementAssets movement_assets;
     TecmoGameplayBallDribbleAssets ball_dribble_assets;
     TecmoGameplayCpuSteeringAssets cpu_steering_assets;
+    TecmoGameplayCpuA0f3Assets cpu_a0f3_assets;
     TecmoGameplayPenaltyAssets penalty_assets;
     TecmoGameplayViolationRefereeAssets violation_referee_assets;
     TecmoGameplayBackcourtAssets backcourt_assets;
@@ -400,6 +404,10 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayReboundAuditAssets rebound_audit;
     TecmoGameplayPreTipAssets pretip_assets;
     TecmoGameplayPreTipState pretip_state;
+    /* Native LIVE checkpoint of fixed `$0053/$0054/$006A`. PRETIP supplies
+       continuity only; it is not claimed to reproduce the canonical global
+       stream before this accepted handoff. */
+    TecmoGameplayFixedRng fixed_rng;
     uint8_t pretip_jumper_actor[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
     uint8_t pretip_jumper_selector[TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT];
     uint16_t pretip_jumper_standing_pose[
@@ -509,6 +517,23 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayJumpShotFamily jump_family;
     TecmoGameplayJumpShotProfile jump_profile;
     TecmoGameplayJumpShotDirection jump_direction;
+    /* Source-shaped object-10 planar launch state. Render altitude and the
+       existing native visual interpolation remain separate presentation. */
+    bool shot_a0f3_origin_valid;
+    uint16_t shot_a0f3_origin_x;
+    uint8_t shot_a0f3_origin_depth;
+    bool shot_a0f3_preflight_valid;
+    uint8_t shot_a0f3_preflight_raw_006a;
+    uint8_t shot_a0f3_launch_raw_006a;
+    TecmoGameplayCpuA0f3Result shot_a0f3_result;
+    TecmoGameplayCpuA0f3Motion shot_a0f3_motion;
+    bool shot_a0f3_motion_valid;
+    bool shot_a0f3_raw_position_valid;
+    uint16_t shot_a0f3_raw_x;
+    uint8_t shot_a0f3_raw_depth;
+    uint16_t shot_a0f3_tick_count;
+    bool shot_a8e9_normalized_valid;
+    TecmoGameplayCpuA8e9VelocityResult shot_a8e9_normalized;
     /* Scene-native playback and predicted-route bookkeeping with no direct
        RAM-byte identity. Bank05 $83E9-$842B and $8469-$847A supply bounded
        ordinary-jump pose-cycle evidence; live make/miss prediction remains
