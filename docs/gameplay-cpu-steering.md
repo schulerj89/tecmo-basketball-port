@@ -292,17 +292,19 @@ clears the latch, so a retained value is explicitly stale until the next writer.
 serial-admitted full reset clears it; period and possession transitions retain
 it.
 
-LIVE intentionally still defers opcode 15. It has no faithful owner at the
-command point for `$0499`, `$007E`, `$06D5/$06D6`, `$0479`, the `$0442/$044D`
-pointer pair, complete formation/presentation planes, or selector scheduling;
-adding a detached mirror would not prove parity. To
-capture a future valid live sample, watch `$0499` (slot 10), `$04B0,X`, `$007E`,
+LIVE now executes opcode 15 in the admitted shot/off-ball scheduler. Object
+slot 10's translated remaining-tick byte owns `$0499`; automatic-side admission
+makes the relevant controller-only `$007E` bit provably clear; the live role,
+formation, lifecycle, pose/action, `$06D5/$06D6`, and persistent `$059E` planes
+feed the raw resolver transactionally. The ordinary play-step boundary still
+defers when that scheduler ownership is absent. To inspect a valid sample, watch
+`$0499` (slot 10), `$04B0,X`, `$007E`,
 `$0308/$0309/$030A/$030B`, `$000E,Y`, `$06D5/$06D6`, `$0547/$0551`, `$057C`,
 `$046E`, `$0463`, `$0442/$044D`, `$0479`, `$0458`, and `$059E` at a naturally
 executed canonical record. The `--gameplay-cpu-steering-opcode15-harness`
 command is deterministic synthetic source-contract proof only, not a gameplay
-command or a natural FCEUX opcode-15 replacement capture. That natural capture
-remains open research evidence.
+command remains deterministic synthetic source-contract proof; natural FCEUX
+captures independently confirmed both replacement branches and state-7 writes.
 
 The core API, with CLI-only inspection wrappers, provides:
 
@@ -481,7 +483,7 @@ in deterministic LIVE proof JSON.
 | `$92CA` common target tail, `$BA` | `scene_cpu_common_tail_has_ordinary_live_zero`: exact `LIVE`, no result/abort, violation, free throw, shot, pass, lineup, or dunk lifecycle | Supplies only typed `flags_ba=0`, so Bank06 `$92CA-$92D0` takes its five-byte `$8FD9` increment. Every other path remains `missing-ba-lifecycle`. |
 | `$9125` opcode 13, raw `$038D:$038E/$038F:$0390` latch words | TGGL-1 types all five Bank05 writer families, atomic last-writer-wins serial/provenance, one-shot virgin construction, fixed full-reset clear, and period/possession retention. Ordinary nonlegacy MISS playback now owns the persistent `$A0F3` launch-target write, the `$A7A9->$A790` object-position overwrite, and the frame-89 `$A9DA` projected overwrite. Successful `$A790` traces own `$BA&3==0`; eligible shot off-ball records consume the latest value, and `$A9DA->$A993` still guarantees the chosen actor's same-update `$002D` consume. The state-$17 B783 `$A214` path is also bound for opcode 20; other `$A214` gates, opcode 15, and `$0041` latest-writer timing remain unbound. | Executes during the admitted shot lifecycle after `$A790`; other contexts remain `missing-global-target`. |
 | `$9032-$9052` opcode 20, raw `$038D:$038E/$038F:$0390` latch words | Exact records are `$000F` / CPU `$9F3D` and `$0019` / `$9F47`, both `14 00 00 00 00`. TGCA types the exact `$B721` and `$B783` stores (`$7D:$F2/$FD:$00`) plus the immediate `$0019` actor mask from the same successful assignment. A single-use scene context exposes that value only to those masked actors during the following Bank06 9..0 traversal; cursor coincidence, selected/delayed `$000A`, and opcode 13 cannot consume it. | Production now binds the source-shaped `$A0DD` remaining-tick `<4`, state-$17, `$0588&$20` path through `$A214->$B775->$B783->$A023`, and consumes/expires its latch in that update. State-$10/state-$18/interaction callers remain `missing-global-target`. An accepted opcode 20 computes wrapping raw deltas, preserves target-plane bits under inactive-storage provenance, clears former semantic/raw meaning, applies exact zero-vector/state-4 or nonzero-direction behavior, and advances +5 without `$BA`. |
-| `$9172-$9216` opcode 15 raw lifecycle | Harness-only transactional primary and defender captures plus persistent typed `$059E`/state-7 consumer evidence; no scene binding. | `missing-opcode15-raw-lifecycle`: `$0499` scheduling, same-command `$007E`, multi-producer `$06D5/$06D6`, complete presentation planes, and selector owners remain missing. |
+| `$9172-$9216` opcode 15 raw lifecycle | Shot/off-ball production owns object-slot-10 `$0499`, automatic-side `$007E` admission, live role/lifecycle/presentation fields, exact imported formation output, and persistent typed `$059E`; deterministic tests force both primary and defender replacement branches. | Executes on canonical `$0037/$004B` records for automatic actors. `$9248-$926F` consumes the retained latch and retires eligible state 7; generic play-step contexts without the shot scheduler remain `missing-opcode15-raw-lifecycle`. |
 
 TGA9-1 narrows TGGL's `$A9DA` family to a pure target/assignment subset. It
 accepts normalized A9DA-time signed velocities only, enforces fixed `$002C`,

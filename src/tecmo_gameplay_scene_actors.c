@@ -4027,6 +4027,7 @@ bool scene_update_shot_cpu_offball(TecmoGameplayScene *scene)
         candidate_cpu[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     TecmoGameplaySceneOpcode10FrameContext candidate_opcode10_context;
     TecmoGameplaySceneA023LatchFrameContext candidate_a023_context;
+    uint8_t actor_direction_0463[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     bool a9da_consumed = false;
     size_t source_index;
     if (scene == NULL || scene->legacy_direct_launch ||
@@ -4055,6 +4056,12 @@ bool scene_update_shot_cpu_offball(TecmoGameplayScene *scene)
         }
         steering_snapshot[source_index] =
             scene->actors[source_index].position;
+        actor_direction_0463[source_index] =
+            scene->actors[source_index].movement_direction;
+        if (actor_direction_0463[source_index] >=
+                TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT) {
+            return false;
+        }
     }
     memcpy(candidate_actors, scene->actors, sizeof(candidate_actors));
     memcpy(candidate_cpu, scene->cpu_actors, sizeof(candidate_cpu));
@@ -4091,6 +4098,19 @@ bool scene_update_shot_cpu_offball(TecmoGameplayScene *scene)
         bool global_authorized;
         bool a9da_authorized;
         bool a023_authorized;
+        if (candidate_foundation.play_state.actor_state[actor] == 0x07U) {
+            TecmoGameplayCpuOpcode15State7Result state7_result;
+            memset(&state7_result, 0, sizeof(state7_result));
+            if (!tecmo_gameplay_live_foundation_opcode15_state7_step(
+                    actor, &candidate_foundation, &state7_result) ||
+                state7_result.contract_tag !=
+                    TECMO_GAMEPLAY_CPU_OPCODE15_STATE7_RESULT_TAG ||
+                !tecmo_gameplay_live_foundation_valid(
+                    &scene->cpu_steering_assets, &candidate_foundation)) {
+                return false;
+            }
+            continue;
+        }
         if (scene_actor_is_controlled(scene, actor) ||
             scene_actor_in_pretip_recovery(scene, actor) ||
             actor == scene->shot_actor ||
@@ -4119,6 +4139,35 @@ bool scene_update_shot_cpu_offball(TecmoGameplayScene *scene)
                 return false;
             }
             continue;
+        }
+        {
+            TecmoGameplayCpuSteeringCommand command;
+            uint16_t stream =
+                candidate_foundation.play_state.stream_offset[actor];
+            if (!tecmo_gameplay_cpu_steering_decode_command(
+                    &scene->cpu_steering_assets, stream, &command)) {
+                return false;
+            }
+            if (command.opcode == 15U &&
+                candidate_foundation.control_mode[
+                    candidate_foundation.actor_team[actor]] != 0U) {
+                TecmoGameplayCpuSteeringOpcode15RawResult opcode15_result;
+                uint8_t raw_0499 = scene->shot_a0f3_motion_valid
+                    ? (uint8_t)scene->shot_a0f3_motion.remaining_ticks : 0U;
+                memset(&opcode15_result, 0, sizeof(opcode15_result));
+                if (!tecmo_gameplay_live_foundation_opcode15_step_automatic(
+                        &scene->cpu_steering_assets, actor, raw_0499,
+                        actor_direction_0463, &candidate_foundation,
+                        &opcode15_result) ||
+                    opcode15_result.contract_tag !=
+                        TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_RESULT_TAG) {
+                    return false;
+                }
+                /* Every source branch returns without advancing this record.
+                   A committed role swap changes lifecycle state; a gate/noop
+                   simply retries on the next eligible Bank06 traversal. */
+                continue;
+            }
         }
         scene_cpu_opcode12_context_begin(
             &candidate_foundation, actor, &play_input);

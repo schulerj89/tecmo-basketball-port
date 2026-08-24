@@ -353,6 +353,8 @@ static bool live_play_state_valid(
         !live_selector_flags_valid(foundation) ||
         !live_actor_positions_valid(foundation->actor_position) ||
         !live_opcode15_trace_valid(assets, &foundation->opcode15_trace) ||
+        !tecmo_gameplay_cpu_opcode15_selection_retain_period(
+            &foundation->opcode15_selection_latch) ||
         foundation->play_state.matchup_seed[0U] != 2U ||
         foundation->play_state.matchup_seed[1U] != 7U ||
         foundation->play_state.primary_actor != foundation->primary_actor ||
@@ -491,6 +493,8 @@ void tecmo_gameplay_live_foundation_init(
     foundation->contract_tag = TECMO_GAMEPLAY_LIVE_FOUNDATION_TAG;
     foundation->opcode15_trace.contract_tag =
         TECMO_GAMEPLAY_LIVE_OPCODE15_TRACE_TAG;
+    (void)tecmo_gameplay_cpu_opcode15_selection_init(
+        &foundation->opcode15_selection_latch);
     foundation->first_sync_pending = true;
     foundation->last_ball_holder =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
@@ -630,6 +634,207 @@ static void live_invalidate_source_metadata(
          actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
         live_invalidate_source_metadata_actor(foundation, actor);
     }
+}
+
+bool tecmo_gameplay_live_foundation_opcode15_step_automatic(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t actor,
+    uint8_t raw_0499,
+    const uint8_t actor_direction_0463[
+        TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT],
+    TecmoGameplayLiveFoundation *foundation_io,
+    TecmoGameplayCpuSteeringOpcode15RawResult *result_out)
+{
+    TecmoGameplayLiveFoundation candidate;
+    TecmoGameplayCpuSteeringOpcode15RawInput raw;
+    TecmoGameplayCpuSteeringOpcode15RawInput output;
+    TecmoGameplayCpuSteeringOpcode15RawResult result;
+    TecmoGameplayCpuSteeringFormationResult formation;
+    uint8_t formation_index;
+    uint8_t side;
+    size_t index;
+    if (assets == NULL || !assets->available || actor_direction_0463 == NULL ||
+        foundation_io == NULL || result_out == NULL ||
+        actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        !live_play_state_valid(assets, foundation_io) ||
+        (foundation_io->play_state.stream_offset[actor] != 0x0037U &&
+         foundation_io->play_state.stream_offset[actor] != 0x004BU)) {
+        return false;
+    }
+    side = foundation_io->actor_team[actor];
+    /* `$007E&4` is written only by the controlled offense path and
+       `$007E&8` only by the controlled defense path. Automatic-side
+       execution therefore owns the relevant clear bit without inventing the
+       unrelated bits of the byte. */
+    if (side >= TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT ||
+        foundation_io->control_mode[side] == 0U) {
+        return false;
+    }
+    candidate = *foundation_io;
+    memset(&raw, 0, sizeof(raw));
+    raw.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_INPUT_TAG;
+    raw.observed_mask = TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_KNOWN_MASK;
+    raw.command_record_offset = candidate.play_state.stream_offset[actor];
+    raw.actor_x = actor;
+    raw.raw_0499_slot10 = raw_0499;
+    raw.raw_04b0_actor_x = candidate.actor_selector_flags[actor];
+    raw.raw_007e = 0U;
+    raw.raw_0308_primary = candidate.primary_actor;
+    raw.raw_0309_defender = candidate.defender_actor;
+    raw.raw_030a_offense_side = candidate.offense_side;
+    raw.raw_030b_defense_side = candidate.defense_side;
+    memcpy(raw.raw_000e_000f_selected_actor,
+           candidate.selected_actor_by_side,
+           sizeof(raw.raw_000e_000f_selected_actor));
+    raw.raw_06d5 = candidate.candidate_actor_by_side[candidate.defense_side];
+    raw.raw_06d6 = 0U;
+    raw.raw_059e = candidate.opcode15_selection_latch.valid
+        ? candidate.opcode15_selection_latch.actor_059e : 0U;
+    memcpy(raw.raw_037f_0380_primary_link,
+           candidate.candidate_actor_by_side,
+           sizeof(raw.raw_037f_0380_primary_link));
+    raw.raw_06da = candidate.candidate_actor_by_side[candidate.offense_side];
+    raw.raw_06db = 9U;
+    raw.formation_output.contract_tag =
+        TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_FORMATION_TAG;
+    if (!tecmo_gameplay_live_foundation_formation_index_for_coordinate(
+            &candidate.actor_position[actor], &formation_index) ||
+        !tecmo_gameplay_cpu_steering_formation_select(
+            assets, formation_index, &formation)) {
+        return false;
+    }
+    for (index = 0U;
+         index < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++index) {
+        raw.actor[index].raw_0547_0551_stream_offset =
+            candidate.play_state.stream_offset[index];
+        raw.actor[index].raw_057c_state =
+            candidate.play_state.actor_state[index];
+        raw.actor[index].raw_046e_timer =
+            candidate.play_state.action_state_046e[index];
+        raw.actor[index].raw_0463_direction = actor_direction_0463[index];
+        raw.actor[index].raw_0442_pose_low = candidate.play_state.pose[index];
+        raw.actor[index].raw_0458_action = candidate.play_state.action[index];
+        raw.formation_output.actor_stream_offset[index] =
+            formation.stream_offset[index];
+        raw.formation_output.actor_state[index] = 4U;
+        if (index != actor &&
+            (candidate.actor_selector_flags[index] & 0x10U) == 0U) {
+            raw.formation_output.assigned_actor_mask |=
+                (uint16_t)(1U << index);
+        }
+    }
+    if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            assets, &raw, &output, &result)) {
+        return false;
+    }
+    if (!result.committed) {
+        *result_out = result;
+        return true;
+    }
+    if (!tecmo_gameplay_cpu_opcode15_selection_write_920d(
+            &candidate.opcode15_selection_latch,
+            candidate.opcode15_selection_latch.write_serial,
+            output.raw_059e)) {
+        return false;
+    }
+    candidate.primary_actor = output.raw_0308_primary;
+    candidate.defender_actor = output.raw_0309_defender;
+    candidate.play_state.primary_actor = output.raw_0308_primary;
+    candidate.play_state.defender_actor = output.raw_0309_defender;
+    memcpy(candidate.selected_actor_by_side,
+           output.raw_000e_000f_selected_actor,
+           sizeof(candidate.selected_actor_by_side));
+    memcpy(candidate.candidate_actor_by_side,
+           output.raw_037f_0380_primary_link,
+           sizeof(candidate.candidate_actor_by_side));
+    candidate.candidate_actor_by_side[candidate.defense_side] =
+        output.raw_06d5;
+    if (result.branch ==
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_PRIMARY_REPLACED) {
+        /* LIVE's last_ball_holder is its selected-primary projection while
+           the scene independently owns the airborne no-holder sentinel. */
+        candidate.last_ball_holder = candidate.primary_actor;
+        candidate.formation_index = formation_index;
+        for (index = 0U;
+             index < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++index) {
+            candidate.formation_start_offset[index] =
+                formation.stream_offset[index];
+        }
+    }
+    for (index = 0U;
+         index < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++index) {
+        bool lifecycle_changed =
+            output.actor[index].raw_0547_0551_stream_offset !=
+                candidate.play_state.stream_offset[index] ||
+            output.actor[index].raw_057c_state !=
+                candidate.play_state.actor_state[index];
+        if (lifecycle_changed) {
+            live_invalidate_source_metadata_actor(&candidate, index);
+        }
+        candidate.play_state.stream_offset[index] =
+            output.actor[index].raw_0547_0551_stream_offset;
+        candidate.last_step_offset[index] =
+            output.actor[index].raw_0547_0551_stream_offset;
+        candidate.play_state.actor_state[index] =
+            output.actor[index].raw_057c_state;
+        candidate.play_state.action_state_046e[index] =
+            output.actor[index].raw_046e_timer;
+        candidate.play_state.pose[index] =
+            output.actor[index].raw_0442_pose_low;
+        candidate.play_state.action[index] =
+            output.actor[index].raw_0458_action;
+    }
+    candidate.sync_serial = live_serial_next(candidate.sync_serial);
+    if (!live_play_state_valid(assets, &candidate)) return false;
+    *foundation_io = candidate;
+    *result_out = result;
+    return true;
+}
+
+bool tecmo_gameplay_live_foundation_opcode15_state7_step(
+    uint8_t dispatch_actor,
+    TecmoGameplayLiveFoundation *foundation_io,
+    TecmoGameplayCpuOpcode15State7Result *result_out)
+{
+    TecmoGameplayLiveFoundation candidate;
+    TecmoGameplayCpuOpcode15State7Input input;
+    TecmoGameplayCpuOpcode15State7Input output;
+    TecmoGameplayCpuOpcode15SelectionLatch latch;
+    size_t actor;
+    if (foundation_io == NULL || result_out == NULL ||
+        dispatch_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        foundation_io->play_state.actor_state[dispatch_actor] != 7U) {
+        return false;
+    }
+    candidate = *foundation_io;
+    latch = candidate.opcode15_selection_latch;
+    memset(&input, 0, sizeof(input));
+    input.contract_tag = TECMO_GAMEPLAY_CPU_OPCODE15_STATE7_INPUT_TAG;
+    input.expected_write_serial = latch.write_serial;
+    input.dispatch_actor = dispatch_actor;
+    input.primary_0308 = candidate.primary_actor;
+    memcpy(input.actor_state_057c, candidate.play_state.actor_state,
+           sizeof(input.actor_state_057c));
+    memcpy(input.actor_timer_046e,
+           candidate.play_state.action_state_046e,
+           sizeof(input.actor_timer_046e));
+    if (!tecmo_gameplay_cpu_opcode15_state7_consume(
+            &latch, &input, &output, result_out)) {
+        return false;
+    }
+    for (actor = 0U;
+         actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
+        if (output.actor_state_057c[actor] !=
+                candidate.play_state.actor_state[actor]) {
+            live_invalidate_source_metadata_actor(&candidate, actor);
+            candidate.play_state.actor_state[actor] =
+                output.actor_state_057c[actor];
+        }
+    }
+    candidate.opcode15_selection_latch = latch;
+    candidate.sync_serial = live_serial_next(candidate.sync_serial);
+    *foundation_io = candidate;
+    return true;
 }
 
 /* Exact Bank06 `$8728-$8773` offense formation loop. `$0587==2` selects

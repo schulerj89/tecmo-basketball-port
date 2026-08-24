@@ -2974,6 +2974,88 @@ static bool scene_test_score_restart_auto_pass_selector(
     return true;
 }
 
+static bool scene_test_opcode15_live_owner(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    const TecmoGameplayLiveFoundation *foundation_before,
+    TecmoGameplayLiveFoundation *candidate)
+{
+    TecmoGameplayCpuSteeringOpcode15RawResult opcode15_result;
+    TecmoGameplayCpuOpcode15State7Result state7_result;
+    uint8_t direction_0463[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT] = {0};
+    uint8_t opcode15_actor = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    uint8_t defense_actor = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    size_t actor_index;
+    if (assets == NULL || foundation_before == NULL || candidate == NULL) {
+        return false;
+    }
+    *candidate = *foundation_before;
+    for (actor_index = 0U;
+         actor_index < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor_index) {
+        if (candidate->actor_team[actor_index] == candidate->offense_side &&
+            actor_index != candidate->primary_actor) {
+            opcode15_actor = (uint8_t)actor_index;
+            break;
+        }
+    }
+    if (opcode15_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT) return false;
+    candidate->control_mode[candidate->offense_side] = 1U;
+    candidate->play_state.stream_offset[opcode15_actor] = 0x0037U;
+    candidate->last_step_offset[opcode15_actor] = 0x0037U;
+    candidate->play_state.actor_state[opcode15_actor] = 4U;
+    candidate->play_state.action_state_046e[opcode15_actor] = 0U;
+    memset(&opcode15_result, 0, sizeof(opcode15_result));
+    if (!tecmo_gameplay_live_foundation_opcode15_step_automatic(
+            assets, opcode15_actor, 0x46U, direction_0463, candidate,
+            &opcode15_result)) {
+        return false;
+    }
+    if (
+        opcode15_result.branch !=
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_PRIMARY_REPLACED ||
+        !opcode15_result.committed || candidate->primary_actor != opcode15_actor ||
+        !candidate->opcode15_selection_latch.valid ||
+        candidate->opcode15_selection_latch.actor_059e != opcode15_actor ||
+        !tecmo_gameplay_live_foundation_valid(assets, candidate)) {
+        return false;
+    }
+    for (actor_index = 0U;
+         actor_index < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor_index) {
+        if (candidate->actor_team[actor_index] == candidate->defense_side &&
+            actor_index != candidate->defender_actor) {
+            defense_actor = (uint8_t)actor_index;
+            break;
+        }
+    }
+    if (defense_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT) {
+        return false;
+    }
+    candidate->control_mode[candidate->defense_side] = 1U;
+    candidate->play_state.stream_offset[defense_actor] = 0x004BU;
+    candidate->last_step_offset[defense_actor] = 0x004BU;
+    candidate->play_state.actor_state[defense_actor] = 4U;
+    candidate->play_state.action_state_046e[defense_actor] = 0U;
+    memset(&opcode15_result, 0, sizeof(opcode15_result));
+    if (!tecmo_gameplay_live_foundation_opcode15_step_automatic(
+            assets, defense_actor, 0x46U, direction_0463, candidate,
+            &opcode15_result) ||
+        opcode15_result.branch !=
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFENDER_REPLACED ||
+        !opcode15_result.committed || candidate->defender_actor != defense_actor ||
+        candidate->play_state.actor_state[defense_actor] != 7U ||
+        candidate->opcode15_selection_latch.actor_059e != defense_actor ||
+        !tecmo_gameplay_live_foundation_valid(assets, candidate)) {
+        return false;
+    }
+    memset(&state7_result, 0, sizeof(state7_result));
+    return tecmo_gameplay_live_foundation_opcode15_state7_step(
+               defense_actor, candidate, &state7_result) &&
+           state7_result.retired_state7 &&
+           state7_result.actor_059e == defense_actor &&
+           candidate->play_state.actor_state[defense_actor] == 0U &&
+           candidate->opcode15_selection_latch.stale &&
+           tecmo_gameplay_live_foundation_valid(assets, candidate);
+}
+
 static bool scene_test_live_foundation_regressions(
     TecmoGameplayScene *scene,
     TecmoGameplaySceneLaunch *launch_input,
@@ -4803,6 +4885,15 @@ static bool scene_test_live_foundation_regressions(
                 &scene->cpu_steering_assets, &candidate_foundation)) {
             LIVE_FAIL("LIVE opcode-15 missing-raw diagnostic mutated state");
         }
+    }
+    /* Positive production-owner fixture for Bank06 `$9172-$9216` and its
+       `$9248-$926F` state-7 follow-up. It proves the automatic `$0037`
+       primary/formation replacement, then the automatic `$004B` defender
+       replacement and persistent `$059E` consumer. */
+    if (!scene_test_opcode15_live_owner(&scene->cpu_steering_assets,
+                                         &foundation_before,
+                                         &candidate_foundation)) {
+        LIVE_FAIL("LIVE opcode-15 replacement/state-7 owner failed");
     }
     for (offset = 0U;
          offset < scene->cpu_steering_assets.command_record_count * 5U;

@@ -2,6 +2,7 @@
 #define TECMO_GAMEPLAY_LIVE_FOUNDATION_H
 
 #include "tecmo_gameplay_cpu_steering.h"
+#include "tecmo_gameplay_cpu_opcode15_selection.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -201,6 +202,9 @@ typedef struct TecmoGameplayLiveFoundation {
        negative result; NO_ACTOR means no predicate was evaluated this tick. */
     uint8_t last_shot_actor;
     TecmoGameplayLiveOpcode15Trace opcode15_trace;
+    /* Exact persistent `$059E` selection latch written by opcode 15 and
+       consumed by the Bank06 state-7 `$9248-$926F` handler. */
+    TecmoGameplayCpuOpcode15SelectionLatch opcode15_selection_latch;
     TecmoGameplayCpuSteeringPlayState play_state;
 } TecmoGameplayLiveFoundation;
 
@@ -210,6 +214,25 @@ void tecmo_gameplay_live_foundation_init(
 bool tecmo_gameplay_live_foundation_valid(
     const TecmoGameplayCpuSteeringAssets *assets,
     const TecmoGameplayLiveFoundation *foundation);
+
+/* Source-bounded automatic-side opcode-15 execution. `raw_0499` is the
+   translated object-10 remaining-tick byte. The relevant `$007E` bit is
+   admitted only when the actor's side is automatic, so its controller-only
+   writer is unreachable. The returned raw result records the exact branch. */
+bool tecmo_gameplay_live_foundation_opcode15_step_automatic(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t actor,
+    uint8_t raw_0499,
+    const uint8_t actor_direction_0463[
+        TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT],
+    TecmoGameplayLiveFoundation *foundation_io,
+    TecmoGameplayCpuSteeringOpcode15RawResult *result_out);
+
+/* Exact `$9248-$926F` state-7 dispatch using the persistent `$059E` latch. */
+bool tecmo_gameplay_live_foundation_opcode15_state7_step(
+    uint8_t dispatch_actor,
+    TecmoGameplayLiveFoundation *foundation_io,
+    TecmoGameplayCpuOpcode15State7Result *result_out);
 
 /* Bank06 formation indexing is depth row * 12 + source X bucket. */
 bool tecmo_gameplay_live_foundation_formation_index_for_coordinate(
