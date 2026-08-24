@@ -179,11 +179,11 @@ static bool scene_apply_b783_state17_assignment(TecmoGameplayScene *scene)
         scene->shot_b783_assignment_applied ||
         scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
         scene->predicted_make_route || !scene->shot_rim_rattle_selected ||
+        !scene->jump_rim_rattle.active ||
         !scene->shot_a0f3_motion_valid ||
         !scene->shot_a0f3_raw_position_valid ||
         scene->jump_ball_state != 0x17U ||
-        scene->shot_a0f3_motion.remaining_ticks >= 0x04U ||
-        scene->shot_a0f3_motion.remaining_ticks > UINT8_MAX ||
+        (scene->jump_ball_altitude_q8 >> 8U) >= 0x04U ||
         scene->a023_latch_frame_context.available ||
         scene->actor_command_assignment_assets == NULL ||
         !scene->actor_command_assignment_assets->available) {
@@ -191,7 +191,7 @@ static bool scene_apply_b783_state17_assignment(TecmoGameplayScene *scene)
     }
     raw_x = scene->shot_a0f3_raw_x;
     raw_depth = scene->shot_a0f3_raw_depth;
-    raw_0499 = (uint8_t)scene->shot_a0f3_motion.remaining_ticks;
+    raw_0499 = (uint8_t)(scene->jump_ball_altitude_q8 >> 8U);
     if (raw_x > INT16_MAX) return false;
     memset(&dispatch, 0, sizeof(dispatch));
     memset(&input, 0, sizeof(input));
@@ -2825,11 +2825,13 @@ static bool scene_update_jump_miss_mutating(
         scene->shot_a0f3_raw_depth = published.raw_depth;
         scene->shot_a0f3_raw_position_valid = true;
         ++scene->shot_a0f3_tick_count;
-        /* `$A214` resolves state `$17` to `$B775`. Its `<4` countdown and
+        /* `$A214` resolves state `$17` to `$B775`. Its slot-10 height `<4` and
            `$0588&$20` gates reach `$B783`, whose A023 assignment must precede
            this update's descending Bank06 off-ball traversal. */
         if (scene->shot_rim_rattle_selected &&
-            scene->shot_a0f3_motion.remaining_ticks < 0x04U &&
+            scene->jump_rim_rattle.active &&
+            scene->jump_ball_state == 0x17U &&
+            (scene->jump_ball_altitude_q8 >> 8U) < 0x04U &&
             !scene->shot_b783_assignment_applied &&
             !scene_apply_b783_state17_assignment(scene)) {
             return false;
@@ -3256,7 +3258,9 @@ bool scene_update_shot(TecmoGameplayScene *scene,
         !scene_sync_live_foundation(&candidate)) {
         return false;
     }
-    if (!scene_shot_boundary_valid(&candidate)) return false;
+    if (!scene_shot_boundary_valid(&candidate)) {
+        return false;
+    }
     *scene = candidate;
     return true;
 }

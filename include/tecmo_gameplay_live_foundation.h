@@ -216,7 +216,7 @@ bool tecmo_gameplay_live_foundation_valid(
     const TecmoGameplayLiveFoundation *foundation);
 
 /* Source-bounded automatic-side opcode-15 execution. `raw_0499` is the
-   translated object-10 remaining-tick byte. The relevant `$007E` bit is
+   translated object-10 vertical-height byte. The relevant `$007E` bit is
    admitted only when the actor's side is automatic, so its controller-only
    writer is unreachable. The returned raw result records the exact branch. */
 bool tecmo_gameplay_live_foundation_opcode15_step_automatic(

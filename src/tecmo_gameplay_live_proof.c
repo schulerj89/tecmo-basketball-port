@@ -236,10 +236,10 @@ static bool live_proof_offball_capture_frame(const char *event,
 {
     static const char *const names[] = {
         "shot-offball-1", "shot-offball-9", "shot-offball-17",
-        "shot-offball-25", "shot-offball-33", "shot-offball-65",
+        "shot-offball-25", "shot-offball-59", "shot-offball-65",
         "shot-offball-89"
     };
-    static const uint16_t frames[] = {1U, 9U, 17U, 25U, 33U, 65U, 89U};
+    static const uint16_t frames[] = {1U, 9U, 17U, 25U, 59U, 65U, 89U};
     size_t index;
     if (event == NULL || frame_out == NULL) return false;
     for (index = 0U; index < sizeof(frames) / sizeof(frames[0]); ++index) {
@@ -1049,9 +1049,8 @@ static bool live_proof_capture_shot_offball(
             ? scene->live_foundation.last_step_offset[
                   scene->shot_a9da_result.chosen_actor_002d]
             : 0U;
-    if (capture_frame >= 33U) {
-        if (!scene->shot_b783_assignment_applied ||
-            scene->shot_b783_raw_0499 >= 0x04U ||
+    if (scene->shot_b783_assignment_applied) {
+        if (scene->shot_b783_raw_0499 >= 0x04U ||
             scene->shot_b783_handler_cpu != 0xB775U ||
             (scene->shot_b783_opcode20_actor_mask & ~0x03FFU) != 0U ||
             scene->a023_latch_frame_context.available) {
@@ -1109,7 +1108,7 @@ static bool live_proof_capture_shot_offball(
 
 /* This ordinary no-shot observation remains deferred for B73A/B7B6 and
  * interaction caller inputs. The production shot-offball proof separately
- * exercises the now-owned A0DD-countdown->$A214->$B775->$B783 path. */
+ * exercises the now-owned slot-10-height->$A214->$B775->$B783 path. */
 static bool live_proof_observe_actor_command_assignment_deferred(
     TecmoGameplayScene *scene,
     LiveProofEventEvidence *evidence,

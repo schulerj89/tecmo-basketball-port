@@ -539,7 +539,7 @@ typedef struct TecmoGameplayScene {
     uint8_t shot_a0f3_raw_depth;
     uint16_t shot_a0f3_tick_count;
     /* Exact live `$A214->$B775->$B783->$A023` state-$17 transaction.
-       `$0499` is the translated A0DD remaining-tick byte and `$0588&$20`
+       `$0499` is the object-slot-10 vertical-height byte and `$0588&$20`
        is the already-selected A7A9 rim-route capability. */
     bool shot_b783_assignment_applied;
     uint8_t shot_b783_raw_0499;

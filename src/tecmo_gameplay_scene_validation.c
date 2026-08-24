@@ -1420,15 +1420,16 @@ static bool scene_raw_launch_active_valid(const TecmoGameplayScene *scene)
         if (!scene->shot_rim_rattle_selected ||
             scene->shot_b783_raw_0499 >= 0x04U ||
             scene->shot_b783_handler_cpu != 0xB775U ||
-            (scene->shot_b783_opcode20_actor_mask & ~0x03FFU) != 0U ||
-            expected_ticks < result.duration_051e_0513 - 3U) {
+            (scene->shot_b783_opcode20_actor_mask & ~0x03FFU) != 0U) {
             return false;
         }
     } else if (scene->shot_b783_raw_0499 != 0U ||
                scene->shot_b783_handler_cpu != 0U ||
                scene->shot_b783_opcode20_actor_mask != 0U ||
                (scene->shot_rim_rattle_selected &&
-                motion.remaining_ticks < 0x04U)) {
+                scene->jump_rim_rattle.active &&
+                scene->jump_ball_state == 0x17U &&
+                (scene->jump_ball_altitude_q8 >> 8U) < 0x04U)) {
         return false;
     }
     terminal_normalized = scene->shot_rim_rattle_selected &&

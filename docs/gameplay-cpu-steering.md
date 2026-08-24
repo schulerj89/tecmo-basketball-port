@@ -293,7 +293,7 @@ serial-admitted full reset clears it; period and possession transitions retain
 it.
 
 LIVE now executes opcode 15 in the admitted shot/off-ball scheduler. Object
-slot 10's translated remaining-tick byte owns `$0499`; automatic-side admission
+slot 10's translated vertical-height byte owns `$0499`; automatic-side admission
 makes the relevant controller-only `$007E` bit provably clear; the live role,
 formation, lifecycle, pose/action, `$06D5/$06D6`, and persistent `$059E` planes
 feed the raw resolver transactionally. The ordinary play-step boundary still

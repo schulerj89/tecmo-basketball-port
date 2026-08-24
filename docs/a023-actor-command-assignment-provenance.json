@@ -164,7 +164,7 @@
     },
     {
       "asm_caller": "$B775->$B783->$A023",
-      "current_native_observation": "Ordinary nonlegacy selected-rattle MISS playback owns A0DD remaining ticks as $0499, state $17, the $0588 bit-$20 route capability, raw object-10 position, exact A214 table dispatch to $B775, A023 assignment, and same-update masked opcode-20 consume/expiry.",
+      "current_native_observation": "Ordinary nonlegacy selected-rattle MISS playback owns object-slot-10 vertical height as $0499, state $17, the $0588 bit-$20 route capability, raw object-10 position, exact A214 table dispatch to $B775, A023 assignment, and same-update masked opcode-20 consume/expiry.",
       "status": "production-bound-source-shaped-state17"
     },
     {
@@ -199,7 +199,7 @@
     "screenshot_interpretation": "The screenshot proves the ordinary renderer/flow remained intact. It is explicitly not evidence of A023 gameplay parity."
     ,
     "state17_event": {
-      "events": ["shot-offball-33", "shot-offball-65", "shot-offball-89"],
+      "events": ["shot-offball-59", "shot-offball-65", "shot-offball-89"],
       "path": "ordinary nonlegacy selected-rattle MISS through production scene update",
       "expected": {
         "caller_identity": "object-state17-B783",

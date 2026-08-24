@@ -4152,8 +4152,8 @@ bool scene_update_shot_cpu_offball(TecmoGameplayScene *scene)
                 candidate_foundation.control_mode[
                     candidate_foundation.actor_team[actor]] != 0U) {
                 TecmoGameplayCpuSteeringOpcode15RawResult opcode15_result;
-                uint8_t raw_0499 = scene->shot_a0f3_motion_valid
-                    ? (uint8_t)scene->shot_a0f3_motion.remaining_ticks : 0U;
+                uint8_t raw_0499 =
+                    (uint8_t)(scene->jump_ball_altitude_q8 >> 8U);
                 memset(&opcode15_result, 0, sizeof(opcode15_result));
                 if (!tecmo_gameplay_live_foundation_opcode15_step_automatic(
                         &scene->cpu_steering_assets, actor, raw_0499,

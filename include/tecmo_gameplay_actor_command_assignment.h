@@ -212,7 +212,7 @@ bool tecmo_gameplay_actor_command_assignment_apply(
  * depth high byte); assignment, foundation, result, and latch commit together.
  * Rejection leaves all three outputs byte-for-byte unchanged. A later accepted
  * producer overwrites every target/provenance byte. Production attaches this
- * transaction only for the source-shaped A0DD-countdown/state-$17 B783 path;
+ * transaction only for the source-shaped slot-10-height/state-$17 B783 path;
  * B721/state-$18 and interaction callers remain unbound. */
 bool tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
     const TecmoGameplayActorCommandAssignmentAssets *assignment_assets,

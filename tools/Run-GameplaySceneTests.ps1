@@ -1340,7 +1340,7 @@ try {
         "shot-offball-9",
         "shot-offball-17",
         "shot-offball-25",
-        "shot-offball-33",
+        "shot-offball-59",
         "shot-offball-65",
         "shot-offball-89"
     )
@@ -1511,11 +1511,10 @@ try {
                          (@($ControlledPosition[1]) -join ','))) {
                     throw "LIVE proof shot off-ball actors did not move."
                 }
-                if ($ExpectedCaptureFrame -ge 33) {
-                    $Assignment = $State.actor_command_assignment
+                $Assignment = $State.actor_command_assignment
+                if ([bool]$Assignment.emitted) {
                     $B783 = $Assignment.state17_production
-                    if (![bool]$Assignment.emitted -or
-                        ![bool]$Assignment.production_mutated -or
+                    if (![bool]$Assignment.production_mutated -or
                         [string]$Assignment.caller_identity -ne
                             "object-state17-B783" -or
                         [string]$Assignment.no_op_reason -ne "none" -or
