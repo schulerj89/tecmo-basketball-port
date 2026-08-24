@@ -862,7 +862,10 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
     scene->shot_frame = close ? 0U : 1U;
     scene->shot_points = classified_points;
     scene->shot_flags = 0U;
-    scene->shot_start_position = a0f3_origin_valid
+    /* The source-shaped object-slot-10 origin belongs only to the ordinary
+       MISS launch solver.  MAKE playback retains the established TGJS
+       presentation origin derived from the shooter's launch pose. */
+    scene->shot_start_position = !predicted_make && a0f3_origin_valid
         ? a0f3_origin_q8 : shot_start_q8;
     /* Capture the TGOR-selected endpoint once at launch. A later possession
        transition may change orientation, but it must not retarget flight. */

@@ -10542,6 +10542,24 @@ static bool scene_test_production_terminal_scenarios(
         tecmo_gameplay_scene_end(scene);
         return false;
     }
+    if (scene->shot_start_position.x_q8 !=
+            (scene->shot_actor_launch_position.x +
+             (scene->shot_launch_facing_right ? 7 : -7)) * 256 ||
+        scene->shot_start_position.y_q8 !=
+            (scene->shot_actor_launch_position.y - 18) * 256) {
+        scene_test_terminal_failure = 16U;
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    malformed = *scene;
+    ++malformed.shot_start_position.x_q8;
+    snapshot = malformed;
+    if (scene_update_shot(&malformed, &neutral) ||
+        memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+        scene_test_terminal_failure = 17U;
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
     malformed = *scene;
     malformed.shot_rim_rattle_selected = true;
     snapshot = malformed;
