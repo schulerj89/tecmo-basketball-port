@@ -1042,10 +1042,15 @@ play_missing_live_input_reason(
     case 10U:
         /* $8CD0 compares X with the exceptional $07DF actor before it can
            enter the linked-relative helper at $8D59. */
-        if (!input->special_actor_07df_available) {
+        if (input->linked_actor_resolved_valid) {
+            if (!play_valid_actor(input->linked_actor)) {
+                return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_ACTOR_BRANCH_CONTEXT;
+            }
+        } else if (!input->special_actor_07df_available) {
             return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_SPECIAL_ACTOR_07DF;
         }
-        if (!input->linked_actor_branch_context_available) {
+        if (!input->linked_actor_resolved_valid &&
+            !input->linked_actor_branch_context_available) {
             return
                 TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_ACTOR_BRANCH_CONTEXT;
         }
@@ -1902,9 +1907,11 @@ bool tecmo_gameplay_cpu_steering_play_step(
                 TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS;
             break;
         case 10U: {
-            uint8_t linked = actor == input->special_actor_07df
-                ? next_state.primary_actor
-                : next_state.fixed_link_target[actor];
+            uint8_t linked = input->linked_actor_resolved_valid
+                ? input->linked_actor
+                : (actor == input->special_actor_07df
+                    ? next_state.primary_actor
+                    : next_state.fixed_link_target[actor]);
             int16_t target_x;
             int16_t target_depth;
             if (!input->linked_relative_valid || !play_valid_actor(linked)) {
@@ -3866,6 +3873,34 @@ bool tecmo_gameplay_cpu_steering_self_test(
 
     /* With the bounded helper workspace present, opcode 10 synthesizes the
        linked target with 16-bit wrap and admits exactly [-8,+7] on each axis. */
+    if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+            &assets, 0U, &play_state)) {
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_state.stream_offset[0U] = opcode_offsets[10U];
+    play_state.fixed_link_target[0U] = 5U;
+    play_input.actor = 0U;
+    play_input.step_budget = 1U;
+    play_input.linked_actor_resolved_valid = true;
+    play_input.linked_actor = 7U;
+    play_input.linked_relative_valid = true;
+    play_input.linked_relative_x = 3;
+    play_input.linked_relative_depth = -2;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.deferred || play_result.target_object != 7U ||
+        play_result.target_x !=
+            play_input.actor_position[7U].x + 3 ||
+        play_result.target_depth !=
+            play_input.actor_position[7U].y - 2) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-10 resolved dynamic-link failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.linked_actor_resolved_valid = false;
+    play_input.linked_actor = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     for (int delta = -8; delta <= 8; ++delta) {
         if (!tecmo_gameplay_cpu_steering_play_state_initialize(
                 &assets, 0U, &play_state)) {

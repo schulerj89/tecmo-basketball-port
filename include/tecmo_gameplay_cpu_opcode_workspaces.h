@@ -16,8 +16,10 @@
 #define TECMO_GAMEPLAY_CPU_OPCODE_WORKSPACE_ASSESSMENT_TAG 0x41575043U
 #define TECMO_GAMEPLAY_CPU_OPCODE10_WORKSPACE_INPUT_TAG 0x49315043U
 #define TECMO_GAMEPLAY_CPU_OPCODE10_WORKSPACE_RESULT_TAG 0x52315043U
+#define TECMO_GAMEPLAY_CPU_OPCODE10_LIVE_PROJECTION_TAG 0x4C315043U
 #define TECMO_GAMEPLAY_CPU_OPCODE16_WORKSPACE_INPUT_TAG 0x49365043U
 #define TECMO_GAMEPLAY_CPU_OPCODE16_WORKSPACE_RESULT_TAG 0x52365043U
+#define TECMO_GAMEPLAY_CPU_OPCODE_WORKSPACE_ACTOR_COUNT 10U
 
 typedef enum TecmoGameplayCpuOpcodeWorkspaceObserved {
     /* Bank06 $8F12-$8F29: C8 indexes $046E, including object slot 10. */
@@ -98,6 +100,20 @@ typedef struct TecmoGameplayCpuOpcode10WorkspaceResult {
     bool timer_decremented;
 } TecmoGameplayCpuOpcode10WorkspaceResult;
 
+/* Narrow LIVE projection for the source branch at Bank06 $8CD0/$8D59.
+ * Bank02 $BEE7-$BFD8 can only select a $04B0 bit-$10 actor for $07DF.
+ * Therefore a bit-clear actor is proven to take its typed $06CB link without
+ * retaining $07DF itself.  If that link is $0308, the timer-dependent primary
+ * scaling branch remains unavailable; no timer value is fabricated. */
+typedef struct TecmoGameplayCpuOpcode10LiveProjection {
+    uint32_t contract_tag;
+    bool branch_context_available;
+    bool relative_workspace_available;
+    uint8_t linked_actor;
+    int16_t linked_relative_x;
+    int16_t linked_relative_depth;
+} TecmoGameplayCpuOpcode10LiveProjection;
+
 /* A strict arithmetic-only capture of Bank05 $9054-$90AF.  It does not prove
  * that Bank05 was called before a particular Bank06 opcode-16 record. */
 typedef struct TecmoGameplayCpuOpcode16WorkspaceInput {
@@ -126,6 +142,18 @@ bool tecmo_gameplay_cpu_opcode_workspace_assess(
 bool tecmo_gameplay_cpu_opcode10_workspace_harness(
     const TecmoGameplayCpuOpcode10WorkspaceInput *input,
     TecmoGameplayCpuOpcode10WorkspaceResult *result_out);
+
+/* Resolves only the source-backed ordinary off-ball subset described above.
+ * Valid but unowned branches return true with availability false. */
+bool tecmo_gameplay_cpu_opcode10_live_projection(
+    uint8_t actor,
+    uint8_t primary_actor,
+    uint8_t actor_selector_04b0,
+    uint8_t dynamic_link_06cb,
+    uint8_t orientation_035a,
+    const TecmoGameplayCourtCoordinate actor_position[
+        TECMO_GAMEPLAY_CPU_OPCODE_WORKSPACE_ACTOR_COUNT],
+    TecmoGameplayCpuOpcode10LiveProjection *projection_out);
 
 /* Exact Bank05 $9054-$90AF absolute-distance arithmetic harness. */
 bool tecmo_gameplay_cpu_opcode16_workspace_harness(

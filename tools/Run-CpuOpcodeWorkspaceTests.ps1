@@ -84,6 +84,7 @@ if ($Rom.Length -ne 393232 -or $Rom[0] -ne 0x4E -or
 Assert-CanonicalRange $Rom 6 0x8F12 0x8F29 "495E0788"
 Assert-CanonicalRange $Rom 6 0x8CD0 0x8ED3 "5661731D"
 Assert-CanonicalRange $Rom 6 0x9C97 0x9C9A "A27B0F6F"
+Assert-CanonicalRange $Rom 2 0xBEE7 0xBFD8 "C1B08476"
 Assert-CanonicalRange $Rom 6 0x9085 0x90DF "EBDD5956"
 Assert-CanonicalRange $Rom 6 0x92BA 0x9314 "087BF69F"
 Assert-CanonicalRange $Rom 5 0x9054 0x90AF "FE092D62"
@@ -163,4 +164,4 @@ if ($LASTEXITCODE -ne 0 -or $Text -ne $ExpectedHarnessLine) {
 
 Write-Host "CPU opcode workspace provenance: canonical=Rev1 command_table=71331A96 opcode7=2 opcode10=1 opcode16=2"
 Write-Host $Text
-Write-Host "CPU opcode workspace runner: PASS (standalone harness; LIVE remains deferred)"
+Write-Host "CPU opcode workspace runner: PASS (ordinary bit-clear non-primary LIVE projection enabled; other branches defer)"

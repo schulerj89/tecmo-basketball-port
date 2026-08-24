@@ -4,6 +4,7 @@
 
 #include "tecmo_gameplay_scene_internal.h"
 #include "tecmo_gameplay_candidate_selection.h"
+#include "tecmo_gameplay_cpu_opcode_workspaces.h"
 #include "tecmo_gameplay_cpu_route_profile.h"
 #include "tecmo_gameplay_defense_contact.h"
 #include "tecmo_asset_pack.h"
@@ -2185,6 +2186,33 @@ static bool scene_cpu_build_play_input(
     return true;
 }
 
+static bool scene_cpu_populate_opcode10_input(
+    uint8_t actor,
+    const TecmoGameplayLiveFoundation *foundation,
+    TecmoGameplayCpuSteeringPlayInput *input)
+{
+    TecmoGameplayCpuOpcode10LiveProjection projection;
+    if (foundation == NULL || input == NULL ||
+        actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        !tecmo_gameplay_cpu_opcode10_live_projection(
+            actor, foundation->primary_actor,
+            foundation->actor_selector_flags[actor],
+            foundation->dynamic_link[actor], input->orientation_035a,
+            input->actor_position, &projection)) {
+        return false;
+    }
+    input->special_actor_07df_available = false;
+    input->linked_actor_branch_context_available = false;
+    input->linked_actor_resolved_valid =
+        projection.branch_context_available;
+    input->linked_actor = projection.linked_actor;
+    input->linked_relative_valid =
+        projection.relative_workspace_available;
+    input->linked_relative_x = projection.linked_relative_x;
+    input->linked_relative_depth = projection.linked_relative_depth;
+    return true;
+}
+
 static bool scene_cpu_shot_input(
     const TecmoGameplayScene *scene,
     const TecmoGameplaySceneActor *holder,
@@ -2564,7 +2592,9 @@ bool scene_update_ai(
         TecmoGameplayCpuSteeringPlayResult primary_result;
         memset(&primary_result, 0, sizeof(primary_result));
         play_input.actor = (uint8_t)actor;
-        if (!tecmo_gameplay_live_foundation_play_step(
+        if (!scene_cpu_populate_opcode10_input(
+                (uint8_t)actor, &candidate_foundation, &play_input) ||
+            !tecmo_gameplay_live_foundation_play_step(
                 &scene->cpu_steering_assets, &play_input,
                 &candidate_foundation, &primary_result) ||
             primary_result.fetched || primary_result.advanced ||
@@ -2583,6 +2613,8 @@ bool scene_update_ai(
         memset(&primary_result, 0, sizeof(primary_result));
         play_input.actor = (uint8_t)actor;
         if (primary_player == NULL ||
+            !scene_cpu_populate_opcode10_input(
+                (uint8_t)actor, &candidate_foundation, &play_input) ||
             !tecmo_gameplay_live_foundation_play_step(
                 &scene->cpu_steering_assets, &play_input,
                 &candidate_foundation, &primary_result)) {
@@ -2699,6 +2731,10 @@ bool scene_update_ai(
         memset(&input, 0, sizeof(input));
         play_input.actor = (uint8_t)actor;
         memset(&play_result, 0, sizeof(play_result));
+        if (!scene_cpu_populate_opcode10_input(
+                (uint8_t)actor, &candidate_foundation, &play_input)) {
+            return false;
+        }
         selected_defender =
             candidate_foundation.selected_defender_handoff_active &&
             actor == candidate_foundation.defender_actor;
@@ -2838,6 +2874,13 @@ bool scene_update_ai(
                     actor, &target, &target_kind)) {
                 return false;
             }
+            if (target_kind ==
+                    TECMO_GAMEPLAY_CPU_STEERING_HARNESS_LINKED_ACTOR &&
+                candidate_foundation.play_state.target_object[actor] <
+                    TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+                input.steering.matchup_actor = candidate_foundation
+                    .play_state.target_object[actor];
+            }
             if (source_direction) {
                 uint8_t direction;
                 if (!tecmo_gameplay_cpu_steering_direction_for_delta(
@@ -2959,6 +3002,9 @@ bool scene_update_ai(
         cpu->target_valid = true;
         cpu->writes_direction = result.steering.writes_direction;
         cpu->command_offset = TECMO_GAMEPLAY_SCENE_CPU_NO_COMMAND_OFFSET;
+        /* Scene CPU metadata remains the validated fixed render/matchup
+           projection. The source target object above separately retains the
+           resolved dynamic $06CB actor used for this movement decision. */
         cpu->linked_actor = candidate_foundation.play_state.fixed_link[actor];
         if (!scene_cpu_actor_state_valid(scene, actor, cpu)) return false;
     }

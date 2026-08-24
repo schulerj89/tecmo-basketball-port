@@ -373,6 +373,10 @@ typedef struct TecmoGameplayCpuSteeringPlayInput {
     /* Bank06 $8CD0 also consumes $0478/$06CB/$0308 before $8D59. This bit
        requires that exact branch context; a fixed matchup actor is not it. */
     bool linked_actor_branch_context_available;
+    /* A caller may provide the already resolved $0308/$06CB result when it
+       can prove the $07DF branch without mirroring $07DF. */
+    bool linked_actor_resolved_valid;
+    uint8_t linked_actor;
     /* Opcode 16 compares the two exact 16-bit workspaces at $036E/$0370.
        The command's $0309 pointer is resolved through typed play state. */
     bool pointer_workspace_valid;
