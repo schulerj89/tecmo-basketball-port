@@ -476,6 +476,17 @@ displaced-primary reset. Pose-high/sprite outputs are diagnostic-only; scene
 standing direction is an explicit horizontal-facing approximation. Human offense
 receives those writes but does not automatically execute `$0168`.
 
+`--gameplay-cpu-possession-proof` retains its original four output operands and
+accepts an optional score-restart frame directory. With that directory, TGPH-7
+captures every 640x480 scene frame from marker onset through a locally observed
+pass and caught-holder/marker-retirement endpoint (maximum 512). The wrapper
+runs the proof twice, inventories every contiguous `frame-%06d.png`, encodes at
+the native `39375000/655171` cadence, validates dimensions/rates/frame counts
+with ffprobe, and requires identical frame-inventory and MP4 SHA-256 values.
+These PNGs and MP4s are presentation evidence; structured state remains the
+acceptance authority and all generated artifacts remain under ignored build
+output.
+
 The TGLP native proof renders four deterministic automatic-pass
 checkpoints: opcode 5, retained opcode-6 action `$10`, packed `$32` gather,
 and released flight. Its `cpu_auto_pass_stream` JSON pins the `$017C/$018B/

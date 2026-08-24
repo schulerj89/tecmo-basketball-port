@@ -127,6 +127,13 @@ The physical restart passer
 remains distinct until gather. Automatic offense consumes `$0168`; human
 offense retains inbound presentation while still receiving selection writes.
 
+The optional TGPH-7 full-possession frame sequence makes that automatic path
+visually reviewable without changing gameplay: capture starts at the typed
+score-restart marker, includes the natural `$0168` command progression and pass
+flight, and stops at caught-holder synchronization plus marker retirement.
+Two deterministic native-cadence encodes are required by the proof wrapper;
+the structured marker/pass/catch fields remain authoritative.
+
 The typed score transition owns the accepted selected-pair/side swap, actor-state and
 action-state clears, packed-action reset, role-bit toggle, `$0790` clear, and
 leading `$9621` aggregation count/mask writes exactly. It also owns the

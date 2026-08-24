@@ -33,7 +33,7 @@ static void print_usage(const char *program)
     printf("  --gameplay-candidate-selection-test  Validate Bank06 B081/B183 receiver/defender selectors\n");
     printf("  --gameplay-scene-test PACK  Run native gameplay launch/input/shot checks\n");
     printf("  --gameplay-live-foundation-proof PACK EVENT PNG  Emit deterministic opt-in LIVE JSONL/screenshot proof (including claimant-settlement)\n");
-    printf("  --gameplay-cpu-possession-proof PACK TRACE MID_HORIZON_PNG END_PNG  Trace automatic play beyond game clock 1:00\n");
+    printf("  --gameplay-cpu-possession-proof PACK TRACE MID_HORIZON_PNG END_PNG [RESTART_FRAME_DIR]  Trace automatic play and optionally capture natural restart pass frames\n");
     printf("  --gameplay-pretip-human-checkpoint PACK  Run deterministic held-B source-clocked tip handoff\n");
     printf("  --tipoff-regression-trace PACK DIR  Render continuous multi-input/matchup tip-off regression proof\n");
     printf("  --gameplay-pretip-test PACK  Validate strict TPTI-2 pre-tip assets/state\n");

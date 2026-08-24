@@ -9,6 +9,9 @@ param(
 $ErrorActionPreference = "Stop"
 $ExpectedRomSha256 =
     "076A6BEB273FAB39198C87AE6AF69F80AA548D6817753829F2C2BDE1F97475C4"
+$NativeFrameRate = "39375000/655171"
+$NativeVideoTimeBase = "1/39375000"
+$NativeVideoTrackTimescale = 39375000
 
 if (!$ProjectRoot) { $ProjectRoot = Split-Path -Parent $PSScriptRoot }
 $ProjectRoot = (Resolve-Path -LiteralPath $ProjectRoot).Path
@@ -62,13 +65,22 @@ if ($LASTEXITCODE -ne 0 -or
 $Records = @()
 foreach ($Repeat in 1, 2) {
     $RunDirectory = Join-Path $OutputDirectory ("run-{0}" -f $Repeat)
+    if (Test-Path -LiteralPath $RunDirectory) {
+        Remove-Item -LiteralPath $RunDirectory -Recurse -Force
+    }
     New-Item -ItemType Directory -Force -Path $RunDirectory | Out-Null
     $TracePath = Join-Path $RunDirectory "frames.ndjson"
     $MidHorizonPath = Join-Path $RunDirectory "mid-horizon.png"
     $TerminalPath = Join-Path $RunDirectory "terminal.png"
-    $Output = @(& $Executable --root $ProjectRoot `
-        --gameplay-cpu-possession-proof $PackPath $TracePath `
-        $MidHorizonPath $TerminalPath 2>&1)
+    $RestartFramesPath = Join-Path $RunDirectory "score-restart-frames"
+    if (!$ExpectBaselineFailure) {
+        New-Item -ItemType Directory -Force -Path $RestartFramesPath | Out-Null
+    }
+    $ProofArguments = @('--root', $ProjectRoot,
+        '--gameplay-cpu-possession-proof', $PackPath, $TracePath,
+        $MidHorizonPath, $TerminalPath)
+    if (!$ExpectBaselineFailure) { $ProofArguments += $RestartFramesPath }
+    $Output = @(& $Executable @ProofArguments 2>&1)
     $ExitCode = $LASTEXITCODE
     $Text = ($Output -join [Environment]::NewLine).Trim()
     $JsonStart = $Text.IndexOf('{')
@@ -81,7 +93,7 @@ foreach ($Repeat in 1, 2) {
     if (!(Test-Path -LiteralPath $TracePath -PathType Leaf) -or
         !(Test-Path -LiteralPath $MidHorizonPath -PathType Leaf) -or
         !(Test-Path -LiteralPath $TerminalPath -PathType Leaf) -or
-        $Summary.schema -ne "tecmo.cpu-possession-proof/TGPH-6" -or
+        $Summary.schema -ne "tecmo.cpu-possession-proof/TGPH-7" -or
         ![bool]$Summary.structured_state_authority -or
         [int]$Summary.outer_update_limit -ne 20000 -or
         [string]$Summary.fixture -ne
@@ -117,6 +129,92 @@ foreach ($Repeat in 1, 2) {
         [bool]$Summary.ownership_failure -or
         [bool]$Summary.anchor_oob) {
         throw "CPU full-possession run $Repeat violated its evidence contract."
+    }
+    $RestartFrameInventory = @()
+    $RestartVideo = $null
+    if (!$ExpectBaselineFailure) {
+        $RestartFrames = @(Get-ChildItem -LiteralPath $RestartFramesPath `
+            -File -Filter 'frame-*.png' | Sort-Object Name)
+        if (![bool]$Summary.score_restart_video.enabled -or
+            ![bool]$Summary.score_restart_video.captured -or
+            ![bool]$Summary.score_restart_video.completed -or
+            [bool]$Summary.score_restart_video.failed -or
+            ![bool]$Summary.score_restart_video.pass_observed -or
+            ![bool]$Summary.score_restart_video.catch_observed -or
+            ![bool]$Summary.score_restart_video.marker_retired -or
+            [int]$Summary.score_restart_video.frame_count -lt 2 -or
+            [int]$Summary.score_restart_video.frame_count -gt 512 -or
+            [int]$Summary.score_restart_video.pass_frame_count -lt 1 -or
+            $RestartFrames.Count -ne
+                [int]$Summary.score_restart_video.frame_count) {
+            throw "CPU full-possession run $Repeat restart video contract failed."
+        }
+        for ($FrameIndex = 0; $FrameIndex -lt $RestartFrames.Count;
+             ++$FrameIndex) {
+            $ExpectedName = 'frame-{0:D6}.png' -f $FrameIndex
+            if ($RestartFrames[$FrameIndex].Name -ne $ExpectedName -or
+                $RestartFrames[$FrameIndex].Length -le 0 -or
+                $RestartFrames[$FrameIndex].Length -gt 8MB) {
+                throw "CPU full-possession run $Repeat has a noncontiguous or invalid restart frame."
+            }
+            $RestartFrameInventory += [pscustomobject]@{
+                name = $ExpectedName
+                bytes = $RestartFrames[$FrameIndex].Length
+                sha256 = (Get-FileHash -LiteralPath `
+                    $RestartFrames[$FrameIndex].FullName `
+                    -Algorithm SHA256).Hash
+            }
+        }
+        $Ffmpeg = Get-Command ffmpeg -ErrorAction SilentlyContinue
+        $Ffprobe = Get-Command ffprobe -ErrorAction SilentlyContinue
+        if ($null -eq $Ffmpeg -or $null -eq $Ffprobe) {
+            throw "Natural score-restart video proof requires ffmpeg and ffprobe."
+        }
+        $VideoPath = Join-Path $RunDirectory 'score-restart-pass.mp4'
+        $EncodeLog = Join-Path $RunDirectory 'ffmpeg.log'
+        $EncodeArgs = @('-y','-hide_banner','-loglevel','error',
+            '-framerate',$NativeFrameRate,'-start_number','0','-i',
+            (Join-Path $RestartFramesPath 'frame-%06d.png'),'-frames:v',
+            [string]$RestartFrames.Count,'-an','-pix_fmt','yuv420p',
+            '-video_track_timescale',[string]$NativeVideoTrackTimescale,
+            $VideoPath)
+        @(& $Ffmpeg.Source @EncodeArgs 2>&1) |
+            Set-Content -LiteralPath $EncodeLog -Encoding UTF8
+        if ($LASTEXITCODE -ne 0 -or
+            !(Test-Path -LiteralPath $VideoPath -PathType Leaf) -or
+            (Get-Item -LiteralPath $VideoPath).Length -le 0) {
+            throw "ffmpeg failed natural score-restart run $Repeat."
+        }
+        $ProbeLog = Join-Path $RunDirectory 'ffprobe.json'
+        $ProbeArgs = @('-v','error','-count_frames','-select_streams','v:0',
+            '-show_entries',
+            'stream=width,height,r_frame_rate,avg_frame_rate,time_base,nb_frames,nb_read_frames',
+            '-of','json',$VideoPath)
+        @(& $Ffprobe.Source @ProbeArgs 2>&1) |
+            Set-Content -LiteralPath $ProbeLog -Encoding UTF8
+        if ($LASTEXITCODE -ne 0) {
+            throw "ffprobe failed natural score-restart run $Repeat."
+        }
+        $Probe = Get-Content -LiteralPath $ProbeLog -Raw | ConvertFrom-Json
+        $Streams = @($Probe.streams)
+        if ($Streams.Count -ne 1) {
+            throw "ffprobe returned an unexpected natural restart stream count."
+        }
+        $Stream = $Streams[0]
+        if ([int]$Stream.width -ne 640 -or [int]$Stream.height -ne 480 -or
+            [string]$Stream.r_frame_rate -ne $NativeFrameRate -or
+            [string]$Stream.avg_frame_rate -ne $NativeFrameRate -or
+            [string]$Stream.time_base -ne $NativeVideoTimeBase -or
+            [int]$Stream.nb_frames -ne $RestartFrames.Count -or
+            [int]$Stream.nb_read_frames -ne $RestartFrames.Count) {
+            throw "ffprobe natural restart cadence/dimensions/count failed."
+        }
+        $RestartVideo = [pscustomobject]@{
+            path = $VideoPath
+            sha256 = (Get-FileHash -LiteralPath $VideoPath -Algorithm SHA256).Hash
+            frame_count = $RestartFrames.Count
+            probe = $Stream
+        }
     }
     if ((Get-Item -LiteralPath $TracePath).Length -gt 64MB -or
         (Get-Item -LiteralPath $MidHorizonPath).Length -gt 8MB -or
@@ -194,6 +292,13 @@ foreach ($Repeat in 1, 2) {
             (Get-FileHash $MidHorizonPath -Algorithm SHA256).Hash
         terminal_png_sha256 =
             (Get-FileHash $TerminalPath -Algorithm SHA256).Hash
+        restart_frame_inventory_sha256 = if ($ExpectBaselineFailure) { $null } else {
+            $InventoryText = $RestartFrameInventory | ConvertTo-Json -Compress
+            $InventoryBytes = [Text.Encoding]::UTF8.GetBytes($InventoryText)
+            [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($InventoryBytes))
+        }
+        restart_frame_inventory = $RestartFrameInventory
+        restart_video = $RestartVideo
         summary_sha256 = (Get-FileHash $SummaryPath -Algorithm SHA256).Hash
         summary = $Summary
     }
@@ -205,15 +310,21 @@ foreach ($Field in 'trace_sha256','mid_horizon_png_sha256',
         throw "CPU full-possession proof was not deterministic: $Field."
     }
 }
+if (!$ExpectBaselineFailure -and
+    ($Records[0].restart_frame_inventory_sha256 -ne
+         $Records[1].restart_frame_inventory_sha256 -or
+     $Records[0].restart_video.sha256 -ne $Records[1].restart_video.sha256)) {
+    throw "Natural score-restart frame/video proof was not deterministic."
+}
 
 $ManifestPath = Join-Path $OutputDirectory "manifest.json"
 ([pscustomobject]@{
-    schema = "tecmo.cpu-possession-proof-run/TGPH-6"
+    schema = "tecmo.cpu-possession-proof-run/TGPH-7"
     status = if ($ExpectBaselineFailure) {
         "EXPECTED_BASELINE_FAILURE"
     } else { "PASS" }
     assertion_authority = "structured per-frame NDJSON and summary"
-    screenshot_scope = "presentation-only"
+    screenshot_scope = "presentation-only; contiguous restart PNG/MP4 sequence"
     records = $Records
 } | ConvertTo-Json -Depth 12) |
     Set-Content -LiteralPath $ManifestPath -Encoding UTF8

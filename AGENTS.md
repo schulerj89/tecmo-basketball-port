@@ -1625,6 +1625,12 @@ facing rather than claimed exact.
 `$8728-$8773` refreshes the other four offense streams and final candidate.
 Automatic offense starts at `$0168`; human offense receives the same selection
 writes but retains inbound presentation and does not auto-consume the stream.
+The developer CPU full-possession proof optionally writes a contiguous
+`frame-%06d.png` sequence beginning on that scored-restart marker and ending
+only after locally observed pass flight, catch, and marker retirement. Keep the
+optional fifth CLI operand backward-compatible, cap the sequence at 512 native
+640x480 frames, and validate two-run PNG inventories plus deterministic MP4s at
+`39375000/655171` fps; generated frames/videos stay ignored local evidence.
 
 The downstream pass unlock is a bounded three-handler stream. The exact records are opcode 5 at offset
 `$017C` / CPU `$A0AA` (`05 02 00 00 00`), opcode 23 at `$018B` / `$A0B9`
