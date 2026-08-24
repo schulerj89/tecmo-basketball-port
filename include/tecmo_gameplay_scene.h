@@ -525,6 +525,9 @@ typedef struct TecmoGameplayScene {
     bool shot_a0f3_preflight_valid;
     uint8_t shot_a0f3_preflight_raw_006a;
     uint8_t shot_a0f3_launch_raw_006a;
+    uint8_t shot_a0f3_release_raw_0053;
+    uint8_t shot_a0f3_rng_start_raw_006a;
+    uint32_t shot_a0f3_release_c05d_serial;
     TecmoGameplayCpuA0f3Result shot_a0f3_result;
     TecmoGameplayCpuA0f3Motion shot_a0f3_motion;
     bool shot_a0f3_motion_valid;
@@ -533,6 +536,7 @@ typedef struct TecmoGameplayScene {
     uint8_t shot_a0f3_raw_depth;
     uint16_t shot_a0f3_tick_count;
     bool shot_a8e9_normalized_valid;
+    uint8_t shot_a8e9_raw_006a;
     TecmoGameplayCpuA8e9VelocityResult shot_a8e9_normalized;
     /* Scene-native playback and predicted-route bookkeeping with no direct
        RAM-byte identity. Bank05 $83E9-$842B and $8469-$847A supply bounded

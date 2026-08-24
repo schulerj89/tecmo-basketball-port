@@ -10552,6 +10552,16 @@ static bool scene_test_production_terminal_scenarios(
         return false;
     }
     malformed = *scene;
+    malformed.shot_a0f3_origin_valid = true;
+    malformed.shot_a0f3_origin_x = 1U;
+    snapshot = malformed;
+    if (scene_update_shot(&malformed, &neutral) ||
+        memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+        scene_test_terminal_failure = 15U;
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    malformed = *scene;
     malformed.jump_entry_pose_index ^= 1U;
     malformed.actors[malformed.shot_actor].pose_index ^= 1U;
     snapshot = malformed;
@@ -10740,6 +10750,8 @@ static bool scene_test_production_terminal_scenarios(
             bool saw_tgls_first_tick = false;
             bool saw_authentic_rattle = false;
             bool saw_a8e9_normalized = false;
+            bool release_corruption_checked = false;
+            bool terminal_corruption_checked = false;
             uint16_t miss_score_before[TECMO_GAMEPLAY_TEAM_COUNT];
             miss_score_before[TECMO_GAMEPLAY_TEAM_AWAY] =
                 scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY];
@@ -10823,6 +10835,38 @@ static bool scene_test_production_terminal_scenarios(
                             scene->shot_a0f3_origin_x &&
                         scene->shot_a0f3_raw_depth ==
                             scene->shot_a0f3_origin_depth;
+                    for (unsigned raw_corruption = 0U;
+                         raw_corruption < 8U; ++raw_corruption) {
+                        malformed = *scene;
+                        switch (raw_corruption) {
+                        case 0U: malformed.shot_a0f3_origin_x ^= 1U; break;
+                        case 1U:
+                            malformed.shot_a0f3_preflight_raw_006a ^= 1U;
+                            break;
+                        case 2U:
+                            malformed.shot_a0f3_result.velocity_x_q6 ^= 1U;
+                            break;
+                        case 3U:
+                            malformed.shot_a0f3_motion.accumulator_x_q6 ^= 1U;
+                            break;
+                        case 4U: malformed.shot_a0f3_raw_x ^= 1U; break;
+                        case 5U: ++malformed.shot_a0f3_tick_count; break;
+                        case 6U:
+                            ++malformed.shot_a0f3_release_c05d_serial;
+                            break;
+                        default: malformed.fixed_rng.contract_tag ^= 1U; break;
+                        }
+                        snapshot = malformed;
+                        if (scene_update_jump_miss(&malformed, &neutral) ||
+                            memcmp(&malformed, &snapshot,
+                                   sizeof(malformed)) != 0) {
+                            scene_test_terminal_failure = 228U;
+                            scene_test_terminal_detail = raw_corruption;
+                            tecmo_gameplay_scene_end(scene);
+                            return false;
+                        }
+                    }
+                    release_corruption_checked = true;
                 } else if (scenario == 3U && scene->shot_frame == 3U) {
                     saw_tgls_first_tick =
                         scene->shot_a0f3_result.duration_051e_0513 == 0U
@@ -10841,6 +10885,31 @@ static bool scene_test_production_terminal_scenarios(
                 if (scenario == 3U &&
                     scene->shot_a8e9_normalized_valid) {
                     saw_a8e9_normalized = true;
+                    if (!terminal_corruption_checked) {
+                        for (unsigned raw_corruption = 0U;
+                             raw_corruption < 3U; ++raw_corruption) {
+                            malformed = *scene;
+                            if (raw_corruption == 0U) {
+                                malformed.shot_a8e9_raw_006a ^= 1U;
+                            } else if (raw_corruption == 1U) {
+                                malformed.shot_a8e9_normalized
+                                    .raw_vx_04f1_04fc ^= 1U;
+                            } else {
+                                malformed.fixed_rng.serial = UINT32_MAX;
+                            }
+                            snapshot = malformed;
+                            if (scene_update_jump_miss(
+                                    &malformed, &neutral) ||
+                                memcmp(&malformed, &snapshot,
+                                       sizeof(malformed)) != 0) {
+                                scene_test_terminal_failure = 227U;
+                                scene_test_terminal_detail = raw_corruption;
+                                tecmo_gameplay_scene_end(scene);
+                                return false;
+                            }
+                        }
+                        terminal_corruption_checked = true;
+                    }
                 }
                 trace = trace * 16777619U ^
                     (uint32_t)scene->ball_position.x_q8;
@@ -10896,7 +10965,9 @@ static bool scene_test_production_terminal_scenarios(
                 (scenario == 3U && max_repeats != 3U) ||
                 (scenario == 3U &&
                  (!saw_tgls_release || !saw_tgls_first_tick ||
-                  !saw_authentic_rattle || !saw_a8e9_normalized)) ||
+                  !saw_authentic_rattle || !saw_a8e9_normalized ||
+                  !release_corruption_checked ||
+                  !terminal_corruption_checked)) ||
                 (scenario != 3U && !tail_corruption_checked) ||
                 !scene_shot_state_valid(scene) ||
                 !scene_ownership_valid(scene)) {
@@ -12068,6 +12139,17 @@ static bool scene_test_owned_shot_boundary(
             memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
             tecmo_gameplay_scene_test_message(
                 message, message_size, "owned close malformed schedule rollback failed");
+            return false;
+        }
+        malformed = *scene;
+        malformed.shot_a0f3_origin_valid = true;
+        malformed.shot_a0f3_origin_x = 1U;
+        snapshot = malformed;
+        if (scene_update_shot(&malformed, NULL) ||
+            memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size,
+                "owned close raw-launch rollback failed");
             return false;
         }
         tecmo_gameplay_scene_end(scene);

@@ -531,6 +531,10 @@ TGFR-1 pins fixed `$CD7A-$CD7F`, `$CD8F-$CD95`, and `$CD96-$CDAB`. It is a
 one-shot native LIVE continuity checkpoint seeded at accepted PRETIP handoff,
 not a claim that PRETIP reproduces the canonical earlier global stream.
 Rejected scene updates restore RNG bytes and serials byte-exactly.
+Exact call-edge anchors cover Bank05 `$A0DD-$A0DF` (`JSR $C05D`) and fixed
+`$C05D-$C05F` (`JMP $CD96`). The broader LIVE `$C05D` call ledger remains
+noncanonical, so captured shot `$006A` is a bounded native stream, not a claim
+of canonical global RNG parity.
 
 Production automatic-pass selection now enters from made-score restart:
 Bank05 `$901F` state 1 reaches Bank06 `$8661-$8727`, publishes the selected

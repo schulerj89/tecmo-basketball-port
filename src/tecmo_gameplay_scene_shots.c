@@ -121,6 +121,33 @@ bool scene_shot_controller_binding_valid(const TecmoGameplayScene *scene)
             TECMO_GAMEPLAY_CONTROLLER_COUNT;
 }
 
+static void scene_shot_clear_raw_launch(TecmoGameplayScene *scene)
+{
+    if (scene == NULL) return;
+    scene->shot_a0f3_origin_valid = false;
+    scene->shot_a0f3_origin_x = 0U;
+    scene->shot_a0f3_origin_depth = 0U;
+    scene->shot_a0f3_preflight_valid = false;
+    scene->shot_a0f3_preflight_raw_006a = 0U;
+    scene->shot_a0f3_launch_raw_006a = 0U;
+    scene->shot_a0f3_release_raw_0053 = 0U;
+    scene->shot_a0f3_rng_start_raw_006a = 0U;
+    scene->shot_a0f3_release_c05d_serial = 0U;
+    memset(&scene->shot_a0f3_result, 0,
+           sizeof(scene->shot_a0f3_result));
+    memset(&scene->shot_a0f3_motion, 0,
+           sizeof(scene->shot_a0f3_motion));
+    scene->shot_a0f3_motion_valid = false;
+    scene->shot_a0f3_raw_position_valid = false;
+    scene->shot_a0f3_raw_x = 0U;
+    scene->shot_a0f3_raw_depth = 0U;
+    scene->shot_a0f3_tick_count = 0U;
+    scene->shot_a8e9_normalized_valid = false;
+    scene->shot_a8e9_raw_006a = 0U;
+    memset(&scene->shot_a8e9_normalized, 0,
+           sizeof(scene->shot_a8e9_normalized));
+}
+
 void scene_shot_clear_jump_playback(TecmoGameplayScene *scene)
 {
     if (scene == NULL) return;
@@ -152,24 +179,7 @@ void scene_shot_clear_jump_playback(TecmoGameplayScene *scene)
     scene->jump_family = TECMO_GAMEPLAY_JUMP_SHOT_FAMILY_0;
     scene->jump_profile = TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0;
     scene->jump_direction = TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_0;
-    scene->shot_a0f3_origin_valid = false;
-    scene->shot_a0f3_origin_x = 0U;
-    scene->shot_a0f3_origin_depth = 0U;
-    scene->shot_a0f3_preflight_valid = false;
-    scene->shot_a0f3_preflight_raw_006a = 0U;
-    scene->shot_a0f3_launch_raw_006a = 0U;
-    memset(&scene->shot_a0f3_result, 0,
-           sizeof(scene->shot_a0f3_result));
-    memset(&scene->shot_a0f3_motion, 0,
-           sizeof(scene->shot_a0f3_motion));
-    scene->shot_a0f3_motion_valid = false;
-    scene->shot_a0f3_raw_position_valid = false;
-    scene->shot_a0f3_raw_x = 0U;
-    scene->shot_a0f3_raw_depth = 0U;
-    scene->shot_a0f3_tick_count = 0U;
-    scene->shot_a8e9_normalized_valid = false;
-    memset(&scene->shot_a8e9_normalized, 0,
-           sizeof(scene->shot_a8e9_normalized));
+    scene_shot_clear_raw_launch(scene);
     scene->close_shot_variant = TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0;
     scene->native_policy_sample = 0U;
     scene->shot_flags = 0U;
@@ -836,9 +846,11 @@ static bool scene_start_shot_actor_mutating(TecmoGameplayScene *scene,
             (TecmoGameplayJumpShotProfile)jump_profile;
         scene->jump_direction =
             (TecmoGameplayJumpShotDirection)jump_direction;
-        scene->shot_a0f3_origin_valid = a0f3_origin_valid;
-        scene->shot_a0f3_origin_x = a0f3_origin_x;
-        scene->shot_a0f3_origin_depth = a0f3_origin_depth;
+        if (!predicted_make) {
+            scene->shot_a0f3_origin_valid = a0f3_origin_valid;
+            scene->shot_a0f3_origin_x = a0f3_origin_x;
+            scene->shot_a0f3_origin_depth = a0f3_origin_depth;
+        }
         if (!scene_jump_pose_for_context(scene, &initial_pose)) {
             scene->shot_kind = TECMO_GAMEPLAY_SCENE_SHOT_NONE;
             scene_shot_clear_jump_playback(scene);
@@ -1050,6 +1062,7 @@ bool tecmo_gameplay_scene_start_rim_rattle_debug(
     }
     candidate.jump_resolved_pose_index = canonical_pose;
     candidate.jump_rim_rattle_debug = true;
+    scene_shot_clear_raw_launch(&candidate);
     candidate.jump_rim_rattle_raw_selector = 0x71U;
     candidate.shot_duration = TECMO_GAMEPLAY_JUMP_RATTLE_DURATION;
     if (!scene_shot_boundary_valid(&candidate)) return false;
@@ -2566,6 +2579,8 @@ static bool scene_update_jump_miss_mutating(
             TecmoGameplayCpuA0f3Motion launch_motion;
             uint8_t preflight_raw_006a;
             uint8_t launch_raw_006a;
+            uint8_t release_raw_0053 = scene->fixed_rng.raw_0053;
+            uint8_t rng_start_raw_006a = scene->fixed_rng.raw_006a;
             memset(&launch_input, 0, sizeof(launch_input));
             if (!scene->shot_a0f3_origin_valid ||
                 !scene->cpu_a0f3_assets.available ||
@@ -2595,6 +2610,10 @@ static bool scene_update_jump_miss_mutating(
             scene->shot_a0f3_preflight_valid = true;
             scene->shot_a0f3_preflight_raw_006a = preflight_raw_006a;
             scene->shot_a0f3_launch_raw_006a = launch_raw_006a;
+            scene->shot_a0f3_release_raw_0053 = release_raw_0053;
+            scene->shot_a0f3_rng_start_raw_006a = rng_start_raw_006a;
+            scene->shot_a0f3_release_c05d_serial =
+                scene->fixed_rng.c05d_serial;
             scene->shot_a0f3_result = launch_result;
             scene->shot_a0f3_motion = launch_motion;
             scene->shot_a0f3_motion_valid = true;
@@ -2907,6 +2926,8 @@ static bool scene_update_jump_miss_rim_rattle(
                 }
                 scene->shot_a8e9_normalized = normalized;
                 scene->shot_a8e9_normalized_valid = true;
+                scene->shot_a8e9_raw_006a =
+                    normalize_input.raw_006a;
             }
             *route_frame = TECMO_GAMEPLAY_JUMP_RATTLE_BEGIN_FRAME;
         }

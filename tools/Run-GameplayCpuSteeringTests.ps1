@@ -409,6 +409,8 @@ try {
         @{ label="Fixed CD7A-CD7F NMI call order"; bank=7; fixed=$true; start=0xCD7A; size=6 },
         @{ label="Fixed CD8F-CD95 counter"; bank=7; fixed=$true; start=0xCD8F; size=7 },
         @{ label="Fixed CD96-CDAB mixer"; bank=7; fixed=$true; start=0xCD96; size=0x16 }
+        @{ label="Bank05 A0DD-A0DF C05D call"; bank=5; fixed=$false; start=0xA0DD; size=3 }
+        @{ label="Fixed C05D-C05F mixer jump"; bank=7; fixed=$true; start=0xC05D; size=3 }
     )
     # The first entry below is a separately copied raw helper. The remaining
     # handler/tail anchors overlap the retained command-handler source span;
@@ -476,8 +478,8 @@ try {
             @($Map.opcode13_global_latch_contract.a9da_assignment.omitted_a9da_effects).Count -eq 3 -and
             $Map.opcode13_global_latch_contract.a9da_assignment.production_boundary -match
                 'synthetic/frozen.*not substitutes' -and
-            $Map.opcode13_global_latch_contract.a8e9_velocity_normalizer.scope -eq
-                'pure typed raw16 helper only; LIVE input unowned' -and
+            $Map.opcode13_global_latch_contract.a8e9_velocity_normalizer.scope -match
+                'bounded TGLS-to-rattle LIVE input owner' -and
             @($Map.opcode13_global_latch_contract.a8e9_velocity_normalizer.anchors).Count -eq 2 -and
             $Map.opcode13_global_latch_contract.a8e9_velocity_normalizer.orientation -match
                 '035A 0.*nonnegative.*1.*negative' -and
@@ -488,9 +490,11 @@ try {
                 'raw \$0463.*\$006A.*remap.*separate' -and
             $Map.opcode13_global_latch_contract.a0f3_launch_solver.asset_dependency -match
                 'sanitized TGJS.*no ROM bytes' -and
-            @($Map.opcode13_global_latch_contract.fixed_rng_live_checkpoint.anchors).Count -eq 3 -and
+            @($Map.opcode13_global_latch_contract.fixed_rng_live_checkpoint.anchors).Count -eq 5 -and
             $Map.opcode13_global_latch_contract.fixed_rng_live_checkpoint.ordering -match
                 'NMI tick.*\$9FA1.*\$A0DD' -and
+            $Map.opcode13_global_latch_contract.fixed_rng_live_checkpoint.parity_boundary -match
+                'call ledger remains noncanonical.*bounded native stream' -and
             $Map.opcode15_source_contract.scope -eq
                 'harness-only; LIVE opcode 15 remains deferred' -and
             $Map.opcode15_source_contract.dispatch.bank -eq 6 -and
@@ -1226,7 +1230,11 @@ try {
     }
     $FixedRngRomMutationCount = 0
     foreach ($Span in $FixedRngAnchorSpans) {
-        $Offset = $Prg + 7 * 0x4000 + ($Span.start - 0xC000)
+        $Offset = if ($Span.fixed) {
+            $Prg + 7 * 0x4000 + ($Span.start - 0xC000)
+        } else {
+            $Prg + $Span.bank * 0x4000 + ($Span.start - 0x8000)
+        }
         $MutatedRom = Join-Path $Scratch `
             ("rom-fixed-rng-{0:X4}.nes" -f $Span.start)
         $Bytes = [byte[]]$RomBytes.Clone()
@@ -1248,7 +1256,7 @@ try {
         "source spans plus eight lifecycle anchor/table spans, nine exact " +
         "regulation-entry spans, five auto-pass spans, and twelve opcode-15 " +
         "source/semantic-anchor spans, eight global-latch producer/reset/" +
-        "consumer anchors, five A9DA/AAB8/A993 spans, two A8E9 velocity spans, eight A0F3 launch spans, three fixed RNG spans, 680 aligned " +
+        "consumer anchors, five A9DA/AAB8/A993 spans, two A8E9 velocity spans, eight A0F3 launch spans, five RNG/call-edge spans, 680 aligned " +
         "commands, 24 handlers, eight exact " +
         "direction codes, deterministic ten-coordinate/context harness, " +
         "transactional TGMO direction/movement composition, " +

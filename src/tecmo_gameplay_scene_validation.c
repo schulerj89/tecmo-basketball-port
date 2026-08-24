@@ -100,7 +100,9 @@ static bool scene_shot_captured_target_delta(
     expected_end_y_q8 = TECMO_GAMEPLAY_SHOT_TARGET_Y * 256;
     if ((!scene->legacy_direct_launch &&
          scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_JUMP
-             ? (!scene->shot_a0f3_origin_valid ||
+             ? (scene->shot_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MISS &&
+                !scene->jump_rim_rattle_debug
+                    ? (!scene->shot_a0f3_origin_valid ||
                 scene->shot_a0f3_origin_x != (uint16_t)(
                     ((uint16_t)((uint32_t)scene->shot_start_position.x_q8 >>
                                 16U) << 8U) |
@@ -108,6 +110,7 @@ static bool scene_shot_captured_target_delta(
                               8U)) ||
                 scene->shot_a0f3_origin_depth != (uint8_t)(
                     (uint32_t)scene->shot_start_position.y_q8 >> 8U))
+                    : false)
              : (scene->shot_start_position.x_q8 != expected_start_x_q8 ||
                 scene->shot_start_position.y_q8 != expected_start_y_q8)) ||
         scene->shot_end_position.x_q8 != expected_end_x_q8 ||
@@ -1136,6 +1139,172 @@ static bool scene_validation_jump_timeline_valid(
                TECMO_GAMEPLAY_JUMP_SLOT0_ACTOR_VELOCITY_Q8);
 }
 
+static bool scene_raw_launch_zero(const TecmoGameplayScene *scene)
+{
+    TecmoGameplayCpuA0f3Result zero_result;
+    TecmoGameplayCpuA0f3Motion zero_motion;
+    TecmoGameplayCpuA8e9VelocityResult zero_normalized;
+    memset(&zero_result, 0, sizeof(zero_result));
+    memset(&zero_motion, 0, sizeof(zero_motion));
+    memset(&zero_normalized, 0, sizeof(zero_normalized));
+    return scene != NULL && !scene->shot_a0f3_origin_valid &&
+        scene->shot_a0f3_origin_x == 0U &&
+        scene->shot_a0f3_origin_depth == 0U &&
+        !scene->shot_a0f3_preflight_valid &&
+        scene->shot_a0f3_preflight_raw_006a == 0U &&
+        scene->shot_a0f3_launch_raw_006a == 0U &&
+        scene->shot_a0f3_release_raw_0053 == 0U &&
+        scene->shot_a0f3_rng_start_raw_006a == 0U &&
+        scene->shot_a0f3_release_c05d_serial == 0U &&
+        memcmp(&scene->shot_a0f3_result, &zero_result,
+               sizeof(zero_result)) == 0 &&
+        memcmp(&scene->shot_a0f3_motion, &zero_motion,
+               sizeof(zero_motion)) == 0 &&
+        !scene->shot_a0f3_motion_valid &&
+        !scene->shot_a0f3_raw_position_valid &&
+        scene->shot_a0f3_raw_x == 0U &&
+        scene->shot_a0f3_raw_depth == 0U &&
+        scene->shot_a0f3_tick_count == 0U &&
+        !scene->shot_a8e9_normalized_valid &&
+        scene->shot_a8e9_raw_006a == 0U &&
+        memcmp(&scene->shot_a8e9_normalized, &zero_normalized,
+               sizeof(zero_normalized)) == 0;
+}
+
+static uint8_t scene_validation_rng_mix(uint8_t raw_006a, uint8_t raw_0053)
+{
+    uint8_t shifted = (uint8_t)(raw_006a << 1U);
+    if ((raw_006a & 0x80U) != 0U) shifted ^= 0x1DU;
+    if (shifted == 0U) shifted ^= raw_0053;
+    return shifted;
+}
+
+static bool scene_raw_launch_active_valid(const TecmoGameplayScene *scene)
+{
+    TecmoGameplayCpuA0f3Input input;
+    TecmoGameplayCpuA0f3Result result;
+    TecmoGameplayCpuA0f3Motion motion;
+    TecmoGameplayCpuA0f3PublishedPosition published;
+    TecmoGameplayCpuA8e9VelocityInput normalize_input;
+    TecmoGameplayCpuA8e9VelocityResult normalized;
+    uint16_t expected_ticks;
+    uint16_t tick;
+    uint16_t expected_x;
+    uint8_t expected_depth;
+    uint8_t expected_preflight;
+    uint8_t expected_launch;
+    uint8_t orientation;
+    bool terminal_normalized;
+    if (scene == NULL || scene->legacy_direct_launch ||
+        scene->jump_rim_rattle_debug ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+        scene->predicted_make_route ||
+        scene->shot_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS ||
+        !scene->shot_a0f3_origin_valid) return false;
+    if (!scene->jump_b_released) {
+        TecmoGameplayCpuA0f3Result zero_result;
+        TecmoGameplayCpuA0f3Motion zero_motion;
+        TecmoGameplayCpuA8e9VelocityResult zero_normalized;
+        memset(&zero_result, 0, sizeof(zero_result));
+        memset(&zero_motion, 0, sizeof(zero_motion));
+        memset(&zero_normalized, 0, sizeof(zero_normalized));
+        return scene->shot_frame == 1U &&
+            !scene->shot_a0f3_preflight_valid &&
+            scene->shot_a0f3_preflight_raw_006a == 0U &&
+            scene->shot_a0f3_launch_raw_006a == 0U &&
+            scene->shot_a0f3_release_raw_0053 == 0U &&
+            scene->shot_a0f3_rng_start_raw_006a == 0U &&
+            scene->shot_a0f3_release_c05d_serial == 0U &&
+            memcmp(&scene->shot_a0f3_result, &zero_result,
+                   sizeof(zero_result)) == 0 &&
+            memcmp(&scene->shot_a0f3_motion, &zero_motion,
+                   sizeof(zero_motion)) == 0 &&
+            !scene->shot_a0f3_motion_valid &&
+            !scene->shot_a0f3_raw_position_valid &&
+            scene->shot_a0f3_raw_x == 0U &&
+            scene->shot_a0f3_raw_depth == 0U &&
+            scene->shot_a0f3_tick_count == 0U &&
+            !scene->shot_a8e9_normalized_valid &&
+            scene->shot_a8e9_raw_006a == 0U &&
+            memcmp(&scene->shot_a8e9_normalized, &zero_normalized,
+                   sizeof(zero_normalized)) == 0;
+    }
+    expected_preflight = scene_validation_rng_mix(
+        (uint8_t)(scene->shot_a0f3_rng_start_raw_006a ^
+                  scene->shot_a0f3_release_raw_0053),
+        scene->shot_a0f3_release_raw_0053);
+    expected_launch = scene_validation_rng_mix(
+        (uint8_t)(expected_preflight ^
+                  scene->shot_a0f3_release_raw_0053),
+        scene->shot_a0f3_release_raw_0053);
+    if (!scene->shot_a0f3_preflight_valid ||
+        scene->shot_a0f3_preflight_raw_006a != expected_preflight ||
+        scene->shot_a0f3_launch_raw_006a != expected_launch ||
+        scene->shot_a0f3_release_c05d_serial < 2U ||
+        scene->fixed_rng.c05d_serial !=
+            scene->shot_a0f3_release_c05d_serial ||
+        scene->fixed_rng.last_callsite !=
+            TECMO_GAMEPLAY_FIXED_RNG_CALL_A0DD ||
+        !scene->shot_a0f3_motion_valid ||
+        !scene->shot_a0f3_raw_position_valid) return false;
+    memset(&input, 0, sizeof(input));
+    input.contract_tag = TECMO_GAMEPLAY_CPU_A0F3_INPUT_TAG;
+    input.raw_x_7d_f2 = scene->shot_a0f3_origin_x;
+    input.raw_depth_fd = scene->shot_a0f3_origin_depth;
+    input.raw_direction = (uint8_t)scene->jump_direction;
+    input.raw_006a = scene->shot_a0f3_launch_raw_006a;
+    if (!tecmo_gameplay_cpu_a0f3_solve(
+            &scene->cpu_a0f3_assets, &input, &result) ||
+        memcmp(&result, &scene->shot_a0f3_result, sizeof(result)) != 0 ||
+        !tecmo_gameplay_cpu_a0f3_motion_begin(&result, &motion)) return false;
+    expected_ticks = scene->shot_frame > 2U
+        ? (uint16_t)(scene->shot_frame - 2U) : 0U;
+    if (expected_ticks > result.duration_051e_0513)
+        expected_ticks = result.duration_051e_0513;
+    expected_x = scene->shot_a0f3_origin_x;
+    expected_depth = scene->shot_a0f3_origin_depth;
+    for (tick = 0U; tick < expected_ticks; ++tick) {
+        if (!tecmo_gameplay_cpu_a0f3_motion_tick_publish(
+                &motion, &published)) return false;
+        expected_x = published.raw_x;
+        expected_depth = published.raw_depth;
+    }
+    if (scene->shot_a0f3_tick_count != expected_ticks ||
+        scene->shot_a0f3_raw_x != expected_x ||
+        scene->shot_a0f3_raw_depth != expected_depth ||
+        memcmp(&motion, &scene->shot_a0f3_motion, sizeof(motion)) != 0)
+        return false;
+    terminal_normalized = scene->shot_rim_rattle_selected &&
+        scene->shot_frame >= TECMO_GAMEPLAY_JUMP_RATTLE_HANDOFF_FRAME;
+    if (!terminal_normalized) {
+        TecmoGameplayCpuA8e9VelocityResult zero_normalized;
+        memset(&zero_normalized, 0, sizeof(zero_normalized));
+        return !scene->shot_a8e9_normalized_valid &&
+            scene->shot_a8e9_raw_006a == 0U &&
+            memcmp(&scene->shot_a8e9_normalized, &zero_normalized,
+                   sizeof(zero_normalized)) == 0;
+    }
+    if (!scene->shot_a8e9_normalized_valid ||
+        !scene_shot_captured_rattle_orientation(scene, &orientation) ||
+        (scene->shot_frame == TECMO_GAMEPLAY_JUMP_RATTLE_HANDOFF_FRAME &&
+         scene->shot_a8e9_raw_006a != scene->fixed_rng.raw_006a) ||
+        (uint16_t)scene->jump_rim_rattle.saved_horizontal_velocity_q6 !=
+            motion.velocity_x_q6 ||
+        (uint16_t)scene->jump_rim_rattle.saved_vertical_velocity_q6 !=
+            motion.velocity_depth_q6) return false;
+    memset(&normalize_input, 0, sizeof(normalize_input));
+    normalize_input.contract_tag =
+        TECMO_GAMEPLAY_CPU_A8E9_VELOCITY_INPUT_TAG;
+    normalize_input.raw_vx_04f1_04fc = motion.velocity_x_q6;
+    normalize_input.raw_vz_0507_0512 = motion.velocity_depth_q6;
+    normalize_input.raw_006a = scene->shot_a8e9_raw_006a;
+    normalize_input.orientation_035a = orientation;
+    return tecmo_gameplay_cpu_a8e9_velocity_normalize(
+               &normalize_input, &normalized) &&
+           memcmp(&normalized, &scene->shot_a8e9_normalized,
+                  sizeof(normalized)) == 0;
+}
+
 /* This is intentionally a scene-boundary validator rather than a second
    gameplay resolver.  It proves ownership, schedule coherence, raw route
    identity, and the source-backed rattle prefix.  The `legacy_direct_launch`
@@ -1206,7 +1375,8 @@ bool scene_shot_state_valid(const TecmoGameplayScene *scene)
                scene->jump_profile == TECMO_GAMEPLAY_JUMP_SHOT_PROFILE_0 &&
                scene->jump_direction == TECMO_GAMEPLAY_JUMP_SHOT_DIRECTION_0 &&
                scene->close_shot_variant ==
-                   TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0;
+                   TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_0 &&
+               scene_raw_launch_zero(scene);
     }
 
     close = scene_shot_is_close(scene->shot_kind);
@@ -1266,7 +1436,8 @@ bool scene_shot_state_valid(const TecmoGameplayScene *scene)
             : scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_LAYUP
                 ? TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_2
                 : TECMO_GAMEPLAY_CLOSE_SHOT_VARIANT_1;
-        if ((unsigned)scene->close_shot_profile >=
+        if (!scene_raw_launch_zero(scene) ||
+            (unsigned)scene->close_shot_profile >=
                 TECMO_GAMEPLAY_CLOSE_SHOT_PROFILE_COUNT ||
             (unsigned)scene->close_shot_direction >=
                 TECMO_GAMEPLAY_CLOSE_SHOT_DIRECTION_COUNT ||
@@ -1331,6 +1502,12 @@ bool scene_shot_state_valid(const TecmoGameplayScene *scene)
         }
     } else {
         uint16_t expected_jump_pose;
+        if ((scene->predicted_make_route || scene->legacy_direct_launch ||
+             scene->jump_rim_rattle_debug)
+                ? !scene_raw_launch_zero(scene)
+                : !scene_raw_launch_active_valid(scene)) {
+            return false;
+        }
         if (!scene->legacy_direct_launch &&
             !scene->jump_rim_rattle_debug &&
             scene->jump_rim_rattle_raw_selector != 0U) {
@@ -1627,6 +1804,9 @@ bool scene_ownership_valid(const TecmoGameplayScene *scene)
         !scene->ball_dribble_assets.available ||
         !scene->cpu_steering_assets.available ||
         !scene->cpu_a0f3_assets.available ||
+        (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+         !scene->legacy_direct_launch &&
+         !tecmo_gameplay_fixed_rng_valid(&scene->fixed_rng)) ||
         !tecmo_gameplay_live_foundation_valid(
             &scene->cpu_steering_assets, &scene->live_foundation) ||
         !scene->penalty_assets.available ||

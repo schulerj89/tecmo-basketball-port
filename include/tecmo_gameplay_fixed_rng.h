@@ -40,6 +40,7 @@ bool tecmo_gameplay_fixed_rng_nmi_tick(TecmoGameplayFixedRng *state);
 bool tecmo_gameplay_fixed_rng_c05d(
     TecmoGameplayFixedRng *state, TecmoGameplayFixedRngCallsite callsite,
     uint8_t *raw_006a_out);
+bool tecmo_gameplay_fixed_rng_valid(const TecmoGameplayFixedRng *state);
 
 bool tecmo_gameplay_fixed_rng_self_test(char *message, size_t message_size);
 

@@ -124,6 +124,9 @@ while `$BD6E-$BDC6` pins integrate-then-publish arithmetic. The explicit
 `$006A` is the second tagged `$C05D` result after `$9FA1->$A0DD`. TGFR-1 pins
 fixed `$CD7A-$CD7F/$CD8F-$CD95/$CD96-$CDAB`, checkpoints at accepted LIVE
 handoff, and rolls NMI back on rejected updates. No LIVE A9DA binding is implied.
+`$A0DD-$A0DF` and `$C05D-$C05F` pin the translated call edges. Other LIVE
+`$C05D` callers remain unowned, so this shot stream is bounded native
+continuity rather than canonical global RNG parity.
 
 ## What the harness proves
 

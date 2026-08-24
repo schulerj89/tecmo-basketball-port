@@ -1661,6 +1661,9 @@ presentation-only. Exact anchors also cover `$B32C-$B390`,
 `$A15C-$A183`. TGFR-1 is a virgin one-shot LIVE continuity checkpoint, not a
 canonical PRETIP-stream claim; pin `$CD7A-$CD7F/$CD8F-$CD95/$CD96-$CDAB`, tick
 once per accepted bound LIVE frame, and roll back RNG state on rejection.
+Also pin Bank05 `$A0DD-$A0DF` and fixed `$C05D-$C05F`. Do not describe the
+shot samples as canonical global parity: the complete LIVE `$C05D` call ledger
+is not yet translated, so TGFR owns only bounded native continuity.
 
 Opcode 20 has a source-exact bounded executor for Bank06 `$9032-$9052`. Its
 only records are `$000F` / CPU `$9F3D` and `$0019` / CPU `$9F47`, both

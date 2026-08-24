@@ -32,6 +32,11 @@ static bool rng_valid(const TecmoGameplayFixedRng *state)
            state->last_callsite <= TECMO_GAMEPLAY_FIXED_RNG_CALL_A0DD;
 }
 
+bool tecmo_gameplay_fixed_rng_valid(const TecmoGameplayFixedRng *state)
+{
+    return rng_valid(state);
+}
+
 bool tecmo_gameplay_fixed_rng_live_checkpoint(
     TecmoGameplayFixedRng *state, uint8_t raw_006a, uint8_t raw_0053,
     uint8_t raw_0054)
