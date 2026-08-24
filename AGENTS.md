@@ -1569,6 +1569,21 @@ ordinary, pass, shot, loose-ball, and other unowned contexts retain
 `missing-actor-046e-probe`. Harness-only nonzero captures retain the exact
 first-record loop and second-record rewind branches.
 
+The automatic selected-primary pass unlock is a bounded three-handler stream,
+not a general play-selection claim. The exact records are opcode 5 at offset
+`$017C` / CPU `$A0AA` (`05 02 00 00 00`), opcode 23 at `$018B` / `$A0B9`
+(`17 00 00 00 00`), and opcode 6 at `$0190` / `$A0BE`
+(`06 00 00 00 00`). Preserve the intervening opcode-9, opcode-3, and wait
+cadence: opcode 5 writes mirrored direction/state 4/action `$18`; the scoped
+uncontrolled opcode 23 advances by five; the scoped automatic opcode 6 writes
+typed action `$10` and object-slot-10 state `$13` without advancing; only the
+next AI update enters the existing pass-gather path. Tests may park the
+selected primary at `$017C`, but must not claim the upstream play-selection
+route is converted. Controlled, human, and ordinary-actor opcode-23/opcode-6
+contexts stay deferred. Do not fabricate opcode-5 pose `$034A`, opcode-6
+`$0743`, or `$0588` observations, and do not refetch Bank06 while action `$10`,
+gather, or pass flight is pending.
+
 `--gameplay-cpu-steering-test`,
 `--gameplay-cpu-steering-inspect`, `--gameplay-cpu-steering-harness`, and
 `--gameplay-cpu-steering-movement-harness` are console-only and must not

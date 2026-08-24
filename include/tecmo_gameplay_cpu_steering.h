@@ -139,6 +139,10 @@ typedef enum TecmoGameplayCpuSteeringDeferredReason {
     TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE15_RAW_LIFECYCLE,
     TECMO_GAMEPLAY_CPU_STEERING_DEFER_NATIVE_TARGET_OUTSIDE_COURT,
     TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_GLOBAL_TARGET,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE6_CONTEXT,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE6_CONTROLLED_BRANCH,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE23_CONTEXT,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE23_CONTROLLED_BRANCH,
     TECMO_GAMEPLAY_CPU_STEERING_DEFER_REASON_COUNT
 } TecmoGameplayCpuSteeringDeferredReason;
 
@@ -361,6 +365,16 @@ typedef struct TecmoGameplayCpuSteeringPlayInput {
        table is never read unless the caller can retain its lifecycle. */
     bool actor_046e_probe_available;
     uint8_t actor_046e_probe[TECMO_GAMEPLAY_CPU_STEERING_046E_PROBE_COUNT];
+    /* Bank06 opcode 6 branches on selected-primary controller ownership.
+       Only the automatic/no-controller path is bounded; the controlled path
+       reaches the wider `$89DB` lifecycle and remains explicitly deferred. */
+    bool opcode6_context_available;
+    bool opcode6_automatic;
+    /* The sole opcode-23 predecessor is bounded only for the selected
+       automatic/uncontrolled branch, which advances without RNG reads or a
+       direction write. */
+    bool opcode23_context_available;
+    bool opcode23_uncontrolled;
     /* Exact opcode-21 gate inputs ($058A/$0357/$0358/$7E). */
     bool opcode21_gate_inputs_available;
     uint8_t state_058a;
@@ -423,6 +437,11 @@ typedef struct TecmoGameplayCpuSteeringPlayResult {
     bool raw_target_valid;
     uint16_t raw_target_x;
     uint16_t raw_target_depth;
+    /* Exact automatic opcode-6 writes retained by this bounded result. The
+       other handler writes `$0743/$0588` remain observations only. */
+    bool opcode6_action10_written;
+    bool opcode6_object10_state_written;
+    uint8_t opcode6_object10_state;
     /* Exact opcode-4/opcode-13 subtraction evidence. Opcode 4 uses its
        16-bit-X/8-bit-depth object coordinate. Opcode 13 subtracts the actor's
        16-bit X and zero-extended 8-bit depth from two raw 16-bit latch words. */

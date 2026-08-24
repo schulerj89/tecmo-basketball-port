@@ -789,6 +789,37 @@ bool scene_begin_cpu_pass_from_action21(TecmoGameplayScene *scene,
         scene, passer, receiver, TECMO_GAMEPLAY_SCENE_NO_ACTOR);
 }
 
+static bool scene_begin_cpu_pass_from_action10(TecmoGameplayScene *scene,
+                                               uint8_t passer)
+{
+    uint8_t receiver;
+    if (scene == NULL || scene->legacy_direct_launch ||
+        passer >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->live_foundation.play_state.actor_state[passer] != 0x04U ||
+        scene->live_foundation.play_state.action_state_046e[passer] !=
+            0x10U ||
+        passer != scene->ball_holder ||
+        scene->live_foundation.primary_actor != passer) {
+        return false;
+    }
+    for (size_t controller = 0U;
+         controller < TECMO_GAMEPLAY_CONTROLLER_COUNT; ++controller) {
+        if (scene->launch.controller_team[controller] ==
+                scene->state.possession ||
+            scene->controlled_actor[controller] == passer) {
+            return false;
+        }
+    }
+    receiver = scene->live_foundation.candidate_actor_by_side[
+        scene->live_foundation.offense_side];
+    /* Fixed `$C711` selector 1 reaches Bank05 `$89DB`, which enters the
+       existing `$89D7` gather owner. This consumes the action-$10 pending
+       marker on the update after opcode 6; it does not skip the preceding
+       canonical opcode-23 record or claim natural stream reachability. */
+    return scene_begin_actor_pass(
+        scene, passer, receiver, TECMO_GAMEPLAY_SCENE_NO_ACTOR);
+}
+
 bool scene_update_pass(TecmoGameplayScene *scene)
 {
     TecmoGameplayScene candidate;
@@ -2522,6 +2553,10 @@ static void scene_cpu_selected_primary_opcode7_probe_begin(
 {
     if (input == NULL) return;
     input->actor_046e_probe_available = false;
+    input->opcode6_context_available = false;
+    input->opcode6_automatic = false;
+    input->opcode23_context_available = false;
+    input->opcode23_uncontrolled = false;
     memset(input->actor_046e_probe, 0, sizeof(input->actor_046e_probe));
     if (!scene_cpu_common_tail_has_ordinary_live_zero(scene)) return;
     /* Bank06's selected-primary prepass is still in the proven ordinary
@@ -2529,6 +2564,10 @@ static void scene_cpu_selected_primary_opcode7_probe_begin(
        scoped capture represents exactly `$046E[$0A] == $0478 == 0`. */
     input->actor_046e_probe[0x0AU] = 0U;
     input->actor_046e_probe_available = true;
+    input->opcode6_context_available = true;
+    input->opcode6_automatic = true;
+    input->opcode23_context_available = true;
+    input->opcode23_uncontrolled = true;
 }
 
 static void scene_cpu_selected_primary_opcode7_probe_end(
@@ -2536,6 +2575,10 @@ static void scene_cpu_selected_primary_opcode7_probe_end(
 {
     if (input == NULL) return;
     input->actor_046e_probe_available = false;
+    input->opcode6_context_available = false;
+    input->opcode6_automatic = false;
+    input->opcode23_context_available = false;
+    input->opcode23_uncontrolled = false;
     memset(input->actor_046e_probe, 0, sizeof(input->actor_046e_probe));
 }
 
@@ -2892,6 +2935,26 @@ bool scene_update_ai(
     if (!scene_cpu_build_play_input(
             scene, steering_snapshot, &candidate_foundation, &play_input)) {
         return false;
+    }
+    /* Opcode 6 returns with selected action `$10` and its cursor retained.
+       Fixed `$C711` consumes that marker on the following update before
+    another Bank06 record can be fetched, preserving the source delay. */
+    actor = candidate_foundation.primary_actor;
+    if (actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+        actor == scene->ball_holder &&
+        !scene_team_has_controller(scene, scene->state.possession) &&
+        candidate_foundation.play_state.actor_state[actor] == 0x04U &&
+        candidate_foundation.play_state.action_state_046e[actor] == 0x10U) {
+        candidate_scene = *scene;
+        candidate_scene.live_foundation = candidate_foundation;
+        candidate_scene.opcode10_frame_context = candidate_opcode10_context;
+        if (!scene_begin_cpu_pass_from_action10(
+                &candidate_scene, (uint8_t)actor) ||
+            !scene_ownership_valid(&candidate_scene)) {
+            return false;
+        }
+        *scene = candidate_scene;
+        return true;
     }
     /* Bank05 produced this workspace once before any source movement. Bind it
        once to the immutable play input; selected-primary and ordinary 9..0

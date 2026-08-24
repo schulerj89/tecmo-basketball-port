@@ -3867,6 +3867,173 @@ static bool scene_test_live_foundation_regressions(
         }
     }
 
+    /* Full source stream timing, parked explicitly because the play-selection
+       route into offset $017C is not yet proven: opcode 5 -> opcode 9 ->
+       opcode 3's six-count wait -> opcode 23 -> retained opcode 6 -> next-
+       update action-$10 pass gather. One handler is fetched per update. */
+    {
+        TecmoGameplaySceneCpuShotRequest no_shot;
+        uint8_t primary;
+        uint8_t receiver;
+        uint8_t ordinary_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+        if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
+            !scene_handoff_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+            !scene_sync_live_foundation(scene)) {
+            LIVE_FAIL("LIVE opcode-23/6 pass setup rejected");
+        }
+        candidate_foundation = scene->live_foundation;
+        primary = candidate_foundation.primary_actor;
+        receiver = candidate_foundation.candidate_actor_by_side[
+            candidate_foundation.offense_side];
+        for (int scan = 9; scan >= 0; --scan) {
+            if ((uint8_t)scan != primary &&
+                (uint8_t)scan != candidate_foundation.defender_actor &&
+                (uint8_t)scan != receiver) {
+                ordinary_actor = (uint8_t)scan;
+                break;
+            }
+        }
+        if (primary != scene->ball_holder || receiver >= 10U ||
+            receiver == primary || ordinary_actor >= 10U ||
+            scene->actors[receiver].team != scene->state.possession) {
+            LIVE_FAIL("LIVE opcode-23/6 pass actors unavailable");
+        }
+        for (actor = 0U; actor < 10U; ++actor) {
+            candidate_foundation.play_state.actor_state[actor] = 0x06U;
+            candidate_foundation.play_state.wait_counter[actor] = 0xFFU;
+            candidate_foundation.deferred[actor] = false;
+            candidate_foundation.deferred_reason[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+        }
+        candidate_foundation.play_state.actor_state[primary] = 0x04U;
+        candidate_foundation.play_state.wait_counter[primary] = 0U;
+        candidate_foundation.play_state.action_state_046e[primary] = 0U;
+        candidate_foundation.play_state.stream_offset[primary] = 0x017CU;
+        candidate_foundation.last_step_offset[primary] = 0x017CU;
+        candidate_foundation.play_state.actor_state[ordinary_actor] = 0x04U;
+        candidate_foundation.play_state.wait_counter[ordinary_actor] = 0U;
+        candidate_foundation.play_state.stream_offset[ordinary_actor] =
+            0x013BU;
+        candidate_foundation.last_step_offset[ordinary_actor] = 0x013BU;
+        scene->live_foundation = candidate_foundation;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
+            scene->live_foundation.play_state.stream_offset[primary] !=
+                0x0181U ||
+            scene->live_foundation.play_state.actor_state[primary] != 0x04U ||
+            scene->live_foundation.play_state.action_state_046e[primary] !=
+                0x18U ||
+            !scene->live_foundation.source_direction_valid[primary] ||
+            scene->live_foundation.source_direction[primary] != 2U ||
+            scene_pass_active(scene)) {
+            LIVE_FAIL("LIVE opcode-5 pass-stream entry failed");
+        }
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
+            scene->live_foundation.play_state.stream_offset[primary] !=
+                0x0186U ||
+            scene->live_foundation.play_state.actor_state[primary] != 0x04U ||
+            scene->live_foundation.play_state.action_state_046e[primary] !=
+                0x19U || scene_pass_active(scene)) {
+            LIVE_FAIL("LIVE opcode-9 pass-stream cadence failed");
+        }
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
+            scene->live_foundation.play_state.stream_offset[primary] !=
+                0x018BU ||
+            scene->live_foundation.play_state.actor_state[primary] != 0x06U ||
+            scene->live_foundation.play_state.wait_counter[primary] != 6U ||
+            scene_pass_active(scene)) {
+            LIVE_FAIL("LIVE opcode-3 pass-stream wait seed failed");
+        }
+        for (uint8_t wait = 5U;; --wait) {
+            memset(&no_shot, 0, sizeof(no_shot));
+            if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
+                scene->live_foundation.play_state.stream_offset[primary] !=
+                    0x018BU ||
+                scene->live_foundation.play_state.wait_counter[primary] !=
+                    wait ||
+                scene->live_foundation.play_state.actor_state[primary] !=
+                    (wait == 0U ? 0x04U : 0x06U) ||
+                scene_pass_active(scene)) {
+                LIVE_FAIL("LIVE pass-stream wait cadence failed");
+            }
+            if (wait == 0U) break;
+        }
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
+            scene->live_foundation.play_state.stream_offset[primary] !=
+                0x0190U ||
+            scene->live_foundation.play_state.action_state_046e[primary] !=
+                0x19U || scene_pass_active(scene)) {
+            LIVE_FAIL("LIVE opcode-23 predecessor timing failed");
+        }
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
+            scene->live_foundation.play_state.stream_offset[primary] !=
+                0x0190U ||
+            scene->live_foundation.play_state.actor_state[primary] != 0x04U ||
+            scene->live_foundation.play_state.action_state_046e[primary] !=
+                0x10U || scene_pass_active(scene) ||
+            !scene->live_foundation.deferred[ordinary_actor] ||
+            scene->live_foundation.deferred_reason[ordinary_actor] !=
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_ACTOR_046E_PROBE ||
+            scene->live_foundation.play_state.stream_offset[ordinary_actor] !=
+                0x013BU) {
+            LIVE_FAIL("LIVE opcode-6 pending pass timing failed");
+        }
+        {
+            TecmoGameplayScene failed = *scene;
+            TecmoGameplayScene before_failed;
+            failed.actors[receiver].team =
+                (uint8_t)(1U - failed.state.possession);
+            before_failed = failed;
+            memset(&no_shot, 0, sizeof(no_shot));
+            if (scene_update_ai(&failed, &no_shot) ||
+                memcmp(&failed, &before_failed, sizeof(failed)) != 0) {
+                LIVE_FAIL("LIVE opcode-6 malformed receiver was not atomic");
+            }
+        }
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
+            scene->pass_state.phase != TECMO_GAMEPLAY_SCENE_PASS_GATHER ||
+            scene->pass_state.packed_animation_state != 0x32U ||
+            scene->pass_state.passer != primary ||
+            scene->pass_state.receiver != receiver ||
+            scene->pass_state.controller != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+            scene->live_foundation.play_state
+                    .action_state_046e[primary] != 0x0FU ||
+            scene->live_foundation.play_state.actor_state[receiver] != 0x0CU ||
+            scene->live_foundation.play_state.stream_offset[primary] !=
+                0x0190U) {
+            LIVE_FAIL("LIVE opcode-6 automatic pass gather failed");
+        }
+
+        /* The same parked record is unavailable when the possessing side has
+           a human controller; it cannot manufacture an automatic pending. */
+        if (!tecmo_gameplay_scene_launch(scene, &bound) ||
+            !scene_handoff_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+            !scene_sync_live_foundation(scene)) {
+            LIVE_FAIL("LIVE opcode-6 human exclusion setup rejected");
+        }
+        primary = scene->live_foundation.primary_actor;
+        scene->live_foundation.play_state.actor_state[primary] = 0x04U;
+        scene->live_foundation.play_state.wait_counter[primary] = 0U;
+        scene->live_foundation.play_state.action_state_046e[primary] = 0U;
+        scene->live_foundation.play_state.stream_offset[primary] = 0x0190U;
+        scene->live_foundation.last_step_offset[primary] = 0x0190U;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
+            scene->live_foundation.play_state.stream_offset[primary] !=
+                0x0190U ||
+            scene->live_foundation.play_state.action_state_046e[primary] ==
+                0x10U || scene_pass_active(scene)) {
+            LIVE_FAIL("LIVE opcode-6 human controller was admitted");
+        }
+    }
+
     /* Exact ordinary-LIVE opcode-10 ownership. Preview TGBC with the current
        ball snapshot: the stored state is deliberately zero at the boundary,
        yet the selector must see the just-established frontcourt bit without

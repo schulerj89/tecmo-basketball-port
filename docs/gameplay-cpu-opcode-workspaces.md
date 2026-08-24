@@ -36,6 +36,13 @@ The existing TGAI-3 asset already pins the broader Bank06 handler and Bank04
 command spans. The private-ROM runner adds only narrow provenance checks for
 the caller-local helper and `$BA` lifecycle that TGAI-3 does not claim to own.
 
+The adjacent automatic-pass chain is an executor/scene contract, not a new
+workspace in this module. Its exact records are opcode 5 at offset 380
+(`$A0AA`), opcode 23 at 395 (`$A0B9`), and opcode 6 at 400 (`$A0BE`). Tests
+park the selected-primary cursor at opcode 5 because the upstream play-selection
+route is not yet converted; they do not skip or claim natural reachability past
+the intervening opcode 9, opcode 3, or its six-update wait.
+
 Opcode 13 is an executor input contract rather than a workspace owned by this
 module. Bank06 `$9125-$9145` consumes persistent raw 16-bit words at
 `$038D:$038E` and `$038F:$0390`, subtracting actor X and zero-extended actor

@@ -99,13 +99,13 @@ static const uint8_t cpu_steering_effect_jumps[
    entries retain handler metadata and advance policy but defer their effect. */
 static const uint8_t cpu_steering_effect_exact[
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT] = {
-    1U,1U,1U,1U,1U,0U,0U,1U,0U,1U,1U,0U,
-    0U,1U,1U,0U,1U,1U,1U,1U,0U,1U,1U,0U
+    1U,1U,1U,1U,1U,1U,1U,1U,0U,1U,1U,0U,
+    0U,1U,1U,0U,1U,1U,1U,1U,0U,1U,1U,1U
 };
 
 static const uint8_t cpu_steering_effect_deferred[
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT] = {
-    0U,0U,0U,0U,0U,1U,1U,0U,1U,0U,0U,1U,
+    0U,0U,0U,0U,0U,0U,1U,0U,1U,0U,0U,1U,
     1U,0U,0U,1U,0U,0U,0U,0U,1U,0U,0U,1U
 };
 
@@ -961,6 +961,14 @@ const char *tecmo_gameplay_cpu_steering_deferred_reason_name(
         return "native-target-outside-court";
     case TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_GLOBAL_TARGET:
         return "missing-global-target";
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE6_CONTEXT:
+        return "missing-opcode6-context";
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE6_CONTROLLED_BRANCH:
+        return "opcode6-controlled-branch";
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE23_CONTEXT:
+        return "missing-opcode23-context";
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE23_CONTROLLED_BRANCH:
+        return "opcode23-controlled-branch";
     default:
         return "invalid-defer-reason";
     }
@@ -982,6 +990,19 @@ static int16_t play_clamp_int16(int32_t value)
     if (value < INT16_MIN) return INT16_MIN;
     if (value > INT16_MAX) return INT16_MAX;
     return (int16_t)value;
+}
+
+static bool play_opcode5_direction(uint8_t source_direction,
+                                   uint8_t orientation,
+                                   uint8_t *direction_out)
+{
+    static const uint8_t mirror[8U] = {1U,0U,2U,4U,3U,5U,7U,6U};
+    if (direction_out == NULL || source_direction >= 8U || orientation > 1U) {
+        return false;
+    }
+    *direction_out = orientation != 0U
+        ? mirror[source_direction] : source_direction;
+    return true;
 }
 
 static uint16_t play_next_offset(uint16_t offset, uint16_t amount)
@@ -1026,6 +1047,20 @@ play_missing_live_input_reason(
        handler mutates its play state: a valid zero remains distinct from an
        unavailable byte/workspace. */
     switch (command->opcode) {
+    case 6U:
+        if (!input->opcode6_context_available) {
+            return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE6_CONTEXT;
+        }
+        return input->opcode6_automatic
+            ? TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE
+            : TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE6_CONTROLLED_BRANCH;
+    case 23U:
+        if (!input->opcode23_context_available) {
+            return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE23_CONTEXT;
+        }
+        return input->opcode23_uncontrolled
+            ? TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE
+            : TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE23_CONTROLLED_BRANCH;
     case 0U:
     case 2U:
         /* $92CA consumes $BA after these handlers. */
@@ -1897,13 +1932,10 @@ bool tecmo_gameplay_cpu_steering_play_step(
                     TECMO_GAMEPLAY_CPU_STEERING_DEFER_INVALID_TARGET_OBJECT;
             }
             break;
-        case 5U:
-        case 6U:
         case 8U:
         case 11U:
         case 12U:
         case 20U:
-        case 23U:
             /* Their effect inputs are deferred because the contract does not
                carry the source RAM/workspace. The source-pinned transport is
                selected by the opcode-specific policy below; it is not implied
@@ -1911,6 +1943,35 @@ bool tecmo_gameplay_cpu_steering_play_step(
             result.deferred = true;
             result.deferred_reason =
                 TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS;
+            break;
+        case 5U: {
+            uint8_t direction;
+            if (!play_opcode5_direction(
+                    command.arguments[0U], input->orientation_035a,
+                    &direction)) {
+                return false;
+            }
+            /* `$8F92-$8FBC` also copies an external pose source into `$0458`;
+               that observation is not substituted into the typed play state. */
+            next_state.direction[actor] = direction;
+            next_state.actor_state[actor] = 0x04U;
+            next_state.action_state_046e[actor] = 0x18U;
+            break;
+        }
+        case 6U:
+            /* Automatic branch `$8F2D-$8F4C`: `$0743=0` and `$0588^=1`
+               remain unretained observations. The bounded writes are
+               object-slot-10 `$0478=$13` and current actor `$046E=$10`.
+               Source returns without advancing or changing actor state. */
+            next_state.action_state_046e[actor] = 0x10U;
+            result.opcode6_action10_written = true;
+            result.opcode6_object10_state_written = true;
+            result.opcode6_object10_state = 0x13U;
+            break;
+        case 23U:
+            /* `$8F72-$8F91` selected/uncontrolled ownership is zero, so the
+               handler reaches `$8FD9` without reading `$6A`, defender depth,
+               or writing direction. */
             break;
         case 13U: {
             uint16_t horizontal_delta = (uint16_t)(
@@ -2096,7 +2157,7 @@ bool tecmo_gameplay_cpu_steering_play_step(
             command.opcode != 7U && command.opcode != 15U &&
             command.opcode != 6U && command.opcode != 8U &&
             command.opcode != 10U && command.opcode != 12U &&
-            command.opcode != 20U && command.opcode != 23U &&
+            command.opcode != 20U &&
             command.opcode != 5U &&
              (command.opcode != 13U && command.opcode != 16U &&
              command.opcode != 0U && command.opcode != 2U ||
@@ -3519,7 +3580,19 @@ bool tecmo_gameplay_cpu_steering_self_test(
                "unimplemented-handler") != 0 ||
         strcmp(tecmo_gameplay_cpu_steering_deferred_reason_name(
                    TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_GLOBAL_TARGET),
-               "missing-global-target") != 0) {
+               "missing-global-target") != 0 ||
+        strcmp(tecmo_gameplay_cpu_steering_deferred_reason_name(
+                   TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE6_CONTEXT),
+               "missing-opcode6-context") != 0 ||
+        strcmp(tecmo_gameplay_cpu_steering_deferred_reason_name(
+                   TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE6_CONTROLLED_BRANCH),
+               "opcode6-controlled-branch") != 0 ||
+        strcmp(tecmo_gameplay_cpu_steering_deferred_reason_name(
+                   TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE23_CONTEXT),
+               "missing-opcode23-context") != 0 ||
+        strcmp(tecmo_gameplay_cpu_steering_deferred_reason_name(
+                   TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE23_CONTROLLED_BRANCH),
+               "opcode23-controlled-branch") != 0) {
         (void)snprintf(message, message_size,
                        "TGAI-3 deferred-reason names changed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
@@ -3786,6 +3859,190 @@ bool tecmo_gameplay_cpu_steering_self_test(
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
+
+    /* Opcode 5 begins the canonical pass stream. Pin its sole record and the
+       full orientation mirror, then prove canonical direction 2 is invariant
+       while unowned pose input remains untouched. */
+    if (!tecmo_gameplay_cpu_steering_decode_command(
+            &assets, 0x017CU, &command) || command.opcode != 5U ||
+        command.cpu_address != 0xA0AAU ||
+        memcmp(command.arguments,
+               (const uint8_t[4U]){2U,0U,0U,0U}, 4U) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-5 canonical record failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    for (uint8_t source_direction = 0U; source_direction < 8U;
+         ++source_direction) {
+        static const uint8_t mirror[8U] = {1U,0U,2U,4U,3U,5U,7U,6U};
+        uint8_t mirrored_direction;
+        if (!play_opcode5_direction(
+                source_direction, 0U, &mirrored_direction) ||
+            mirrored_direction != source_direction ||
+            !play_opcode5_direction(
+                source_direction, 1U, &mirrored_direction) ||
+            mirrored_direction != mirror[source_direction]) {
+            (void)snprintf(message, message_size,
+                           "TGAI-3 opcode-5 direction mirror failed.");
+            tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+            return false;
+        }
+    }
+    for (uint8_t orientation = 0U; orientation < 2U; ++orientation) {
+        if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+                &assets, 0U, &play_state)) {
+            tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+            return false;
+        }
+        play_state.stream_offset[0U] = 0x017CU;
+        play_state.actor_state[0U] = 0x04U;
+        play_state.pose[0U] = 0x5AU;
+        play_state.action[0U] = 0xA5U;
+        play_input.orientation_035a = orientation;
+        if (!tecmo_gameplay_cpu_steering_play_step(
+                &assets, &play_state, &play_input, &play_out, &play_result) ||
+            play_result.deferred || !play_result.advanced ||
+            play_result.next_offset != 0x0181U ||
+            play_out.actor_state[0U] != 0x04U ||
+            play_out.action_state_046e[0U] != 0x18U ||
+            play_out.direction[0U] != 2U ||
+            play_out.pose[0U] != 0x5AU || play_out.action[0U] != 0xA5U) {
+            (void)snprintf(message, message_size,
+                           "TGAI-3 opcode-5 canonical execution failed "
+                           "(o=%u defer=%u adv=%u next=%u state=%u a046e=%u "
+                           "dir=%u pose=%u action=%u).",
+                           (unsigned int)orientation,
+                           play_result.deferred ? 1U : 0U,
+                           play_result.advanced ? 1U : 0U,
+                           (unsigned int)play_result.next_offset,
+                           (unsigned int)play_out.actor_state[0U],
+                           (unsigned int)play_out.action_state_046e[0U],
+                           (unsigned int)play_out.direction[0U],
+                           (unsigned int)play_out.pose[0U],
+                           (unsigned int)play_out.action[0U]);
+            tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+            return false;
+        }
+    }
+    play_input.orientation_035a = 0U;
+
+    /* Opcode 23 is the sole source predecessor. The selected/uncontrolled
+       branch advances without sampling `$6A`, defender depth, or direction. */
+    if (!tecmo_gameplay_cpu_steering_decode_command(
+            &assets, 0x018BU, &command) || command.opcode != 23U ||
+        command.cpu_address != 0xA0B9U ||
+        memcmp(command.arguments,
+               (const uint8_t[4U]){0U,0U,0U,0U}, 4U) != 0 ||
+        !tecmo_gameplay_cpu_steering_play_state_initialize(
+            &assets, 0U, &play_state)) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-23 canonical record failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_state.stream_offset[0U] = 0x018BU;
+    play_state.actor_state[0U] = 0x04U;
+    play_state.direction[0U] = 3U;
+    play_before = play_state;
+    play_input.opcode23_context_available = false;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        !play_result.deferred || play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE23_CONTEXT ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-23 missing context transaction failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.opcode23_context_available = true;
+    play_input.opcode23_uncontrolled = false;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        !play_result.deferred || play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE23_CONTROLLED_BRANCH ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-23 controlled branch transaction failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.opcode23_uncontrolled = true;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.deferred || !play_result.advanced || play_result.jumped ||
+        play_result.next_offset != 0x0190U ||
+        play_out.stream_offset[0U] != 0x0190U ||
+        play_out.actor_state[0U] != 0x04U ||
+        play_out.direction[0U] != 3U) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-23 uncontrolled subset failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.opcode23_context_available = false;
+    play_input.opcode23_uncontrolled = false;
+
+    /* Opcode 6 has one exact record. Its controlled `$8F4D->$89DB` branch is
+       outside this executor; the automatic `$8F2D-$8F4C` subset retains the
+       cursor/state and writes only typed action/object-state results. */
+    if (!tecmo_gameplay_cpu_steering_decode_command(
+            &assets, 0x0190U, &command) || command.opcode != 6U ||
+        command.cpu_address != 0xA0BEU ||
+        memcmp(command.arguments,
+               (const uint8_t[4U]){0U,0U,0U,0U}, 4U) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-6 canonical record failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_state.stream_offset[0U] = 0x0190U;
+    play_state.actor_state[0U] = 0x04U;
+    play_before = play_state;
+    play_input.opcode6_context_available = false;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        !play_result.deferred || play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE6_CONTEXT ||
+        play_result.advanced ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-6 missing context transaction failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.opcode6_context_available = true;
+    play_input.opcode6_automatic = false;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        !play_result.deferred || play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE6_CONTROLLED_BRANCH ||
+        play_result.advanced ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-6 controlled branch transaction failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.opcode6_automatic = true;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.deferred || play_result.advanced || play_result.jumped ||
+        play_result.next_offset != 0x0190U ||
+        play_out.stream_offset[0U] != 0x0190U ||
+        play_out.actor_state[0U] != 0x04U ||
+        play_out.action_state_046e[0U] != 0x10U ||
+        !play_result.opcode6_action10_written ||
+        !play_result.opcode6_object10_state_written ||
+        play_result.opcode6_object10_state != 0x13U) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-6 automatic subset failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.opcode6_context_available = false;
+    play_input.opcode6_automatic = false;
 
     /* A non-goto handler consumes one native tick even when the caller gives
        it a larger budget. */
@@ -4582,9 +4839,10 @@ bool tecmo_gameplay_cpu_steering_self_test(
         return false;
     }
 
-    /* Deferred pose/target effects preserve their exact transport. */
-    for (size_t index = 0U; index < 3U; ++index) {
-        static const uint8_t deferred_opcodes[3] = {5U,20U,23U};
+    /* The remaining unconditionally deferred target effect preserves its
+       source transport. Opcodes 5 and 23 now have bounded exact subsets. */
+    for (size_t index = 0U; index < 1U; ++index) {
+        static const uint8_t deferred_opcodes[1] = {20U};
         uint8_t deferred_opcode = deferred_opcodes[index];
         if (!tecmo_gameplay_cpu_steering_play_state_initialize(
                 &assets, 0U, &play_state)) {
