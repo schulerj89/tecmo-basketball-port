@@ -2631,6 +2631,7 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             "\"cpu_auto_pass_stream\":{\"proved\":%s,"
             "\"checkpoint\":%u,\"fixture\":{"
             "\"selected_cursor\":\"parked at canonical $017C\","
+            "\"selected_initial\":{\"state\":4,\"wait\":0,\"action\":0},"
             "\"other_actors\":\"suspended at state6/waitFF for proof isolation\","
             "\"production_play_selection\":false},"
             "\"upstream_play_selection_claimed\":false,"
