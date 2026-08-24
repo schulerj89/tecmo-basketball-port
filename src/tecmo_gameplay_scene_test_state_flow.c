@@ -8082,6 +8082,7 @@ static bool scene_test_live_foundation_regressions(
        playback/classification seam stay explicitly classified. */
     {
         TecmoGameplaySceneLaunch close_shot_launch = bound;
+        TecmoGameplaySceneA023LatchFrameContext shot_gate_context;
         TecmoControlFrame repeat_p1;
         TecmoControlFrame repeat_p2;
         TecmoGameplayCourtCoordinate close_position;
@@ -8123,6 +8124,37 @@ static bool scene_test_live_foundation_regressions(
             shot_request.requested ||
             broken.live_foundation.last_shot_request) {
             LIVE_FAIL("LIVE exact $8545 metric boundary was not applied");
+        }
+        /* Bank05 `$B783->$A023` has already moved slot 10 away from state
+           zero before Bank06 `$842E` runs.  Pass settlement can make every
+           high-level LIVE lifecycle look ordinary in that same update, so
+           the exact A023 producer must still suppress the `$0478==0` gate. */
+        memset(&shot_gate_context, 0, sizeof(shot_gate_context));
+        shot_gate_context.contract_tag =
+            TECMO_GAMEPLAY_SCENE_A023_LATCH_FRAME_CONTEXT_TAG;
+        shot_gate_context.available = true;
+        shot_gate_context.latch.contract_tag =
+            TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_TAG;
+        shot_gate_context.latch.valid = true;
+        shot_gate_context.latch.producer_kind =
+            TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B783;
+        shot_gate_context.latch.target.x =
+            (uint16_t)scene->actors[0U].position.x;
+        shot_gate_context.latch.target.depth =
+            (uint16_t)(uint8_t)scene->actors[0U].position.y;
+        shot_gate_context.latch.immediate_opcode20_actor_mask = 1U;
+        shot_gate_context.latch.b783_bit20_clear_follows_assignment = true;
+        broken = *scene;
+        if (!tecmo_gameplay_scene_bind_a023_latch_frame_context(
+                &broken, &shot_gate_context)) {
+            LIVE_FAIL("LIVE exact $0478 shot-gate context bind rejected");
+        }
+        memset(&shot_request, 0, sizeof(shot_request));
+        if (!scene_update_ai(&broken, &shot_request) ||
+            shot_request.requested ||
+            broken.live_foundation.last_shot_request ||
+            broken.a023_latch_frame_context.available) {
+            LIVE_FAIL("LIVE exact nonzero $0478 shot gate was not applied");
         }
         action_before = scene->action_serial;
         memset(&shot_request, 0, sizeof(shot_request));

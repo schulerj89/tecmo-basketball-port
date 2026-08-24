@@ -3303,7 +3303,10 @@ static bool scene_cpu_shot_input(
     const TecmoGameplaySceneOpcode10FrameContext *context;
     uint16_t metric;
     if (scene == NULL || foundation == NULL || player == NULL ||
-        input == NULL || !foundation->shot_metric_8545_valid) {
+        input == NULL || !foundation->shot_metric_8545_valid ||
+        !scene_cpu_common_tail_has_ordinary_live_zero(scene) ||
+        scene_cpu_a023_latch_context_valid(
+            &scene->a023_latch_frame_context)) {
         return false;
     }
     context = &scene->opcode10_frame_context;
@@ -3316,7 +3319,12 @@ static bool scene_cpu_shot_input(
     }
     memset(input, 0, sizeof(*input));
     input->contract_tag = TECMO_GAMEPLAY_CPU_STEERING_SHOT_INPUT_TAG;
-    /* State/gate zero is the supported ordinary live-action mapping.
+    /* Bank05's ordinary-LIVE seam proves `$BA==0` and slot-10 state zero.
+       A same-frame B721/B783 assignment is deliberately excluded above:
+       `$A214` has already changed `$0478` to state `$10`/its active caller
+       state before Bank06 reaches `$842E`, even when pass settlement has made
+       the high-level scene look idle again.  Therefore these zeroes are exact
+       source values, not zero-initializer fallbacks.
        `$9DF6` owns persistent absolute X/depth components and `$8545` reduces
        them to max+min/2; the live foundation stores that exact reduced word.
        Fixed-frame capture supplies exact pre-movement `$0798`, `$075F`,
@@ -4209,6 +4217,8 @@ bool scene_update_ai(
     if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
         !scene_team_has_controller(scene, scene->state.possession) &&
         !candidate_foundation.score_restart_selection_active &&
+        scene_cpu_common_tail_has_ordinary_live_zero(scene) &&
+        !scene_cpu_a023_latch_context_valid(&candidate_a023_context) &&
         candidate_opcode10_context.available &&
         candidate_foundation.shot_metric_8545_valid &&
         !candidate_actors[scene->ball_holder].movement_boundary_latched) {
