@@ -540,15 +540,17 @@ captures object-10 from the pre-shot Q8 ball snapshot, calls tagged `$C05D`
 sites `$9FA1` then `$A0DD` at MISS release, performs no launch tick there, and
 first integrates on frame 3. Raw planar state is authoritative downstream;
 rendered flight remains presentation-only until altitude composition is owned.
+Pass flight separately calls tagged `$C05D` from `$B13F` after any substep
+whose exact proximity/difficulty threshold admits the second rating check.
 
 TGFR-1 pins fixed `$CD7A-$CD7F`, `$CD8F-$CD95`, and `$CD96-$CDAB`. It is a
 one-shot native LIVE continuity checkpoint seeded at accepted PRETIP handoff,
 not a claim that PRETIP reproduces the canonical earlier global stream.
 Rejected scene updates restore RNG bytes and serials byte-exactly.
-Exact call-edge anchors cover Bank05 `$A0DD-$A0DF` (`JSR $C05D`) and fixed
-`$C05D-$C05F` (`JMP $CD96`). The broader LIVE `$C05D` call ledger remains
-noncanonical, so captured shot `$006A` is a bounded native stream, not a claim
-of canonical global RNG parity.
+Exact call-edge anchors cover Bank05 `$A0DD-$A0DF` and pass `$B13F-$B1B8`
+(`JSR $C05D` at `$B186`), plus fixed `$C05D-$C05F` (`JMP $CD96`). Other
+LIVE `$C05D` callers remain outside this bounded ledger, so captured `$006A`
+is a bounded native stream, not a claim of canonical global RNG parity.
 
 Production automatic-pass selection now enters from made-score restart:
 Bank05 `$901F` state 1 reaches Bank06 `$8661-$8727`, publishes the selected

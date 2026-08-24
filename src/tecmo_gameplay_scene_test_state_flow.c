@@ -3174,6 +3174,7 @@ static bool scene_test_live_foundation_regressions(
         size_t pass_updates;
         TecmoGameplayScene postcatch_scene;
         TecmoGameplayScene airborne_ordered;
+        TecmoGameplayScene interception_scene;
 
         /* Bank05 $BD6E-$BDC6 exact uint16 accumulation/Q10.6 extraction.
            Include captured-shape values, carry, wrap, and a high-byte $FF
@@ -3397,6 +3398,56 @@ static bool scene_test_live_foundation_regressions(
             LIVE_FAIL("LIVE CPU pass terminal flight frame unavailable");
         }
         before = *scene;
+        /* Here it is: place the exact selected defender on the next B500
+           intermediate coordinate and force the two source RNG comparisons
+           to zero. B13F must settle through BA8C->B87C on the first of the
+           four substeps, not wait for the receiver catch. */
+        interception_scene = before;
+        {
+            uint8_t defender = interception_scene.live_foundation
+                .defender_actor;
+            uint16_t next_x_q6 = (uint16_t)(
+                interception_scene.pass_state.source_x_q6 +
+                (uint16_t)interception_scene.pass_state
+                    .source_velocity_x_q6);
+            uint16_t next_depth_q6 = (uint16_t)(
+                interception_scene.pass_state.source_depth_q6 +
+                (uint16_t)interception_scene.pass_state
+                    .source_velocity_depth_q6);
+            uint32_t claimant_serial = interception_scene
+                .claimant_settlement_trace.event_serial;
+            uint32_t c05d_serial = interception_scene.fixed_rng.c05d_serial;
+            if (defender >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+                LIVE_FAIL("LIVE pass B13F defender fixture missing");
+            }
+            interception_scene.actors[defender].position.x =
+                (int16_t)(next_x_q6 >> 6U);
+            interception_scene.actors[defender].position.y =
+                (int16_t)(uint8_t)(next_depth_q6 >> 6U);
+            interception_scene.actors[defender].anchor =
+                interception_scene.actors[defender].position;
+            interception_scene.launch.difficulty = 2U;
+            interception_scene.fixed_rng.raw_006a = 0U;
+            interception_scene.fixed_rng.raw_0053 = 0U;
+            if (!scene_sync_live_foundation(&interception_scene) ||
+                !scene_pass_state_valid(&interception_scene) ||
+                !scene_update_pass(&interception_scene) ||
+                scene_pass_active(&interception_scene) ||
+                interception_scene.ball_holder != defender ||
+                interception_scene.state.possession !=
+                    (TecmoGameplayTeam)
+                        interception_scene.actors[defender].team ||
+                !interception_scene.claimant_settlement_trace.valid ||
+                interception_scene.claimant_settlement_trace.event_serial !=
+                    (claimant_serial == UINT32_MAX
+                         ? 1U : claimant_serial + 1U) ||
+                interception_scene.fixed_rng.c05d_serial !=
+                    c05d_serial + 1U ||
+                interception_scene.fixed_rng.last_callsite !=
+                    TECMO_GAMEPLAY_FIXED_RNG_CALL_B13F) {
+                LIVE_FAIL("LIVE pass B13F production interception failed");
+            }
+        }
         /* Force a source-valid airborne terminal frame so state $18's
            B7F7->B678 path is exercised even when this short fixture's normal
            B6B1 arc has already grounded. The first state-18 update must use

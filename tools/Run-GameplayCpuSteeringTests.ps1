@@ -493,9 +493,9 @@ try {
                 'raw \$0463.*\$006A.*remap.*separate' -and
             $Map.opcode13_global_latch_contract.a0f3_launch_solver.asset_dependency -match
                 'sanitized TGJS.*no ROM bytes' -and
-            @($Map.opcode13_global_latch_contract.fixed_rng_live_checkpoint.anchors).Count -eq 5 -and
+            @($Map.opcode13_global_latch_contract.fixed_rng_live_checkpoint.anchors).Count -eq 6 -and
             $Map.opcode13_global_latch_contract.fixed_rng_live_checkpoint.ordering -match
-                'NMI tick.*\$9FA1.*\$A0DD' -and
+                'NMI tick.*\$9FA1.*\$A0DD.*\$B13F' -and
             $Map.opcode13_global_latch_contract.fixed_rng_live_checkpoint.parity_boundary -match
                 'call ledger remains noncanonical.*bounded native stream' -and
             $Map.opcode15_source_contract.scope -eq

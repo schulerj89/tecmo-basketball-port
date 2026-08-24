@@ -82,12 +82,23 @@ passes share one actor-neutral transport rather than teleporting possession:
 
 The former Q8 linear interpolation adapter is removed. Production flight uses
 the exact `$B42F/$BCF4/$9A69`, four-`$B500` Q10.6, and `$B6B1/$B678` height
-contracts. `tools/Run-GameplayPassTrajectoryTests.ps1` pins seven decoded
-Bank05 spans, exhaustively validates all 256 `$BBA1` bytes, and rejects 263
-independent source mutations; the scene suite covers table boundaries,
-four-step state, and airborne state-18 gravity. General pass desirability,
-`$B13F` interception/contact semantics, and the complete Bank06 inbound
-formation route remain deferred/fail-closed.
+contracts. `tools/Run-GameplayPassTrajectoryTests.ps1` pins 11 decoded
+Bank02/Bank05 spans, exhaustively validates all 256 `$BBA1` bytes and all 24
+`$B1B9` bytes, and rejects 291 independent source mutations; the scene suite
+covers table boundaries,
+four-step state, and airborne state-18 gravity.
+
+`$B13F` now runs after every one of those four substeps. It uses exact
+`$9E0A->$A184` `max+min/2` proximity `<8`, the 24-byte `$B1B9` difficulty
+table, preseason/season `$075F/$0760`, automatic-defense `$18` subtraction,
+the live TGFR `$6A->$C05D->$6A` pair, and TTDT profile byte 4 loaded to
+`$0533` by Bank02 `$A8CC-$A8D0`. Success clears the pass and reaches the
+existing transactional `$BA8C->$B87C` claimant settlement with the selected
+defender. `$B074`'s exact direction/long-duration/random `$07E9` inhibit is
+retained, so excluded passes never over-enable interception. The focused
+source gate now pins 11 spans, both complete tables, and rejects 291 source
+mutations. General pass desirability and the complete Bank06 inbound formation
+route remain deferred/fail-closed.
 The exact `$96B6` automatic lifecycle invariant is closed, while its route
 branch remains approximate. Opcode 21 now owns `$058A/$0357/$0358` through
 typed scene clocks but approximates unowned `$007E` bit 1 as clear.

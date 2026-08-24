@@ -9,7 +9,8 @@
 
 typedef enum TecmoGameplayFixedRngCallsite {
     TECMO_GAMEPLAY_FIXED_RNG_CALL_9FA1 = 1,
-    TECMO_GAMEPLAY_FIXED_RNG_CALL_A0DD = 2
+    TECMO_GAMEPLAY_FIXED_RNG_CALL_A0DD = 2,
+    TECMO_GAMEPLAY_FIXED_RNG_CALL_B13F = 3
 } TecmoGameplayFixedRngCallsite;
 
 typedef struct TecmoGameplayFixedRng {

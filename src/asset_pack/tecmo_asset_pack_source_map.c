@@ -2237,7 +2237,7 @@ static int append_gameplay_movement_source_map_entry(
         "\"transactional\":true,\"overflow_rejected\":true},"
         "\"live_adapter\":{"
         "\"scope\":\"ordinary user-controlled and TGAI-directed CPU locomotion\","
-        "\"rating\":\"TTDT-1 selected roster profile byte 0\","
+        "\"rating\":\"Bank02 $A8CC-$A8D0 selected TTDT roster profile byte 4 -> $0533\","
         "\"condition\":\"TGFT-1 evolves TTDT-1 fresh condition/capacity and supplies the next update\","
         "\"object_state\":0,\"movement_flags\":0,"
         "\"contradictory_axis_input\":\"normalized to neutral on that axis\","
@@ -2518,8 +2518,8 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "\"asset_dependency\":\"sanitized TGJS distance-table source BDF7-BEF6; no ROM bytes embedded\","
         "\"production_boundary\":\"raw planar motion is authoritative for downstream rattle/A8E9/A9DA and initializes the persistent A0F3 global-target write; A7A9/A790 and A9DA overwrite it in source order; active shots run controlled and descending 9->0 CPU off-ball movement with traced BA-low2 admission after A790\"},"
         "\"fixed_rng_live_checkpoint\":{\"scope\":\"native LIVE continuity checkpoint; PRETIP is not claimed as canonical global stream\","
-        "\"anchors\":[\"fixed $CD7A-$CD7F NMI call order\",\"fixed $CD8F-$CD95 counter\",\"fixed $CD96-$CDAB mixer\",\"Bank05 $A0DD-$A0DF JSR $C05D\",\"fixed $C05D-$C05F JMP $CD96\"],"
-        "\"ordering\":\"one transactional NMI tick per accepted bound LIVE scene frame; ordinary MISS release calls tagged $9FA1 then $A0DD\","
+        "\"anchors\":[\"fixed $CD7A-$CD7F NMI call order\",\"fixed $CD8F-$CD95 counter\",\"fixed $CD96-$CDAB mixer\",\"Bank05 $A0DD-$A0DF JSR $C05D\",\"Bank05 $B13F-$B1B8 pass interception including $B186 JSR $C05D\",\"fixed $C05D-$C05F JMP $CD96\"],"
+        "\"ordering\":\"one transactional NMI tick per accepted bound LIVE scene frame; ordinary MISS release calls tagged $9FA1 then $A0DD; admitted pass substeps call tagged $B13F\","
         "\"rollback\":\"rejected scene update restores RNG bytes/serials\","
         "\"parity_boundary\":\"LIVE $C05D call ledger remains noncanonical; shot raw $006A is a bounded native stream, not canonical global parity\"},"
         "\"missing_live_owners\":[\"$9F2F interaction predecessor and $A0DD target construction\",\"$A214 states other than bound state10 B721, state17 B783, and pass state18 B7B6\"]},"
@@ -3085,7 +3085,7 @@ static int append_gameplay_actor_command_assignment_source_map_entry(
         "\"pass_state18_trajectory\":{\"production_owner\":true,"
         "\"planar\":\"exact $B42F/$BCF4/$9A69 plus four $B500/$BD6E substeps\","
         "\"height\":\"exact $B6B1 flight gravity $12 and $B678 state18 gravity $28\","
-        "\"source_gate\":\"Run-GameplayPassTrajectoryTests: Rev1 SHA, seven FNV spans, exhaustive BBA1 table, 263 mutations\"},"
+        "\"source_gate\":\"Run-GameplayPassTrajectoryTests: Rev1 SHA, 11 FNV spans, exhaustive BBA1/B1B9 tables, 291 mutations\"},"
         "\"runtime_inputs\":\"strict TGCA-1 plus typed LIVE state10/state17/pass-state18 production owners; interaction remains fixture-only; no ROM, decompilation, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}",
         (unsigned)TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_RAW_SIZE,
         (unsigned)

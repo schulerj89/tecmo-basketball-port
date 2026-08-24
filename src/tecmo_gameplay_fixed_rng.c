@@ -29,7 +29,7 @@ static bool rng_valid(const TecmoGameplayFixedRng *state)
            state->serial != 0U &&
            (uint64_t)state->serial ==
                (uint64_t)state->nmi_serial + state->c05d_serial + 1U &&
-           state->last_callsite <= TECMO_GAMEPLAY_FIXED_RNG_CALL_A0DD;
+           state->last_callsite <= TECMO_GAMEPLAY_FIXED_RNG_CALL_B13F;
 }
 
 bool tecmo_gameplay_fixed_rng_valid(const TecmoGameplayFixedRng *state)
@@ -80,7 +80,7 @@ bool tecmo_gameplay_fixed_rng_c05d(
     TecmoGameplayFixedRng candidate;
     if (!rng_valid(state) || raw_006a_out == NULL ||
         callsite < TECMO_GAMEPLAY_FIXED_RNG_CALL_9FA1 ||
-        callsite > TECMO_GAMEPLAY_FIXED_RNG_CALL_A0DD ||
+        callsite > TECMO_GAMEPLAY_FIXED_RNG_CALL_B13F ||
         state->serial == UINT32_MAX || state->c05d_serial == UINT32_MAX ||
         ranges_overlap(state, sizeof(*state), raw_006a_out,
                        sizeof(*raw_006a_out))) return false;
@@ -137,6 +137,10 @@ bool tecmo_gameplay_fixed_rng_self_test(char *message, size_t message_size)
         memcmp(&state, &before, sizeof(state)) != 0) goto fail;
     memset(&state, 0, sizeof(state));
     if (!tecmo_gameplay_fixed_rng_live_checkpoint(&state, 1U, 2U, 3U))
+        goto fail;
+    if (!tecmo_gameplay_fixed_rng_c05d(
+            &state, TECMO_GAMEPLAY_FIXED_RNG_CALL_B13F, &output) ||
+        state.last_callsite != TECMO_GAMEPLAY_FIXED_RNG_CALL_B13F)
         goto fail;
     before = state;
     if (tecmo_gameplay_fixed_rng_live_checkpoint(&state, 4U, 5U, 6U) ||

@@ -110,6 +110,9 @@ typedef struct TecmoGameplayScenePassState {
        selected/candidate roles at launch; $0308 remains the passer until
        the genuine Bank05 $B24F catch. */
     bool receiver_locked;
+    /* $B074's long-pass direction/RNG gate may seed nonzero $07E9, which
+       makes every per-substep $B13F interception check return immediately. */
+    bool interception_inhibited;
     /* STATE18 reuses these otherwise-zero bytes for the source `$6A` gate
        and the typed `$0499` high-altitude byte. */
     uint8_t reserved[2];

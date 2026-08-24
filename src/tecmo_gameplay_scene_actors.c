@@ -777,6 +777,129 @@ static void scene_pass_bank05_height_step(uint16_t *height_io,
     *velocity_io = (int16_t)velocity;
 }
 
+static uint16_t scene_pass_bank05_b13f_metric(uint16_t defender_x,
+                                               uint8_t defender_depth,
+                                               uint16_t ball_x,
+                                               uint8_t ball_depth)
+{
+    uint16_t absolute_x = defender_x >= ball_x
+        ? (uint16_t)(defender_x - ball_x)
+        : (uint16_t)(ball_x - defender_x);
+    uint16_t absolute_depth = defender_depth >= ball_depth
+        ? (uint16_t)(defender_depth - ball_depth)
+        : (uint16_t)(ball_depth - defender_depth);
+    uint16_t larger = absolute_x >= absolute_depth
+        ? absolute_x : absolute_depth;
+    uint16_t smaller = absolute_x >= absolute_depth
+        ? absolute_depth : absolute_x;
+    /* $9E0A supplies absolute planar deltas and $A184 combines them as
+       max + floor(min/2), preserving the 16-bit result. */
+    return (uint16_t)(larger + (smaller >> 1U));
+}
+
+static bool scene_pass_bank05_rate_bias(const TecmoGameplayScene *scene,
+                                        uint8_t *rate_out,
+                                        uint8_t *bias_out)
+{
+    if (scene == NULL || rate_out == NULL || bias_out == NULL) return false;
+    if (scene->launch.source == TECMO_GAMEPLAY_SCENE_PRESEASON) {
+        if (scene->launch.difficulty >= 3U) return false;
+        *rate_out = scene->launch.difficulty;
+        *bias_out = 0U;
+        return true;
+    }
+    if (scene->launch.source == TECMO_GAMEPLAY_SCENE_SEASON) {
+        *rate_out = 2U;
+        *bias_out = (uint8_t)(scene->launch.game_index >> 5U);
+        return true;
+    }
+    return false;
+}
+
+static bool scene_pass_bank05_try_interception(
+    TecmoGameplayScene *scene,
+    bool *intercepted_out)
+{
+    static const uint8_t threshold_table_b1b9[24U] = {
+        0x28U, 0x20U, 0x10U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U,
+        0x38U, 0x24U, 0x18U, 0x04U, 0x00U, 0x00U, 0x00U, 0x00U,
+        0x40U, 0x38U, 0x30U, 0x28U, 0x20U, 0x00U, 0x00U, 0x00U
+    };
+    TecmoGameplayScene candidate;
+    const TecmoTeamDataPlayer *defender_player;
+    uint8_t defender;
+    uint8_t rate;
+    uint8_t bias;
+    uint8_t metric;
+    uint16_t metric_word;
+    uint8_t threshold;
+    uint8_t next_random;
+    int32_t defender_x;
+    int32_t defender_depth;
+    int32_t ball_x;
+    int32_t ball_depth;
+    if (scene == NULL || intercepted_out == NULL ||
+        !scene_pass_active(scene) ||
+        scene->pass_state.phase != TECMO_GAMEPLAY_SCENE_PASS_FLIGHT ||
+        scene->legacy_direct_launch) return false;
+    *intercepted_out = false;
+    /* Ordinary live pass ownership proves source $05A1==0. A nonzero $07E9
+       seed is retained explicitly from B074 and returns before proximity. */
+    if (scene->pass_state.interception_inhibited) return true;
+    defender = scene->live_foundation.defender_actor;
+    if (defender >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        defender == scene->pass_state.passer ||
+        defender == scene->pass_state.receiver ||
+        scene->actors[defender].team == (uint8_t)scene->state.possession ||
+        (defender_player = scene_actor_player(
+            scene, &scene->actors[defender])) == NULL ||
+        !scene_pass_bank05_rate_bias(scene, &rate, &bias) ||
+        !tecmo_gameplay_fixed_rng_valid(&scene->fixed_rng)) {
+        return false;
+    }
+    defender_x = scene->actors[defender].position.x;
+    defender_depth = scene->actors[defender].position.y;
+    ball_x = scene->ball_position.x_q8 / 256;
+    ball_depth = scene->ball_position.y_q8 / 256;
+    if (defender_x < 0 || defender_x > UINT16_MAX ||
+        defender_depth < 0 || defender_depth > UINT8_MAX ||
+        ball_x < 0 || ball_x > UINT16_MAX ||
+        ball_depth < 0 || ball_depth > UINT8_MAX) return false;
+    metric_word = scene_pass_bank05_b13f_metric(
+        (uint16_t)defender_x, (uint8_t)defender_depth,
+        (uint16_t)ball_x, (uint8_t)ball_depth);
+    if (metric_word >= 8U) return true;
+    metric = (uint8_t)metric_word;
+    threshold = (uint8_t)(
+        (uint8_t)(bias << 1U) +
+        threshold_table_b1b9[(size_t)rate * 8U + metric]);
+    if (threshold != 0U &&
+        scene->live_foundation.control_mode[
+            scene->live_foundation.defense_side] != 0U) {
+        if (threshold < 0x18U) return true;
+        threshold = (uint8_t)(threshold - 0x18U);
+    }
+    if (threshold < scene->fixed_rng.raw_006a) return true;
+    candidate = *scene;
+    if (!tecmo_gameplay_fixed_rng_c05d(
+            &candidate.fixed_rng, TECMO_GAMEPLAY_FIXED_RNG_CALL_B13F,
+            &next_random)) return false;
+    /* Bank02 $A8CC-$A8D0 copies profile byte 4 into actor-local $0533. */
+    if (defender_player->profile[4U] < next_random) {
+        scene->fixed_rng = candidate.fixed_rng;
+        return true;
+    }
+    scene_pass_clear(&candidate);
+    if (!scene_handoff_claimant_settlement(
+            &candidate, (TecmoGameplayTeam)candidate.actors[defender].team,
+            defender) || !scene_pass_state_valid(&candidate)) {
+        return false;
+    }
+    *scene = candidate;
+    *intercepted_out = true;
+    return true;
+}
+
 void scene_pass_clear(TecmoGameplayScene *scene)
 {
     if (scene == NULL) return;
@@ -797,7 +920,7 @@ bool scene_pass_state_valid(const TecmoGameplayScene *scene)
                pass->receiver == TECMO_GAMEPLAY_SCENE_NO_ACTOR &&
                pass->controller == TECMO_GAMEPLAY_SCENE_NO_ACTOR &&
                pass->packed_animation_state == 0U &&
-               !pass->receiver_locked &&
+               !pass->receiver_locked && !pass->interception_inhibited &&
                pass->reserved[0U] == 0U && pass->reserved[1U] == 0U &&
                pass->flight_frame == 0U && pass->flight_duration == 0U &&
                pass->start_position.x_q8 == 0 &&
@@ -843,7 +966,7 @@ bool scene_pass_state_valid(const TecmoGameplayScene *scene)
         return false;
     }
     if (pass->phase == TECMO_GAMEPLAY_SCENE_PASS_GATHER) {
-        return !pass->receiver_locked &&
+        return !pass->receiver_locked && !pass->interception_inhibited &&
                pass->flight_frame == 0U && pass->flight_duration == 0U &&
                pass->source_x_q6 == 0U && pass->source_depth_q6 == 0U &&
                pass->source_velocity_x_q6 == 0 &&
@@ -1220,6 +1343,16 @@ bool scene_update_pass(TecmoGameplayScene *scene)
                 !scene_pass_bank05_launch_trajectory(pass)) {
                 return false;
             }
+            /* $B0B4-$B0E5 seeds nonzero $07E9 only for long passes moving
+               in the orientation-selected horizontal direction while the
+               live random byte is below $14. The later direction-state read
+               changes 1 to 2 but cannot change B13F's zero/nonzero gate. */
+            pass->interception_inhibited =
+                (((uint16_t)pass->source_velocity_x_q6 >> 8U) & 0x80U) ==
+                    (candidate.orientation_state.attack_direction == 0U
+                         ? 0x80U : 0x00U) &&
+                candidate.fixed_rng.raw_006a < 0x14U &&
+                pass->source_duration_remaining >= 0x0078U;
             pass->receiver_locked = true;
             pass->phase = TECMO_GAMEPLAY_SCENE_PASS_FLIGHT;
         }
@@ -1237,6 +1370,7 @@ bool scene_update_pass(TecmoGameplayScene *scene)
        intermediate coordinate here makes that later owner insertion local. */
     for (substep = 0U; substep < TECMO_GAMEPLAY_PASS_PLANAR_SUBSTEPS;
          ++substep) {
+        bool intercepted;
         uint16_t raw_x;
         uint8_t raw_depth;
         if (pass->source_duration_remaining == 0U ||
@@ -1249,6 +1383,15 @@ bool scene_update_pass(TecmoGameplayScene *scene)
         --pass->source_duration_remaining;
         candidate.ball_position.x_q8 = (int32_t)raw_x * 256;
         candidate.ball_position.y_q8 = (int32_t)raw_depth * 256;
+        if (!scene_pass_bank05_try_interception(
+                &candidate, &intercepted)) return false;
+        if (intercepted) {
+            if (scene_pass_active(&candidate) ||
+                candidate.ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+                !scene_pass_state_valid(&candidate)) return false;
+            *scene = candidate;
+            return true;
+        }
     }
     ++pass->flight_frame;
     if (pass->source_duration_remaining != 0U) {
@@ -3160,7 +3303,7 @@ static bool scene_cpu_shot_input(
        target delta is the exact scene holder-to-TGOR offensive hoop delta;
        timer_0798=1, timer_0760=shot clock, and random_byte=0 are deterministic
        native approximations because their original caller workspace is not
-       proven. TTDT profile[0] supplies the source-backed rating byte. */
+       proven. Bank02 $A8CC-$A8D0 proves that TTDT profile[4] supplies $0533. */
     input->state_0588 = 0U;
     input->flags_ba = 0U;
     delta = (int32_t)scene->orientation_state.offensive_hoop.x -
@@ -3173,7 +3316,7 @@ static bool scene_cpu_shot_input(
     input->timer_0798 = 1U;
     input->difficulty = scene->launch.difficulty;
     input->timer_0760 = scene->state.shot_clock;
-    input->rating_0533 = player->profile[0];
+    input->rating_0533 = player->profile[4];
     input->random_byte = 0U;
     return true;
 }

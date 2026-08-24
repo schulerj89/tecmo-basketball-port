@@ -378,6 +378,12 @@ bool scene_handoff_possession(TecmoGameplayScene *scene,
 bool scene_handoff_tip_possession(TecmoGameplayScene *scene,
                                   TecmoGameplayTeam possession,
                                   uint8_t holder);
+/* Exact Bank05 $B87C claimant settlement bridge shared by miss and pass
+   interception callers. */
+bool scene_handoff_claimant_settlement(
+    TecmoGameplayScene *scene,
+    TecmoGameplayTeam possession,
+    uint8_t claimant);
 bool scene_update_shot(TecmoGameplayScene *scene,
                        const TecmoControlFrame *shooting_controls);
 bool scene_update_jump_miss(

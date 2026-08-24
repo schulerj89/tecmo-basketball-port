@@ -1381,10 +1381,10 @@ bool scene_handoff_tip_possession(TecmoGameplayScene *scene,
 /* The source's $B87C entry is reached from the bounded claimant/collision
  * route, not from every possession-changing scene event. Keep the generic
  * scene ownership/orientation handoff separate, then apply the typed LIVE
- * $0308/$0309/$030A/$030B transaction only for the two miss claimant callers
- * below. The complete scene is staged so a malformed typed input rolls back
- * both layers together. */
-static bool scene_handoff_claimant_settlement(
+ * $0308/$0309/$030A/$030B transaction only for source-proven miss-claimant
+ * and pass-interception callers. The complete scene is staged so a malformed
+ * typed input rolls back both layers together. */
+bool scene_handoff_claimant_settlement(
     TecmoGameplayScene *scene,
     TecmoGameplayTeam possession,
     uint8_t claimant)

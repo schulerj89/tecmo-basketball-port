@@ -140,8 +140,9 @@ while `$BD6E-$BDC6` pins integrate-then-publish arithmetic. The explicit
 fixed `$CD7A-$CD7F/$CD8F-$CD95/$CD96-$CDAB`, checkpoints at accepted LIVE
 handoff, and rolls NMI back on rejected updates. This stream supplies the
 bounded frame-89 A9DA binding but does not claim canonical global RNG parity.
-`$A0DD-$A0DF` and `$C05D-$C05F` pin the translated call edges. Other LIVE
-`$C05D` callers remain unowned, so this shot stream is bounded native
+`$A0DD-$A0DF`, pass `$B13F-$B1B8`, and `$C05D-$C05F` pin the translated call
+edges; pass interception owns its `$B186` call. Other LIVE `$C05D` callers
+remain unowned, so this stream is bounded native
 continuity rather than canonical global RNG parity.
 
 ## What the harness proves
