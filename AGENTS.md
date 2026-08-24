@@ -1644,6 +1644,18 @@ solver owns incoming values. The intended eventual bridge is a typed
 save/temp/normalize/restore transaction around rim-rattle state, not a shadow
 motion reconstruction.
 
+TGLS-1 is the pure typed Bank05 `$A0F3-$A158` direct-launch solver. Keep raw
+`$0463` direction distinct from raw `$006A`; apply `$A15C` remap only when
+`$006A >= $40`. Load `$BDF7-$BEF6` only through the sanitized TGJS distance
+source and preserve `$B32C` wrapping duration/cap, `$80A9` signed division
+(including zero-divisor results), `$A0F3` quotient doubling, and raw16 Q6
+accumulator/tick order at `$BD6E-$BDC6`. `$006A` is the explicit second
+`$C05D` result following `$9FA1->$A0DD`, not an inferred RNG value. The
+non-legacy scene jump direction is proven to equal
+pre-remap `$0463`, but this helper must not bind LIVE scheduling or infer raw
+launch state from rendered positions. Exact anchors also cover `$B32C-$B390`,
+`$BCF4-$BD68`, `$BD6E-$BDC6`, `$80A9-$813D`, and `$A15C-$A183`.
+
 Opcode 20 has a source-exact bounded executor for Bank06 `$9032-$9052`. Its
 only records are `$000F` / CPU `$9F3D` and `$0019` / CPU `$9F47`, both
 `14 00 00 00 00` and each followed by a goto `$0000`. Reuse only the typed raw

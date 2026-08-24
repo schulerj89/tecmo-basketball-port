@@ -395,6 +395,15 @@ try {
         @{ label="Bank05 A8E9-A976 velocity normalizer"; bank=5; fixed=$false; start=0xA8E9; size=0x8E; hash="815E6881" },
         @{ label="Bank05 AA87-AA9E raw ASR helpers"; bank=5; fixed=$false; start=0xAA87; size=0x18; hash="6D37E9A0" }
     )
+    $A0f3LaunchAnchorSpans = @(
+        @{ label="Bank05 A0F3-A158 launch"; bank=5; fixed=$false; start=0xA0F3; size=0x66; hash="E0D639BE" },
+        @{ label="Bank05 B32C-B390 duration"; bank=5; fixed=$false; start=0xB32C; size=0x65; hash="D3DB4014" },
+        @{ label="Bank05 BCF4-BD68 projection"; bank=5; fixed=$false; start=0xBCF4; size=0x75; hash="A8A390BB" },
+        @{ label="Bank05 80A9-813D divider"; bank=5; fixed=$false; start=0x80A9; size=0x95; hash="9A20473A" },
+        @{ label="Bank05 A15C-A183 direction tables"; bank=5; fixed=$false; start=0xA15C; size=0x28; hash="56696FEF" },
+        @{ label="Bank05 BDF7-BEF6 lift LUT"; bank=5; fixed=$false; start=0xBDF7; size=0x100; hash="93FCF6CB" },
+        @{ label="Bank05 BD6E-BDC6 Q6 tick/publish"; bank=5; fixed=$false; start=0xBD6E; size=0x59; hash="3F4FB637" }
+    )
     # The first entry below is a separately copied raw helper. The remaining
     # handler/tail anchors overlap the retained command-handler source span;
     # they are semantic anchors, not additional copied source entries.
@@ -466,6 +475,13 @@ try {
             @($Map.opcode13_global_latch_contract.a8e9_velocity_normalizer.anchors).Count -eq 2 -and
             $Map.opcode13_global_latch_contract.a8e9_velocity_normalizer.orientation -match
                 '035A 0.*nonnegative.*1.*negative' -and
+            $Map.opcode13_global_latch_contract.a0f3_launch_solver.scope -eq
+                'pure typed direct-launch helper only; no LIVE binding' -and
+            @($Map.opcode13_global_latch_contract.a0f3_launch_solver.anchors).Count -eq 7 -and
+            $Map.opcode13_global_latch_contract.a0f3_launch_solver.direction -match
+                'raw \$0463.*\$006A.*remap.*separate' -and
+            $Map.opcode13_global_latch_contract.a0f3_launch_solver.asset_dependency -match
+                'sanitized TGJS.*no ROM bytes' -and
             $Map.opcode15_source_contract.scope -eq
                 'harness-only; LIVE opcode 15 remains deferred' -and
             $Map.opcode15_source_contract.dispatch.bank -eq 6 -and
@@ -1007,6 +1023,14 @@ try {
             throw "Canonical A8E9 velocity anchor changed at $($Span.label)."
         }
     }
+    foreach ($Span in $A0f3LaunchAnchorSpans) {
+        $Offset = $Prg + $Span.bank * 0x4000 + ($Span.start - 0x8000)
+        $Raw = New-Object byte[] ([int]$Span.size)
+        [Array]::Copy($RomBytes, $Offset, $Raw, 0, [int]$Span.size)
+        if ((Get-Fnv1a32 $Raw) -ne $Span.hash) {
+            throw "Canonical A0F3 launch anchor changed at $($Span.label)."
+        }
+    }
     $RomMutationCount = 0
     foreach ($Span in $ExpectedSpans) {
         $CpuBase = if ($Span.fixed) { 0xC000 } else { 0x8000 }
@@ -1172,11 +1196,31 @@ try {
         ++$A8e9VelocityRomMutationCount
     }
 
+    $A0f3LaunchRomMutationCount = 0
+    foreach ($Span in $A0f3LaunchAnchorSpans) {
+        $Offset = $Prg + $Span.bank * 0x4000 + ($Span.start - 0x8000)
+        $MutatedRom = Join-Path $Scratch `
+            ("rom-a0f3-launch-{0:X4}.nes" -f $Span.start)
+        $Bytes = [byte[]]$RomBytes.Clone()
+        $Bytes[$Offset] = $Bytes[$Offset] -bxor 1
+        [IO.File]::WriteAllBytes($MutatedRom, $Bytes)
+        $Output = @(& $Executable --gameplay-cpu-steering-source-test `
+            $MutatedRom 2>&1)
+        if ($LASTEXITCODE -eq 0 -or
+            ($Output -join [Environment]::NewLine) -notmatch
+                'TGAI-3 import requires the exact Rev1 ROM fingerprint') {
+            throw ("Rev1 A0F3 launch anchor at $($Span.label) was accepted.`n" +
+                "$(Get-ShortTail $Output)")
+        }
+        ++$RomMutationCount
+        ++$A0f3LaunchRomMutationCount
+    }
+
     Write-Host ("TGAI-3 focused tests passed: exact Rev1 importer and twelve " +
         "source spans plus eight lifecycle anchor/table spans, nine exact " +
         "regulation-entry spans, five auto-pass spans, and twelve opcode-15 " +
         "source/semantic-anchor spans, eight global-latch producer/reset/" +
-        "consumer anchors, five A9DA/AAB8/A993 spans, two A8E9 velocity spans, 680 aligned " +
+        "consumer anchors, five A9DA/AAB8/A993 spans, two A8E9 velocity spans, seven A0F3 launch spans, 680 aligned " +
         "commands, 24 handlers, eight exact " +
         "direction codes, deterministic ten-coordinate/context harness, " +
         "transactional TGMO direction/movement composition, " +
@@ -1186,7 +1230,8 @@ try {
         "$Opcode15RomMutationCount opcode-15; $AutoPassRomMutationCount " +
         "auto-pass; $GlobalLatchRomMutationCount global-latch; " +
         "$A9daAssignmentRomMutationCount A9DA assignment; " +
-        "$A8e9VelocityRomMutationCount A8E9 velocity), bounded live scene " +
+        "$A8e9VelocityRomMutationCount A8E9 velocity; " +
+        "$A0f3LaunchRomMutationCount A0F3 launch), bounded live scene " +
         "adapter enabled")
     $global:LASTEXITCODE = 0
 } finally {

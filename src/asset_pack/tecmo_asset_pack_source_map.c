@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define TECMO_ASSET_PACK_SOURCE_MAP_BASE_CAPACITY 135168U
+#define TECMO_ASSET_PACK_SOURCE_MAP_BASE_CAPACITY 137216U
 #define TECMO_ASSET_PACK_SOURCE_MAP_TGCA_CAPACITY 4096U
 
 static uint64_t source_map_prg_bank_cpu_source_offset(uint64_t prg_offset,
@@ -2507,6 +2507,14 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "\"orientation\":\"raw $035A 0 forces nonnegative vx; 1 forces negative vx\","
         "\"natural\":[\"FED7/FFEF -> 004B/FFFB\",\"FF65/FFC3 with $006A low E -> 003E/FFF0\"],"
         "\"production_boundary\":\"no source-shaped incoming launch velocity owner; never derive from lerped positions or synthetic sentinels; LIVE A9DA remains disabled\"},"
+        "\"a0f3_launch_solver\":{\"scope\":\"pure typed direct-launch helper only; no LIVE binding\","
+        "\"anchors\":[\"Bank05 $A0F3-$A158 FNV E0D639BE\",\"Bank05 $B32C-$B390 FNV D3DB4014\",\"Bank05 $BCF4-$BD68 FNV A8A390BB\",\"Bank05 $80A9-$813D FNV 9A20473A\",\"Bank05 $A15C-$A183 FNV 56696FEF\",\"Bank05 $BDF7-$BEF6 FNV 93FCF6CB\",\"Bank05 $BD6E-$BDC6 FNV 3F4FB637\"],"
+        "\"direction\":\"raw $0463 0..7; if $006A>=$40 apply $A15C remap; $006A remains a separate input\","
+        "\"duration\":\"BDF7[current depth]; horizontal abs<$20 uses lift, otherwise wrapping (abs+lift)>>1; cap high/non-low<$3D to $003C\","
+        "\"division\":\"signed numerator times 64 over unsigned duration, truncation toward zero and exact zero-divisor saturation; A0F3 wrapping doubles quotient\","
+        "\"motion\":\"raw16 Q6 accumulators seed from current object10 X/depth; typed tick integrates then publishes\","
+        "\"asset_dependency\":\"sanitized TGJS distance-table source BDF7-BEF6; no ROM bytes embedded\","
+        "\"production_boundary\":\"scene jump-direction mapping is proven separately but deliberately unbound here; launch scheduling and incoming owner remain missing\"},"
         "\"missing_live_owners\":[\"$A0DD object scheduler\",\"$A790 events\",\"$A9DA workspace/scheduling\",\"$A214 gates\",\"opcode15\"]},"
         "\"opcode15_source_contract\":{"
         "\"scope\":\"harness-only; LIVE opcode 15 remains deferred\","

@@ -110,6 +110,7 @@ $Sources = @(
     "src\tecmo_gameplay_cpu_global_latch.c",
     "src\tecmo_gameplay_cpu_a9da_assignment.c",
     "src\tecmo_gameplay_cpu_a8e9_velocity.c",
+    "src\tecmo_gameplay_cpu_a0f3_launch.c",
     "src\tecmo_gameplay_cpu_opcode_workspaces.c",
     "src\tecmo_gameplay_cpu_route_profile.c",
     "src\tecmo_gameplay_live_foundation.c",

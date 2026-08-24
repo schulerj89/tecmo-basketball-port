@@ -507,6 +507,19 @@ It remains helper-only because launch-solver ownership of incoming planar
 velocity is absent; rendered/lerped positions and synthetic rattle sentinels
 are forbidden substitutes.
 
+TGLS-1 translates the direct `$A0F3` object-10 launch as a pure typed helper.
+Raw `$0463` direction remains 0..7 and `$006A` remains a separate explicit
+second-`$C05D` result; only
+`$006A >= $40` selects the exact `$A15C` remap before the four direction
+tables. The solver imports the 256-byte `$BDF7` lift table through the
+sanitized TGJS source span, computes `$B32C` duration/cap, reproduces `$80A9`
+signed-numerator/unsigned-duration truncation and zero-divisor saturation, then
+applies `$A0F3`'s wrapping quotient double. Q6 motion seeds from current raw
+object-10 X/depth and the `$BD6E-$BDC6` typed tick integrates before
+publishing. The proven
+non-legacy scene jump direction equals pre-remap raw `$0463`, but scheduling
+and incoming launch ownership are outside this slice, so LIVE remains unbound.
+
 Production automatic-pass selection now enters from made-score restart:
 Bank05 `$901F` state 1 reaches Bank06 `$8661-$8727`, publishes the selected
 primary at `$0168`, and `$8728-$8773` refreshes the other four offense streams
