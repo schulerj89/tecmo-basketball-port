@@ -3292,7 +3292,7 @@ static int append_gameplay_shot_resolution_source_map_entry(
         "\"diagnostic\":\"TGPS-1 before/after raw-label snapshot and nonzero TGLP-1 event serial; console-only\","
         "\"not_wired\":\"generic/made/restart/tip/foul/unproven recovery and legacy-direct/rim-debug handoffs\","
         "\"unsupported\":\"outside the exact defense caller: $05B6 masks, claimant-side $0359 mutation, $0478, $06DF/$06E1, $0790, "
-        "$046E/$0479, $06D5, $035A/$035B mutation, full $96B6/helper side effects, and semantic season stats\","
+        "$046E/$0479, $06D5, $035A/$035B mutation, $96B6 special $0478==10 object entry, and semantic season stats\","
         "\"integration_is_additional_rom_claim\":false},"
         "\"limits\":\"an address hit alone is not terminal; $9434 also occurs in nonterminal close animations; generic claimant paths carry no semantic label, while the exact defense caller alone owns C042 slot 6\","
         "\"runtime_inputs\":\"TGSR-4 plus same-pack TGPL-1; the debug screen "

@@ -41,6 +41,10 @@ typedef struct TecmoGameplayLiveClaimantSettlement {
     bool raw_04b0_bit10_toggled;
     bool automatic_defender_scan_ran;
     bool automatic_defender_match_found;
+    bool route_96b6_ran;
+    uint8_t route_96b6_link_actor;
+    uint16_t route_96b6_metric_a184;
+    TecmoGameplayCpuSteeringRouteResult route_96b6;
     /* $035A is saved to $035B and toggled only on the side-cross branch.
        LIVE has no faithful typed owner for either address, so this remains an
        observation rather than a native mutation. */

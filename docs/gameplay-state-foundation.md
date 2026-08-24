@@ -213,9 +213,11 @@ For that accepted boundary, C preserves these source-shaped effects in order:
   already-selected `$0309`; C does not substitute the older pass-helper's
   eligibility predicate.
 - `$B928-$B96F` has typed owners for the selected/candidate side mirrors,
-  automatic-offense `$0547/$0551=$007D`, `$057C=$04`, and the exact `$B98B`
-  remap table `01 02 03 04 00 06 07 08 09 05`.  Human-offense stream/state
-  resets are not invented.
+  the exact `$B98B` remap table `01 02 03 04 00 06 07 08 09 05`, and the
+  ordinary `$0478!=10` `$96B6` tail. Automatic offense writes action `$18`,
+  scans `$B317` descending, derives `$9DF6/$A184`, and selects `$007D` or
+  `$00D7` through the exact sign/orientation/threshold branch before entering
+  state `$04`. Human-offense stream/state resets are not invented.
 
 The existing `selected_defender_handoff_active` boolean is only a native C
 consumer gate for the already-selected defender's later movement adapter. The
@@ -238,7 +240,8 @@ remain intentionally unsupported because this native scene has no faithful
 typed owner or caller proof: `$05B6` masks, claimant-side `$0359` mutation,
 `$0478`, `$06DF/$06E1`, `$0790`, `$046E/$0479`,
 `$06D5`, the `$035A->$035B; EOR #1->$035A` mutation, and helper/action calls
-`$B1D1`, `$BFA8`, `$88B6`, plus the full `$96B6` route side effects. The
+`$B1D1`, `$BFA8`, `$88B6`, plus `$96B6`'s special `$0478==10`
+object-coordinate entry. The
 transaction records the `$035A` save/toggle branch as an observation only.
 No semantic season steal/rebound/block category is claimed yet.
 

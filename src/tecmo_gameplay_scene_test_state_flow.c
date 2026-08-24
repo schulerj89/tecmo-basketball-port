@@ -3557,15 +3557,14 @@ static bool scene_test_live_foundation_regressions(
                     .action_state_046e[passer] != 0U ||
             /* $B24F clears the receiver to state/action 0, then its same-call
                $B2EC->$96B6 automatic tail writes action $18 and returns the
-               selected holder in state 4. LIVE lacks the raw route-choice
-               workspaces and projects source-valid long route $00D7 so the first
-               command owns an exact target instead of fabricated gates. */
+               selected holder in state 4. The captured fixture's exact
+               B317/9DF6/A184/sign-orientation result selects short route $007D. */
             scene->live_foundation.play_state.actor_state[receiver] != 4U ||
             scene->live_foundation.play_state
                     .action_state_046e[receiver] != 0x18U ||
             scene->live_foundation.play_state.stream_offset[receiver] !=
-                0x00D7U ||
-            scene->live_foundation.last_step_offset[receiver] != 0x00D7U) {
+                0x007DU ||
+            scene->live_foundation.last_step_offset[receiver] != 0x007DU) {
             LIVE_FAIL("LIVE CPU pass catch/control handoff failed");
         }
         /* The genuine B24F catch above installs the former selected passer at
@@ -3662,26 +3661,19 @@ static bool scene_test_live_foundation_regressions(
                 LIVE_FAIL(failure);
             }
         }
-        /* The chosen source-valid long route $00D7 begins with exact opcode 2 and absolute target
-           ($00B4,$0096) for orientation 0. The catch tail makes the holder
-           immediately eligible; prove that selected-primary dispatch owns
-           that target and TGMO begins moving toward it rather than leaving
-           the receiver inert. */
+        /* The recovered $96B6 inputs choose short route $007D here. Its
+           first exact command is opcode 3: advance to $0082, enter state 6,
+           and install the eight-tick selected-primary wait without inventing
+           a movement target. */
         memset(&no_shot, 0, sizeof(no_shot));
         if (!scene_update_ai(scene, &no_shot) || scene_pass_active(scene) ||
-            scene->live_foundation.play_state.actor_state[receiver] != 4U ||
-            scene->live_foundation.play_state.wait_counter[receiver] != 0U ||
+            scene->live_foundation.play_state.actor_state[receiver] != 6U ||
+            scene->live_foundation.play_state.wait_counter[receiver] != 8U ||
             scene->live_foundation.play_state.stream_offset[receiver] !=
-                0x00DCU ||
-            scene->live_foundation.last_step_offset[receiver] != 0x00DCU ||
-            !scene->live_foundation.source_target_valid[receiver] ||
-            scene->live_foundation.play_state.target_x[receiver] !=
-                expected_catch_target_x ||
-            scene->live_foundation.play_state.target_depth[receiver] != 0x0096 ||
-            !scene->cpu_actors[receiver].target_valid ||
-            scene->cpu_actors[receiver].target_position.x !=
-                expected_catch_target_x ||
-            scene->cpu_actors[receiver].target_position.y != 0x0096) {
+                0x0082U ||
+            scene->live_foundation.last_step_offset[receiver] != 0x0082U ||
+            scene->live_foundation.source_target_valid[receiver] ||
+            scene->cpu_actors[receiver].target_valid) {
             char failure[512];
             (void)snprintf(
                 failure, sizeof(failure),
@@ -3707,6 +3699,32 @@ static bool scene_test_live_foundation_regressions(
                 scene->live_foundation.deferred[receiver] ? 1U : 0U,
                 (unsigned)scene->live_foundation.deferred_reason[receiver]);
             LIVE_FAIL(failure);
+        }
+
+        /* Keep the independently source-pinned long-route integration slice:
+           inject the other legal $96B6 result at the same post-catch seam.
+           $00D7 begins with opcode 2 and absolute target ($00B4,$0096) for
+           orientation 0. */
+        scene->live_foundation.play_state.actor_state[receiver] = 0x04U;
+        scene->live_foundation.play_state.wait_counter[receiver] = 0U;
+        scene->live_foundation.play_state.stream_offset[receiver] = 0x00D7U;
+        scene->live_foundation.last_step_offset[receiver] = 0x00D7U;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) ||
+            scene->live_foundation.play_state.actor_state[receiver] != 4U ||
+            scene->live_foundation.play_state.wait_counter[receiver] != 0U ||
+            scene->live_foundation.play_state.stream_offset[receiver] !=
+                0x00DCU ||
+            scene->live_foundation.last_step_offset[receiver] != 0x00DCU ||
+            !scene->live_foundation.source_target_valid[receiver] ||
+            scene->live_foundation.play_state.target_x[receiver] !=
+                expected_catch_target_x ||
+            scene->live_foundation.play_state.target_depth[receiver] != 0x0096 ||
+            !scene->cpu_actors[receiver].target_valid ||
+            scene->cpu_actors[receiver].target_position.x !=
+                expected_catch_target_x ||
+            scene->cpu_actors[receiver].target_position.y != 0x0096) {
+            LIVE_FAIL("LIVE injected long catch route target failed");
         }
         primary_stream_before = (uint16_t)scene->actors[receiver].position.x;
         /* $00DC opcode 21 owns exact typed shot/game clocks plus the fixed
@@ -3827,10 +3845,14 @@ static bool scene_test_live_foundation_regressions(
             scene->live_foundation.play_state
                     .action_state_046e[receiver] != 0x18U ||
             scene->live_foundation.play_state.stream_offset[receiver] !=
-                0x00D7U ||
-            scene->live_foundation.last_step_offset[receiver] != 0x00D7U) {
+                0x007DU ||
+            scene->live_foundation.last_step_offset[receiver] != 0x007DU) {
             LIVE_FAIL("LIVE automatic inbound catch lifecycle failed");
         }
+        /* Exercise the other legal $96B6 result independently; this fixture's
+           recovered inputs select $007D, so $00D7 is injected explicitly. */
+        scene->live_foundation.play_state.stream_offset[receiver] = 0x00D7U;
+        scene->live_foundation.last_step_offset[receiver] = 0x00D7U;
         memset(&no_shot, 0, sizeof(no_shot));
         if (!scene_update_ai(scene, &no_shot) ||
             scene->live_foundation.play_state.stream_offset[receiver] !=
@@ -3842,7 +3864,7 @@ static bool scene_test_live_foundation_regressions(
 
         /* Bank06 state index 6 dispatches through $82B6/$82C4 to
            $9053-$905D for selected and ordinary actors alike. Exercise it
-           independently of the chosen $00D7 catch projection: decrement once
+           independently of the exact $96B6 catch selection: decrement once
            per update, do not fetch on the zero transition, and fetch exactly
            once on the following update. */
         tecmo_gameplay_scene_test_set_skip_pretip(true);
@@ -4536,9 +4558,18 @@ static bool scene_test_live_foundation_regressions(
             TECMO_GAMEPLAY_TEAM_AWAY] != 2U ||
         candidate_foundation.selected_actor_by_side[
             TECMO_GAMEPLAY_TEAM_HOME] != 9U ||
-        candidate_foundation.play_state.stream_offset[1U] != 0x007DU ||
+        !claimant_settlement.route_96b6_ran ||
+        claimant_settlement.route_96b6_link_actor != 9U ||
+        claimant_settlement.route_96b6.contract_tag !=
+            TECMO_GAMEPLAY_CPU_STEERING_ROUTE_RESULT_TAG ||
+        !claimant_settlement.route_96b6.wrote_route ||
+        claimant_settlement.route_96b6.actor != 1U ||
+        candidate_foundation.play_state.stream_offset[1U] !=
+            claimant_settlement.route_96b6.stream_offset ||
         candidate_foundation.play_state.actor_state[1U] != 0x04U ||
-        candidate_foundation.last_step_offset[1U] != 0x007DU ||
+        candidate_foundation.play_state.action_state_046e[1U] != 0x18U ||
+        candidate_foundation.last_step_offset[1U] !=
+            claimant_settlement.route_96b6.stream_offset ||
         memcmp(selector_flags_before,
                candidate_foundation.actor_selector_flags,
                sizeof(selector_flags_before)) != 0 ||
@@ -4582,8 +4613,14 @@ static bool scene_test_live_foundation_regressions(
             TECMO_GAMEPLAY_TEAM_HOME] != 7U ||
         candidate_foundation.selected_actor_by_side[
             TECMO_GAMEPLAY_TEAM_AWAY] != 4U ||
-        candidate_foundation.play_state.stream_offset[6U] != 0x007DU ||
+        !claimant_settlement.route_96b6_ran ||
+        claimant_settlement.route_96b6_link_actor != 4U ||
+        !claimant_settlement.route_96b6.wrote_route ||
+        claimant_settlement.route_96b6.actor != 6U ||
+        candidate_foundation.play_state.stream_offset[6U] !=
+            claimant_settlement.route_96b6.stream_offset ||
         candidate_foundation.play_state.actor_state[6U] != 0x04U ||
+        candidate_foundation.play_state.action_state_046e[6U] != 0x18U ||
         candidate_foundation.actor_selector_flags[0U] !=
             (uint8_t)(selector_flags_before[0U] ^ 0x10U) ||
         candidate_foundation.actor_selector_flags[9U] !=
@@ -4593,26 +4630,23 @@ static bool scene_test_live_foundation_regressions(
         LIVE_FAIL("LIVE B87C cross-side claimant transaction diverged");
     }
 
-    /* An automatic scan with no exact $04B0/$06CB match retains the source
-       branch's already-selected defender (old $0308 after a side crossing),
-       rather than failing closed as the older pass-only helper does. */
+    /* `$96B6->$B317` adds a second mandatory automatic scan after B87C.
+       Source-valid play state always has a linked actor; an artificial
+       underflow fixture must reject transactionally instead of reading the
+       6502's unrelated X=$FF workspace. */
     candidate_foundation = foundation_before;
     candidate_foundation.control_mode[TECMO_GAMEPLAY_TEAM_AWAY] = 1U;
     candidate_foundation.control_mode[TECMO_GAMEPLAY_TEAM_HOME] = 1U;
     for (actor = 0U; actor < 10U; ++actor) {
         candidate_foundation.dynamic_link[actor] = 0U;
     }
-    if (!tecmo_gameplay_live_foundation_claimant_settlement(
+    snapshot.live_foundation = candidate_foundation;
+    if (tecmo_gameplay_live_foundation_claimant_settlement(
             &scene->cpu_steering_assets, 6U, TECMO_GAMEPLAY_TEAM_HOME,
             &candidate_foundation, &claimant_settlement) ||
-        !claimant_settlement.automatic_defender_scan_ran ||
-        claimant_settlement.automatic_defender_match_found ||
-        candidate_foundation.defender_actor != 0U ||
-        candidate_foundation.selected_actor_by_side[
-            TECMO_GAMEPLAY_TEAM_AWAY] != 0U ||
-        !tecmo_gameplay_live_foundation_valid(
-            &scene->cpu_steering_assets, &candidate_foundation)) {
-        LIVE_FAIL("LIVE B87C no-match defender fallback diverged");
+        memcmp(&candidate_foundation, &snapshot.live_foundation,
+               sizeof(candidate_foundation)) != 0) {
+        LIVE_FAIL("LIVE B87C/96B6 no-link rejection was not transactional");
     }
 
     /* Candidate equal to $0308 takes the $B8C1 BEQ: it cannot swap side

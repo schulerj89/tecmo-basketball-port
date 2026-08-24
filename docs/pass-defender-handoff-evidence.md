@@ -69,9 +69,9 @@ passes share one actor-neutral transport rather than teleporting possession:
   `$96B6-$9708`. A human offense returns with the receiver's cleared state 0.
   An automatic offense instead writes action `$18`, chooses source stream
   `$007D` or `$00D7`, and returns with the receiver in state 4. LIVE owns the
-  automatic-versus-human distinction but not the same-call raw
-  `$0373/$0095/$0094` route selector, so it chooses source-valid long route `$00D7` as a
-  justified native approximation. Its first record publishes the exact
+  automatic-versus-human distinction and the same-call route selector: the
+  exact descending `$B317` scan feeds ordinary `$9DF6`, `$A184`, and the
+  `$0373/$0095/$0094` sign/orientation/threshold branch. A long route's first record publishes the exact
   absolute target (orientation-adjusted X `$00B4`, depth `$0096`). Opcode 21
   then consumes exact typed shot/game clocks; raw `$007E` bit 1 is projected
   clear as a justified approximation so `$00DC` advances.
@@ -99,8 +99,9 @@ retained, so excluded passes never over-enable interception. The focused
 source gate now pins 11 spans, both complete tables, and rejects 291 source
 mutations. General pass desirability and the complete Bank06 inbound formation
 route remain deferred/fail-closed.
-The exact `$96B6` automatic lifecycle invariant is closed, while its route
-branch remains approximate. Opcode 21 now owns `$058A/$0357/$0358` through
+The ordinary `$0478!=10` `$96B6` automatic lifecycle and route branch are
+closed. The special `$0478==10` object-coordinate entry remains outside this
+LIVE catch/claimant seam. Opcode 21 now owns `$058A/$0357/$0358` through
 typed scene clocks but approximates unowned `$007E` bit 1 as clear.
 If a later source opcode-9 record writes selected state 0/action `$17`, Bank05
 dispatches it through `$81F2-$822F->$8A6D->$8ACE` into shot initialization.

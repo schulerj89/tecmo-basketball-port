@@ -1752,6 +1752,99 @@ bool tecmo_gameplay_live_foundation_normalize_automatic_primary(
     return true;
 }
 
+static bool live_apply_96b6_route(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t selected_actor,
+    TecmoGameplayLiveFoundation *candidate,
+    uint8_t *linked_actor_out,
+    uint16_t *metric_out,
+    TecmoGameplayCpuSteeringRouteResult *route_out)
+{
+    TecmoGameplayCpuSteeringRouteInput route_input;
+    TecmoGameplayCpuSteeringRouteResult route_result;
+    uint8_t linked_actor = TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT;
+    uint16_t absolute_x;
+    uint16_t absolute_depth;
+    uint16_t larger;
+    uint16_t smaller;
+    uint16_t metric;
+    int actor;
+    if (assets == NULL || !assets->available || candidate == NULL ||
+        selected_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        selected_actor != candidate->primary_actor ||
+        candidate->offense_side >= TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT ||
+        candidate->orientation >= 2U) {
+        return false;
+    }
+    if (candidate->control_mode[candidate->offense_side] == 0U) {
+        if (linked_actor_out != NULL)
+            *linked_actor_out = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+        if (metric_out != NULL) *metric_out = 0U;
+        if (route_out != NULL) memset(route_out, 0, sizeof(*route_out));
+        return true;
+    }
+
+    /* `$96BE-$96C6`: automatic offense writes action `$18`, then B317 scans
+       X=9..0 using only `$04B0&$10` and `$06CB==$0308`. */
+    candidate->play_state.action_state_046e[selected_actor] = 0x18U;
+    for (actor = (int)TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT - 1;
+         actor >= 0; --actor) {
+        if ((candidate->actor_selector_flags[actor] & 0x10U) != 0U &&
+            candidate->dynamic_link[actor] == selected_actor) {
+            linked_actor = (uint8_t)actor;
+            break;
+        }
+    }
+    if (linked_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT) return false;
+
+    /* Ordinary LIVE owns `$0478!=10`, selecting linked-minus-primary in
+       `$9DF6`. `$A184` reduces the absolute components to max+min/2. */
+    absolute_x = candidate->actor_position[linked_actor].x >=
+            candidate->actor_position[selected_actor].x
+        ? (uint16_t)(candidate->actor_position[linked_actor].x -
+                     candidate->actor_position[selected_actor].x)
+        : (uint16_t)(candidate->actor_position[selected_actor].x -
+                     candidate->actor_position[linked_actor].x);
+    absolute_depth = candidate->actor_position[linked_actor].y >=
+            candidate->actor_position[selected_actor].y
+        ? (uint16_t)(candidate->actor_position[linked_actor].y -
+                     candidate->actor_position[selected_actor].y)
+        : (uint16_t)(candidate->actor_position[selected_actor].y -
+                     candidate->actor_position[linked_actor].y);
+    larger = absolute_x >= absolute_depth ? absolute_x : absolute_depth;
+    smaller = absolute_x >= absolute_depth ? absolute_depth : absolute_x;
+    metric = (uint16_t)(larger + (smaller >> 1U));
+    memset(&route_input, 0, sizeof(route_input));
+    memset(&route_result, 0, sizeof(route_result));
+    route_input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_ROUTE_INPUT_TAG;
+    route_input.route_slot = candidate->offense_side;
+    route_input.actor = selected_actor;
+    memcpy(route_input.control_flags, candidate->control_mode,
+           sizeof(route_input.control_flags));
+    route_input.global_0373 = (uint8_t)(
+        (uint16_t)candidate->actor_position[linked_actor].x -
+        (uint16_t)candidate->actor_position[selected_actor].x);
+    route_input.table_index_035A = candidate->orientation;
+    route_input.flag_0095 = (uint8_t)(metric >> 8U);
+    route_input.age_0094 = (uint8_t)metric;
+    if (!tecmo_gameplay_cpu_steering_route_select(
+            assets, &route_input, &route_result) ||
+        !route_result.wrote_route || route_result.actor != selected_actor ||
+        route_result.route_slot != candidate->offense_side ||
+        route_result.actor_state != 0x04U) {
+        return false;
+    }
+    candidate->play_state.stream_offset[selected_actor] =
+        route_result.stream_offset;
+    candidate->play_state.actor_state[selected_actor] =
+        route_result.actor_state;
+    candidate->last_step_offset[selected_actor] = route_result.stream_offset;
+    if (linked_actor_out != NULL) *linked_actor_out = linked_actor;
+    if (metric_out != NULL) *metric_out = metric;
+    if (route_out != NULL) *route_out = route_result;
+    return true;
+}
+
 bool tecmo_gameplay_live_foundation_pass_handoff(
     const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t new_selected_actor,
@@ -1799,22 +1892,12 @@ bool tecmo_gameplay_live_foundation_pass_handoff(
     candidate.play_state.stream_offset[old_selected] = 0x0B63U;
     candidate.last_step_offset[old_selected] = 0x0B63U;
 
-    /* Bank05 $B2EC jumps directly to $96B6 after the catch work above.
-       Nonzero raw $030C[$030A] (automatic offense) must leave $96B6-$9708
-       with the new holder in state 4 and one of the two source-pinned streams
-       $007D/$00D7. LIVE owns that automatic-vs-human distinction through
-       typed control_mode, but it does not own the same-call $0373/$0095/$0094
-       inputs that select between those streams. Choose the source-valid long
-       route as a justified native approximation: unlike the short route's
-       wait/gate sequence, its first command supplies the exact absolute
-       movement target without fabricating missing gate workspaces. Human
-       catches correctly retain the exact state-0 endpoint above. */
-    if (candidate.control_mode[candidate.offense_side] != 0U) {
-        candidate.play_state.stream_offset[new_selected_actor] = 0x00D7U;
-        candidate.last_step_offset[new_selected_actor] = 0x00D7U;
-        candidate.play_state.actor_state[new_selected_actor] = 0x04U;
-        /* $96B6 writes selected action $18 before the route branch. */
-        candidate.play_state.action_state_046e[new_selected_actor] = 0x18U;
+    /* `$B2EC` jumps directly to the shared exact `$96B6-$9708` bridge.
+       Human catches retain B24F's state-0 endpoint; automatic catches consume
+       the recovered B317/9DF6/A184 inputs and select `$007D` or `$00D7`. */
+    if (!live_apply_96b6_route(
+            assets, new_selected_actor, &candidate, NULL, NULL, NULL)) {
+        return false;
     }
 
     if (candidate.control_mode[opposing_team] != 0U) {
@@ -1979,17 +2062,21 @@ bool tecmo_gameplay_live_foundation_claimant_settlement(
     }
 
     /* $B928/$B94F update the selected side and $B95A uses the exact $B98B
-       remap. $B93B-$B95E writes stream $007D and state $04 only for automatic
-       offense. No actor state/stream reset is invented for human offense. */
+       remap. $B93B-$B95E then enters the shared exact $96B6 route owner for
+       automatic offense. Human offense returns at $96BC without mutation. */
     candidate.selected_actor_by_side[candidate.offense_side] =
         selected_claimant;
     candidate.candidate_actor_by_side[candidate.offense_side] =
         live_b87c_candidate_remap[selected_claimant];
-    if (candidate.control_mode[candidate.offense_side] != 0U) {
-        candidate.play_state.stream_offset[selected_claimant] = 0x007DU;
-        candidate.play_state.actor_state[selected_claimant] = 0x04U;
-        candidate.last_step_offset[selected_claimant] = 0x007DU;
+    if (!live_apply_96b6_route(
+            assets, selected_claimant, &candidate,
+            &result.route_96b6_link_actor,
+            &result.route_96b6_metric_a184,
+            &result.route_96b6)) {
+        return false;
     }
+    result.route_96b6_ran =
+        candidate.control_mode[candidate.offense_side] != 0U;
     candidate.selected_actor_by_side[candidate.defense_side] =
         candidate.defender_actor;
     candidate.selected_defender_handoff_active =

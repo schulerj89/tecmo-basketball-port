@@ -163,10 +163,11 @@ At genuine catch, Bank05 `$B24F` first clears the new selected holder to state
 `$B2EC->$B2FA->$96B6-$9708`. Human offense retains state 0. Automatic offense
 writes action `$18` and returns in state 4 on either source-pinned `$007D` or
 `$00D7`; stopping before this tail froze the selected ball handler because
-Bank06 excludes it from ordinary dispatch. LIVE lacks the raw
-`$0373/$0095/$0094` branch inputs, so it chooses source-valid long route `$00D7` as a
-justified native approximation. Its first opcode-2 record owns the exact
-orientation-adjusted absolute target. The following opcode-21 gate receives
+Bank06 excludes it from ordinary dispatch. LIVE now derives the raw-equivalent
+`$0373/$0095/$0094` inputs through the exact descending `$B317` link scan,
+ordinary `$9DF6` deltas, and `$A184` metric, then executes the exact
+sign/orientation/threshold branch. Its long route's first opcode-2 record owns
+the exact orientation-adjusted absolute target. The following opcode-21 gate receives
 exact typed shot/game clocks. Fixed `$F07E-$F0B9` now owns raw `$007E` bit 1:
 it clears each loop, requires idle slot 10 and primary depth `$7B..$AE`, then
 sets beyond the orientation-specific X boundary. LIVE advances past `$00DC`
