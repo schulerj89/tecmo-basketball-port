@@ -461,11 +461,14 @@ in deterministic LIVE proof JSON.
 The TGLP native proof now renders four deterministic automatic-pass
 checkpoints: opcode 5, retained opcode-6 action `$10`, packed `$32` gather,
 and released flight. Its `cpu_auto_pass_stream` JSON pins the `$017C/$018B/
-$0190` records, the opcode-3 wait sequence `6..0`, typed object-slot-10 `$13`,
-passer/receiver identities, pass phases, and player/ball position deltas.
-The fixture explicitly parks the selected automatic holder at `$017C`; the
-proof therefore covers execution and presentation but does not claim the
-unconverted upstream play-selection route.
+$0190` records, the opcode-3 wait sequence `6..0`, passer/receiver identities,
+pass phases, and player/ball position deltas. Object-slot-10 `$13` is labeled
+as an inference from the separate canonical executor and scene state-flow
+tests; the live scene does not retain or observe that write. The isolation
+fixture parks the selected automatic holder at `$017C` and suspends every
+other actor at state 6/wait `$FF`. The proof therefore covers bounded
+execution and presentation, not the unconverted upstream play-selection route
+or an ordinary production actor schedule.
 
 Unimplemented handler effects retain their source-pinned record transport
 only where that transport is already bounded, with the separate reason

@@ -1544,6 +1544,11 @@ try {
                 if ($null -eq $AutoPass -or ![bool]$AutoPass.proved -or
                     [int]$AutoPass.checkpoint -ne $ExpectedCheckpoint -or
                     [bool]$AutoPass.upstream_play_selection_claimed -or
+                    [bool]$AutoPass.fixture.production_play_selection -or
+                    [string]$AutoPass.fixture.selected_cursor -ne
+                        'parked at canonical $017C' -or
+                    [string]$AutoPass.fixture.other_actors -ne
+                        'suspended at state6/waitFF for proof isolation' -or
                     ![bool]$AutoPass.nondeferred -or
                     [int]$AutoPass.passer -lt 0 -or
                     [int]$AutoPass.passer -ge 10 -or
@@ -1565,8 +1570,11 @@ try {
                      ((@($AutoPass.wait) -join ',') -ne '6,5,4,3,2,1,0') -or
                      [int]$AutoPass.actions.opcode23 -ne 25 -or
                      [int]$AutoPass.actions.opcode6 -ne 16 -or
-                     ![bool]$AutoPass.opcode6_object10_state.written -or
-                     [int]$AutoPass.opcode6_object10_state.value -ne 19)) {
+                     ![bool]$AutoPass.opcode6_object10_state.inferred -or
+                     [bool]$AutoPass.opcode6_object10_state.observed_in_scene -or
+                     [int]$AutoPass.opcode6_object10_state.value -ne 19 -or
+                     [string]$AutoPass.opcode6_object10_state.provenance -ne
+                        'canonical TGAI-3 opcode-6 executor and scene action10 state-flow tests')) {
                     throw "LIVE proof CPU automatic pass source cadence regressed."
                 }
                 if ($ExpectedCheckpoint -eq 3 -and
@@ -1750,7 +1758,7 @@ try {
             "cpu-target-deferred: deterministic source-offset fixture"
             "actor-command-assignment-deferred: real PRETIP/live handoff, then no source-shaped A023 caller or mutation"
             "cpu-primary-stream-step: automatic selected `$0308` primary consumes one Bank04 opcode-4 record before ordinary-loop exclusion"
-            "cpu-auto-pass-opcode5: selected automatic holder parked at canonical `$017C; upstream play selection explicitly unclaimed"
+            "cpu-auto-pass-opcode5: selected automatic holder parked at canonical `$017C and every other actor suspended at state6/waitFF; isolation fixture, upstream play selection explicitly unclaimed"
             "cpu-auto-pass-action10: exact opcode9/wait6/opcode23/opcode6 cadence reaches retained `$0190 action `$10/object-slot-10 `$13"
             "cpu-auto-pass-gather: following native scene update enters packed `$32 gather with passer action `$0F"
             "cpu-auto-pass-stream: gather releases into visible pass flight with deterministic ball/player position deltas"
@@ -1786,6 +1794,7 @@ try {
             close_position_injection = "deterministic test fixture; not original or normal-policy evidence"
             actor_command_assignment = "ordinary pretip-to-LIVE observation; emits a missing-input diagnostic and no A023 fixture or production mutation"
             lineup_binding = "bound production-style scene launch; game.c bridge separately proven by flow tests"
+            cpu_auto_pass_stream = "selected cursor parked at `$017C and all other actors suspended at state6/waitFF; execution/presentation isolation only, not production play selection; object-slot-10 `$13 is inferred from separate canonical executor/state-flow tests and is not scene-observed"
         }
         proof_pack_replay_path = [IO.Path]::GetFullPath($ProofPackPath)
         ephemeral_pack_path = [IO.Path]::GetFullPath($PackPath)

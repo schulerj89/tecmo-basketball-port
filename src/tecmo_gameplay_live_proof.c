@@ -41,7 +41,7 @@ typedef struct LiveProofEventEvidence {
     uint16_t primary_action_serial_after;
     bool cpu_auto_pass_stream_proved;
     bool cpu_auto_pass_non_deferred;
-    bool cpu_auto_pass_object13_written;
+    bool cpu_auto_pass_object13_inferred;
     uint8_t cpu_auto_pass_checkpoint;
     uint8_t cpu_auto_pass_passer;
     uint8_t cpu_auto_pass_receiver;
@@ -1891,10 +1891,11 @@ static bool live_proof_cpu_auto_pass_stream(
         return live_proof_reject(message, message_size,
                                  "CPU auto-pass action-10 milestone failed");
     }
-    /* The successful automatic opcode-6 result pairs action $10 with its
-       exact typed object-slot-10 write `$0478=$13`; neither raw observation
-       is reconstructed in the scene. */
-    evidence->cpu_auto_pass_object13_written = true;
+    /* Scene state observes action $10 but does not retain `$0478`. The paired
+       `$0478=$13` write is therefore only an inference from the separately
+       focused canonical opcode-6 executor/state-flow tests, never a claimed
+       scene observation. */
+    evidence->cpu_auto_pass_object13_inferred = true;
     evidence->cpu_auto_pass_receiver = receiver;
     evidence->cpu_auto_pass_receiver_start = scene->actors[receiver].position;
     if (checkpoint == 2U) goto checkpoint_reached;
@@ -2628,7 +2629,10 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             "\"last_step\":[\"%04X\",\"%04X\"],"
             "\"action\":[%u,%u],\"action_serial\":[%u,%u]},"
             "\"cpu_auto_pass_stream\":{\"proved\":%s,"
-            "\"checkpoint\":%u,\"fixture\":\"selected automatic holder parked at canonical $017C\","
+            "\"checkpoint\":%u,\"fixture\":{"
+            "\"selected_cursor\":\"parked at canonical $017C\","
+            "\"other_actors\":\"suspended at state6/waitFF for proof isolation\","
+            "\"production_play_selection\":false},"
             "\"upstream_play_selection_claimed\":false,"
             "\"nondeferred\":%s,\"passer\":%u,\"receiver\":%u,"
             "\"updates\":%u,\"records\":[[\"017C\",5],[\"018B\",23],[\"0190\",6]],"
@@ -2636,7 +2640,9 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             "\"wait\":[%u,%u,%u,%u,%u,%u,%u],"
             "\"actions\":{\"opcode5\":%u,\"opcode23\":%u,"
             "\"opcode6\":%u,\"gather\":%u},"
-            "\"opcode6_object10_state\":{\"written\":%s,\"value\":19},"
+            "\"opcode6_object10_state\":{\"inferred\":%s,"
+            "\"observed_in_scene\":false,\"value\":19,"
+            "\"provenance\":\"canonical TGAI-3 opcode-6 executor and scene action10 state-flow tests\"},"
             "\"pass\":{\"phase\":%u,\"packed\":%u,"
             "\"flight_frame\":%u,\"flight_duration\":%u},"
             "\"positions\":{\"passer_start\":[%d,%d],"
@@ -2796,7 +2802,7 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             (unsigned)evidence->cpu_auto_pass_action_after_opcode23,
             (unsigned)evidence->cpu_auto_pass_action_after_opcode6,
             (unsigned)evidence->cpu_auto_pass_action_gather,
-            evidence->cpu_auto_pass_object13_written ? "true" : "false",
+            evidence->cpu_auto_pass_object13_inferred ? "true" : "false",
             (unsigned)evidence->cpu_auto_pass_phase,
             (unsigned)evidence->cpu_auto_pass_packed,
             (unsigned)evidence->cpu_auto_pass_flight_frame,
