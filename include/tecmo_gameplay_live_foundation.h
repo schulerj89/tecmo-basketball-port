@@ -215,6 +215,11 @@ typedef struct TecmoGameplayLiveFoundation {
        each admitted `$9DF6` producer replaces and validates it. */
     bool shot_metric_8545_valid;
     uint16_t shot_metric_8545;
+    /* Exact low bit of global `$0588`, read first by Bank06 `$842E`.
+       `valid` is false until a translated whole-bit writer establishes the
+       lifetime; the shot scheduler fails closed across any unowned writer. */
+    bool global_0588_bit0_valid;
+    bool global_0588_bit0;
     /* Last actor evaluated by the deterministic shot predicate, including a
        negative result; NO_ACTOR means no predicate was evaluated this tick. */
     uint8_t last_shot_actor;

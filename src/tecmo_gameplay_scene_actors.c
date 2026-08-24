@@ -3298,12 +3298,15 @@ static bool scene_cpu_shot_input(
     const TecmoGameplayScene *scene,
     const TecmoGameplayLiveFoundation *foundation,
     const TecmoTeamDataPlayer *player,
+    bool frame_0588_bit0_valid,
+    bool frame_0588_bit0,
     TecmoGameplayCpuSteeringShotInput *input)
 {
     const TecmoGameplaySceneOpcode10FrameContext *context;
     uint16_t metric;
     if (scene == NULL || foundation == NULL || player == NULL ||
         input == NULL || !foundation->shot_metric_8545_valid ||
+        !frame_0588_bit0_valid ||
         !scene_cpu_common_tail_has_ordinary_live_zero(scene) ||
         scene_cpu_a023_latch_context_valid(
             &scene->a023_latch_frame_context)) {
@@ -3330,7 +3333,7 @@ static bool scene_cpu_shot_input(
        Fixed-frame capture supplies exact pre-movement `$0798`, `$075F`,
        `$0760`, and `$006A`; Bank02 `$A8CC-$A8D0` proves TTDT profile[4]
        supplies `$0533`. */
-    input->state_0588 = 0U;
+    input->state_0588 = frame_0588_bit0 ? 0x01U : 0U;
     input->flags_ba = 0U;
     metric = foundation->shot_metric_8545;
     input->target_delta_low = (uint8_t)metric;
@@ -4221,6 +4224,7 @@ bool scene_update_ai(
         !scene_cpu_a023_latch_context_valid(&candidate_a023_context) &&
         candidate_opcode10_context.available &&
         candidate_foundation.shot_metric_8545_valid &&
+        scene->live_foundation.global_0588_bit0_valid &&
         !candidate_actors[scene->ball_holder].movement_boundary_latched) {
         TecmoGameplaySceneActor *holder =
             &candidate_actors[scene->ball_holder];
@@ -4230,7 +4234,10 @@ bool scene_update_ai(
         TecmoGameplayCpuSteeringShotResult shot_result;
         if (player == NULL ||
             !scene_cpu_shot_input(
-                scene, &candidate_foundation, player, &shot_input) ||
+                scene, &candidate_foundation, player,
+                scene->live_foundation.global_0588_bit0_valid,
+                scene->live_foundation.global_0588_bit0,
+                &shot_input) ||
             !tecmo_gameplay_live_foundation_shot_request(
                 &scene->cpu_steering_assets, &shot_input, scene->ball_holder,
                 &candidate_foundation, &shot_result)) {

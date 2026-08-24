@@ -1022,6 +1022,9 @@ static bool live_period_entry_seed(
     }
     candidate.regulation_entry_clamp_exemption_active = true;
     candidate.regulation_entry_clamp_exempt_actor = primary;
+    /* Bank06 `$85EA-$85F1`: (old | $0B) & $EB always authors bit 0. */
+    candidate.global_0588_bit0_valid = true;
+    candidate.global_0588_bit0 = true;
     candidate.regulation_entry_seed_serial =
         live_serial_next(candidate.regulation_entry_seed_serial);
     candidate.sync_serial = live_serial_next(candidate.sync_serial);
@@ -1524,6 +1527,9 @@ bool tecmo_gameplay_live_foundation_score_restart_transition(
     candidate.play_state.action[old_defender] = 0x30U;
     candidate.play_state.wait_counter[old_primary] = 0U;
     candidate.play_state.wait_counter[old_defender] = 0U;
+    /* `$9022-$9029`: (old | $03) & $EF always establishes bit 0. */
+    candidate.global_0588_bit0_valid = true;
+    candidate.global_0588_bit0 = true;
 
     /* $9042-$9053 toggles $04B0 bit $10 for all slots 9..0. The loop order
        has no observable alias in this typed array, but the complete mask
@@ -2135,6 +2141,19 @@ bool tecmo_gameplay_live_foundation_play_step(
     candidate.last_effect[actor] = (uint8_t)result.effect;
     candidate.deferred[actor] = result.deferred;
     candidate.deferred_reason[actor] = result.deferred_reason;
+    if (result.fetched && !result.deferred &&
+        result.command.opcode == 6U) {
+        /* Exact automatic `$8F2D-$8F37` branch. The selected-primary input
+           contract excludes the controlled `$8F4D` branch. */
+        if (!candidate.global_0588_bit0_valid) return false;
+        candidate.global_0588_bit0 = !candidate.global_0588_bit0;
+    } else if (result.fetched && !result.deferred &&
+               result.command.opcode == 8U && !result.jumped) {
+        /* `$8ED7-$8EFE` reaches AND #$F8 only on the non-redirect branch;
+           `$8F0A` redirect returns through the common tail without a store. */
+        candidate.global_0588_bit0_valid = true;
+        candidate.global_0588_bit0 = false;
+    }
     if (result.fetched && result.command.opcode == 15U) {
         TecmoGameplayLiveOpcode15Trace *trace =
             &candidate.opcode15_trace;

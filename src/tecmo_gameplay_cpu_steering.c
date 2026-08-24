@@ -2167,8 +2167,9 @@ bool tecmo_gameplay_cpu_steering_play_step(
                 ? ball_x < 0x0140U
                 : ball_x >= 0x01C0U;
             next_state.actor_state[actor] = 0x04U;
-            /* `$8ED7-$8F11` also clears `$0588&7`; that global observation
-               is deliberately unretained by the actor-local play state. */
+            /* `$8ED7-$8F11` also conditionally clears `$0588&7`; the
+               actor-local state cannot own it, while LiveFoundation commits
+               bit 0 after this result establishes the non-redirect path. */
             if (redirect) {
                 if (!play_stream_offset_valid(redirect_offset)) return false;
                 following_offset = redirect_offset;
@@ -2194,8 +2195,9 @@ bool tecmo_gameplay_cpu_steering_play_step(
             break;
         }
         case 6U:
-            /* Automatic branch `$8F2D-$8F4C`: `$0743=0` and `$0588^=1`
-               remain unretained observations. The bounded writes are
+            /* Automatic branch `$8F2D-$8F4C`: `$0743=0` stays outside this
+               actor-local state; LiveFoundation consumes the result to apply
+               `$0588^=1`. The bounded actor/object writes are
                object-slot-10 `$0478=$13` and current actor `$046E=$10`.
                Source returns without advancing or changing actor state. */
             next_state.action_state_046e[actor] = 0x10U;

@@ -2164,6 +2164,8 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                         fixture.regulation_entry_seeded_period != 1U ||
                         fixture.period_entry_selector !=
                             (uint8_t)(side ^ 1U) ||
+                        !fixture.global_0588_bit0_valid ||
+                        !fixture.global_0588_bit0 ||
                         !fixture.regulation_entry_clamp_exemption_active ||
                         fixture.regulation_entry_clamp_exempt_actor !=
                             primary) {
@@ -3629,6 +3631,8 @@ static bool scene_test_live_foundation_regressions(
             TecmoGameplayScene natural_scene = postcatch_scene;
             uint16_t natural_ball_x;
             bool natural_redirect;
+            natural_scene.live_foundation.global_0588_bit0_valid = true;
+            natural_scene.live_foundation.global_0588_bit0 = true;
             memset(&no_shot, 0, sizeof(no_shot));
             if (!scene_update_ai(&natural_scene, &no_shot) ||
                 natural_scene.live_foundation.play_state
@@ -3651,7 +3655,10 @@ static bool scene_test_live_foundation_regressions(
                     (natural_redirect ? 0x025DU : 0x0B6DU) ||
                 natural_scene.live_foundation.play_state
                         .actor_state[passer] != 0x04U ||
-                natural_scene.live_foundation.deferred[passer]) {
+                natural_scene.live_foundation.deferred[passer] ||
+                !natural_scene.live_foundation.global_0588_bit0_valid ||
+                natural_scene.live_foundation.global_0588_bit0 !=
+                    natural_redirect) {
                 char failure[320];
                 (void)snprintf(failure, sizeof(failure),
                     "LIVE natural post-catch opcode-8 orient=%u ball=%u redirect=%u stream=%04X last=%04X state=%u defer=%u reason=%u failed",
@@ -4398,6 +4405,8 @@ static bool scene_test_live_foundation_regressions(
         candidate_foundation.play_state.action[0U] != 0x30U ||
         candidate_foundation.play_state.action[5U] != 0x30U ||
         candidate_foundation.play_state.wait_counter[0U] != 0U ||
+        !candidate_foundation.global_0588_bit0_valid ||
+        !candidate_foundation.global_0588_bit0 ||
         candidate_foundation.play_state.aggregation_06df != 0U ||
         candidate_foundation.play_state.aggregation_06e1 != 0U ||
         candidate_foundation.play_state.global_0790 != 0U ||
@@ -5696,6 +5705,11 @@ static bool scene_test_live_foundation_regressions(
         candidate_foundation.play_state.stream_offset[ordinary_actor] =
             0x013BU;
         candidate_foundation.last_step_offset[ordinary_actor] = 0x013BU;
+        /* The synthetic skip-pretip launch bypasses the translated `$85F1`
+           period-entry producer. Seed its exact post-store bit so this parked
+           stream can prove `$8F37` toggles it on the opcode-6 update. */
+        candidate_foundation.global_0588_bit0_valid = true;
+        candidate_foundation.global_0588_bit0 = true;
         scene->live_foundation = candidate_foundation;
         memset(&no_shot, 0, sizeof(no_shot));
         if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
@@ -5769,7 +5783,9 @@ static bool scene_test_live_foundation_regressions(
             scene->live_foundation.deferred_reason[ordinary_actor] !=
                 TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_ACTOR_046E_PROBE ||
             scene->live_foundation.play_state.stream_offset[ordinary_actor] !=
-                0x013BU) {
+                0x013BU ||
+            !scene->live_foundation.global_0588_bit0_valid ||
+            scene->live_foundation.global_0588_bit0) {
             LIVE_FAIL("LIVE opcode-6 pending pass timing failed");
         }
         {
@@ -7971,6 +7987,8 @@ static bool scene_test_live_foundation_regressions(
     }
     scene->live_foundation.shot_metric_8545_valid = true;
     scene->live_foundation.shot_metric_8545 = 0U;
+    scene->live_foundation.global_0588_bit0_valid = true;
+    scene->live_foundation.global_0588_bit0 = false;
     scene->actors[0U].position.x =
         scene->orientation_state.offensive_hoop.x;
     scene->actors[0U].position.y = TECMO_GAMEPLAY_COURT_WORLD_MAX_Y;
@@ -8031,6 +8049,8 @@ static bool scene_test_live_foundation_regressions(
         }
         scene->live_foundation.shot_metric_8545_valid = true;
         scene->live_foundation.shot_metric_8545 = 0U;
+        scene->live_foundation.global_0588_bit0_valid = true;
+        scene->live_foundation.global_0588_bit0 = false;
         scene->actors[far_holder].position.x = (int16_t)(
             scene->orientation_state.offensive_hoop.x + 8);
         scene->actors[far_holder].position.y =
@@ -8104,6 +8124,8 @@ static bool scene_test_live_foundation_regressions(
         }
         scene->live_foundation.shot_metric_8545_valid = true;
         scene->live_foundation.shot_metric_8545 = 0U;
+        scene->live_foundation.global_0588_bit0_valid = true;
+        scene->live_foundation.global_0588_bit0 = false;
         close_position.x = (int16_t)(
             scene->orientation_state.offensive_hoop.x + 8);
         close_position.y = TECMO_GAMEPLAY_SHOT_TARGET_Y;
@@ -8124,6 +8146,14 @@ static bool scene_test_live_foundation_regressions(
             shot_request.requested ||
             broken.live_foundation.last_shot_request) {
             LIVE_FAIL("LIVE exact $8545 metric boundary was not applied");
+        }
+        broken = *scene;
+        broken.live_foundation.global_0588_bit0 = true;
+        memset(&shot_request, 0, sizeof(shot_request));
+        if (!scene_update_ai(&broken, &shot_request) ||
+            shot_request.requested ||
+            broken.live_foundation.last_shot_request) {
+            LIVE_FAIL("LIVE exact $0588 bit-0 shot gate was not applied");
         }
         /* Bank05 `$B783->$A023` has already moved slot 10 away from state
            zero before Bank06 `$842E` runs.  Pass settlement can make every
