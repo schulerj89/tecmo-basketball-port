@@ -222,14 +222,25 @@ consumer gate for the already-selected defender's later movement adapter. The
 transaction derives it from the exact nonzero `$030C[$030B]` scan condition;
 that downstream movement policy is not an additional `$B87C` claim.
 
-The following claimant-transaction writes remain intentionally unsupported
-because this native scene has no faithful typed owner or caller proof:
-`$0588/$05B6` masks, claimant-side `$0359` mutation, `$0478`, `$06DF/$06E1`,
-`$0743`, `$0790`, `$07E2`, `$046E/$0479`,
+The ordinary defense-possession caller is now wired separately and
+instruction-for-instruction through `$9FC3-$9FE1`, `$9FF1`, and
+`$BA65-$BAC0`. It owns the `$C042` slot-6 request, wrapping
+`$0756[$030B]`, the exact `$0588` masks, `$0743/$0587/$07DE` clears,
+`$07E2=$14`, and the conditional bit-7 `$0752`/action-`$10`/counter-slot-8
+tail. Production held-ball defense proves bit 7 clear and therefore takes no
+counter-8 tail; any contaminated cross-lifecycle bit fails closed. Counter
+slot 6 is committed to a scene-owned original nine-counter plane. It is not
+yet advertised through the season ledger, whose coverage must remain honest
+until every steals/blocks/rebounds producer is wired.
+
+Outside that exact defense caller, the following claimant-transaction writes
+remain intentionally unsupported because this native scene has no faithful
+typed owner or caller proof: `$05B6` masks, claimant-side `$0359` mutation,
+`$0478`, `$06DF/$06E1`, `$0790`, `$046E/$0479`,
 `$06D5`, the `$035A->$035B; EOR #1->$035A` mutation, and helper/action calls
-`$B1D1`, `$BFA8`, `$88B6`, and `$C711`.  The transaction records the `$035A`
-save/toggle branch as an observation only.  It emits no steals, fouls,
-rebounds, blocks, player statistics, or opaque-ROM state mutations.
+`$B1D1`, `$BFA8`, `$88B6`, plus the full `$96B6` route side effects. The
+transaction records the `$035A` save/toggle branch as an observation only.
+No semantic season steal/rebound/block category is claimed yet.
 
 For opt-in diagnosis, `TGPS-1` snapshots expose typed raw labels
 `$0308/$0309`, `$030A/$030B`, `$030C/$030D`, `$000E/$000F`, `$037F/$0380`,

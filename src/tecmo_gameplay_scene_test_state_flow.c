@@ -8606,6 +8606,109 @@ static bool scene_test_a0dd_interaction_deflection(
     return true;
 }
 
+static bool scene_test_9fc3_ba65_defense_possession(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *launch_input,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplaySceneLaunch launch = *launch_input;
+    uint8_t defender;
+    uint8_t roster;
+    uint16_t action_before;
+
+    scene_test_bind_live_foul_launch(&launch);
+    tecmo_gameplay_scene_test_set_skip_pretip(true);
+    if (!tecmo_gameplay_scene_launch(scene, &launch) ||
+        !scene_sync_live_foundation(scene) ||
+        !scene_test_live_foul_ready(scene) ||
+        scene->live_foundation.primary_actor != scene->ball_holder ||
+        scene->live_foundation.defender_actor != scene->controlled_actor[1U]) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size, "$9FC3 possession launch fixture rejected");
+        return false;
+    }
+    defender = scene->controlled_actor[1U];
+    roster = scene->actors[defender].roster_index;
+    if (roster >= TECMO_PLAYER_STATS_ROSTER_COUNT) return false;
+    scene->actors[scene->ball_holder].position.x = 400;
+    scene->actors[scene->ball_holder].anchor =
+        scene->actors[scene->ball_holder].position;
+    scene->ball_position.x_q8 = 400 * 256;
+    scene->actors[defender].position.x = 408;
+    scene->actors[defender].position.y =
+        scene->actors[scene->ball_holder].position.y;
+    scene->actors[defender].anchor = scene->actors[defender].position;
+    /* Direction 1 admits the positive-X `$A01F` gate. A different primary
+       direction and post-C05D sample below $26 select `$9FC3`, while eight
+       pixels remains outside the bounded `$9968` foul box. */
+    scene->actors[defender].movement_direction = 1U;
+    scene->actors[scene->ball_holder].movement_direction = 4U;
+    scene->fixed_rng.raw_0053 = 0U;
+    scene->fixed_rng.raw_006a = 1U;
+    scene->defense_possession_state.raw_0588 = 0x18U;
+    scene->defense_possession_state.raw_0587 = 3U;
+    scene->defense_possession_state.raw_0743 = 9U;
+    scene->defense_possession_state.raw_0752[TECMO_GAMEPLAY_TEAM_HOME] = 5U;
+    scene->defense_possession_state.raw_0756[TECMO_GAMEPLAY_TEAM_HOME] = 0xFFU;
+    if (!scene_sync_live_foundation(scene) || !scene_ownership_valid(scene)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size, "$9FC3 possession contact fixture rejected");
+        return false;
+    }
+    action_before = scene->action_serial;
+    if (!scene_try_defense_action(scene, 1U) ||
+        scene->action_serial != (uint16_t)(action_before + 1U) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.possession != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->ball_holder != defender ||
+        scene->live_foundation.primary_actor != defender ||
+        scene->defense_possession_transaction_serial != 1U ||
+        scene->last_defense_possession_transaction.contract_tag !=
+            TECMO_GAMEPLAY_DEFENSE_POSSESSION_RESULT_TAG ||
+        !scene->last_defense_possession_transaction.counter6_requested ||
+        scene->last_defense_possession_transaction.counter6_actor != defender ||
+        scene->last_defense_possession_transaction.counter8_requested ||
+        !scene->last_defense_possession_transaction.b87c_called ||
+        !scene->last_defense_possession_transaction.route_96b6_called ||
+        scene->last_defense_possession_transaction.c711_action10_requested ||
+        scene->defense_possession_state.raw_0588 != 0x08U ||
+        scene->defense_possession_state.raw_0587 != 0U ||
+        scene->defense_possession_state.raw_0743 != 0U ||
+        scene->defense_possession_state.raw_07e2 != 0x14U ||
+        scene->defense_possession_state.raw_0752[TECMO_GAMEPLAY_TEAM_HOME] != 5U ||
+        scene->defense_possession_state.raw_0756[TECMO_GAMEPLAY_TEAM_HOME] != 0U ||
+        scene->original_player_counter_plane[TECMO_GAMEPLAY_TEAM_HOME][roster]
+            [TECMO_PLAYER_STATS_COUNTER_STEALS] != 1U ||
+        scene->player_stats.counters[TECMO_GAMEPLAY_TEAM_HOME][roster]
+            [TECMO_PLAYER_STATS_COUNTER_STEALS] != 0U ||
+        !scene->claimant_settlement_trace.valid ||
+        !scene_ownership_valid(scene)) {
+        (void)snprintf(
+            message, message_size,
+            "$9FC3/$BA65 live transaction mismatch possession=%u holder=%u/%u serial=%u flags=%02X pending=%u/%u team=%u/%u raw-steal=%u ledger=%u",
+            (unsigned)scene->state.possession, (unsigned)scene->ball_holder,
+            (unsigned)defender,
+            (unsigned)scene->defense_possession_transaction_serial,
+            (unsigned)scene->defense_possession_state.raw_0588,
+            (unsigned)scene->defense_possession_state.raw_0587,
+            (unsigned)scene->defense_possession_state.raw_0743,
+            (unsigned)scene->defense_possession_state.raw_0752[
+                TECMO_GAMEPLAY_TEAM_HOME],
+            (unsigned)scene->defense_possession_state.raw_0756[
+                TECMO_GAMEPLAY_TEAM_HOME],
+            (unsigned)scene->original_player_counter_plane[
+                TECMO_GAMEPLAY_TEAM_HOME][roster]
+                [TECMO_PLAYER_STATS_COUNTER_STEALS],
+            (unsigned)scene->player_stats.counters[
+                TECMO_GAMEPLAY_TEAM_HOME][roster]
+                [TECMO_PLAYER_STATS_COUNTER_STEALS]);
+        return false;
+    }
+    tecmo_gameplay_scene_end(scene);
+    return true;
+}
+
 static bool scene_test_foul_and_away_free_throws(
     TecmoGameplayScene *scene,
     TecmoGameplaySceneLaunch *launch_input,
@@ -13208,6 +13311,8 @@ bool tecmo_gameplay_scene_test_state_flow(
         !scene_test_music_and_steal_policy(
             scene, &launch, &p1, &p2, message, message_size) ||
         !scene_test_a0dd_interaction_deflection(
+            scene, &launch, message, message_size) ||
+        !scene_test_9fc3_ba65_defense_possession(
             scene, &launch, message, message_size) ||
         !scene_test_foul_and_away_free_throws(
             scene, &launch, &p1, &p2, message, message_size) ||

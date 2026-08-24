@@ -18,6 +18,7 @@
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_court_orientation.h"
 #include "tecmo_gameplay_dunk_cutaway.h"
+#include "tecmo_gameplay_defense_interaction.h"
 #include "tecmo_gameplay_fatigue.h"
 #include "tecmo_gameplay_free_throw_lineup.h"
 #include "tecmo_gameplay_hud.h"
@@ -473,6 +474,14 @@ typedef struct TecmoGameplayScene {
     TecmoGameplaySceneOpcode16FrameContext opcode16_frame_context;
     TecmoGameplaySceneA023LatchFrameContext a023_latch_frame_context;
     TecmoGameplaySceneClaimantSettlementTrace claimant_settlement_trace;
+    /* Exact scalar state and raw counter plane for the production
+       `$9FC3->$9FF1->$BA65` defense-possession transaction. The raw plane is
+       intentionally separate from the season ledger until all original
+       producers for counters 6..8 are live and coverage can be truthful. */
+    TecmoGameplayDefensePossessionState defense_possession_state;
+    TecmoGameplayDefensePossessionResult last_defense_possession_transaction;
+    uint32_t defense_possession_transaction_serial;
+    TecmoPlayerStatsGameCounters original_player_counter_plane;
     uint8_t controlled_actor[TECMO_GAMEPLAY_CONTROLLER_COUNT];
     uint8_t ball_holder;
     TecmoGameplayScenePassState pass_state;

@@ -3925,11 +3925,52 @@ static bool scene_try_defense_interaction_actor(
     }
     if (result.outcome ==
             TECMO_GAMEPLAY_DEFENSE_INTERACTION_POSSESSION_BA65) {
+        TecmoGameplayDefensePossessionInput possession_input;
+        TecmoGameplayDefensePossessionResult possession_result;
+        const TecmoGameplayLiveClaimantSettlement *settlement;
+        uint8_t roster;
         if (!scene_handoff_claimant_settlement(
-                &candidate, defending_team, defender) ||
-            !scene_sync_live_foundation(&candidate)) {
+                &candidate, defending_team, defender)) {
             return false;
         }
+        settlement = &candidate.claimant_settlement_trace.transaction;
+        memset(&possession_input, 0, sizeof(possession_input));
+        memset(&possession_result, 0, sizeof(possession_result));
+        possession_input.contract_tag =
+            TECMO_GAMEPLAY_DEFENSE_POSSESSION_INPUT_TAG;
+        possession_input.raw_0308_before = settlement->raw_0308_before;
+        possession_input.raw_0309_before = settlement->raw_0309_before;
+        possession_input.raw_030a_before = settlement->raw_030a_before;
+        possession_input.raw_030b_before = settlement->raw_030b_before;
+        possession_input.raw_0308_after = settlement->raw_0308_after;
+        possession_input.raw_0309_after = settlement->raw_0309_after;
+        possession_input.raw_030a_after = settlement->raw_030a_after;
+        possession_input.raw_030b_after = settlement->raw_030b_after;
+        if (!tecmo_gameplay_defense_possession_apply_9fc3(
+                &possession_input, &candidate.defense_possession_state,
+                &possession_result) ||
+            !possession_result.counter6_requested ||
+            possession_result.counter6_actor != defender ||
+            /* `$BA65` counter 8 requires source-fresh `$BE/$BF` after B87C
+               and 96B6. Ordinary held-ball defense does not carry A977's
+               direct-carom bit 7; reject any cross-lifecycle contamination. */
+            possession_result.counter8_requested ||
+            !possession_result.b87c_called ||
+            !possession_result.route_96b6_called ||
+            possession_result.c711_action10_requested) {
+            return false;
+        }
+        roster = candidate.actors[defender].roster_index;
+        if (roster >= TECMO_PLAYER_STATS_ROSTER_COUNT) return false;
+        candidate.original_player_counter_plane[defending_team][roster]
+            [TECMO_PLAYER_STATS_COUNTER_STEALS] = (uint8_t)(
+                candidate.original_player_counter_plane[defending_team][roster]
+                    [TECMO_PLAYER_STATS_COUNTER_STEALS] + 1U);
+        candidate.last_defense_possession_transaction = possession_result;
+        candidate.defense_possession_transaction_serial =
+            candidate.defense_possession_transaction_serial == UINT32_MAX
+                ? 1U : candidate.defense_possession_transaction_serial + 1U;
+        if (!scene_sync_live_foundation(&candidate)) return false;
         *scene = candidate;
         *committed_out = true;
         return true;

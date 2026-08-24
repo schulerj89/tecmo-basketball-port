@@ -159,6 +159,8 @@ static void scene_release_owned(TecmoGameplayScene *scene)
     tecmo_gameplay_assets_destroy(&scene->assets);
     memset(scene, 0, sizeof(*scene));
     scene->lifecycle_tag = TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG;
+    scene->defense_possession_state.contract_tag =
+        TECMO_GAMEPLAY_DEFENSE_POSSESSION_STATE_TAG;
     tecmo_gameplay_assets_init(&scene->assets);
     tecmo_gameplay_court_init(&scene->court);
     tecmo_gameplay_camera_assets_init(&scene->camera_assets);
@@ -191,6 +193,8 @@ void tecmo_gameplay_scene_init(TecmoGameplayScene *scene)
     if (scene == NULL) return;
     memset(scene, 0, sizeof(*scene));
     scene->lifecycle_tag = TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG;
+    scene->defense_possession_state.contract_tag =
+        TECMO_GAMEPLAY_DEFENSE_POSSESSION_STATE_TAG;
     tecmo_gameplay_assets_init(&scene->assets);
     tecmo_gameplay_court_init(&scene->court);
     tecmo_gameplay_camera_assets_init(&scene->camera_assets);
@@ -987,6 +991,15 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
            sizeof(scene->foul_presentation));
     memset(&scene->claimant_settlement_trace, 0,
            sizeof(scene->claimant_settlement_trace));
+    memset(&scene->defense_possession_state, 0,
+           sizeof(scene->defense_possession_state));
+    scene->defense_possession_state.contract_tag =
+        TECMO_GAMEPLAY_DEFENSE_POSSESSION_STATE_TAG;
+    memset(&scene->last_defense_possession_transaction, 0,
+           sizeof(scene->last_defense_possession_transaction));
+    scene->defense_possession_transaction_serial = 0U;
+    memset(&scene->original_player_counter_plane, 0,
+           sizeof(scene->original_player_counter_plane));
     scene_clear_free_throw_lineup_binding(scene);
     scene->previous_phase = scene->state.phase;
     scene->pretip_abort_pending = false;

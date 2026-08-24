@@ -2023,6 +2023,18 @@ bool scene_ownership_valid(const TecmoGameplayScene *scene)
         !scene_pass_state_valid(scene) ||
         !scene_inbound_state_valid(scene) ||
         !scene_loose_ball_state_valid(scene) ||
+        scene->defense_possession_state.contract_tag !=
+            TECMO_GAMEPLAY_DEFENSE_POSSESSION_STATE_TAG ||
+        (scene->defense_possession_transaction_serial == 0U
+             ? scene->last_defense_possession_transaction.contract_tag != 0U
+             : (scene->last_defense_possession_transaction.contract_tag !=
+                    TECMO_GAMEPLAY_DEFENSE_POSSESSION_RESULT_TAG ||
+                !scene->last_defense_possession_transaction.counter6_requested ||
+                scene->last_defense_possession_transaction.counter8_requested ||
+                !scene->last_defense_possession_transaction.b87c_called ||
+                !scene->last_defense_possession_transaction.route_96b6_called ||
+                scene->last_defense_possession_transaction
+                    .c711_action10_requested)) ||
         !tecmo_gameplay_scene_court_coordinates(
             scene, &coordinates)) {
         return false;

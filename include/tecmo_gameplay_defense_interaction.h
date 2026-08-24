@@ -7,6 +7,9 @@
 
 #define TECMO_GAMEPLAY_DEFENSE_INTERACTION_INPUT_TAG 0x49444654U
 #define TECMO_GAMEPLAY_DEFENSE_INTERACTION_RESULT_TAG 0x52444654U
+#define TECMO_GAMEPLAY_DEFENSE_POSSESSION_INPUT_TAG 0x49504454U
+#define TECMO_GAMEPLAY_DEFENSE_POSSESSION_STATE_TAG 0x53504454U
+#define TECMO_GAMEPLAY_DEFENSE_POSSESSION_RESULT_TAG 0x52504454U
 
 typedef enum TecmoGameplayDefenseInteractionOutcome {
     TECMO_GAMEPLAY_DEFENSE_INTERACTION_REJECTED = 0,
@@ -47,11 +50,63 @@ typedef struct TecmoGameplayDefenseInteractionResult {
     bool reached_9fe2;
 } TecmoGameplayDefenseInteractionResult;
 
+/* Persistent scalar RAM owned by the admitted `$9FC3-$9FE1` possession
+ * transaction.  The two-byte planes preserve the original modulo-256 team
+ * counters at `$0752` and `$0756`; player counter requests remain explicit in
+ * the result because `$C042` resolves a separate side/roster identity. */
+typedef struct TecmoGameplayDefensePossessionState {
+    uint32_t contract_tag;
+    uint8_t raw_05a1;
+    uint8_t raw_07de;
+    uint8_t raw_0588;
+    uint8_t raw_0587;
+    uint8_t raw_0743;
+    uint8_t raw_07e2;
+    uint8_t raw_0752[2];
+    uint8_t raw_0756[2];
+} TecmoGameplayDefensePossessionState;
+
+/* The before/after selectors bind the scalar wrapper to the already proven
+ * `$B87C-$B98A` claimant transaction.  This entry is intentionally narrower
+ * than arbitrary `$BA65`, `$BA8C`, or `$BAB6` entry-point calls: it represents
+ * the exact ordinary defense possession caller whose `$9FF1` claimant is the
+ * pre-settlement selected defender. */
+typedef struct TecmoGameplayDefensePossessionInput {
+    uint32_t contract_tag;
+    uint8_t raw_0308_before;
+    uint8_t raw_0309_before;
+    uint8_t raw_030a_before;
+    uint8_t raw_030b_before;
+    uint8_t raw_0308_after;
+    uint8_t raw_0309_after;
+    uint8_t raw_030a_after;
+    uint8_t raw_030b_after;
+} TecmoGameplayDefensePossessionInput;
+
+typedef struct TecmoGameplayDefensePossessionResult {
+    uint32_t contract_tag;
+    uint8_t claimant_9c;
+    uint8_t counter6_actor;
+    uint8_t counter8_actor;
+    bool counter6_requested;
+    bool counter8_requested;
+    bool b87c_called;
+    bool route_96b6_called;
+    bool c711_action10_requested;
+} TecmoGameplayDefensePossessionResult;
+
 /* Pure `$9F2F-$9FA1`, followed by the caller-supplied `$94C6` result and the
  * exact `$9FAC-$9FE2` terminal selection. Rejection is byte-exact. */
 bool tecmo_gameplay_defense_interaction_resolve(
     const TecmoGameplayDefenseInteractionInput *input,
     TecmoGameplayDefenseInteractionResult *result_out);
+
+/* Exact admitted `$9FC3-$9FE1 -> $9FF1 -> $BA65-$BAC0` scalar transaction.
+ * On rejection, state_io and result_out are byte-identical. */
+bool tecmo_gameplay_defense_possession_apply_9fc3(
+    const TecmoGameplayDefensePossessionInput *input,
+    TecmoGameplayDefensePossessionState *state_io,
+    TecmoGameplayDefensePossessionResult *result_out);
 
 bool tecmo_gameplay_defense_interaction_self_test(
     char *message, size_t message_size);
