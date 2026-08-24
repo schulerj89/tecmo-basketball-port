@@ -857,7 +857,14 @@ static bool scene_test_shot_clock_dunk_layup(
         return scene_test_shot_clock_fail(
             run, "dunk side-result mailbox was not last-write-wins");
     }
-    for (frame = 0U; frame < 80U && scene_inbound_active(scene); ++frame) {
+    /* HOME is automatic in this fixture. Drain the genuine score-restart
+       selection through `$0168`, gather, flight, and catch instead of
+       assuming a human inbound presentation owns the interval. */
+    for (frame = 0U;
+         frame < 240U &&
+             (scene_inbound_active(scene) || scene_pass_active(scene) ||
+              scene->live_foundation.score_restart_selection_active);
+         ++frame) {
         memset(&p1, 0, sizeof(p1));
         memset(&p2, 0, sizeof(p2));
         if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
@@ -877,6 +884,24 @@ static bool scene_test_shot_clock_dunk_layup(
        mapping to another TGCS direction entry is claimed by this milestone. */
     scene->actors[scene->ball_holder].facing_right = false;
     scene_attach_ball(scene);
+    /* The longer natural CPU restart changes the global frame sampled by
+       shot resolution. Keep this independent variant-2 make fixture explicit
+       by selecting a deterministic accepted make frame for the intended
+       current holder, without changing shooter or settlement assertions. */
+    for (uint32_t make_frame = 0U; make_frame < 256U; ++make_frame) {
+        TecmoGameplayScene probe = *scene;
+        probe.frame = make_frame;
+        if (scene_start_shot_actor(&probe, 1U, probe.ball_holder) &&
+            probe.shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_LAYUP &&
+            probe.shot_outcome == TECMO_GAMEPLAY_SHOT_OUTCOME_MAKE) {
+            scene->frame = make_frame;
+            break;
+        }
+        if (make_frame == 255U) {
+            return scene_test_shot_clock_fail(
+                run, "layup variant-2 make frame unavailable");
+        }
+    }
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
     p2.held.cancel = true;
@@ -925,8 +950,20 @@ static bool scene_test_shot_clock_dunk_layup(
         !scene_test_close_semantic_chain_untouched(scene) ||
         scene_test_has_close_semantic_event(&scene->events) ||
         !tecmo_gameplay_state_valid(&scene->state)) {
-        return scene_test_shot_clock_fail(
-            run, "layup/TGCS variant-2 settlement failed");
+        char failure[240];
+        (void)snprintf(
+            failure, sizeof(failure),
+            "layup/TGCS variant-2 settlement failed shot=%u holder=%u team=%u ctl0=%u score=%u,%u sfx=%u/%u marker=%u",
+            (unsigned)scene->shot_kind, (unsigned)scene->ball_holder,
+            scene->ball_holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT
+                ? (unsigned)scene->actors[scene->ball_holder].team : 255U,
+            (unsigned)scene->controlled_actor[0],
+            (unsigned)scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY],
+            (unsigned)scene->state.score[TECMO_GAMEPLAY_TEAM_HOME],
+            scene->audio_player.sfx_pending ? 1U : 0U,
+            (unsigned)scene->audio_player.pending_sfx_id,
+            scene->live_foundation.score_restart_selection_active ? 1U : 0U);
+        return scene_test_shot_clock_fail(run, failure);
     }
     tecmo_gameplay_audio_render_samples(&scene->audio_player, NULL, 1024U);
     if (scene->audio_player.sfx_pending ||
@@ -1221,7 +1258,11 @@ static bool scene_test_shot_clock_jump_make(
         return scene_test_shot_clock_fail(
             run, "ordinary-jump make crowd-only audio failed");
     }
-    for (frame = 0U; frame < 80U && scene_inbound_active(scene); ++frame) {
+    for (frame = 0U;
+         frame < 240U &&
+             (scene_inbound_active(scene) || scene_pass_active(scene) ||
+              scene->live_foundation.score_restart_selection_active);
+         ++frame) {
         memset(&p1, 0, sizeof(p1));
         memset(&p2, 0, sizeof(p2));
         if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
@@ -1229,9 +1270,23 @@ static bool scene_test_shot_clock_jump_make(
                 run, "ordinary-jump scored inbound did not advance");
         }
     }
-    if (scene_inbound_active(scene)) {
-        return scene_test_shot_clock_fail(
-            run, "ordinary-jump scored inbound did not complete");
+    if (scene_inbound_active(scene) ||
+        scene->live_foundation.score_restart_selection_active ||
+        scene->live_foundation.score_restart_passer !=
+            TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+        (!scene->legacy_direct_launch &&
+         scene->live_foundation.primary_actor != scene->ball_holder)) {
+        char failure[192];
+        (void)snprintf(
+            failure, sizeof(failure),
+            "ordinary-jump scored inbound did not retire selection ticks=%u inbound=%u pass=%u marker=%u passer=%u primary=%u holder=%u",
+            (unsigned)frame, scene_inbound_active(scene) ? 1U : 0U,
+            scene_pass_active(scene) ? 1U : 0U,
+            scene->live_foundation.score_restart_selection_active ? 1U : 0U,
+            (unsigned)scene->live_foundation.score_restart_passer,
+            (unsigned)scene->live_foundation.primary_actor,
+            (unsigned)scene->ball_holder);
+        return scene_test_shot_clock_fail(run, failure);
     }
     if (!tecmo_gameplay_set_score(
             &scene->state, TECMO_GAMEPLAY_TEAM_AWAY, 2U) ||

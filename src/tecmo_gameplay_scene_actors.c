@@ -903,7 +903,9 @@ static bool scene_begin_cpu_pass_from_action10(TecmoGameplayScene *scene,
         receiver = scene->live_foundation.candidate_actor_by_side[
             scene->live_foundation.offense_side];
         if (!tecmo_gameplay_live_foundation_score_restart_gather(
-                &scene->cpu_steering_assets, passer, receiver,
+                &scene->cpu_steering_assets,
+                TECMO_GAMEPLAY_LIVE_SCORE_RESTART_GATHER_AUTOMATIC_SELECTED,
+                passer, receiver,
                 &scene->live_foundation)) {
             scene->ball_holder = prior_ball_holder;
             scene->ball_position = prior_ball_position;
@@ -1401,6 +1403,7 @@ bool scene_begin_scored_inbound(TecmoGameplayScene *scene,
 bool scene_update_inbound(TecmoGameplayScene *scene)
 {
     TecmoGameplaySceneInboundState inbound;
+    TecmoGameplayLiveFoundation foundation_candidate;
     TecmoGameplayCourtCoordinateQ8 ball;
     bool receiver_facing_right;
     uint32_t step;
@@ -1411,12 +1414,6 @@ bool scene_update_inbound(TecmoGameplayScene *scene)
     }
     inbound = scene->inbound_state;
     if (inbound.phase == TECMO_GAMEPLAY_SCENE_INBOUND_SETUP) {
-        if (scene->live_foundation.score_restart_selection_active &&
-            !tecmo_gameplay_live_foundation_score_restart_gather(
-                &scene->cpu_steering_assets, inbound.passer,
-                inbound.receiver, &scene->live_foundation)) {
-            return false;
-        }
         inbound.phase = TECMO_GAMEPLAY_SCENE_INBOUND_GATHER;
         if (!scene_attached_ball_position(&scene->actors[inbound.passer],
                                           &ball)) {
@@ -1462,19 +1459,27 @@ bool scene_update_inbound(TecmoGameplayScene *scene)
         scene->ball_position = ball;
         return scene_inbound_state_valid(scene);
     }
-    /* Reuse only the typed Bank05 $B24F catch transaction after the locked
-       inbound flight reaches its `$037F[$030A]`-shaped candidate. */
-    if (!scene->legacy_direct_launch &&
-        !tecmo_gameplay_live_foundation_pass_handoff(
-            &scene->cpu_steering_assets, inbound.receiver,
-            &scene->live_foundation)) {
-        return false;
-    }
     if (!scene_goal_facing_right_for_team(
             scene, (TecmoGameplayTeam)inbound.restart_team,
             &receiver_facing_right)) {
         return false;
     }
+    /* Human presentation retains the score-restart marker and its physical
+       passer provenance through flight. Retire it atomically with the shared
+       `$B24F` catch transaction, never during setup. */
+    foundation_candidate = scene->live_foundation;
+    if ((foundation_candidate.score_restart_selection_active &&
+         !tecmo_gameplay_live_foundation_score_restart_gather(
+             &scene->cpu_steering_assets,
+             TECMO_GAMEPLAY_LIVE_SCORE_RESTART_GATHER_HUMAN_INBOUND,
+             inbound.passer, inbound.receiver, &foundation_candidate)) ||
+        (!scene->legacy_direct_launch &&
+         !tecmo_gameplay_live_foundation_pass_handoff(
+             &scene->cpu_steering_assets, inbound.receiver,
+             &foundation_candidate))) {
+        return false;
+    }
+    scene->live_foundation = foundation_candidate;
     scene->actors[inbound.receiver].facing_right = receiver_facing_right;
     scene->ball_holder = inbound.receiver;
     for (size_t controller = 0U;
@@ -3031,9 +3036,7 @@ static bool scene_update_ai_legacy(
         }
         player = scene_actor_player(scene, &scene->actors[actor]);
         cpu = &candidate_cpu[actor];
-        if (player == NULL || cpu->decision_serial == UINT32_MAX) {
-            return false;
-        }
+        if (player == NULL || cpu->decision_serial == UINT32_MAX) return false;
         memset(&input, 0, sizeof(input));
         input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_MOVEMENT_INPUT_TAG;
         input.steering.contract_tag =
@@ -3207,13 +3210,10 @@ bool scene_update_ai(
             scene->orientation_state.attack_direction,
             (uint8_t)scene->state.possession, scene->ball_holder,
             actor_team, scene->launch.controller_team,
-            scene->controlled_actor, &candidate_foundation)) {
-        return false;
-    }
+            scene->controlled_actor, &candidate_foundation)) return false;
     if (!scene_cpu_build_play_input(
-            scene, steering_snapshot, &candidate_foundation, &play_input)) {
+            scene, steering_snapshot, &candidate_foundation, &play_input))
         return false;
-    }
     /* Opcode 6 returns with selected action `$10` and its cursor retained.
        Fixed `$C711` consumes that marker on the following update before
     another Bank06 record can be fetched, preserving the source delay. */
@@ -3239,9 +3239,7 @@ bool scene_update_ai(
        dispatch must not recompute it from post-move coordinates. */
     if (!scene_cpu_opcode16_workspace_project(
             scene, &candidate_foundation, &scene->opcode16_frame_context,
-            &play_input)) {
-        return false;
-    }
+            &play_input)) return false;
 
     /* Canonical selected-primary order precedes $8284's descending ordinary
        actor loop: $827E JSR $935D, $8281 JSR $8374, then automatic offense in
@@ -3257,9 +3255,7 @@ bool scene_update_ai(
     if (!scene_cpu_opcode10_workspace_project(
             (uint8_t)actor, &candidate_foundation,
             &candidate_opcode10_context, &play_input,
-            &primary_opcode10_projection)) {
-        return false;
-    }
+            &primary_opcode10_projection)) return false;
     if (scene_selected_primary_automatic_dispatch_owned(
             scene, &candidate_foundation, (uint8_t)actor) &&
         candidate_foundation.play_state.actor_state[actor] == 0x05U) {
@@ -3317,9 +3313,7 @@ bool scene_update_ai(
         if (!primary_step_ok ||
             !scene_cpu_opcode10_projection_commit(
                 &primary_opcode10_projection, &primary_result,
-                &candidate_opcode10_context.timer_0798)) {
-            return false;
-        }
+                &candidate_opcode10_context.timer_0798)) return false;
         selected_primary_stepped = true;
         if (candidate_foundation.play_state.action_state_046e[actor] ==
                 0x21U) {
@@ -3444,9 +3438,7 @@ bool scene_update_ai(
         if (!scene_cpu_opcode10_workspace_project(
                 (uint8_t)actor, &candidate_foundation,
                 &candidate_opcode10_context, &play_input,
-                &opcode10_projection)) {
-            return false;
-        }
+                &opcode10_projection)) return false;
         memset(&play_result, 0, sizeof(play_result));
         selected_defender =
             candidate_foundation.selected_defender_handoff_active &&
@@ -3523,9 +3515,7 @@ bool scene_update_ai(
             if (!scene_cpu_route_step(
                     scene, actor,
                     (uint8_t)(scene->state.clock_divider & 1U),
-                    &candidate_foundation, candidate_actors, cpu)) {
-                return false;
-            }
+                    &candidate_foundation, candidate_actors, cpu)) return false;
             continue;
         }
         /* The selected-defender setup is also outside ordinary dispatch while
@@ -3560,17 +3550,13 @@ bool scene_update_ai(
         scene_cpu_opcode12_context_end(&play_input);
         if (!scene_cpu_opcode10_projection_commit(
                 &opcode10_projection, &play_result,
-                &candidate_opcode10_context.timer_0798)) {
-            return false;
-        }
+                &candidate_opcode10_context.timer_0798)) return false;
         if (play_result.fetched && play_result.command.opcode == 4U) {
             bool route_owned = false;
             if (!scene_cpu_route_launch(
                     scene, &play_result, actor, player,
                     &candidate_foundation, cpu, &route_owned) ||
-                !route_owned) {
-                return false;
-            }
+                !route_owned) return false;
             continue;
         }
         source_target = candidate_foundation.source_target_valid[actor];
@@ -3614,9 +3600,7 @@ bool scene_update_ai(
             if (!scene_cpu_source_target(
                     &candidate_foundation.play_state, steering_snapshot,
                     &play_input.ball_position,
-                    actor, &target, &target_kind)) {
-                return false;
-            }
+                    actor, &target, &target_kind)) return false;
             if (source_direction) {
                 uint8_t direction;
                 if (!tecmo_gameplay_cpu_steering_direction_for_delta(
@@ -3624,9 +3608,8 @@ bool scene_update_ai(
                         (int16_t)(target.x - steering_snapshot[actor].x),
                         (int16_t)(target.y - steering_snapshot[actor].y),
                         &direction) ||
-                    direction != candidate_foundation.source_direction[actor]) {
+                    direction != candidate_foundation.source_direction[actor])
                     return false;
-                }
             }
         } else if (source_direction) {
             if (scene_cpu_target_for_source_direction(
@@ -3663,9 +3646,7 @@ bool scene_update_ai(
         input.steering.has_explicit_target = movement_target;
         if (movement_target) input.steering.explicit_target = target;
         if (!scene_actor_movement_state(
-            scene, &scene->actors[actor], &input.movement)) {
-            return false;
-        }
+            scene, &scene->actors[actor], &input.movement)) return false;
         input.player_movement_rating = player->profile[0];
         input.condition = scene->actors[actor].condition;
         input.speed_value = scene->launch.speed_value;
@@ -3706,9 +3687,7 @@ bool scene_update_ai(
             result.steering.matchup_actor != input.steering.matchup_actor ||
             !scene_actor_apply_movement(
                 scene, candidate_actors, actor, &result.movement,
-                result.held_direction_bits)) {
-            return false;
-        }
+                result.held_direction_bits)) return false;
         if (!scene_actor_world_position_valid(&candidate_actors[actor])) {
             TecmoGameplayScene position_candidate = *scene;
             position_candidate.actors[actor] = candidate_actors[actor];
@@ -3755,9 +3734,7 @@ bool scene_update_ai(
                  sizeof(scene->movement_assets.direction_map) ||
              scene->movement_assets.direction_map[
                  result.held_direction_bits] !=
-                 candidate_foundation.source_direction[actor])) {
-            return false;
-        }
+                 candidate_foundation.source_direction[actor])) return false;
         if (cpu->decision_serial == UINT32_MAX) return false;
         ++cpu->decision_serial;
         cpu->snapshot_fingerprint = result.steering.input_fingerprint;
@@ -3776,9 +3753,7 @@ bool scene_update_ai(
             scene, candidate_actors, scene->ball_holder,
             &candidate_dribble) ||
         !tecmo_gameplay_court_coordinate_to_q8(
-            &candidate_dribble.visible_position, &candidate_ball)) {
-        return false;
-    }
+            &candidate_dribble.visible_position, &candidate_ball)) return false;
     candidate_foundation.last_shot_request = false;
     candidate_foundation.last_shot_actor =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
@@ -3787,6 +3762,7 @@ bool scene_update_ai(
 
     if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
         !scene_team_has_controller(scene, scene->state.possession) &&
+        !candidate_foundation.score_restart_selection_active &&
         !candidate_actors[scene->ball_holder].movement_boundary_latched) {
         TecmoGameplaySceneActor *holder =
             &candidate_actors[scene->ball_holder];

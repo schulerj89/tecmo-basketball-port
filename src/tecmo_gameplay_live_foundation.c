@@ -1405,7 +1405,10 @@ bool tecmo_gameplay_live_foundation_score_restart_auto_pass_select(
     result.winning_distance = best_distance;
 
     /* `$86D2` equality publishes in place. Mismatch first installs the new
-       `$0308`, then `$88B0` resets the old primary from its raw `$0463`. */
+       `$0308`, then `$88B0` resets the old primary from typed `$0463`.
+       Foundation retains pose-low/action; pose-high and sprite flags are
+       returned as diagnostic raw outputs because their planes are not
+       retained by the native scene. */
     if (winner != old_primary) {
         uint8_t direction = actor_direction_0463[old_primary];
         if (direction >= TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT) {
@@ -1436,7 +1439,6 @@ bool tecmo_gameplay_live_foundation_score_restart_auto_pass_select(
         result.candidate_collision_advanced = true;
     }
     candidate.play_state.actor_state[winner] = 0x04U;
-    candidate.play_state.wait_counter[winner] = 0U;
     candidate.play_state.action_state_046e[winner] = 0U;
     candidate.play_state.stream_offset[winner] = 0x0168U;
     candidate.last_step_offset[winner] = 0x0168U;
@@ -1462,6 +1464,7 @@ bool tecmo_gameplay_live_foundation_score_restart_auto_pass_select(
 
 bool tecmo_gameplay_live_foundation_score_restart_gather(
     const TecmoGameplayCpuSteeringAssets *assets,
+    TecmoGameplayLiveScoreRestartGatherOwner owner,
     uint8_t selected_passer,
     uint8_t receiver,
     TecmoGameplayLiveFoundation *foundation_io)
@@ -1470,6 +1473,9 @@ bool tecmo_gameplay_live_foundation_score_restart_gather(
     if (assets == NULL || foundation_io == NULL ||
         !live_play_state_valid(assets, foundation_io) ||
         !foundation_io->score_restart_selection_active ||
+        (owner !=
+             TECMO_GAMEPLAY_LIVE_SCORE_RESTART_GATHER_AUTOMATIC_SELECTED &&
+         owner != TECMO_GAMEPLAY_LIVE_SCORE_RESTART_GATHER_HUMAN_INBOUND) ||
         foundation_io->score_restart_passer !=
             foundation_io->last_ball_holder ||
         selected_passer >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
@@ -1478,6 +1484,15 @@ bool tecmo_gameplay_live_foundation_score_restart_gather(
         foundation_io->actor_team[selected_passer] !=
             foundation_io->offense_side ||
         foundation_io->actor_team[receiver] != foundation_io->offense_side) {
+        return false;
+    }
+    if ((owner ==
+             TECMO_GAMEPLAY_LIVE_SCORE_RESTART_GATHER_AUTOMATIC_SELECTED &&
+         (foundation_io->control_mode[foundation_io->offense_side] == 0U ||
+          selected_passer != foundation_io->primary_actor)) ||
+        (owner == TECMO_GAMEPLAY_LIVE_SCORE_RESTART_GATHER_HUMAN_INBOUND &&
+         (foundation_io->control_mode[foundation_io->offense_side] != 0U ||
+          selected_passer != foundation_io->score_restart_passer))) {
         return false;
     }
     candidate = *foundation_io;
@@ -1898,6 +1913,16 @@ bool tecmo_gameplay_live_foundation_play_step(
         /* The close branch never reaches `$92A8` and therefore authors no
            target. Preserve the raw storage bits but make them inactive so a
            prior native target cannot be republished as this opcode's effect. */
+        candidate.source_target_valid[actor] = false;
+        candidate.source_raw_target_valid[actor] = false;
+        candidate.source_inactive_target_storage[actor] = true;
+    }
+    if (result.fetched && !result.deferred &&
+        result.command.opcode == 5U) {
+        /* `$8F92-$8FBC` authors direction/action only. The target planes are
+           untouched storage from an earlier command and need not describe
+           the newly written facing octant. Keep those bytes, but do not
+           republish them as an active target or require false coherence. */
         candidate.source_target_valid[actor] = false;
         candidate.source_raw_target_valid[actor] = false;
         candidate.source_inactive_target_storage[actor] = true;

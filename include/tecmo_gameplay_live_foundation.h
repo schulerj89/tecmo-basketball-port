@@ -62,6 +62,11 @@ typedef struct TecmoGameplayLiveAutoPassSelection {
     bool candidate_collision_advanced;
 } TecmoGameplayLiveAutoPassSelection;
 
+typedef enum TecmoGameplayLiveScoreRestartGatherOwner {
+    TECMO_GAMEPLAY_LIVE_SCORE_RESTART_GATHER_AUTOMATIC_SELECTED = 0,
+    TECMO_GAMEPLAY_LIVE_SCORE_RESTART_GATHER_HUMAN_INBOUND = 1
+} TecmoGameplayLiveScoreRestartGatherOwner;
+
 /* Passive observation made when a canonical opcode-15 record reaches the
  * LIVE executor. The native scene deliberately does not own $0499, $007E,
  * $06D5/$06D6, $0479, $059E, or the raw $0442/$044D pointer pair, so unavailable
@@ -291,6 +296,7 @@ bool tecmo_gameplay_live_foundation_score_restart_auto_pass_select(
     TecmoGameplayLiveAutoPassSelection *result_out);
 bool tecmo_gameplay_live_foundation_score_restart_gather(
     const TecmoGameplayCpuSteeringAssets *assets,
+    TecmoGameplayLiveScoreRestartGatherOwner owner,
     uint8_t selected_passer,
     uint8_t receiver,
     TecmoGameplayLiveFoundation *foundation_io);

@@ -452,7 +452,7 @@ in deterministic LIVE proof JSON.
 | Source consumer | Faithful LIVE owner | LIVE result when absent |
 | --- | --- | --- |
 | `$9146` opcode 14, `$04B0` bit `$10` | `LiveFoundation.actor_selector_flags`, synchronized before the input is built | Executed; an unselected `0` is valid. |
-| `$8F92-$8FBC` opcode 5 | Exact record offset 380 / `$A0AA` (`05 02 00 00 00`); TGOR supplies orientation. The direction mirror is `{1,0,2,4,3,5,7,6}` and canonical direction 2 is invariant. | Writes direction 2, actor state 4, and action-state `$18`, then advances to `$0181`. The external `$034A` pose source remains an observation and is not fabricated. |
+| `$8F92-$8FBC` opcode 5 | Exact record offset 380 / `$A0AA` (`05 02 00 00 00`); TGOR supplies orientation. The direction mirror is `{1,0,2,4,3,5,7,6}` and canonical direction 2 is invariant. | Writes direction 2, actor state 4, and action-state `$18`, then advances to `$0181`. It does not write target storage: prior target bytes survive but become inactive metadata, while the existing TGMO adapter composes the newly owned direction. The external `$034A` pose source remains an observation and is not fabricated. |
 | `$8F72-$8F91` opcode 23 | Selected-primary automatic prepass only. Exact record offset 395 / `$A0B9` (`17 00 00 00 00`); uncontrolled ownership is zero. | Advances `$018B->$0190` without RNG/defender-depth reads or a direction write. Controlled and ordinary contexts remain typed deferred. |
 | `$8F2D-$8F71` opcode 6 | Selected-primary automatic prepass only. Exact record offset 400 / `$A0BE` (`06 00 00 00 00`); no controller owns the possessing team. | Automatic `$8F2D-$8F4C` retains `$0190`/state 4, writes typed object-10 state `$13` and actor action `$10`. The next AI update consumes action `$10` through fixed `$C711` selector 1 into the existing `$89DB/$89D7` pass gather. Controlled `$8F4D-$8F71` remains deferred. `$0743=0` and `$0588^=1` are not claimed. |
 | `$8ED7-$8F11` opcode 8 | Immutable held-ball X and TGOR orientation. The eight exact records are `$0B68/$0BA4->$025D`, `$0B77/$0BB3->$029E`, `$0B86/$0BC2->$02DA`, and `$0B95/$0BD1->$030C`. Each redirect destination begins with opcode **decimal 17**, not opcode 11. | Orientation 0 redirects below `$0140`; orientation 1 redirects at or above `$01C0`. Redirect stores C8:C9 directly with state 4 and no +5; the complement writes state 4 and advances +5. `$0588&7` clearing remains an unretained observation. |
@@ -471,7 +471,9 @@ Production automatic-pass selection now enters from made-score restart:
 Bank05 `$901F` state 1 reaches Bank06 `$8661-$8727`, publishes the selected
 primary at `$0168`, and `$8728-$8773` refreshes the other four offense streams
 and final candidate. Tests cover both orientations, exclusions, strict ties,
-equality/mismatch, and the `$88B0` displaced-primary reset. Human offense
+equality/mismatch, and the retained pose-low/action portion of the `$88B0`
+displaced-primary reset. Pose-high/sprite outputs are diagnostic-only; scene
+standing direction is an explicit horizontal-facing approximation. Human offense
 receives those writes but does not automatically execute `$0168`.
 
 The TGLP native proof renders four deterministic automatic-pass

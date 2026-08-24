@@ -1618,7 +1618,10 @@ first-record loop and second-record rewind branches.
 The automatic selected-primary pass unlock begins naturally at made-score
 restart. Bank05 `$901F` writes state 1; Bank06 `$8661-$8727` scans 9..0,
 excludes `$04B0&$10`, and uses strict unsigned orientation distance, so the
-higher slot wins ties. Mismatch alone resets the old primary through `$88B0`.
+higher slot wins ties. Mismatch alone applies the retained pose-low/action
+portion of `$88B0`; pose-high/sprite bytes remain diagnostic outputs, and a
+standing scene actor's unretained `$0463` is approximated from horizontal
+facing rather than claimed exact.
 `$8728-$8773` refreshes the other four offense streams and final candidate.
 Automatic offense starts at `$0168`; human offense receives the same selection
 writes but retains inbound presentation and does not auto-consume the stream.

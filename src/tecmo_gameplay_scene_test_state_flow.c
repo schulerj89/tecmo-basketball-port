@@ -2919,6 +2919,8 @@ static bool scene_test_score_restart_auto_pass_selector(
             if (mismatch != 0U) positions[8U].x = positions[9U].x;
             auto_pass.candidate_actor_by_side[TECMO_GAMEPLAY_TEAM_HOME] =
                 expected_winner;
+            auto_pass.play_state.wait_counter[expected_winner] =
+                mismatch != 0U ? 0x2BU : 0x2AU;
             memset(&selection, 0xA5, sizeof(selection));
             if (!tecmo_gameplay_live_foundation_score_restart_auto_pass_select(
                     &scene->cpu_steering_assets, positions, directions,
@@ -2939,7 +2941,8 @@ static bool scene_test_score_restart_auto_pass_selector(
                 auto_pass.score_restart_passer != 5U ||
                 auto_pass.play_state.stream_offset[expected_winner] != 0x0168U ||
                 auto_pass.play_state.actor_state[expected_winner] != 4U ||
-                auto_pass.play_state.wait_counter[expected_winner] != 0U ||
+                auto_pass.play_state.wait_counter[expected_winner] !=
+                    (mismatch != 0U ? 0x2BU : 0x2AU) ||
                 auto_pass.play_state.action_state_046e[expected_winner] != 0U ||
                 auto_pass.candidate_actor_by_side[TECMO_GAMEPLAY_TEAM_HOME] !=
                     expected_final ||
@@ -2958,6 +2961,14 @@ static bool scene_test_score_restart_auto_pass_selector(
                     &auto_pass, &selection) ||
                 memcmp(&auto_pass, &auto_before, sizeof(auto_pass)) != 0 ||
                 selection.contract_tag != 0xA5A5A5A5U) return false;
+            memset(&selection, 0xA5, sizeof(selection));
+            if (tecmo_gameplay_live_foundation_score_restart_gather(
+                    &scene->cpu_steering_assets,
+                    TECMO_GAMEPLAY_LIVE_SCORE_RESTART_GATHER_AUTOMATIC_SELECTED,
+                    7U, expected_final, &auto_pass) ||
+                memcmp(&auto_pass, &auto_before, sizeof(auto_pass)) != 0) {
+                return false;
+            }
         }
     }
     return true;
@@ -5332,6 +5343,16 @@ static bool scene_test_live_foundation_regressions(
         candidate_foundation.play_state.action_state_046e[primary] = 0U;
         candidate_foundation.play_state.stream_offset[primary] = 0x017CU;
         candidate_foundation.last_step_offset[primary] = 0x017CU;
+        /* Opcode 5 owns direction/action, not the target planes. Seed a
+           deliberately noncoherent but valid prior target and prove that its
+           raw storage survives without remaining an active movement claim. */
+        candidate_foundation.play_state.target_object[primary] =
+            TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+        candidate_foundation.play_state.target_x[primary] = 133;
+        candidate_foundation.play_state.target_depth[primary] = 150;
+        candidate_foundation.source_target_valid[primary] = true;
+        candidate_foundation.source_raw_target_valid[primary] = false;
+        candidate_foundation.source_inactive_target_storage[primary] = false;
         candidate_foundation.play_state.actor_state[ordinary_actor] = 0x04U;
         candidate_foundation.play_state.wait_counter[ordinary_actor] = 0U;
         candidate_foundation.play_state.stream_offset[ordinary_actor] =
@@ -5347,6 +5368,15 @@ static bool scene_test_live_foundation_regressions(
                 0x18U ||
             !scene->live_foundation.source_direction_valid[primary] ||
             scene->live_foundation.source_direction[primary] != 2U ||
+            scene->live_foundation.source_target_valid[primary] ||
+            !scene->live_foundation
+                 .source_inactive_target_storage[primary] ||
+            scene->live_foundation.play_state.target_x[primary] != 133 ||
+            scene->live_foundation.play_state.target_depth[primary] != 150 ||
+            !scene->cpu_actors[primary].target_valid ||
+            scene->cpu_actors[primary].direction != 2U ||
+            (scene->cpu_actors[primary].target_position.x == 133 &&
+             scene->cpu_actors[primary].target_position.y == 150) ||
             scene_pass_active(scene)) {
             LIVE_FAIL("LIVE opcode-5 pass-stream entry failed");
         }

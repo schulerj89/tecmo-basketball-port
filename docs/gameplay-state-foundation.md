@@ -120,7 +120,10 @@ the exact `$B98B` remap. `$9042-$9053` toggles `$04B0` bit `$10` for all ten
 actors. `$901F` writes state 1 before Bank06 `$8661-$8727` performs its exact
 descending primary scan and `$8728-$8773` refreshes formation/candidate
 streams. The scan uses unsigned orientation distance and strict replacement;
-`$88B0-$88D9` resets only a displaced primary. The physical restart passer
+`$88B0-$88D9` resets only a displaced primary. Native state retains its
+pose-low/action writes; pose-high/sprite bytes are diagnostic-only, and the
+scene approximates an unretained standing `$0463` from horizontal facing.
+The physical restart passer
 remains distinct until gather. Automatic offense consumes `$0168`; human
 offense retains inbound presentation while still receiving selection writes.
 

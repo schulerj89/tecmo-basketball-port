@@ -266,26 +266,37 @@ static bool proof_scored_inbound_tied(
 {
     uint8_t restart_team;
     uint8_t passer;
+    uint8_t primary;
+    bool automatic;
     if (scene == NULL || score_before == NULL ||
         shooting_team >= TECMO_GAMEPLAY_TEAM_COUNT ||
         point_value < 1U || point_value > 3U) {
         return false;
     }
     restart_team = (uint8_t)(shooting_team ^ 1U);
-    passer = scene->inbound_state.passer;
+    automatic = proof_team_is_automatic(scene, restart_team);
+    passer = scene->live_foundation.score_restart_passer;
+    primary = scene->live_foundation.primary_actor;
+    if (!scene->live_foundation.score_restart_selection_active ||
+        passer >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        primary >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->ball_holder != passer ||
+        scene->actors[passer].team != restart_team ||
+        scene->actors[primary].team != restart_team ||
+        scene->live_foundation.play_state.primary_actor != primary ||
+        scene->live_foundation.last_ball_holder != passer ||
+        scene->live_foundation.play_state.stream_offset[primary] != 0x0168U ||
+        scene->state.possession != (TecmoGameplayTeam)restart_team ||
+        scene->state.score[shooting_team] !=
+            (uint16_t)(score_before[shooting_team] + point_value) ||
+        scene->state.score[restart_team] != score_before[restart_team]) {
+        return false;
+    }
+    if (automatic) return !scene_inbound_active(scene);
     return scene_inbound_active(scene) &&
         scene_inbound_state_valid(scene) &&
-        scene->state.possession == (TecmoGameplayTeam)restart_team &&
         scene->inbound_state.restart_team == restart_team &&
-        passer < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
-        scene->ball_holder == passer &&
-        scene->actors[passer].team == restart_team &&
-        scene->live_foundation.primary_actor == passer &&
-        scene->live_foundation.play_state.primary_actor == passer &&
-        scene->live_foundation.last_ball_holder == passer &&
-        scene->state.score[shooting_team] ==
-            (uint16_t)(score_before[shooting_team] + point_value) &&
-        scene->state.score[restart_team] == score_before[restart_team];
+        scene->inbound_state.passer == passer;
 }
 
 static void proof_capture_first_settlement(
@@ -1030,6 +1041,9 @@ bool tecmo_gameplay_cpu_possession_proof(
     bool possession_had_shot = false;
     bool update_failed = false;
     bool first_outcome_captured = false;
+    bool score_restart_entry_observed = false;
+    bool score_restart_marker_retired = false;
+    bool score_restart_catch_observed = false;
     uint8_t active_shot_outcome = TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN;
     uint8_t active_shooting_team = TECMO_GAMEPLAY_TEAM_COUNT;
     uint8_t active_shot_points = 0U;
@@ -1283,6 +1297,14 @@ bool tecmo_gameplay_cpu_possession_proof(
             scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
             scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
             !scene_pass_active(scene) && !scene_inbound_active(scene) &&
+            !(scene->live_foundation.score_restart_selection_active &&
+              scene->live_foundation.score_restart_passer == holder &&
+              scene->live_foundation.primary_actor <
+                  TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+              scene->actors[scene->live_foundation.primary_actor].team ==
+                  scene->state.possession &&
+              proof_team_is_automatic(
+                  scene, (uint8_t)scene->state.possession)) &&
             (!ownership.automatic_selected_eligible ||
              !ownership.automatic_selected_admitted ||
              ownership.holder_owner !=
@@ -1410,6 +1432,7 @@ bool tecmo_gameplay_cpu_possession_proof(
                 ++source_backed_outcomes;
                 ++legitimate_terminal_outcomes;
                 ++scored_inbound_outcomes;
+                score_restart_entry_observed = true;
             } else {
                 ++unknown_possession_edges;
                 outcome = "unknown-possession-edge";
@@ -1434,11 +1457,23 @@ bool tecmo_gameplay_cpu_possession_proof(
                 break;
             }
         }
+        if (score_restart_entry_observed &&
+            !scene->live_foundation.score_restart_selection_active) {
+            score_restart_marker_retired = true;
+            if (pass_events > 0U && !scene_pass_active(scene) &&
+                scene->ball_holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+                scene->live_foundation.primary_actor == scene->ball_holder &&
+                scene->live_foundation.last_ball_holder ==
+                    scene->ball_holder) {
+                score_restart_catch_observed = true;
+            }
+        }
         if (scene->state.clock_minutes == 0U &&
             scene->state.clock_seconds <= 59U) {
             reached_beyond_one_minute = true;
         }
-        if (source_backed_outcomes >= 2U && loose_ball_coverage.completed) {
+        if (source_backed_outcomes >= 2U && loose_ball_coverage.completed &&
+            score_restart_marker_retired && score_restart_catch_observed) {
             outcome = "source-backed-outcomes-and-loose-ball-completion";
             break;
         }
@@ -1486,7 +1521,8 @@ bool tecmo_gameplay_cpu_possession_proof(
         ball_altitude_before = scene->jump_ball_altitude_q8;
         if (!tecmo_gameplay_scene_update(scene, &neutral, &neutral)) {
             update_failed = true;
-            outcome = "scene-update-failed";
+            outcome = scene->status[0] != '\0'
+                ? scene->status : "scene-update-failed";
             break;
         }
     }
@@ -1501,6 +1537,8 @@ bool tecmo_gameplay_cpu_possession_proof(
         legitimate_terminal_outcomes == source_backed_outcomes &&
         claimant_settlement_outcomes >= 1U &&
         same_team_claimant_outcomes >= 1U && scored_inbound_outcomes >= 1U &&
+        score_restart_entry_observed && score_restart_marker_retired &&
+        score_restart_catch_observed && pass_events > 0U &&
         generic_fallbacks == 0U && unknown_possession_edges == 0U &&
         shot_launches >= 2U && !selected_state0b_observed &&
         !no_effect_failure && mid_horizon_captured &&
