@@ -484,8 +484,9 @@ pass phases, and player/ball position deltas. Object-slot-10 `$13` is labeled
 as an inference from the separate canonical executor and scene state-flow
 tests; the live scene does not retain or observe that write. The existing
 isolation fixture still parks `$017C`; it proves downstream presentation only
-and is not evidence for the converted production `$0168` entry. Its refreshed
-visual baseline remains pending review.
+and is not evidence for the converted production `$0168` entry. The refreshed
+frame-111 baseline was visually reviewed: unlike the retired empty-court
+shortcut frame, it shows all ten actors in the scored-restart formation.
 
 Unimplemented handler effects retain their source-pinned record transport
 only where that transport is already bounded, with the separate reason
