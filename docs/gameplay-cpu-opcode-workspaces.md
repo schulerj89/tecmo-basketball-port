@@ -43,7 +43,7 @@ the caller-local helper and `$BA` lifecycle that TGAI-3 does not claim to own.
 | Opcode 7 | Bank06 `$8F12-$8F29`: compare `C9` with `$046E[C8]`, then choose current `+5` or `CA/CB +5`; canonical records use object slot `C8=$0A`. | Slot-10/ball-object `$046E` lifecycle at the exact command point. Actor timers and ball coordinates are not substitutes. | Deferred/diagnostic-only. |
 | Opcode 10 | Bank06 `$8D59-$8E21` plus `$8E22-$8E4E`: orientation hoop delta, signed normalization, primary/non-primary threshold branches, and exact 1/2/3/4-bit shift entries. Canonical `$8DCE` is `BCC $8E03` (`90 33`): the zero-`$0798`, threshold-`<$6A` primary branch takes three shifts with no reload/decrement, despite a misleading lifted label. The harness names the Bank06 CPU X-register actor selector `actor_index`, so it cannot be mistaken for a court X coordinate. | Primary links require a valid single-frame runtime binding of `$0798/$075F/$6A/$0760`; the non-primary branch does not read them. | Ordinary LIVE projects both branches when their typed owners are available. Missing/malformed primary context remains fail-closed. |
 | Opcode 10 selector | Bank02 `$BEE7-$BFD8`: seed `$99=$FF`; apply the `$0588` and `$0478/BA` gates; find the first descending bit-`$10` actor whose `$06CB==$0308`; form the source-width X/depth window; then scan actors 9..0, excluding `$0309` and the initial actor. Equal distances replace the prior candidate, so the lowest tied slot wins. | Nonordinary `$0478` contexts and any selector no-store/retained lifecycle. | Ordinary `$0478==0` LIVE uses TGBC `frontcourt_established` for the sole `$0588` bit-`$10` producer and typed foundation roles/flags/links/positions. Only actual source stores are projected. |
-| Opcode 16 | Bank05 `$9054-$90AF`: absolute hoop-X/depth workspaces. Bank06 `$9085-$90D7`: the existing executor can use them only when the pointer target and caller timing are proven. | Proof that Bank05 ran for the relevant actor immediately before the command; plus `$0309` pointer ownership. | Pure harness only. |
+| Opcode 16 | Bank05 `$9054-$90AF`: absolute primary-to-hoop-X/depth workspaces. Fixed `$F031` calls Bank05 `$81F2` once per gameplay loop; `$8209-$8217/$833B` snapshots `$0308` before source player movement, and every later Bank06 `$9085-$90D7` invocation shares the result. | A tagged pre-motion scene-frame capture plus typed `$0309` play-state ownership. | Ordinary LIVE captures once before controlled movement and binds the immutable workspace once before selected/descending dispatch. Absent input defers; malformed input rejects transactionally. |
 | `$BA` | Bank06 target application consumes only `BA & 3`; the harness exposes that mask without a clock. | The cross-bank mutable lifecycle: bits 0..1 change in Bank05 state/possession paths and gate Bank06 formation/target paths; other bits have independent meanings. | External-lifecycle diagnostic; never `frame & 3`. |
 
 ## Exact LIVE boundary
@@ -94,6 +94,21 @@ not publish the candidate timer back to the runtime. Absent or malformed frame
 context therefore keeps only primary links at `missing-linked-relative-workspace`.
 Raw RAM is not mirrored, and opcode 15 remains disabled and unchanged.
 
+Opcode 16 has a separate ephemeral scene owner. Fixed `$F031` calls Bank05
+`$81F2` once per gameplay loop. Its unconditional `$8209-$8217` primary load,
+`$833B` position snapshot, and `$9054-$90AF` arithmetic run before source
+primary movement. Native therefore captures the typed primary actor,
+orientation, and position at the start of `scene_update_live_action_ordered`,
+before `scene_move_controlled_actor`. The pure harness validates and produces
+`$036E/$0370`; `scene_update_ai` binds those values once to the shared play
+input before selected-primary and ordinary `9..0` traversal. Both canonical
+`AC35/AC44` records (`10 09 03 00 00`) see the same immutable values even if a
+controlled primary crosses the X-versus-depth comparison boundary afterward.
+There is no persistent workspace, raw-RAM mirror, current-position recompute,
+or per-actor recompute. An absent frame context retains
+`missing-pointer-workspace`; a malformed available context rejects without a
+partial scene commit.
+
 A natural read-only observation provides non-authoritative corroboration:
 all 3,937 observed opcode-10 entries followed an actual candidate or explicit
 `$FF` selector store; no retained/no-store selector fed opcode 10. Entry values
@@ -125,8 +140,10 @@ The standalone test executable checks:
   non-primary workspace projection, primary rate/reload branches, serial
   actual-command timer commits, transactional malformed binding, and
   single-use frame context consumption;
-- opcode-16 left/right absolute workspace arithmetic and transactional invalid
-  coordinates;
+- opcode-16 left/right absolute workspace arithmetic, transactional invalid
+  coordinates, exact dual canonical-record execution from one pre-motion
+  capture, X/depth branch flip proof, absent-context defer, and malformed
+  context rollback;
 - `$BA` low-bit masking preserves its external lifecycle rather than creating
   cadence.
 

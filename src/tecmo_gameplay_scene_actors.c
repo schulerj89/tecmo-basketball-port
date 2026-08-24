@@ -2370,6 +2370,98 @@ bool scene_cpu_opcode10_projection_commit(
     return true;
 }
 
+static bool scene_cpu_opcode16_context_result(
+    const TecmoGameplaySceneOpcode16FrameContext *context,
+    TecmoGameplayCpuOpcode16WorkspaceResult *result_out)
+{
+    TecmoGameplayCpuOpcode16WorkspaceInput input;
+    TecmoGameplayCpuOpcode16WorkspaceResult result;
+    if (context == NULL || result_out == NULL ||
+        context->contract_tag !=
+            TECMO_GAMEPLAY_SCENE_OPCODE16_FRAME_CONTEXT_TAG ||
+        !context->available ||
+        context->primary_actor_0308 >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        context->orientation_035a > 1U) {
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.contract_tag = TECMO_GAMEPLAY_CPU_OPCODE16_WORKSPACE_INPUT_TAG;
+    input.orientation_035a = context->orientation_035a;
+    input.actor_position = context->primary_position;
+    if (!tecmo_gameplay_cpu_opcode16_workspace_harness(&input, &result) ||
+        result.workspace_036e != context->workspace_036e ||
+        result.workspace_0370 != context->workspace_0370) {
+        return false;
+    }
+    *result_out = result;
+    return true;
+}
+
+bool scene_cpu_opcode16_workspace_capture(
+    const TecmoGameplayScene *scene,
+    TecmoGameplaySceneOpcode16FrameContext *context_out)
+{
+    TecmoGameplaySceneOpcode16FrameContext context;
+    TecmoGameplayCpuOpcode16WorkspaceInput input;
+    TecmoGameplayCpuOpcode16WorkspaceResult result;
+    uint8_t primary;
+    if (scene == NULL || context_out == NULL ||
+        scene->lifecycle_tag != TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG ||
+        scene->orientation_state.attack_direction > 1U) {
+        return false;
+    }
+    primary = scene->live_foundation.primary_actor;
+    if (primary >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        !scene->actors[primary].active) {
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.contract_tag = TECMO_GAMEPLAY_CPU_OPCODE16_WORKSPACE_INPUT_TAG;
+    input.orientation_035a = scene->orientation_state.attack_direction;
+    input.actor_position = scene->actors[primary].position;
+    if (!tecmo_gameplay_cpu_opcode16_workspace_harness(&input, &result)) {
+        return false;
+    }
+    memset(&context, 0, sizeof(context));
+    context.contract_tag = TECMO_GAMEPLAY_SCENE_OPCODE16_FRAME_CONTEXT_TAG;
+    context.available = true;
+    context.primary_actor_0308 = primary;
+    context.orientation_035a = input.orientation_035a;
+    context.primary_position = input.actor_position;
+    context.workspace_036e = result.workspace_036e;
+    context.workspace_0370 = result.workspace_0370;
+    *context_out = context;
+    return true;
+}
+
+bool scene_cpu_opcode16_workspace_project(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplayLiveFoundation *foundation,
+    const TecmoGameplaySceneOpcode16FrameContext *context,
+    TecmoGameplayCpuSteeringPlayInput *input)
+{
+    TecmoGameplayCpuOpcode16WorkspaceResult result;
+    if (scene == NULL || foundation == NULL || context == NULL ||
+        input == NULL ||
+        input->contract_tag != TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG) {
+        return false;
+    }
+    input->pointer_workspace_valid = false;
+    input->workspace_036e = 0U;
+    input->workspace_0370 = 0U;
+    if (!context->available) return true;
+    if (!scene_cpu_opcode16_context_result(context, &result) ||
+        context->primary_actor_0308 != foundation->primary_actor ||
+        context->orientation_035a !=
+            scene->orientation_state.attack_direction) {
+        return false;
+    }
+    input->pointer_workspace_valid = true;
+    input->workspace_036e = result.workspace_036e;
+    input->workspace_0370 = result.workspace_0370;
+    return true;
+}
+
 static bool scene_cpu_build_play_input(
     const TecmoGameplayScene *scene,
     const TecmoGameplayCourtCoordinate
@@ -2776,6 +2868,14 @@ bool scene_update_ai(
     }
     if (!scene_cpu_build_play_input(
             scene, steering_snapshot, &candidate_foundation, &play_input)) {
+        return false;
+    }
+    /* Bank05 produced this workspace once before any source movement. Bind it
+       once to the immutable play input; selected-primary and ordinary 9..0
+       dispatch must not recompute it from post-move coordinates. */
+    if (!scene_cpu_opcode16_workspace_project(
+            scene, &candidate_foundation, &scene->opcode16_frame_context,
+            &play_input)) {
         return false;
     }
 

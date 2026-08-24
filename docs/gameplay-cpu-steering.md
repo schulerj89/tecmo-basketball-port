@@ -408,6 +408,16 @@ single-use runtime frame binding of the fixed `$6A` sample, persistent `$0798`
 timer, launch rate `$075F`, and bias `$0760`; absent or malformed binding keeps
 the exact `missing-linked-relative-workspace` defer reason.
 
+Opcode 16's workspace is scene-frame input, not actor state. At the start of
+the live ordered action, before controlled movement, the scene snapshots the
+typed primary coordinate and orientation and applies the exact Bank05
+`$9054-$90AF` arithmetic. `scene_update_ai` validates and binds `$036E/$0370`
+once; both canonical `$0309` pointer records and every eligible actor in that
+tick share the result. The context is consumed with the scene frame. Direct AI
+callers must explicitly bind equivalent pre-motion evidence to execute opcode
+16; absence stays `missing-pointer-workspace`, while malformed available input
+fails the scene transaction.
+
 `TecmoRuntime` owns the fixed `$54:$53/$6A` cadence independently of the TPTI
 bridge. It ticks once before each runtime mode dispatch and stages one `$CD96`
 extra mix for each valid gameplay launch, committing that candidate only after
@@ -433,7 +443,7 @@ in deterministic LIVE proof JSON.
 | `$9146` opcode 14, `$04B0` bit `$10` | `LiveFoundation.actor_selector_flags`, synchronized before the input is built | Executed; an unselected `0` is valid. |
 | `$8F11` opcode 7, `$046E,C8` | None; the state-table lifecycle is not retained | `missing-actor-046e-probe`. |
 | `$8CD0/$8D59/$92CA` opcode 10, `$07DF`, `$0478/$06CB/$0308` branch context, linked-relative workspace, and `$BA` | Ordinary `$0478==0`: the post-human held-ball/dribble projection over AI's immutable actor snapshot feeds a transactional TGBC preview and owns `$0588&$10`; `LiveFoundation` owns roles, `$04B0`, `$06CB`, and positions. Only actual candidate/explicit-`$FF` selector stores become available. Non-primary links own the distance-only workspace. Primary links additionally require the single-frame runtime timing/RNG context. The ordinary-LIVE `$BA&3==0` seam owns the tail. | Both link branches execute with their exact typed owners. Retained/no-store remains `missing-special-actor-07df`; absent/malformed primary context remains `missing-linked-relative-workspace`. |
-| `$9085/$90AC` opcode 16, `$036E/$0370` | None | `missing-pointer-workspace`. |
+| `$9085/$90AC` opcode 16, `$036E/$0370` | Fixed `$F031->$81F2->$8209/$833B/$9054` once-per-loop capture of the primary's pre-motion coordinate and orientation; the tagged scene context is bound once before Bank06 traversal. | Executes for eligible actors. Absent context is `missing-pointer-workspace`; malformed available context rolls back. |
 | `$8BF6-$8C17` opcode 21, `$058A/$0357/$0358/$007E` | Exact typed `shot_clock/clock_minutes/clock_seconds` own `$058A/$0357/$0358`; raw `$007E` bit 1 is unowned and explicitly approximated clear for ordinary LIVE | Executes the source +5/+10 branch from the typed clocks; whole-gate parity is not claimed. |
 | `$92CA` common target tail, `$BA` | `scene_cpu_common_tail_has_ordinary_live_zero`: exact `LIVE`, no result/abort, violation, free throw, shot, pass, lineup, or dunk lifecycle | Supplies only typed `flags_ba=0`, so Bank06 `$92CA-$92D0` takes its five-byte `$8FD9` increment. Every other path remains `missing-ba-lifecycle`. |
 | `$9125` opcode 13, `$038D-$0390` global target | None | `unimplemented-handler`; its later `$92CA` tail does not make it live. |

@@ -315,6 +315,14 @@ bool scene_cpu_opcode10_projection_commit(
     const TecmoGameplaySceneOpcode10Projection *projection,
     const TecmoGameplayCpuSteeringPlayResult *play_result,
     uint8_t *candidate_timer_io);
+bool scene_cpu_opcode16_workspace_capture(
+    const TecmoGameplayScene *scene,
+    TecmoGameplaySceneOpcode16FrameContext *context_out);
+bool scene_cpu_opcode16_workspace_project(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplayLiveFoundation *foundation,
+    const TecmoGameplaySceneOpcode16FrameContext *context,
+    TecmoGameplayCpuSteeringPlayInput *input);
 bool scene_update_ai(
     TecmoGameplayScene *scene,
     TecmoGameplaySceneCpuShotRequest *shot_request_out);

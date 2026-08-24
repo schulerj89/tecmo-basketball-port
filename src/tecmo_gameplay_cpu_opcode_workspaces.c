@@ -348,8 +348,8 @@ bool tecmo_gameplay_cpu_opcode16_workspace_harness(
         return false;
     }
     /* Bank05 $9054-$90AF: $036E/$036F is abs(($73/$E8)-BDEF/BDF1[Y]) and
-       $0370/$0371 is abs($F3-$94). This is arithmetic proof only; the Bank05
-       caller cadence remains unowned by LIVE. */
+       $0370/$0371 is abs($F3-$94). This pure function owns no cadence; LIVE
+       separately binds the fixed once-per-loop pre-motion scene capture. */
     hoop_x = input->orientation_035a == 0U
         ? TECMO_GAMEPLAY_COURT_LEFT_HOOP_X
         : TECMO_GAMEPLAY_COURT_RIGHT_HOOP_X;

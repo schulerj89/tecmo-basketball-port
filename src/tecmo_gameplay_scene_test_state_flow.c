@@ -4295,6 +4295,272 @@ static bool scene_test_live_foundation_regressions(
         }
     }
 
+    /* Bank05 $81F2 opcode-16 producer: capture primary position before one
+       controlled move, then prove both canonical records share that immutable
+       workspace in the later Bank06 descending traversal. */
+    {
+        TecmoGameplaySceneOpcode16FrameContext pre_context;
+        TecmoGameplaySceneOpcode16FrameContext post_context;
+        TecmoGameplayScene opcode16_scene;
+        TecmoGameplayScene absent_scene;
+        TecmoGameplayScene malformed_context_scene;
+        TecmoGameplayScene malformed_before;
+        TecmoGameplayLiveFoundation opcode16_foundation;
+        TecmoGameplaySceneCpuShotRequest no_shot;
+        TecmoControlFrame move_controls;
+        uint16_t opcode16_offsets[2U] = {0U, 0U};
+        uint8_t opcode16_actors[2U] = {
+            TECMO_GAMEPLAY_SCENE_NO_ACTOR,
+            TECMO_GAMEPLAY_SCENE_NO_ACTOR
+        };
+        uint8_t primary;
+        uint8_t defender;
+        size_t opcode16_count = 0U;
+        size_t controller = TECMO_GAMEPLAY_CONTROLLER_COUNT;
+        int16_t hoop_x;
+        int16_t pre_x;
+        int16_t expected_target_x;
+        int16_t expected_target_y;
+
+        for (offset = 0U;
+             offset < scene->cpu_steering_assets.command_record_count * 5U;
+             offset = (uint16_t)(offset + 5U)) {
+            if (!tecmo_gameplay_cpu_steering_decode_command(
+                    &scene->cpu_steering_assets, offset, &command)) {
+                continue;
+            }
+            if (command.opcode == 16U && command.arguments[0U] == 0x09U &&
+                command.arguments[1U] == 0x03U && opcode16_count < 2U) {
+                opcode16_offsets[opcode16_count++] = offset;
+            }
+        }
+        tecmo_gameplay_scene_test_set_skip_pretip(true);
+        if (opcode16_count != 2U ||
+            opcode16_offsets[0U] != 0x0D07U ||
+            opcode16_offsets[1U] != 0x0D16U ||
+            !tecmo_gameplay_scene_launch(scene, &bound) ||
+            !scene_sync_live_foundation(scene)) {
+            LIVE_FAIL("LIVE opcode-16 canonical record fixture rejected");
+        }
+        primary = scene->live_foundation.primary_actor;
+        defender = scene->live_foundation.defender_actor;
+        for (actor = 0U; actor < TECMO_GAMEPLAY_CONTROLLER_COUNT; ++actor) {
+            if (scene->controlled_actor[actor] == primary) {
+                controller = actor;
+                break;
+            }
+        }
+        for (int scan = 9; scan >= 0 && opcode16_count > 0U; --scan) {
+            uint8_t item = (uint8_t)scan;
+            if (item == primary || item == defender ||
+                item == scene->controlled_actor[0U] ||
+                item == scene->controlled_actor[1U]) {
+                continue;
+            }
+            if (opcode16_actors[0U] == TECMO_GAMEPLAY_SCENE_NO_ACTOR) {
+                opcode16_actors[0U] = item;
+            } else {
+                opcode16_actors[1U] = item;
+                break;
+            }
+        }
+        if (controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT || primary >= 10U ||
+            defender >= 10U || opcode16_actors[0U] >= 10U ||
+            opcode16_actors[1U] >= 10U) {
+            LIVE_FAIL("LIVE opcode-16 actor routing unavailable");
+        }
+        hoop_x = scene->orientation_state.attack_direction == 0U
+            ? TECMO_GAMEPLAY_COURT_LEFT_HOOP_X
+            : TECMO_GAMEPLAY_COURT_RIGHT_HOOP_X;
+        scene->actors[primary].position.x = (int16_t)(hoop_x +
+            (scene->orientation_state.attack_direction == 0U ? 48 : -48));
+        scene->actors[primary].position.y = 100;
+        scene->actors[primary].anchor = scene->actors[primary].position;
+        scene->actors[primary].movement_fractional_accumulator = 15U;
+        scene->actors[primary].movement_action_state =
+            scene->orientation_state.attack_direction == 0U
+                ? TECMO_GAMEPLAY_MOVEMENT_INPUT_LEFT
+                : TECMO_GAMEPLAY_MOVEMENT_INPUT_RIGHT;
+        if (!scene_attach_ball(scene) || !scene_sync_live_foundation(scene)) {
+            LIVE_FAIL("LIVE opcode-16 comparison-boundary setup rejected");
+        }
+        opcode16_foundation = scene->live_foundation;
+        for (actor = 0U; actor < 10U; ++actor) {
+            opcode16_foundation.play_state.wait_counter[actor] = 0xFFU;
+            opcode16_foundation.play_state.actor_state[actor] = 0x06U;
+            opcode16_foundation.play_state.target_object[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+            opcode16_foundation.play_state.target_x[actor] = 0;
+            opcode16_foundation.play_state.target_depth[actor] = 0;
+            opcode16_foundation.source_target_valid[actor] = false;
+            opcode16_foundation.source_direction_valid[actor] = false;
+            opcode16_foundation.deferred[actor] = false;
+            opcode16_foundation.deferred_reason[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+            memset(&opcode16_foundation.play_state.route_motion[actor], 0,
+                   sizeof(opcode16_foundation.play_state
+                              .route_motion[actor]));
+            opcode16_foundation.play_state.route_motion[actor].contract_tag =
+                TECMO_GAMEPLAY_CPU_STEERING_ROUTE_MOTION_STATE_TAG;
+        }
+        for (actor = 0U; actor < 2U; ++actor) {
+            uint8_t item = opcode16_actors[actor];
+            opcode16_foundation.play_state.wait_counter[item] = 0U;
+            opcode16_foundation.play_state.actor_state[item] = 0x04U;
+            opcode16_foundation.play_state.stream_offset[item] =
+                opcode16_offsets[actor];
+            opcode16_foundation.last_step_offset[item] =
+                opcode16_offsets[actor];
+        }
+        if (!tecmo_gameplay_live_foundation_valid(
+                &scene->cpu_steering_assets, &opcode16_foundation)) {
+            LIVE_FAIL("LIVE opcode-16 dual-record foundation rejected");
+        }
+        scene->live_foundation = opcode16_foundation;
+        if (!scene_cpu_opcode16_workspace_capture(scene, &pre_context) ||
+            pre_context.workspace_036e != 48U ||
+            pre_context.workspace_0370 != 48U ||
+            !tecmo_gameplay_scene_bind_opcode16_frame_context(
+                scene, &pre_context)) {
+            LIVE_FAIL("LIVE opcode-16 pre-motion capture rejected");
+        }
+        pre_x = scene->actors[primary].position.x;
+        memset(&move_controls, 0, sizeof(move_controls));
+        if (scene->orientation_state.attack_direction == 0U) {
+            move_controls.held.left = true;
+        } else {
+            move_controls.held.right = true;
+        }
+        if (!scene_move_controlled_actor(scene, controller, &move_controls) ||
+            scene->actors[primary].position.x == pre_x ||
+            (uint16_t)(scene->actors[primary].position.x > hoop_x
+                ? scene->actors[primary].position.x - hoop_x
+                : hoop_x - scene->actors[primary].position.x) >= 48U) {
+            LIVE_FAIL("LIVE opcode-16 primary did not cross comparison boundary");
+        }
+        opcode16_scene = *scene;
+        expected_target_x = opcode16_scene.actors[defender].position.x;
+        expected_target_y = (int16_t)(
+            opcode16_scene.actors[defender].position.y >=
+                    TECMO_GAMEPLAY_COURT_HOOP_Y
+                ? opcode16_scene.actors[defender].position.y - 10
+                : opcode16_scene.actors[defender].position.y + 10);
+
+        absent_scene = opcode16_scene;
+        absent_scene.opcode16_frame_context.available = false;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(&absent_scene, &no_shot)) {
+            LIVE_FAIL("LIVE opcode-16 absent-context update rejected");
+        }
+        for (actor = 0U; actor < 2U; ++actor) {
+            uint8_t item = opcode16_actors[actor];
+            if (!absent_scene.live_foundation.deferred[item] ||
+                absent_scene.live_foundation.deferred_reason[item] !=
+                    TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_POINTER_WORKSPACE ||
+                absent_scene.live_foundation.source_target_valid[item]) {
+                LIVE_FAIL("LIVE opcode-16 absent context did not defer");
+            }
+        }
+
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(&opcode16_scene, &no_shot) ||
+            no_shot.requested) {
+            LIVE_FAIL("LIVE opcode-16 pre-motion scene dispatch rejected");
+        }
+        for (actor = 0U; actor < 2U; ++actor) {
+            uint8_t item = opcode16_actors[actor];
+            if (!tecmo_gameplay_cpu_steering_direction_for_delta(
+                    &opcode16_scene.cpu_steering_assets,
+                    (int16_t)(scene->actors[defender].position.x -
+                              scene->actors[item].position.x),
+                    (int16_t)(scene->actors[defender].position.y -
+                              scene->actors[item].position.y),
+                    &expected_direction) ||
+                opcode16_scene.live_foundation.deferred[item] ||
+                !opcode16_scene.live_foundation.source_target_valid[item] ||
+                opcode16_scene.live_foundation.last_effect[item] !=
+                    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_POINTER_ACTOR_TARGET ||
+                opcode16_scene.live_foundation.play_state
+                        .target_object[item] != defender ||
+                opcode16_scene.live_foundation.play_state.target_x[item] !=
+                    expected_target_x ||
+                opcode16_scene.live_foundation.play_state
+                        .target_depth[item] != expected_target_y) {
+                LIVE_FAIL("LIVE opcode-16 shared pre-motion workspace regressed");
+            }
+            if (!opcode16_scene.cpu_actors[item].target_valid ||
+                opcode16_scene.cpu_actors[item].target_position.x !=
+                    scene->actors[defender].position.x ||
+                opcode16_scene.cpu_actors[item].target_position.y !=
+                    scene->actors[defender].position.y ||
+                opcode16_scene.cpu_actors[item].direction !=
+                    expected_direction) {
+                LIVE_FAIL("LIVE opcode-16 pre-motion TGMO direction regressed");
+            }
+        }
+        if (opcode16_scene.live_foundation.source_target_valid[primary] ||
+            opcode16_scene.live_foundation.source_target_valid[defender]) {
+            LIVE_FAIL("LIVE opcode-16 primary/defender exclusion regressed");
+        }
+
+        malformed_context_scene = *scene;
+        malformed_context_scene.opcode16_frame_context.workspace_036e ^= 1U;
+        malformed_before = malformed_context_scene;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (scene_update_ai(&malformed_context_scene, &no_shot) ||
+            memcmp(&malformed_context_scene, &malformed_before,
+                   sizeof(malformed_context_scene)) != 0) {
+            LIVE_FAIL("LIVE opcode-16 malformed context did not roll back");
+        }
+
+        /* Re-capturing after movement flips to the horizontal branch. This
+           proves the preceding dual-record result came from the retained
+           pre-motion snapshot rather than a current-position recompute. */
+        opcode16_scene = *scene;
+        opcode16_scene.live_foundation = opcode16_foundation;
+        if (!scene_cpu_opcode16_workspace_capture(
+                &opcode16_scene, &post_context) ||
+            post_context.workspace_036e >= post_context.workspace_0370 ||
+            !tecmo_gameplay_scene_bind_opcode16_frame_context(
+                &opcode16_scene, &post_context)) {
+            LIVE_FAIL("LIVE opcode-16 post-motion capture rejected");
+        }
+        expected_target_x = (int16_t)(
+            opcode16_scene.actors[defender].position.x +
+            (opcode16_scene.orientation_state.attack_direction == 0U
+                ? 16 : -16));
+        expected_target_y = opcode16_scene.actors[defender].position.y;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(&opcode16_scene, &no_shot)) {
+            LIVE_FAIL("LIVE opcode-16 horizontal scene dispatch rejected");
+        }
+        for (actor = 0U; actor < 2U; ++actor) {
+            uint8_t item = opcode16_actors[actor];
+            if (!tecmo_gameplay_cpu_steering_direction_for_delta(
+                    &opcode16_scene.cpu_steering_assets,
+                    (int16_t)(scene->actors[defender].position.x -
+                              scene->actors[item].position.x),
+                    (int16_t)(scene->actors[defender].position.y -
+                              scene->actors[item].position.y),
+                    &expected_direction) ||
+                !opcode16_scene.live_foundation.source_target_valid[item] ||
+                opcode16_scene.live_foundation.play_state.target_x[item] !=
+                    expected_target_x ||
+                opcode16_scene.live_foundation.play_state
+                        .target_depth[item] != expected_target_y ||
+                !opcode16_scene.cpu_actors[item].target_valid ||
+                opcode16_scene.cpu_actors[item].direction !=
+                    expected_direction) {
+                LIVE_FAIL("LIVE opcode-16 horizontal workspace branch regressed");
+            }
+        }
+
+        if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
+            !scene_sync_live_foundation(scene)) {
+            LIVE_FAIL("LIVE opcode-16 fixture restore rejected");
+        }
+    }
+
     /* Production path proof for the strict Bank04 $9F2E canonical opcode-4
        record. The fixture only chooses an already imported record for an
        ordinary CPU player; scene_update_ai still builds its immutable player

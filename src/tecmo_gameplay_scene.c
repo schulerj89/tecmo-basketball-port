@@ -1062,6 +1062,26 @@ bool tecmo_gameplay_scene_bind_opcode10_frame_context(
     return true;
 }
 
+bool tecmo_gameplay_scene_bind_opcode16_frame_context(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneOpcode16FrameContext *context)
+{
+    TecmoGameplayCpuSteeringPlayInput input;
+    if (scene == NULL || context == NULL ||
+        scene->lifecycle_tag != TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG) {
+        return false;
+    }
+    memset(&input, 0, sizeof(input));
+    input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG;
+    if (!scene_cpu_opcode16_workspace_project(
+            scene, &scene->live_foundation, context, &input) ||
+        !input.pointer_workspace_valid) {
+        return false;
+    }
+    scene->opcode16_frame_context = *context;
+    return true;
+}
+
 static void scene_pad_from_controls(TecmoGameplayPadInput *pad,
                                     const TecmoControlFrame *controls)
 {
@@ -1968,6 +1988,17 @@ static bool scene_update_live_action_ordered(
             return false;
         }
     } else if (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE) {
+        /* Fixed $F031 calls Bank05 $81F2 before source player movement.
+           $8209-$8217/$833B/$9054 therefore snapshots the selected primary
+           once here; every later Bank06 opcode-16 dispatch shares it. */
+        memset(&scene->opcode16_frame_context, 0,
+               sizeof(scene->opcode16_frame_context));
+        if (!scene->legacy_direct_launch &&
+            !scene_cpu_opcode16_workspace_capture(
+                scene, &scene->opcode16_frame_context)) {
+            scene_set_status(scene, "opcode-16 pre-motion workspace rejected");
+            return false;
+        }
         for (controller = 0U;
              controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
              ++controller) {
@@ -2300,6 +2331,7 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
     if (scene != NULL &&
         scene->lifecycle_tag == TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG) {
         scene->opcode10_frame_context.available = false;
+        scene->opcode16_frame_context.available = false;
     }
     return result;
 }

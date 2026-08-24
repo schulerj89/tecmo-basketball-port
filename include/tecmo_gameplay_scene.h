@@ -50,6 +50,7 @@
 #define TECMO_GAMEPLAY_SCENE_CLAIMANT_TRACE_TAG 0x43544754U
 #define TECMO_GAMEPLAY_SCENE_CPU_NO_COMMAND_OFFSET 0xFFFFU
 #define TECMO_GAMEPLAY_SCENE_OPCODE10_FRAME_CONTEXT_TAG 0x4630314FU
+#define TECMO_GAMEPLAY_SCENE_OPCODE16_FRAME_CONTEXT_TAG 0x4636314FU
 
 /* The slot-3 trace spans 125 inclusive updates from CPU state-18 entry through
    launch. Native play uses that observed schedule until the original CPU
@@ -339,6 +340,19 @@ typedef struct TecmoGameplaySceneOpcode10FrameContext {
     uint8_t timer_bias_0760;
 } TecmoGameplaySceneOpcode10FrameContext;
 
+/* Bank05's once-per-gameplay-loop primary-position snapshot for opcode 16.
+   The captured source coordinate makes this typed pre-motion evidence, not a
+   persistent RAM mirror or a per-actor recomputation. */
+typedef struct TecmoGameplaySceneOpcode16FrameContext {
+    uint32_t contract_tag;
+    bool available;
+    uint8_t primary_actor_0308;
+    uint8_t orientation_035a;
+    TecmoGameplayCourtCoordinate primary_position;
+    uint16_t workspace_036e;
+    uint16_t workspace_0370;
+} TecmoGameplaySceneOpcode16FrameContext;
+
 typedef struct TecmoGameplayScene {
     uint32_t lifecycle_tag;
     bool available;
@@ -399,6 +413,7 @@ typedef struct TecmoGameplayScene {
         cpu_actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     TecmoGameplayLiveFoundation live_foundation;
     TecmoGameplaySceneOpcode10FrameContext opcode10_frame_context;
+    TecmoGameplaySceneOpcode16FrameContext opcode16_frame_context;
     TecmoGameplaySceneClaimantSettlementTrace claimant_settlement_trace;
     uint8_t controlled_actor[TECMO_GAMEPLAY_CONTROLLER_COUNT];
     uint8_t ball_holder;
@@ -520,6 +535,9 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
 bool tecmo_gameplay_scene_bind_opcode10_frame_context(
     TecmoGameplayScene *scene,
     const TecmoGameplaySceneOpcode10FrameContext *context);
+bool tecmo_gameplay_scene_bind_opcode16_frame_context(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneOpcode16FrameContext *context);
 bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
                                  const TecmoControlFrame *player_one,
                                  const TecmoControlFrame *player_two);

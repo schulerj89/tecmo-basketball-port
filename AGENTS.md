@@ -1531,6 +1531,18 @@ after an actual nondeferred opcode-10 fetch in selected-primary then ordinary
 `9..0` order. Scene failure rolls the timer back. Missing/malformed binding
 must preserve `missing-linked-relative-workspace`. This fixed owner is not the
 TPTI bridge and must not be described as full raw-RAM emulation.
+
+Opcode 16's `$036E/$0370` workspace is ephemeral and shared. Fixed `$F031`
+calls Bank05 `$81F2` once per gameplay loop; unconditional `$8209-$8217`,
+`$833B`, and `$9054-$90AF` snapshot primary `$0308` position and orientation
+before source player movement. Capture that typed evidence at the start of
+`scene_update_live_action_ordered`, before `scene_move_controlled_actor`, and
+bind it once to `scene_update_ai`'s shared play input before selected-primary
+and ordinary `9..0` traversal. Both canonical `AC35/AC44` `$0309` records use
+the same values. Never persist it, recompute from post-move coordinates, or
+recompute per actor. Direct AI tests that intentionally execute opcode 16 must
+bind equivalent context; absent context stays `missing-pointer-workspace`, and
+malformed available context must roll back transactionally.
 `--gameplay-cpu-steering-test`,
 `--gameplay-cpu-steering-inspect`, `--gameplay-cpu-steering-harness`, and
 `--gameplay-cpu-steering-movement-harness` are console-only and must not
