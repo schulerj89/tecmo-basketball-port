@@ -20,6 +20,8 @@
 #define TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_INPUT_TAG 0x31414341U
 #define TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_RESULT_TAG 0x31514341U
 #define TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_TAG 0x314C4341U
+#define TECMO_GAMEPLAY_OBJECT10_DISPATCH_RESULT_TAG 0x3144304FU
+#define TECMO_GAMEPLAY_OBJECT10_DISPATCH_STATE_COUNT 28U
 
 typedef enum TecmoGameplayActorCommandAssignmentSourceKind {
     TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_DISTANCE_HELPER = 1,
@@ -100,6 +102,16 @@ typedef struct TecmoGameplayActorCommandAssignmentAssets {
         sources[TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_COUNT];
 } TecmoGameplayActorCommandAssignmentAssets;
 
+/* Exact Bank05 `$A214-$A225` slot-10 pointer-table dispatch.  The selected
+ * handler is read from the validated Rev1 `$A227/$A243` low/high tables; it
+ * is never inferred from a native scene enum or duplicated policy table. */
+typedef struct TecmoGameplayObject10DispatchResult {
+    uint32_t contract_tag;
+    uint8_t raw_object_state;
+    uint8_t reserved;
+    uint16_t handler_cpu;
+} TecmoGameplayObject10DispatchResult;
+
 /* Raw-gate inputs are intentionally explicit.  Current scene state does not
  * retain them, so production must not synthesize this structure from a tip,
  * possession handoff, shot-state number, or visual transition.  target is a
@@ -179,6 +191,11 @@ const TecmoGameplayActorCommandAssignmentSourceSpan *
 tecmo_gameplay_actor_command_assignment_find_source(
     const TecmoGameplayActorCommandAssignmentAssets *assets,
     TecmoGameplayActorCommandAssignmentSourceKind kind);
+
+bool tecmo_gameplay_object10_dispatch_resolve(
+    const TecmoGameplayActorCommandAssignmentAssets *assets,
+    uint8_t raw_object_state,
+    TecmoGameplayObject10DispatchResult *result_out);
 
 /* Transactional typed conversion of the owned $A0A6/$A046 writes only.  It
  * writes $0547/$0551 and $057C equivalents, never $046E, $0484/$048F, $C711,

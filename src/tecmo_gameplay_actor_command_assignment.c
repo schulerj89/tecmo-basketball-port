@@ -255,6 +255,44 @@ tecmo_gameplay_actor_command_assignment_find_source(
     return NULL;
 }
 
+bool tecmo_gameplay_object10_dispatch_resolve(
+    const TecmoGameplayActorCommandAssignmentAssets *assets,
+    uint8_t raw_object_state,
+    TecmoGameplayObject10DispatchResult *result_out)
+{
+    const TecmoGameplayActorCommandAssignmentSourceSpan *source;
+    TecmoGameplayObject10DispatchResult result;
+    size_t low_offset;
+    size_t high_offset;
+    if (assets == NULL || !assets->available || result_out == NULL ||
+        raw_object_state >= TECMO_GAMEPLAY_OBJECT10_DISPATCH_STATE_COUNT) {
+        return false;
+    }
+    source = tecmo_gameplay_actor_command_assignment_find_source(
+        assets,
+        TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_OBJECT_DISPATCH);
+    if (source == NULL || source->cpu_start != 0xA214U ||
+        source->cpu_end != 0xA25EU || source->byte_count != 75U ||
+        source->bytes == NULL) {
+        return false;
+    }
+    low_offset = (size_t)(0xA227U - source->cpu_start) + raw_object_state;
+    high_offset = (size_t)(0xA243U - source->cpu_start) + raw_object_state;
+    if (low_offset >= source->byte_count || high_offset >= source->byte_count) {
+        return false;
+    }
+    memset(&result, 0, sizeof(result));
+    result.contract_tag = TECMO_GAMEPLAY_OBJECT10_DISPATCH_RESULT_TAG;
+    result.raw_object_state = raw_object_state;
+    result.handler_cpu = (uint16_t)(source->bytes[low_offset] |
+        ((uint16_t)source->bytes[high_offset] << 8U));
+    if (result.handler_cpu < 0x8000U || result.handler_cpu >= 0xC000U) {
+        return false;
+    }
+    *result_out = result;
+    return true;
+}
+
 static uint16_t source_abs16(int16_t left, int16_t right)
 {
     uint16_t delta = (uint16_t)((uint16_t)left - (uint16_t)right);
@@ -584,6 +622,16 @@ bool tecmo_gameplay_actor_command_assignment_self_test(
     char *message,
     size_t message_size)
 {
+    static const uint16_t expected_object10_handlers[
+        TECMO_GAMEPLAY_OBJECT10_DISPATCH_STATE_COUNT] = {
+        0xB52EU, 0xAD41U, 0xB500U, 0xB074U,
+        0xB1E7U, 0xB100U, 0xAD36U, 0xAB73U,
+        0xAC0AU, 0xB7B0U, 0xB80BU, 0xA532U,
+        0xA6D4U, 0xA40AU, 0xA4E9U, 0xAF30U,
+        0xB6E5U, 0xBA56U, 0xA3C2U, 0xA2FEU,
+        0xA2F8U, 0xA854U, 0xA837U, 0xB775U,
+        0xB7B6U, 0xB7C1U, 0xA25FU, 0xA274U
+    };
     TecmoGameplayActorCommandAssignmentAssets assignment_assets;
     TecmoGameplayActorCommandAssignmentAssets assignment_assets_before;
     TecmoGameplayCpuSteeringAssets steering_assets;
@@ -608,6 +656,7 @@ bool tecmo_gameplay_actor_command_assignment_self_test(
     uint16_t human_primary_stream;
     uint16_t human_defender_stream;
     size_t span_index;
+    uint8_t object_state;
     bool ok = false;
     tecmo_gameplay_actor_command_assignment_assets_init(&assignment_assets);
     tecmo_gameplay_cpu_steering_assets_init(&steering_assets);
@@ -617,6 +666,33 @@ bool tecmo_gameplay_actor_command_assignment_self_test(
             &steering_assets, asset_pack_path) ||
         !build_self_test_foundation(&steering_assets, &baseline)) {
         goto cleanup;
+    }
+    for (object_state = 0U;
+         object_state < TECMO_GAMEPLAY_OBJECT10_DISPATCH_STATE_COUNT;
+         ++object_state) {
+        TecmoGameplayObject10DispatchResult dispatch;
+        memset(&dispatch, 0, sizeof(dispatch));
+        if (!tecmo_gameplay_object10_dispatch_resolve(
+                &assignment_assets, object_state, &dispatch) ||
+            dispatch.contract_tag !=
+                TECMO_GAMEPLAY_OBJECT10_DISPATCH_RESULT_TAG ||
+            dispatch.raw_object_state != object_state ||
+            dispatch.reserved != 0U ||
+            dispatch.handler_cpu != expected_object10_handlers[object_state]) {
+            goto cleanup;
+        }
+    }
+    {
+        TecmoGameplayObject10DispatchResult dispatch;
+        TecmoGameplayObject10DispatchResult dispatch_before;
+        memset(&dispatch, 0xA5, sizeof(dispatch));
+        dispatch_before = dispatch;
+        if (tecmo_gameplay_object10_dispatch_resolve(
+                &assignment_assets,
+                TECMO_GAMEPLAY_OBJECT10_DISPATCH_STATE_COUNT, &dispatch) ||
+            memcmp(&dispatch, &dispatch_before, sizeof(dispatch)) != 0) {
+            goto cleanup;
+        }
     }
     memset(&input, 0, sizeof(input));
     input.contract_tag = TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_INPUT_TAG;
