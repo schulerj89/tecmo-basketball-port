@@ -401,10 +401,22 @@ only `($BA & 3) == 0`; it does not recreate `$BA` or obtain its value from a
 clock or cleared C struct. It then reproduces the signed opcode-10 arrival
 interval `[-8,+7]` and opcode-16's `$90AC-$90D5` depth `+10/-10` and
 orientation-selected horizontal `+16/-16` adjustments. Those are pure
-source-contract paths. Ordinary LIVE now owns the Bank02 selector only when
-it produces an actual `$07DF` store, and owns Bank06's relative workspace only
-when the resolved link is non-primary; the primary-link timer/rate/sample
-branch remains unavailable.
+source-contract paths. Ordinary LIVE owns the Bank02 selector only when it
+produces an actual `$07DF` store. Non-primary links use the exact distance
+branch without timer input. Primary links execute only with a tagged,
+single-use runtime frame binding of the fixed `$6A` sample, persistent `$0798`
+timer, launch rate `$075F`, and bias `$0760`; absent or malformed binding keeps
+the exact `missing-linked-relative-workspace` defer reason.
+
+`TecmoRuntime` owns the fixed `$54:$53/$6A` cadence independently of the TPTI
+bridge. It ticks once before each runtime mode dispatch and stages one `$CD96`
+extra mix for each valid gameplay launch, committing that candidate only after
+scene launch succeeds. The same sample is stable across every opcode-10 call
+in one scene update. Preseason rate is difficulty with zero bias; season rate
+is 2 with `low8(game_index>>5)` bias. `$0798` persists across gameplay scenes.
+Within an update, selected-primary dispatch precedes ordinary `9..0`; only an
+actually fetched, nondeferred opcode 10 publishes its pending timer, and a
+failed scene transaction publishes nothing back to the runtime.
 
 ### LIVE command-input ownership and defer reasons
 
@@ -420,7 +432,7 @@ in deterministic LIVE proof JSON.
 | --- | --- | --- |
 | `$9146` opcode 14, `$04B0` bit `$10` | `LiveFoundation.actor_selector_flags`, synchronized before the input is built | Executed; an unselected `0` is valid. |
 | `$8F11` opcode 7, `$046E,C8` | None; the state-table lifecycle is not retained | `missing-actor-046e-probe`. |
-| `$8CD0/$8D59/$92CA` opcode 10, `$07DF`, `$0478/$06CB/$0308` branch context, linked-relative workspace, and `$BA` | Ordinary `$0478==0`: the post-human held-ball/dribble projection over AI's immutable actor snapshot feeds a transactional TGBC preview and owns `$0588&$10`; `LiveFoundation` owns roles, `$04B0`, `$06CB`, and positions. Only actual candidate/explicit-`$FF` selector stores become available. A non-primary resolved link owns the exact position/hoop workspace branch; the ordinary-LIVE `$BA&3==0` seam owns the tail. | Non-primary links execute. A retained/no-store selector remains `missing-special-actor-07df`; a resolved-primary link remains `missing-linked-relative-workspace` because `$0798/$075F/$6A/$0760` are unowned. |
+| `$8CD0/$8D59/$92CA` opcode 10, `$07DF`, `$0478/$06CB/$0308` branch context, linked-relative workspace, and `$BA` | Ordinary `$0478==0`: the post-human held-ball/dribble projection over AI's immutable actor snapshot feeds a transactional TGBC preview and owns `$0588&$10`; `LiveFoundation` owns roles, `$04B0`, `$06CB`, and positions. Only actual candidate/explicit-`$FF` selector stores become available. Non-primary links own the distance-only workspace. Primary links additionally require the single-frame runtime timing/RNG context. The ordinary-LIVE `$BA&3==0` seam owns the tail. | Both link branches execute with their exact typed owners. Retained/no-store remains `missing-special-actor-07df`; absent/malformed primary context remains `missing-linked-relative-workspace`. |
 | `$9085/$90AC` opcode 16, `$036E/$0370` | None | `missing-pointer-workspace`. |
 | `$8BF6-$8C17` opcode 21, `$058A/$0357/$0358/$007E` | Exact typed `shot_clock/clock_minutes/clock_seconds` own `$058A/$0357/$0358`; raw `$007E` bit 1 is unowned and explicitly approximated clear for ordinary LIVE | Executes the source +5/+10 branch from the typed clocks; whole-gate parity is not claimed. |
 | `$92CA` common target tail, `$BA` | `scene_cpu_common_tail_has_ordinary_live_zero`: exact `LIVE`, no result/abort, violation, free throw, shot, pass, lineup, or dunk lifecycle | Supplies only typed `flags_ba=0`, so Bank06 `$92CA-$92D0` takes its five-byte `$8FD9` increment. Every other path remains `missing-ba-lifecycle`. |

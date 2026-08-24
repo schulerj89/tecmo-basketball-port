@@ -3694,6 +3694,13 @@ static bool scene_test_live_foundation_regressions(
     {
         TecmoGameplayCourtCoordinate boundary_ball;
         TecmoGameplayCpuSteeringPlayInput selector_play_input;
+        TecmoGameplaySceneOpcode10FrameContext opcode10_context;
+        TecmoGameplaySceneOpcode10Projection opcode10_projection;
+        TecmoGameplayCpuSteeringPlayResult opcode10_play_result;
+        TecmoGameplaySceneOpcode10FrameContext bound_before;
+        TecmoGameplayScene single_use_scene;
+        uint8_t candidate_timer;
+        uint8_t rate;
         broken = *scene;
         broken.backcourt_state.frontcourt_established = 0U;
         boundary_ball.x = broken.orientation_state.attack_direction == 0U
@@ -3743,19 +3750,129 @@ static bool scene_test_live_foundation_regressions(
            to primary 0 and must retain the next honest missing-workspace
            boundary because its timer/rate/sample inputs remain unowned. */
         candidate_foundation.dynamic_link[6U] = 2U;
+        memset(&opcode10_context, 0, sizeof(opcode10_context));
         if (!scene_cpu_opcode10_workspace_project(
-                6U, &candidate_foundation, &selector_play_input) ||
+                6U, &candidate_foundation, &opcode10_context,
+                &selector_play_input, &opcode10_projection) ||
             !selector_play_input.linked_actor_resolved_valid ||
             selector_play_input.linked_actor != 2U ||
             !selector_play_input.linked_relative_valid) {
             LIVE_FAIL("LIVE opcode-10 non-primary workspace regressed");
         }
         if (!scene_cpu_opcode10_workspace_project(
-                7U, &candidate_foundation, &selector_play_input) ||
+                7U, &candidate_foundation, &opcode10_context,
+                &selector_play_input, &opcode10_projection) ||
             !selector_play_input.linked_actor_resolved_valid ||
             selector_play_input.linked_actor != 0U ||
             selector_play_input.linked_relative_valid) {
             LIVE_FAIL("LIVE opcode-10 primary workspace did not defer");
+        }
+        /* A valid runtime frame context enables the primary link. Projection
+           is non-mutating; only a fetched, nondeferred opcode-10 result may
+           serially commit the pending timer. */
+        memset(&opcode10_context, 0, sizeof(opcode10_context));
+        opcode10_context.contract_tag =
+            TECMO_GAMEPLAY_SCENE_OPCODE10_FRAME_CONTEXT_TAG;
+        opcode10_context.available = true;
+        opcode10_context.sample_6a = 1U;
+        opcode10_context.timer_0798 = 2U;
+        opcode10_context.rate_index_075f = 2U;
+        if (!tecmo_gameplay_scene_bind_opcode10_frame_context(
+                &broken, &opcode10_context)) {
+            LIVE_FAIL("LIVE opcode-10 valid frame bind rejected");
+        }
+        bound_before = broken.opcode10_frame_context;
+        opcode10_context.sample_6a = 0U;
+        if (tecmo_gameplay_scene_bind_opcode10_frame_context(
+                &broken, &opcode10_context) ||
+            memcmp(&broken.opcode10_frame_context, &bound_before,
+                   sizeof(bound_before)) != 0) {
+            LIVE_FAIL("LIVE opcode-10 malformed bind was not transactional");
+        }
+        single_use_scene = broken;
+        if (!tecmo_gameplay_scene_update(&single_use_scene, NULL, NULL) ||
+            single_use_scene.opcode10_frame_context.available) {
+            LIVE_FAIL("LIVE opcode-10 frame context was not single-use");
+        }
+        opcode10_context = bound_before;
+        if (!scene_cpu_opcode10_workspace_project(
+                7U, &candidate_foundation, &opcode10_context,
+                &selector_play_input, &opcode10_projection) ||
+            !selector_play_input.linked_relative_valid ||
+            !opcode10_projection.primary_timer_pending ||
+            opcode10_projection.timer_before != 2U ||
+            opcode10_projection.timer_after != 1U ||
+            opcode10_context.timer_0798 != 2U) {
+            LIVE_FAIL("LIVE opcode-10 primary timer projection regressed");
+        }
+        memset(&opcode10_play_result, 0, sizeof(opcode10_play_result));
+        opcode10_play_result.fetched = true;
+        opcode10_play_result.command.opcode = 9U;
+        candidate_timer = 2U;
+        if (!scene_cpu_opcode10_projection_commit(
+                &opcode10_projection, &opcode10_play_result,
+                &candidate_timer) || candidate_timer != 2U) {
+            LIVE_FAIL("LIVE opcode-10 non-command changed timer");
+        }
+        opcode10_play_result.command.opcode = 10U;
+        if (!scene_cpu_opcode10_projection_commit(
+                &opcode10_projection, &opcode10_play_result,
+                &candidate_timer) || candidate_timer != 1U) {
+            LIVE_FAIL("LIVE opcode-10 first serial timer commit regressed");
+        }
+        opcode10_context.timer_0798 = candidate_timer;
+        if (!scene_cpu_opcode10_workspace_project(
+                7U, &candidate_foundation, &opcode10_context,
+                &selector_play_input, &opcode10_projection) ||
+            opcode10_projection.timer_before != 1U ||
+            opcode10_projection.timer_after != 0U ||
+            !scene_cpu_opcode10_projection_commit(
+                &opcode10_projection, &opcode10_play_result,
+                &candidate_timer) || candidate_timer != 0U) {
+            LIVE_FAIL("LIVE opcode-10 second serial timer commit regressed");
+        }
+        /* Threshold/reload vectors for all launch rate indices. Rate 0 can
+           never reload with the proven nonzero sample. Rates 1 and 2 use
+           their exact reload constants when sample <= threshold. */
+        for (rate = 0U; rate < 3U; ++rate) {
+            opcode10_context.timer_0798 = 0U;
+            opcode10_context.rate_index_075f = rate;
+            opcode10_context.sample_6a = rate == 0U ? 1U : rate;
+            opcode10_context.timer_bias_0760 = rate == 2U ? 2U : 0U;
+            if (!scene_cpu_opcode10_workspace_project(
+                    7U, &candidate_foundation, &opcode10_context,
+                    &selector_play_input, &opcode10_projection) ||
+                !selector_play_input.linked_relative_valid ||
+                opcode10_projection.timer_after !=
+                    (rate == 0U ? 0U :
+                     (rate == 1U ? 0x1DU : 0x33U))) {
+                LIVE_FAIL("LIVE opcode-10 launch-rate branch regressed");
+            }
+        }
+        opcode10_context.timer_0798 = 0U;
+        opcode10_context.rate_index_075f = 1U;
+        opcode10_context.sample_6a = 2U;
+        opcode10_context.timer_bias_0760 = 0U;
+        if (!scene_cpu_opcode10_workspace_project(
+                7U, &candidate_foundation, &opcode10_context,
+                &selector_play_input, &opcode10_projection) ||
+            opcode10_projection.timer_after != 0U) {
+            LIVE_FAIL("LIVE opcode-10 rate threshold bypass regressed");
+        }
+        opcode10_context.timer_0798 = 2U;
+        opcode10_context.rate_index_075f = 2U;
+        opcode10_context.sample_6a = 1U;
+        if (!scene_cpu_opcode10_workspace_project(
+                7U, &candidate_foundation, &opcode10_context,
+                &selector_play_input, &opcode10_projection)) {
+            LIVE_FAIL("LIVE opcode-10 deferred commit setup rejected");
+        }
+        opcode10_play_result.deferred = true;
+        candidate_timer = 2U;
+        if (!scene_cpu_opcode10_projection_commit(
+                &opcode10_projection, &opcode10_play_result,
+                &candidate_timer) || candidate_timer != 2U) {
+            LIVE_FAIL("LIVE opcode-10 deferred command changed timer");
         }
 
         /* With only the initial actor qualified, $BFD1 takes its no-store
@@ -3804,6 +3921,8 @@ static bool scene_test_live_foundation_regressions(
         size_t holder_controller = TECMO_GAMEPLAY_CONTROLLER_COUNT;
         uint8_t initial_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
         uint8_t candidate_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+        uint16_t opcode10_offset = 0U;
+        bool found_opcode10 = false;
         int scan;
         if (!tecmo_gameplay_scene_launch(scene, &bound) ||
             !scene_sync_live_foundation(scene)) {
@@ -3922,6 +4041,247 @@ static bool scene_test_live_foundation_regressions(
             selector_play_input.ball_position.y !=
                 current_ball.visible_position.y) {
             LIVE_FAIL("LIVE opcode-10 crossing used stale ball projection");
+        }
+
+        /* Production proof: park the canonical opcode-10 record on the
+           actual selector candidate whose dynamic link resolves primary.
+           The real scene dispatcher must fetch it, publish its source target,
+           compose that target through TGMO, and consume exactly one pending
+           timer result. */
+        {
+            TecmoGameplayScene opcode_scene = *scene;
+            TecmoGameplayScene opcode_before;
+            TecmoGameplayScene absent_scene;
+            TecmoGameplayScene failed_scene;
+            TecmoGameplayScene failed_before;
+            TecmoGameplaySceneOpcode10FrameContext frame_context;
+            TecmoGameplaySceneActor actor_before;
+            TecmoGameplaySceneCpuShotRequest opcode_shot;
+            uint8_t primary;
+            uint8_t initial = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+            uint8_t selected = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+            uint8_t late_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+            int16_t spacing;
+
+            for (offset = 0U;
+                 offset < scene->cpu_steering_assets.command_record_count * 5U;
+                 offset = (uint16_t)(offset + 5U)) {
+                if (tecmo_gameplay_cpu_steering_decode_command(
+                        &scene->cpu_steering_assets, offset, &command) &&
+                    command.opcode == 10U) {
+                    opcode10_offset = offset;
+                    found_opcode10 = true;
+                    break;
+                }
+            }
+            primary = opcode_scene.ball_holder;
+            for (actor = 0U; actor < 10U; ++actor) {
+                if (opcode_scene.actors[actor].team !=
+                        opcode_scene.state.possession &&
+                    exact_links[actor] == primary) {
+                    initial = (uint8_t)actor;
+                    break;
+                }
+            }
+            for (scan = 9; scan >= 0; --scan) {
+                if ((uint8_t)scan != initial &&
+                    (uint8_t)scan !=
+                        opcode_scene.live_foundation.defender_actor &&
+                    opcode_scene.actors[scan].team !=
+                        opcode_scene.state.possession) {
+                    selected = (uint8_t)scan;
+                    break;
+                }
+            }
+            spacing = opcode_scene.actors[primary].position.x <=
+                    TECMO_GAMEPLAY_COURT_WORLD_MAX_X - 40
+                ? 1 : -1;
+            if (!found_opcode10 || initial >= 10U || selected >= 10U) {
+                LIVE_FAIL("LIVE canonical opcode-10 fixture unavailable");
+            }
+            for (actor = 0U; actor < 10U; ++actor) {
+                if (opcode_scene.actors[actor].team !=
+                        opcode_scene.state.possession) {
+                    opcode_scene.actors[actor].position.y = 220;
+                    opcode_scene.actors[actor].anchor =
+                        opcode_scene.actors[actor].position;
+                }
+            }
+            opcode_scene.actors[initial].position.x = (int16_t)(
+                opcode_scene.actors[primary].position.x + spacing * 40);
+            opcode_scene.actors[initial].position.y =
+                opcode_scene.actors[primary].position.y;
+            opcode_scene.actors[initial].anchor =
+                opcode_scene.actors[initial].position;
+            opcode_scene.actors[selected].position.x = (int16_t)(
+                opcode_scene.actors[primary].position.x + spacing * 20);
+            opcode_scene.actors[selected].position.y =
+                opcode_scene.actors[primary].position.y;
+            opcode_scene.actors[selected].anchor =
+                opcode_scene.actors[selected].position;
+            if (!scene_sync_live_foundation(&opcode_scene)) {
+                LIVE_FAIL("LIVE canonical opcode-10 foundation sync rejected");
+            }
+            if (selected == opcode_scene.live_foundation.defender_actor) {
+                opcode_scene.actors[selected].position.y = 220;
+                opcode_scene.actors[selected].anchor =
+                    opcode_scene.actors[selected].position;
+                selected = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+                for (scan = 9; scan >= 0; --scan) {
+                    if ((uint8_t)scan != initial &&
+                        (uint8_t)scan !=
+                            opcode_scene.live_foundation.defender_actor &&
+                        opcode_scene.actors[scan].team !=
+                            opcode_scene.state.possession) {
+                        selected = (uint8_t)scan;
+                        break;
+                    }
+                }
+                if (selected >= 10U) {
+                    LIVE_FAIL("LIVE opcode-10 ordinary selector unavailable");
+                }
+                opcode_scene.actors[selected].position.x = (int16_t)(
+                    opcode_scene.actors[primary].position.x + spacing * 20);
+                opcode_scene.actors[selected].position.y =
+                    opcode_scene.actors[primary].position.y;
+                opcode_scene.actors[selected].anchor =
+                    opcode_scene.actors[selected].position;
+                if (!scene_sync_live_foundation(&opcode_scene)) {
+                    LIVE_FAIL("LIVE opcode-10 revised selector sync rejected");
+                }
+            }
+            candidate_foundation = opcode_scene.live_foundation;
+            /* This fixture isolates ordinary Bank06 command dispatch. The
+               separately covered selected-defender handoff would otherwise
+               take exclusive target ownership before the opcode-10 actor. */
+            candidate_foundation.selected_defender_handoff_active = false;
+            for (actor = 0U; actor < 10U; ++actor) {
+                candidate_foundation.play_state.wait_counter[actor] = 0xFFU;
+                candidate_foundation.play_state.actor_state[actor] = 0x06U;
+                candidate_foundation.play_state.target_object[actor] =
+                    TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+                candidate_foundation.play_state.target_x[actor] = 0;
+                candidate_foundation.play_state.target_depth[actor] = 0;
+                candidate_foundation.source_target_valid[actor] = false;
+                candidate_foundation.source_direction_valid[actor] = false;
+                candidate_foundation.deferred[actor] = false;
+                candidate_foundation.deferred_reason[actor] =
+                    TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+                memset(&candidate_foundation.play_state.route_motion[actor],
+                       0, sizeof(candidate_foundation.play_state
+                                     .route_motion[actor]));
+                candidate_foundation.play_state.route_motion[actor]
+                    .contract_tag =
+                    TECMO_GAMEPLAY_CPU_STEERING_ROUTE_MOTION_STATE_TAG;
+            }
+            candidate_foundation.play_state.wait_counter[selected] = 0U;
+            candidate_foundation.play_state.actor_state[selected] = 0x04U;
+            candidate_foundation.play_state.stream_offset[selected] =
+                opcode10_offset;
+            candidate_foundation.last_step_offset[selected] = opcode10_offset;
+            if (!tecmo_gameplay_live_foundation_valid(
+                    &opcode_scene.cpu_steering_assets,
+                    &candidate_foundation)) {
+                LIVE_FAIL("LIVE canonical opcode-10 foundation rejected");
+            }
+            opcode_scene.live_foundation = candidate_foundation;
+            memset(&frame_context, 0, sizeof(frame_context));
+            frame_context.contract_tag =
+                TECMO_GAMEPLAY_SCENE_OPCODE10_FRAME_CONTEXT_TAG;
+            frame_context.available = true;
+            frame_context.sample_6a = 1U;
+            frame_context.timer_0798 = 2U;
+            frame_context.rate_index_075f = 2U;
+            opcode_scene.opcode10_frame_context = frame_context;
+            actor_before = opcode_scene.actors[selected];
+            opcode_before = opcode_scene;
+
+            absent_scene = opcode_before;
+            absent_scene.opcode10_frame_context.available = false;
+            memset(&opcode_shot, 0, sizeof(opcode_shot));
+            if (!scene_update_ai(&absent_scene, &opcode_shot) ||
+                !absent_scene.live_foundation.deferred[selected] ||
+                absent_scene.live_foundation.deferred_reason[selected] !=
+                    TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_RELATIVE_WORKSPACE ||
+                absent_scene.live_foundation.source_target_valid[selected] ||
+                absent_scene.opcode10_frame_context.timer_0798 != 2U) {
+                LIVE_FAIL("LIVE opcode-10 absent frame context did not defer");
+            }
+
+            memset(&opcode_shot, 0, sizeof(opcode_shot));
+            if (!scene_update_ai(&opcode_scene, &opcode_shot) ||
+                opcode_shot.requested ||
+                opcode_scene.live_foundation.deferred[selected] ||
+                !opcode_scene.live_foundation.source_target_valid[selected] ||
+                opcode_scene.live_foundation.last_effect[selected] !=
+                    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_FIXED_LINK_PROXIMITY ||
+                opcode_scene.live_foundation.play_state
+                        .target_object[selected] != primary ||
+                !opcode_scene.cpu_actors[selected].target_valid ||
+                opcode_scene.cpu_actors[selected].target_position.x !=
+                    opcode_scene.actors[primary].position.x ||
+                opcode_scene.cpu_actors[selected].target_position.y !=
+                    opcode_scene.actors[primary].position.y ||
+                opcode_scene.opcode10_frame_context.timer_0798 != 1U ||
+                (opcode_scene.actors[selected].position.x ==
+                     actor_before.position.x &&
+                 opcode_scene.actors[selected].position.y ==
+                     actor_before.position.y &&
+                 opcode_scene.actors[selected].movement_direction ==
+                     actor_before.movement_direction)) {
+                (void)snprintf(message, message_size,
+                    "LIVE opcode10 step failed sel=%u req=%u def=%u reason=%u src=%u eff=%u obj=%u primary=%u cpu=%u tx=%d/%d/px%d ty=%d/%d/py%d timer=%u pos=%d,%d->%d,%d dir=%u->%u",
+                    (unsigned)selected, (unsigned)opcode_shot.requested,
+                    (unsigned)opcode_scene.live_foundation.deferred[selected],
+                    (unsigned)opcode_scene.live_foundation
+                        .deferred_reason[selected],
+                    (unsigned)opcode_scene.live_foundation
+                        .source_target_valid[selected],
+                    (unsigned)opcode_scene.live_foundation.last_effect[selected],
+                    (unsigned)opcode_scene.live_foundation.play_state
+                        .target_object[selected], (unsigned)primary,
+                    (unsigned)opcode_scene.cpu_actors[selected].target_valid,
+                    opcode_scene.cpu_actors[selected].target_position.x,
+                    opcode_scene.live_foundation.play_state.target_x[selected],
+                    opcode_scene.actors[primary].position.x,
+                    opcode_scene.cpu_actors[selected].target_position.y,
+                    opcode_scene.live_foundation.play_state
+                        .target_depth[selected],
+                    opcode_scene.actors[primary].position.y,
+                    (unsigned)opcode_scene.opcode10_frame_context.timer_0798,
+                    actor_before.position.x, actor_before.position.y,
+                    opcode_scene.actors[selected].position.x,
+                    opcode_scene.actors[selected].position.y,
+                    (unsigned)actor_before.movement_direction,
+                    (unsigned)opcode_scene.actors[selected]
+                        .movement_direction);
+                tecmo_gameplay_scene_test_set_skip_pretip(false);
+                return false;
+            }
+
+            /* Reuse the complete pre-dispatch fixture. A lower actor is
+               visited after the opcode-10 candidate in descending order and
+               fails only at its explicit serial guard, after the command and
+               timer result were staged. */
+            failed_scene = opcode_before;
+            for (scan = (int)selected - 1; scan >= 0; --scan) {
+                if ((uint8_t)scan != primary &&
+                    (uint8_t)scan != failed_scene.live_foundation.defender_actor) {
+                    late_actor = (uint8_t)scan;
+                    break;
+                }
+            }
+            if (late_actor >= 10U) {
+                LIVE_FAIL("LIVE opcode-10 late rollback actor unavailable");
+            }
+            failed_scene.cpu_actors[late_actor].decision_serial = UINT32_MAX;
+            failed_before = failed_scene;
+            memset(&opcode_shot, 0, sizeof(opcode_shot));
+            if (scene_update_ai(&failed_scene, &opcode_shot) ||
+                memcmp(&failed_scene, &failed_before,
+                       sizeof(failed_scene)) != 0) {
+                LIVE_FAIL("LIVE opcode-10 late failure did not roll back");
+            }
         }
         memset(&no_shot, 0, sizeof(no_shot));
         if (!scene_update_ai(scene, &no_shot)) {

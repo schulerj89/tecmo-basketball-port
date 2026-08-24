@@ -164,4 +164,4 @@ if ($LASTEXITCODE -ne 0 -or $Text -ne $ExpectedHarnessLine) {
 
 Write-Host "CPU opcode workspace provenance: canonical=Rev1 command_table=71331A96 opcode7=2 opcode10=1 opcode16=2"
 Write-Host $Text
-Write-Host "CPU opcode workspace runner: PASS (exact harness; LIVE opcode 10 primary links remain deferred)"
+Write-Host "CPU opcode workspace runner: PASS (exact harness; LIVE opcode 10 primary links require typed runtime frame context)"

@@ -298,10 +298,23 @@ bool scene_cpu_opcode10_selector_project(
         actor_position[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT],
     const TecmoGameplayLiveFoundation *foundation,
     TecmoGameplayCpuSteeringPlayInput *input);
+#define TECMO_GAMEPLAY_SCENE_OPCODE10_PROJECTION_TAG 0x5030314FU
+typedef struct TecmoGameplaySceneOpcode10Projection {
+    uint32_t contract_tag;
+    bool primary_timer_pending;
+    uint8_t timer_before;
+    uint8_t timer_after;
+} TecmoGameplaySceneOpcode10Projection;
 bool scene_cpu_opcode10_workspace_project(
     uint8_t actor,
     const TecmoGameplayLiveFoundation *foundation,
-    TecmoGameplayCpuSteeringPlayInput *input);
+    const TecmoGameplaySceneOpcode10FrameContext *context,
+    TecmoGameplayCpuSteeringPlayInput *input,
+    TecmoGameplaySceneOpcode10Projection *projection_out);
+bool scene_cpu_opcode10_projection_commit(
+    const TecmoGameplaySceneOpcode10Projection *projection,
+    const TecmoGameplayCpuSteeringPlayResult *play_result,
+    uint8_t *candidate_timer_io);
 bool scene_update_ai(
     TecmoGameplayScene *scene,
     TecmoGameplaySceneCpuShotRequest *shot_request_out);

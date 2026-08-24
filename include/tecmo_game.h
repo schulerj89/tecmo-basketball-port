@@ -70,6 +70,12 @@ typedef struct TecmoDebugCpuOwnershipSnapshot {
     bool automatic_selected_admitted;
 } TecmoDebugCpuOwnershipSnapshot;
 
+typedef struct TecmoRuntimeOpcode10FixedState {
+    uint16_t counter_5354;
+    uint8_t sample_6a;
+    uint8_t timer_0798;
+} TecmoRuntimeOpcode10FixedState;
+
 typedef struct TecmoRuntime {
     TecmoGameMemory *memory;
     RosterTable roster;
@@ -121,6 +127,8 @@ typedef struct TecmoRuntime {
     TecmoFrontendAudioAsset frontend_audio_asset;
     TecmoFrontendAudioPlayer frontend_audio_player;
     TecmoGameplayScene gameplay_scene;
+    /* Fixed-bank timing/RNG owner. It persists across gameplay scenes. */
+    TecmoRuntimeOpcode10FixedState opcode10_fixed;
     TecmoGameplayViolationLab violation_lab;
     TecmoGameplayShootingLab shooting_lab;
     TecmoGameplayCpuPlaybookLab cpu_playbook_lab;
@@ -177,6 +185,13 @@ typedef struct TecmoRuntime {
 #define TECMO_RUNTIME_INIT_ALLOW_EMPTY_ROSTER 0x01U
 
 bool tecmo_runtime_init(TecmoRuntime *runtime, TecmoGameMemory *memory, const char *project_root);
+void tecmo_runtime_opcode10_fixed_reset(
+    TecmoRuntimeOpcode10FixedState *state);
+void tecmo_runtime_opcode10_fixed_tick(
+    TecmoRuntimeOpcode10FixedState *state);
+void tecmo_runtime_opcode10_fixed_launch_mix(
+    TecmoRuntimeOpcode10FixedState *state);
+bool tecmo_runtime_opcode10_fixed_self_test(void);
 bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
                                    TecmoGameMemory *memory,
                                    const char *project_root,

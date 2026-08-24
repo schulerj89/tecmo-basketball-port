@@ -12,7 +12,8 @@ Run it with a private canonical Rev1 ROM:
 The runner validates the canonical iNES SHA-256 before it checks the listed
 source range fingerprints and command-corpus facts. It neither writes the ROM
 nor copies ROM/table bytes into the repository. The output is deterministic
-state proof; no opcode-10 visual claim is made while LIVE remains deferred.
+state proof; LIVE uses the same pure opcode-10 workspace only through the
+typed runtime/scene lifecycle described below.
 
 ## Provenance
 
@@ -40,7 +41,7 @@ the caller-local helper and `$BA` lifecycle that TGAI-3 does not claim to own.
 | Area | Exact bounded conversion | First missing live dependency | LIVE disposition |
 | --- | --- | --- | --- |
 | Opcode 7 | Bank06 `$8F12-$8F29`: compare `C9` with `$046E[C8]`, then choose current `+5` or `CA/CB +5`; canonical records use object slot `C8=$0A`. | Slot-10/ball-object `$046E` lifecycle at the exact command point. Actor timers and ball coordinates are not substitutes. | Deferred/diagnostic-only. |
-| Opcode 10 | Bank06 `$8D59-$8E21` plus `$8E22-$8E4E`: orientation hoop delta, signed normalization, primary/non-primary threshold branches, and exact 1/2/3/4-bit shift entries. Canonical `$8DCE` is `BCC $8E03` (`90 33`): the zero-`$0798`, threshold-`<$6A` primary branch takes three shifts with no reload/decrement, despite a misleading lifted label. The harness names the Bank06 CPU X-register actor selector `actor_index`, so it cannot be mistaken for a court X coordinate. | For a primary resolved link, exact `$0798/$075F/$6A/$0760` launch/RNG cadence. The non-primary branch does not read those fields. | Ordinary LIVE projects the exact non-primary workspace from the typed linked actor position and hoop anchor. Primary links remain fail-closed. |
+| Opcode 10 | Bank06 `$8D59-$8E21` plus `$8E22-$8E4E`: orientation hoop delta, signed normalization, primary/non-primary threshold branches, and exact 1/2/3/4-bit shift entries. Canonical `$8DCE` is `BCC $8E03` (`90 33`): the zero-`$0798`, threshold-`<$6A` primary branch takes three shifts with no reload/decrement, despite a misleading lifted label. The harness names the Bank06 CPU X-register actor selector `actor_index`, so it cannot be mistaken for a court X coordinate. | Primary links require a valid single-frame runtime binding of `$0798/$075F/$6A/$0760`; the non-primary branch does not read them. | Ordinary LIVE projects both branches when their typed owners are available. Missing/malformed primary context remains fail-closed. |
 | Opcode 10 selector | Bank02 `$BEE7-$BFD8`: seed `$99=$FF`; apply the `$0588` and `$0478/BA` gates; find the first descending bit-`$10` actor whose `$06CB==$0308`; form the source-width X/depth window; then scan actors 9..0, excluding `$0309` and the initial actor. Equal distances replace the prior candidate, so the lowest tied slot wins. | Nonordinary `$0478` contexts and any selector no-store/retained lifecycle. | Ordinary `$0478==0` LIVE uses TGBC `frontcourt_established` for the sole `$0588` bit-`$10` producer and typed foundation roles/flags/links/positions. Only actual source stores are projected. |
 | Opcode 16 | Bank05 `$9054-$90AF`: absolute hoop-X/depth workspaces. Bank06 `$9085-$90D7`: the existing executor can use them only when the pointer target and caller timing are proven. | Proof that Bank05 ran for the relevant actor immediately before the command; plus `$0309` pointer ownership. | Pure harness only. |
 | `$BA` | Bank06 target application consumes only `BA & 3`; the harness exposes that mask without a clock. | The cross-bank mutable lifecycle: bits 0..1 change in Bank05 state/possession paths and gate Bank06 formation/target paths; other bits have independent meanings. | External-lifecycle diagnostic; never `frame & 3`. |
@@ -68,12 +69,30 @@ seam even though its source path explicitly stores `$FF`.
 
 For each actor, LIVE resolves the exact `$0308/$06CB` branch. When that link is
 not primary, Bank06 chooses its shift solely from hoop-distance thresholds and
-does not read `$0798/$075F/$6A/$0760`; the existing harness therefore supplies
-the exact signed relative workspace. A primary link still defers at
-`missing-linked-relative-workspace`. Bank04 `$AD26-$AD56` has context-dependent
-timer/rate initialization (`$69&1`, `$0794`, or `$6006/$6007`) and `$6A` has an
-RNG lifecycle, so observed zeros are not promoted to typed owners. Raw RAM is
-not mirrored, and opcode 15 remains disabled and unchanged.
+does not read `$0798/$075F/$6A/$0760`; the existing harness supplies the exact
+signed relative workspace without consuming a timer.
+
+Primary links use a typed, runtime-owned fixed cadence. Runtime initialization
+sets the persistent timer `$0798`, counter `$54:$53`, and sample `$6A` to zero.
+Each runtime player update increments the low counter with carry, then runs the
+fixed `$CD9C` left-shift/`$1D` feedback and zero fallback before mode dispatch.
+A valid preseason or season launch stages exactly one `$CD96` xor/remix before
+scene launch and commits it only when launch succeeds. Preseason binds
+`$075F=difficulty,$0760=0`; season binds `$075F=2` and
+`$0760=low8(game_index>>5)`. The timer persists across game end and later
+launches. This is a supported-slice owner, not a raw RAM mirror, and the
+separate TPTI bridge is not the opcode-10 RNG source.
+
+Before each scene update, the runtime binds one tagged frame context containing
+the stable sample, current timer, rate, and bias. The context is consumed after
+that update attempt, including failure. Projection is non-mutating. Only an
+actually fetched, nondeferred opcode 10 commits its pending timer result, in
+selected-primary then ordinary actor `9..0` order; later commands in the same
+update see the earlier committed candidate timer. Non-opcode-10, skipped,
+deferred, and non-primary paths do not consume it. A failed scene update does
+not publish the candidate timer back to the runtime. Absent or malformed frame
+context therefore keeps only primary links at `missing-linked-relative-workspace`.
+Raw RAM is not mirrored, and opcode 15 remains disabled and unchanged.
 
 A natural read-only observation provides non-authoritative corroboration:
 all 3,937 observed opcode-10 entries followed an actual candidate or explicit
@@ -103,7 +122,9 @@ The standalone test executable checks:
 - ordinary-LIVE post-human held-ball/dribble projection while the stored Q8
   remains stale, current-ball frontcourt preview without TGBC mutation,
   actual-store-only selector projection, retained/no-store rejection, exact
-  non-primary workspace projection, and primary-link fail-closed behavior;
+  non-primary workspace projection, primary rate/reload branches, serial
+  actual-command timer commits, transactional malformed binding, and
+  single-use frame context consumption;
 - opcode-16 left/right absolute workspace arithmetic and transactional invalid
   coordinates;
 - `$BA` low-bit masking preserves its external lifecycle rather than creating

@@ -1046,6 +1046,22 @@ bool tecmo_gameplay_scene_launch(TecmoGameplayScene *scene,
     return true;
 }
 
+bool tecmo_gameplay_scene_bind_opcode10_frame_context(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneOpcode10FrameContext *context)
+{
+    if (scene == NULL || context == NULL ||
+        scene->lifecycle_tag != TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG ||
+        context->contract_tag !=
+            TECMO_GAMEPLAY_SCENE_OPCODE10_FRAME_CONTEXT_TAG ||
+        !context->available || context->sample_6a == 0U ||
+        context->rate_index_075f >= 3U) {
+        return false;
+    }
+    scene->opcode10_frame_context = *context;
+    return true;
+}
+
 static void scene_pad_from_controls(TecmoGameplayPadInput *pad,
                                     const TecmoControlFrame *controls)
 {
@@ -2150,9 +2166,9 @@ static bool scene_dispatch_update_audio(
     return true;
 }
 
-bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
-                                 const TecmoControlFrame *player_one,
-                                 const TecmoControlFrame *player_two)
+static bool scene_update_bound_frame(TecmoGameplayScene *scene,
+                                     const TecmoControlFrame *player_one,
+                                     const TecmoControlFrame *player_two)
 {
     TecmoGameplayFrameInput input;
     TecmoGameplayLiveContext live_context;
@@ -2271,6 +2287,21 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
     scene->previous_phase = scene->state.phase;
     ++scene->frame;
     return true;
+}
+
+bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
+                                 const TecmoControlFrame *player_one,
+                                 const TecmoControlFrame *player_two)
+{
+    bool result = scene_update_bound_frame(scene, player_one, player_two);
+    /* A runtime sample is single-frame input. Publish timer output first,
+       then consume availability on success or failure so direct callers
+       cannot silently reuse stale `$6A`. */
+    if (scene != NULL &&
+        scene->lifecycle_tag == TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG) {
+        scene->opcode10_frame_context.available = false;
+    }
+    return result;
 }
 bool tecmo_gameplay_scene_result(const TecmoGameplayScene *scene,
                                  TecmoGameplaySceneResult *result)

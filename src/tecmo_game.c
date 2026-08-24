@@ -375,6 +375,118 @@ static void set_runtime_status(char *dest, size_t dest_size, const char *text)
     (void)snprintf(dest, dest_size, "%s", text);
 }
 
+static void runtime_opcode10_cd9c(TecmoRuntimeOpcode10FixedState *state)
+{
+    uint8_t old = state->sample_6a;
+    uint8_t shifted = (uint8_t)(old << 1U);
+    if ((old & 0x80U) != 0U) shifted ^= 0x1DU;
+    state->sample_6a = shifted;
+    if (state->sample_6a == 0U) {
+        state->sample_6a ^= (uint8_t)state->counter_5354;
+    }
+}
+
+void tecmo_runtime_opcode10_fixed_reset(
+    TecmoRuntimeOpcode10FixedState *state)
+{
+    if (state != NULL) memset(state, 0, sizeof(*state));
+}
+
+void tecmo_runtime_opcode10_fixed_tick(
+    TecmoRuntimeOpcode10FixedState *state)
+{
+    if (state == NULL) return;
+    state->counter_5354 = (uint16_t)(state->counter_5354 + 1U);
+    runtime_opcode10_cd9c(state);
+}
+
+void tecmo_runtime_opcode10_fixed_launch_mix(
+    TecmoRuntimeOpcode10FixedState *state)
+{
+    if (state == NULL) return;
+    state->sample_6a ^= (uint8_t)state->counter_5354;
+    runtime_opcode10_cd9c(state);
+}
+
+static bool runtime_opcode10_frame_context(
+    const TecmoRuntimeOpcode10FixedState *state,
+    const TecmoGameplaySceneLaunch *launch,
+    TecmoGameplaySceneOpcode10FrameContext *context_out)
+{
+    TecmoGameplaySceneOpcode10FrameContext context;
+    if (state == NULL || launch == NULL || context_out == NULL ||
+        state->sample_6a == 0U) return false;
+    memset(&context, 0, sizeof(context));
+    context.contract_tag = TECMO_GAMEPLAY_SCENE_OPCODE10_FRAME_CONTEXT_TAG;
+    context.available = true;
+    context.sample_6a = state->sample_6a;
+    context.timer_0798 = state->timer_0798;
+    if (launch->source == TECMO_GAMEPLAY_SCENE_PRESEASON &&
+        launch->difficulty < 3U) {
+        context.rate_index_075f = launch->difficulty;
+    } else if (launch->source == TECMO_GAMEPLAY_SCENE_SEASON) {
+        context.rate_index_075f = 2U;
+        context.timer_bias_0760 = (uint8_t)(launch->game_index >> 5U);
+    } else {
+        return false;
+    }
+    *context_out = context;
+    return true;
+}
+
+bool tecmo_runtime_opcode10_fixed_self_test(void)
+{
+    TecmoRuntimeOpcode10FixedState state;
+    TecmoGameplaySceneOpcode10FrameContext context;
+    TecmoGameplaySceneLaunch launch;
+    size_t index;
+    tecmo_runtime_opcode10_fixed_reset(&state);
+    state.timer_0798 = 0xA5U;
+    tecmo_runtime_opcode10_fixed_tick(&state);
+    if (state.counter_5354 != 1U || state.sample_6a != 1U ||
+        state.timer_0798 != 0xA5U) return false;
+    state.counter_5354 = 0x00FFU;
+    state.sample_6a = 0x80U;
+    tecmo_runtime_opcode10_fixed_tick(&state);
+    if (state.counter_5354 != 0x0100U || state.sample_6a != 0x1DU) {
+        return false;
+    }
+    state.counter_5354 = 0x1234U;
+    state.sample_6a = 0U;
+    tecmo_runtime_opcode10_fixed_launch_mix(&state);
+    if (state.sample_6a != 0x68U || state.timer_0798 != 0xA5U) return false;
+    state.sample_6a = 0x34U;
+    tecmo_runtime_opcode10_fixed_launch_mix(&state);
+    if (state.sample_6a != 0x34U) return false;
+    for (index = 0U; index < 512U; ++index) {
+        tecmo_runtime_opcode10_fixed_tick(&state);
+        if (state.sample_6a == 0U) return false;
+    }
+    memset(&launch, 0, sizeof(launch));
+    launch.source = TECMO_GAMEPLAY_SCENE_PRESEASON;
+    for (index = 0U; index < 3U; ++index) {
+        launch.difficulty = (uint8_t)index;
+        if (!runtime_opcode10_frame_context(&state, &launch, &context) ||
+            context.rate_index_075f != index ||
+            context.timer_bias_0760 != 0U) return false;
+    }
+    launch.source = TECMO_GAMEPLAY_SCENE_SEASON;
+    launch.game_index = 31U;
+    if (!runtime_opcode10_frame_context(&state, &launch, &context) ||
+        context.rate_index_075f != 2U || context.timer_bias_0760 != 0U) {
+        return false;
+    }
+    launch.game_index = 32U;
+    if (!runtime_opcode10_frame_context(&state, &launch, &context) ||
+        context.timer_bias_0760 != 1U) return false;
+    launch.game_index = 63U;
+    if (!runtime_opcode10_frame_context(&state, &launch, &context) ||
+        context.timer_bias_0760 != 1U) return false;
+    launch.game_index = 64U;
+    return runtime_opcode10_frame_context(&state, &launch, &context) &&
+        context.timer_bias_0760 == 2U;
+}
+
 bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
                                    TecmoGameMemory *memory,
                                    const char *project_root,
@@ -383,6 +495,8 @@ bool tecmo_runtime_init_with_flags(TecmoRuntime *runtime,
     const bool allow_empty_roster = (flags & TECMO_RUNTIME_INIT_ALLOW_EMPTY_ROSTER) != 0U;
 
     memset(runtime, 0, sizeof(*runtime));
+    tecmo_runtime_opcode10_fixed_reset(&runtime->opcode10_fixed);
+    if (!tecmo_runtime_opcode10_fixed_self_test()) return false;
     runtime->memory = memory;
     tecmo_gameplay_violation_lab_init(&runtime->violation_lab);
     tecmo_gameplay_shooting_lab_init(&runtime->shooting_lab);
@@ -958,9 +1072,18 @@ static bool launch_preseason_gameplay(TecmoRuntime *runtime)
         &launch,
         asset->ownership[0][ownership_index] == 0U,
         asset->ownership[1][ownership_index] == 0U);
-    if (!gameplay_launch_settings(runtime, &launch) ||
-        !tecmo_gameplay_scene_launch(&runtime->gameplay_scene, &launch)) {
+    if (!gameplay_launch_settings(runtime, &launch)) {
         return false;
+    }
+    {
+        TecmoRuntimeOpcode10FixedState candidate = runtime->opcode10_fixed;
+        TecmoGameplaySceneOpcode10FrameContext context;
+        tecmo_runtime_opcode10_fixed_launch_mix(&candidate);
+        if (!runtime_opcode10_frame_context(&candidate, &launch, &context) ||
+            !tecmo_gameplay_scene_launch(&runtime->gameplay_scene, &launch) ||
+            !tecmo_gameplay_scene_bind_opcode10_frame_context(
+                &runtime->gameplay_scene, &context)) return false;
+        runtime->opcode10_fixed = candidate;
     }
     tecmo_runtime_set_mode(runtime, TECMO_MODE_COURT);
     return true;
@@ -997,9 +1120,18 @@ static bool launch_season_gameplay(TecmoRuntime *runtime)
         &launch,
         runtime->season_session.team_control[pending->away_team] == 1U,
         runtime->season_session.team_control[pending->home_team] == 1U);
-    if (!gameplay_launch_settings(runtime, &launch) ||
-        !tecmo_gameplay_scene_launch(&runtime->gameplay_scene, &launch)) {
+    if (!gameplay_launch_settings(runtime, &launch)) {
         return false;
+    }
+    {
+        TecmoRuntimeOpcode10FixedState candidate = runtime->opcode10_fixed;
+        TecmoGameplaySceneOpcode10FrameContext context;
+        tecmo_runtime_opcode10_fixed_launch_mix(&candidate);
+        if (!runtime_opcode10_frame_context(&candidate, &launch, &context) ||
+            !tecmo_gameplay_scene_launch(&runtime->gameplay_scene, &launch) ||
+            !tecmo_gameplay_scene_bind_opcode10_frame_context(
+                &runtime->gameplay_scene, &context)) return false;
+        runtime->opcode10_fixed = candidate;
     }
     tecmo_runtime_set_mode(runtime, TECMO_MODE_COURT);
     return true;
@@ -1206,6 +1338,7 @@ static void update_court(TecmoRuntime *runtime,
                          const TecmoControlFrame *player_two)
 {
     TecmoGameplaySceneResult result;
+    TecmoGameplaySceneOpcode10FrameContext opcode10_context;
     TecmoGameplayCourtCoordinate before[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     DebugCpuProgressSnapshot progress_before;
     DebugCpuProgressSnapshot progress_after;
@@ -1220,11 +1353,19 @@ static void update_court(TecmoRuntime *runtime,
         before[actor] = runtime->gameplay_scene.actors[actor].position;
     }
     runtime->debug_cpu_frame_delta_valid = false;
-    if (!runtime->gameplay_scene.result_ready &&
-        !tecmo_gameplay_scene_update(&runtime->gameplay_scene,
-                                     player_one, player_two)) {
-        runtime->debug_cpu_no_effect_streak = 0U;
-        return;
+    if (!runtime->gameplay_scene.result_ready) {
+        if (!runtime_opcode10_frame_context(
+                &runtime->opcode10_fixed, &runtime->gameplay_scene.launch,
+                &opcode10_context) ||
+            !tecmo_gameplay_scene_bind_opcode10_frame_context(
+                &runtime->gameplay_scene, &opcode10_context) ||
+            !tecmo_gameplay_scene_update(&runtime->gameplay_scene,
+                                         player_one, player_two)) {
+            runtime->debug_cpu_no_effect_streak = 0U;
+            return;
+        }
+        runtime->opcode10_fixed.timer_0798 =
+            runtime->gameplay_scene.opcode10_frame_context.timer_0798;
     }
     debug_cpu_progress_snapshot(&runtime->gameplay_scene, &progress_after);
     if (debug_cpu_selected_no_effect(&progress_before, &progress_after)) {
@@ -1398,6 +1539,9 @@ void tecmo_runtime_update_players(TecmoRuntime *runtime,
     tecmo_control_frame_strip_developer_only(&normal_player_two_controls);
     ++runtime->frame_counter;
     ++runtime->mode_frame_counter;
+    /* Fixed $CD7A->$CD8F counter followed by $CD7D->$CD9C RNG, once at the
+       NMI-equivalent pre-dispatch seam. No actor or scene call ticks it. */
+    tecmo_runtime_opcode10_fixed_tick(&runtime->opcode10_fixed);
 
     if (player_one_controls.pressed.debug_toggle) {
         runtime->debug_overlay = !runtime->debug_overlay;

@@ -1519,6 +1519,18 @@ do not duplicate command advancement in both structures. Do not claim a
 complete CPU play, pass, shot, steal, or ROM actor-link policy. `$B081-$B32E`
 is converted separately as the per-frame candidate selector and must not be
 classified as ordinary targeting.
+
+Opcode 10's primary-link workspace has one exact production lifecycle:
+`TecmoRuntime` owns persistent `$0798` plus fixed `$54:$53/$6A`, ticks the
+counter then `$CD9C` once before runtime dispatch, and transactionally stages
+one `$CD96` remix per valid preseason/season launch. Preseason binds
+rate=difficulty/bias=0; season binds rate=2/bias=`low8(game_index>>5)`.
+Bind that state to a tagged single-use scene frame context; keep `$6A` stable
+for all actors in the frame, project without mutation, and commit `$0798` only
+after an actual nondeferred opcode-10 fetch in selected-primary then ordinary
+`9..0` order. Scene failure rolls the timer back. Missing/malformed binding
+must preserve `missing-linked-relative-workspace`. This fixed owner is not the
+TPTI bridge and must not be described as full raw-RAM emulation.
 `--gameplay-cpu-steering-test`,
 `--gameplay-cpu-steering-inspect`, `--gameplay-cpu-steering-harness`, and
 `--gameplay-cpu-steering-movement-harness` are console-only and must not

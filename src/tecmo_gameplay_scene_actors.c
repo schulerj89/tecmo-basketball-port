@@ -2266,17 +2266,23 @@ bool scene_cpu_opcode10_selector_project(
 bool scene_cpu_opcode10_workspace_project(
     uint8_t actor,
     const TecmoGameplayLiveFoundation *foundation,
-    TecmoGameplayCpuSteeringPlayInput *input)
+    const TecmoGameplaySceneOpcode10FrameContext *context,
+    TecmoGameplayCpuSteeringPlayInput *input,
+    TecmoGameplaySceneOpcode10Projection *projection_out)
 {
     TecmoGameplayCpuOpcode10WorkspaceInput workspace_input;
     TecmoGameplayCpuOpcode10WorkspaceResult workspace_result;
+    TecmoGameplaySceneOpcode10Projection projection;
     uint8_t linked;
-    if (foundation == NULL || input == NULL ||
+    if (foundation == NULL || context == NULL || input == NULL ||
+        projection_out == NULL ||
         input->contract_tag != TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG ||
         actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         foundation->primary_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
         return false;
     }
+    memset(&projection, 0, sizeof(projection));
+    projection.contract_tag = TECMO_GAMEPLAY_SCENE_OPCODE10_PROJECTION_TAG;
     input->linked_actor_resolved_valid = false;
     input->linked_actor = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     input->linked_relative_valid = false;
@@ -2284,6 +2290,7 @@ bool scene_cpu_opcode10_workspace_project(
     input->linked_relative_depth = 0;
     if (!input->special_actor_07df_available ||
         !input->linked_actor_branch_context_available) {
+        *projection_out = projection;
         return true;
     }
     linked = actor == input->special_actor_07df
@@ -2292,12 +2299,17 @@ bool scene_cpu_opcode10_workspace_project(
     input->linked_actor_resolved_valid = true;
     input->linked_actor = linked;
     if (linked == foundation->primary_actor) {
-        /* $8DCE's primary-link branch consumes $0798/$075F/$6A/$0760. Their
-           launch/RNG cadence is not owned by this ordinary scene projection. */
-        return true;
+        if (context->contract_tag !=
+                TECMO_GAMEPLAY_SCENE_OPCODE10_FRAME_CONTEXT_TAG ||
+            !context->available || context->sample_6a == 0U ||
+            context->rate_index_075f >= 3U) {
+            *projection_out = projection;
+            return true;
+        }
     }
     if (input->actor_position[linked].y < 0 ||
         input->actor_position[linked].y > UINT8_MAX) {
+        *projection_out = projection;
         return true;
     }
     memset(&workspace_input, 0, sizeof(workspace_input));
@@ -2312,18 +2324,49 @@ bool scene_cpu_opcode10_workspace_project(
         (uint16_t)input->actor_position[linked].x;
     workspace_input.linked_target_depth =
         (uint8_t)input->actor_position[linked].y;
-    /* These fields are unowned zeros, but the exact non-primary source branch
-       does not read them. The harness result must confirm that branch. */
+    if (linked == foundation->primary_actor) {
+        workspace_input.timer_0798 = context->timer_0798;
+        workspace_input.rate_index_075f = context->rate_index_075f;
+        workspace_input.sample_006a = context->sample_6a;
+        workspace_input.timer_0760 = context->timer_bias_0760;
+    }
     if (!tecmo_gameplay_cpu_opcode10_workspace_harness(
             &workspace_input, &workspace_result) ||
         workspace_result.linked_actor != linked ||
-        workspace_result.timer_reloaded ||
-        workspace_result.timer_decremented) {
+        (linked != foundation->primary_actor &&
+         (workspace_result.timer_reloaded ||
+          workspace_result.timer_decremented))) {
         return false;
     }
     input->linked_relative_valid = true;
     input->linked_relative_x = workspace_result.linked_relative_x;
     input->linked_relative_depth = workspace_result.linked_relative_depth;
+    if (linked == foundation->primary_actor) {
+        projection.primary_timer_pending = true;
+        projection.timer_before = context->timer_0798;
+        projection.timer_after = workspace_result.timer_0798_after;
+    }
+    *projection_out = projection;
+    return true;
+}
+
+bool scene_cpu_opcode10_projection_commit(
+    const TecmoGameplaySceneOpcode10Projection *projection,
+    const TecmoGameplayCpuSteeringPlayResult *play_result,
+    uint8_t *candidate_timer_io)
+{
+    if (projection == NULL || play_result == NULL ||
+        candidate_timer_io == NULL ||
+        projection->contract_tag !=
+            TECMO_GAMEPLAY_SCENE_OPCODE10_PROJECTION_TAG) {
+        return false;
+    }
+    if (!projection->primary_timer_pending || !play_result->fetched ||
+        play_result->command.opcode != 10U || play_result->deferred) {
+        return true;
+    }
+    if (*candidate_timer_io != projection->timer_before) return false;
+    *candidate_timer_io = projection->timer_after;
     return true;
 }
 
@@ -2686,6 +2729,8 @@ bool scene_update_ai(
     TecmoGameplayCourtCoordinateQ8 candidate_ball;
     TecmoGameplayBallDribbleFrame candidate_dribble;
     TecmoGameplayScene candidate_scene;
+    TecmoGameplaySceneOpcode10FrameContext candidate_opcode10_context;
+    TecmoGameplaySceneOpcode10Projection primary_opcode10_projection;
     uint8_t actor_team[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     bool selected_primary_stepped = false;
     bool selected_primary_route_owned = false;
@@ -2720,6 +2765,7 @@ bool scene_update_ai(
     memcpy(candidate_cpu, scene->cpu_actors, sizeof(candidate_cpu));
     candidate_ball = scene->ball_position;
     candidate_foundation = scene->live_foundation;
+    candidate_opcode10_context = scene->opcode10_frame_context;
     if (!tecmo_gameplay_live_foundation_synchronize(
             &scene->cpu_steering_assets, steering_snapshot,
             scene->orientation_state.attack_direction,
@@ -2745,7 +2791,9 @@ bool scene_update_ai(
        selected-primary states/gates remain inert/fail-closed. */
     actor = candidate_foundation.primary_actor;
     if (!scene_cpu_opcode10_workspace_project(
-            (uint8_t)actor, &candidate_foundation, &play_input)) {
+            (uint8_t)actor, &candidate_foundation,
+            &candidate_opcode10_context, &play_input,
+            &primary_opcode10_projection)) {
         return false;
     }
     if (actor == scene->ball_holder &&
@@ -2767,6 +2815,9 @@ bool scene_update_ai(
         if (!tecmo_gameplay_live_foundation_play_step(
                 &scene->cpu_steering_assets, &play_input,
                 &candidate_foundation, &primary_result) ||
+            !scene_cpu_opcode10_projection_commit(
+                &primary_opcode10_projection, &primary_result,
+                &candidate_opcode10_context.timer_0798) ||
             primary_result.fetched || primary_result.advanced ||
             primary_result.next_offset !=
                 candidate_foundation.play_state.stream_offset[actor]) {
@@ -2785,7 +2836,10 @@ bool scene_update_ai(
         if (primary_player == NULL ||
             !tecmo_gameplay_live_foundation_play_step(
                 &scene->cpu_steering_assets, &play_input,
-                &candidate_foundation, &primary_result)) {
+                &candidate_foundation, &primary_result) ||
+            !scene_cpu_opcode10_projection_commit(
+                &primary_opcode10_projection, &primary_result,
+                &candidate_opcode10_context.timer_0798)) {
             return false;
         }
         selected_primary_stepped = true;
@@ -2793,6 +2847,8 @@ bool scene_update_ai(
                 0x21U) {
             candidate_scene = *scene;
             candidate_scene.live_foundation = candidate_foundation;
+            candidate_scene.opcode10_frame_context =
+                candidate_opcode10_context;
             if (!scene_begin_cpu_pass_from_action21(
                     &candidate_scene, (uint8_t)actor) ||
                 !scene_ownership_valid(&candidate_scene)) {
@@ -2820,6 +2876,8 @@ bool scene_update_ai(
             candidate_foundation.last_shot_playback_supported = false;
             candidate_scene = *scene;
             candidate_scene.live_foundation = candidate_foundation;
+            candidate_scene.opcode10_frame_context =
+                candidate_opcode10_context;
             shot_started = scene_start_automatic_cpu_shot_actor(
                 &candidate_scene, (uint8_t)actor);
             if (shot_started && candidate_scene.shot_actor == actor) {
@@ -2846,6 +2904,8 @@ bool scene_update_ai(
             candidate_foundation.last_shot_deferred = true;
             candidate_scene = *scene;
             candidate_scene.live_foundation = candidate_foundation;
+            candidate_scene.opcode10_frame_context =
+                candidate_opcode10_context;
             if (!scene_ownership_valid(&candidate_scene)) return false;
             *scene = candidate_scene;
             shot_request_out->requested = false;
@@ -2873,6 +2933,7 @@ bool scene_update_ai(
     for (size_t source_index = 0U;
          source_index < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++source_index) {
         TecmoGameplayCpuSteeringPlayResult play_result;
+        TecmoGameplaySceneOpcode10Projection opcode10_projection;
         TecmoGameplayCpuSteeringMovementInput input;
         TecmoGameplayCpuSteeringMovementResult result;
         TecmoGameplaySceneCpuActor *cpu;
@@ -2899,7 +2960,9 @@ bool scene_update_ai(
         memset(&input, 0, sizeof(input));
         play_input.actor = (uint8_t)actor;
         if (!scene_cpu_opcode10_workspace_project(
-                (uint8_t)actor, &candidate_foundation, &play_input)) {
+                (uint8_t)actor, &candidate_foundation,
+                &candidate_opcode10_context, &play_input,
+                &opcode10_projection)) {
             return false;
         }
         memset(&play_result, 0, sizeof(play_result));
@@ -2987,6 +3050,11 @@ bool scene_update_ai(
             !tecmo_gameplay_live_foundation_play_step(
                 &scene->cpu_steering_assets, &play_input,
                 &candidate_foundation, &play_result)) {
+            return false;
+        }
+        if (!scene_cpu_opcode10_projection_commit(
+                &opcode10_projection, &play_result,
+                &candidate_opcode10_context.timer_0798)) {
             return false;
         }
         if (play_result.fetched && play_result.command.opcode == 4U) {
@@ -3206,6 +3274,8 @@ bool scene_update_ai(
                    sizeof(candidate_cpu));
             candidate_scene.ball_position = candidate_ball;
             candidate_scene.live_foundation = candidate_foundation;
+            candidate_scene.opcode10_frame_context =
+                candidate_opcode10_context;
             /* shots.c remains the sole playback owner. Probe it once on the
                complete candidate; an unsupported request is recorded as a
                nonfatal deferred/non-launch classification. */
@@ -3244,6 +3314,7 @@ bool scene_update_ai(
     memcpy(scene->cpu_actors, candidate_cpu, sizeof(candidate_cpu));
     scene->ball_position = candidate_ball;
     scene->live_foundation = candidate_foundation;
+    scene->opcode10_frame_context = candidate_opcode10_context;
     return true;
 }
 
