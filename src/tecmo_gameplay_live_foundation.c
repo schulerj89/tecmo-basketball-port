@@ -599,12 +599,25 @@ bool tecmo_gameplay_live_foundation_refresh_formation(
     candidate = *foundation_io;
     candidate.formation_index = formation_index;
     for (actor = 0U; actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
+        bool postcatch_prior_cursor =
+            actor == candidate.prior_selected_actor &&
+            candidate.play_state.actor_state[actor] == 0x04U &&
+            (candidate.play_state.stream_offset[actor] == 0x0B63U ||
+             candidate.play_state.stream_offset[actor] == 0x0B68U ||
+             candidate.play_state.stream_offset[actor] == 0x0B77U ||
+             candidate.play_state.stream_offset[actor] == 0x0B86U ||
+             candidate.play_state.stream_offset[actor] == 0x0B95U ||
+             candidate.play_state.stream_offset[actor] == 0x0BA4U ||
+             candidate.play_state.stream_offset[actor] == 0x0BB3U ||
+             candidate.play_state.stream_offset[actor] == 0x0BC2U ||
+             candidate.play_state.stream_offset[actor] == 0x0BD1U);
         candidate.formation_start_offset[actor] = formation.stream_offset[actor];
         /* $944D excludes $0308 and $9452 excludes bit-$10 actors. The
            ordinary actor loop separately excludes $0309, so retain both
            selected actors' current command lifecycle. */
         if (actor != candidate.primary_actor &&
             actor != candidate.defender_actor &&
+            !postcatch_prior_cursor &&
             (candidate.actor_selector_flags[actor] & 0x10U) == 0U) {
             candidate.play_state.stream_offset[actor] =
                 formation.stream_offset[actor];
@@ -613,7 +626,15 @@ bool tecmo_gameplay_live_foundation_refresh_formation(
             reloaded[actor] = true;
         }
     }
-    /* Bank06 $944D does not reload $0308, and $9452 excludes bit-$10
+    /* Bank05 $B27B writes the former selected actor's exact `$0B63` cursor
+       before the next Bank06 dispatch. A holder-driven formation bucket
+       change must not erase that same-call catch result before its first
+       eligible opcode-2 step or at one of the eight exact opcode-8 boundary
+       records that recur in the same post-catch stream. This typed
+       prior-selected/state/cursor tuple is narrower than inventing a
+       persistent raw selector flag.
+
+       Bank06 $944D does not reload $0308, and $9452 excludes bit-$10
        actors.  Those slots keep their existing stream cursor and their
        previously written $055B/$0566/$0571 movement state; clearing every
        native target here made a selected CPU ball-handler stop at the first

@@ -1850,6 +1850,7 @@ static bool scene_test_live_foundation_regressions(
         uint16_t primary_last_step_before;
         int16_t expected_catch_target_x;
         size_t pass_updates;
+        TecmoGameplayScene postcatch_scene;
 
         /* Bank05 $BD6E-$BDC6 exact uint16 accumulation/Q10.6 extraction.
            Include captured-shape values, carry, wrap, and a high-byte $FF
@@ -2044,6 +2045,156 @@ static bool scene_test_live_foundation_regressions(
                 0x00D7U ||
             scene->live_foundation.last_step_offset[receiver] != 0x00D7U) {
             LIVE_FAIL("LIVE CPU pass catch/control handoff failed");
+        }
+        /* The genuine B24F catch above installs the former selected passer at
+           `$0B63`; do not park that cursor. Exercise its next two eligible
+           ordinary dispatches (opcode 2 -> opcode 8) against all four exact
+           held-ball/orientation edges. Non-primary actors remain otherwise
+           exactly as produced by the catch transaction. */
+        postcatch_scene = *scene;
+        {
+            TecmoGameplayLiveFoundation exact_refresh =
+                postcatch_scene.live_foundation;
+            TecmoGameplayLiveFoundation nearby_refresh = exact_refresh;
+            TecmoGameplayLiveFoundation wrong_state_refresh = exact_refresh;
+            if (!tecmo_gameplay_live_foundation_refresh_formation(
+                    &scene->cpu_steering_assets,
+                    postcatch_scene.live_foundation.actor_position,
+                    &exact_refresh) ||
+                exact_refresh.play_state.stream_offset[passer] != 0x0B63U) {
+                LIVE_FAIL("LIVE exact post-catch cursor did not survive refresh");
+            }
+            nearby_refresh.play_state.stream_offset[passer] = 0x0B6DU;
+            nearby_refresh.last_step_offset[passer] = 0x0B6DU;
+            if (!tecmo_gameplay_live_foundation_refresh_formation(
+                    &scene->cpu_steering_assets,
+                    postcatch_scene.live_foundation.actor_position,
+                    &nearby_refresh) ||
+                nearby_refresh.play_state.stream_offset[passer] == 0x0B6DU) {
+                LIVE_FAIL("LIVE nearby non-catch cursor bypassed refresh");
+            }
+            wrong_state_refresh.play_state.actor_state[passer] = 0x06U;
+            wrong_state_refresh.play_state.wait_counter[passer] = 1U;
+            if (!tecmo_gameplay_live_foundation_refresh_formation(
+                    &scene->cpu_steering_assets,
+                    postcatch_scene.live_foundation.actor_position,
+                    &wrong_state_refresh) ||
+                wrong_state_refresh.play_state.stream_offset[passer] ==
+                    0x0B63U ||
+                wrong_state_refresh.play_state.actor_state[passer] != 0x04U) {
+                LIVE_FAIL("LIVE wrong-state catch cursor bypassed refresh");
+            }
+        }
+        {
+            TecmoGameplayScene opcode8_entry = postcatch_scene;
+            static const uint8_t edge_orientation[4U] = {0U,0U,1U,1U};
+            static const int16_t edge_ball_x[4U] = {
+                0x013F,0x0140,0x01BF,0x01C0
+            };
+            static const bool edge_redirect[4U] = {true,false,false,true};
+            memset(&no_shot, 0, sizeof(no_shot));
+            if (!scene_update_ai(&opcode8_entry, &no_shot) ||
+                opcode8_entry.live_foundation.play_state
+                        .stream_offset[passer] != 0x0B68U ||
+                opcode8_entry.live_foundation.last_step_offset[passer] !=
+                    0x0B68U ||
+                opcode8_entry.live_foundation.deferred[passer]) {
+                char failure[320];
+                (void)snprintf(failure, sizeof(failure),
+                    "LIVE organic post-catch opcode-2 predecessor stream=%04X last=%04X state=%u wait=%u action=%u tick=%u effect=%u deferred=%u reason=%u failed",
+                    (unsigned)opcode8_entry.live_foundation.play_state
+                        .stream_offset[passer],
+                    (unsigned)opcode8_entry.live_foundation
+                        .last_step_offset[passer],
+                    (unsigned)opcode8_entry.live_foundation.play_state
+                        .actor_state[passer],
+                    (unsigned)opcode8_entry.live_foundation.play_state
+                        .wait_counter[passer],
+                    (unsigned)opcode8_entry.live_foundation.play_state
+                        .action_state_046e[passer],
+                    (unsigned)opcode8_entry.live_foundation.tick_serial,
+                    (unsigned)opcode8_entry.live_foundation.last_effect[passer],
+                    opcode8_entry.live_foundation.deferred[passer] ? 1U : 0U,
+                    (unsigned)opcode8_entry.live_foundation
+                        .deferred_reason[passer]);
+                LIVE_FAIL(failure);
+            }
+            for (size_t edge = 0U; edge < 4U; ++edge) {
+                TecmoGameplayScene edge_scene = opcode8_entry;
+                int16_t holder_x = (int16_t)(edge_ball_x[edge] -
+                    (edge_scene.actors[receiver].facing_right ? 7 : -7));
+                edge_scene.orientation_state.attack_direction =
+                    edge_orientation[edge];
+                edge_scene.orientation_state.previous_attack_direction =
+                    edge_orientation[edge];
+                edge_scene.orientation_state.transition_serial = 0U;
+                edge_scene.orientation_state.tracked_possession_team =
+                    (uint8_t)edge_scene.state.possession;
+                if (!tecmo_gameplay_court_orientation_hoop(
+                        &edge_scene.court_orientation,
+                        edge_orientation[edge],
+                        &edge_scene.orientation_state.offensive_hoop)) {
+                    LIVE_FAIL("LIVE opcode-8 edge orientation rejected");
+                }
+                edge_scene.live_foundation.orientation =
+                    edge_orientation[edge];
+                edge_scene.actors[receiver].position.x = holder_x;
+                edge_scene.actors[receiver].anchor.x = holder_x;
+                edge_scene.live_foundation.actor_position[receiver] =
+                    edge_scene.actors[receiver].position;
+                if (!scene_attach_ball(&edge_scene)) {
+                    LIVE_FAIL("LIVE opcode-8 held-ball projection rejected");
+                }
+                /* TGBD's immutable held-ball snapshot includes its current
+                   dribble-frame horizontal offset. Solve the actor placement
+                   from that actual typed projection rather than assuming the
+                   static hand attachment alone. */
+                holder_x = (int16_t)(holder_x -
+                    ((edge_scene.ball_position.x_q8 / 256) -
+                     edge_ball_x[edge]));
+                edge_scene.actors[receiver].position.x = holder_x;
+                edge_scene.actors[receiver].anchor.x = holder_x;
+                edge_scene.live_foundation.actor_position[receiver] =
+                    edge_scene.actors[receiver].position;
+                if (!scene_attach_ball(&edge_scene) ||
+                    edge_scene.ball_position.x_q8 !=
+                        (int32_t)edge_ball_x[edge] * 256 ||
+                    (edge_scene.live_foundation.play_state
+                        .stream_offset[passer] != 0x0B68U)) {
+                    char failure[220];
+                    (void)snprintf(failure, sizeof(failure),
+                        "LIVE opcode-8 held-ball edge setup edge=%u ball_q8=%d expected=%d stream=%04X failed",
+                        (unsigned)edge, (int)edge_scene.ball_position.x_q8,
+                        (int)edge_ball_x[edge] * 256,
+                        (unsigned)edge_scene.live_foundation.play_state
+                            .stream_offset[passer]);
+                    LIVE_FAIL(failure);
+                }
+                memset(&no_shot, 0, sizeof(no_shot));
+                if (!scene_update_ai(&edge_scene, &no_shot) ||
+                    edge_scene.live_foundation.play_state
+                            .stream_offset[passer] !=
+                        (edge_redirect[edge] ? 0x025DU : 0x0B6DU) ||
+                    edge_scene.live_foundation.play_state
+                            .actor_state[passer] != 0x04U ||
+                    edge_scene.live_foundation.deferred[passer]) {
+                    char failure[320];
+                    (void)snprintf(failure, sizeof(failure),
+                        "LIVE post-catch opcode-8 edge=%u orient=%u ball=%d stream=%04X last=%04X state=%u defer=%u reason=%u failed",
+                        (unsigned)edge, (unsigned)edge_orientation[edge],
+                        (int)edge_ball_x[edge],
+                        (unsigned)edge_scene.live_foundation.play_state
+                            .stream_offset[passer],
+                        (unsigned)edge_scene.live_foundation
+                            .last_step_offset[passer],
+                        (unsigned)edge_scene.live_foundation.play_state
+                            .actor_state[passer],
+                        edge_scene.live_foundation.deferred[passer] ? 1U : 0U,
+                        (unsigned)edge_scene.live_foundation
+                            .deferred_reason[passer]);
+                    LIVE_FAIL(failure);
+                }
+            }
         }
         /* The chosen source-valid long route $00D7 begins with exact opcode 2 and absolute target
            ($00B4,$0096) for orientation 0. The catch tail makes the holder

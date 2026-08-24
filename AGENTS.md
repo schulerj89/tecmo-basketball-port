@@ -1584,6 +1584,18 @@ contexts stay deferred. Do not fabricate opcode-5 pose `$034A`, opcode-6
 `$0743`, or `$0588` observations, and do not refetch Bank06 while action `$10`,
 gather, or pass flight is pending.
 
+Post-catch opcode 8 is exact only at Bank06 `$8ED7-$8F11`. Its eight records
+are `$0B68/$0BA4->$025D`, `$0B77/$0BB3->$029E`,
+`$0B86/$0BC2->$02DA`, and `$0B95/$0BD1->$030C`. Use the immutable held-ball
+X snapshot: orientation 0 redirects only below `$0140`, while orientation 1
+redirects at or above `$01C0`. Redirect writes C8:C9 directly and state 4
+without +5; the complement writes state 4 and takes normal +5. Validate every
+redirect target as an aligned in-range command offset. The handler's
+`$0588&7` clear is an unretained observation, not a raw-RAM parity claim.
+Production tests must enter through a genuine pass catch that assigns the
+former selected actor `$0B63`, then observe opcode 2 advance it to `$0B68`;
+do not park `$0B63/$0B68` to claim post-catch reachability.
+
 `--gameplay-cpu-steering-test`,
 `--gameplay-cpu-steering-inspect`, `--gameplay-cpu-steering-harness`, and
 `--gameplay-cpu-steering-movement-harness` are console-only and must not

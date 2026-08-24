@@ -99,13 +99,13 @@ static const uint8_t cpu_steering_effect_jumps[
    entries retain handler metadata and advance policy but defer their effect. */
 static const uint8_t cpu_steering_effect_exact[
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT] = {
-    1U,1U,1U,1U,1U,1U,1U,1U,0U,1U,1U,0U,
+    1U,1U,1U,1U,1U,1U,1U,1U,1U,1U,1U,0U,
     0U,1U,1U,0U,1U,1U,1U,1U,0U,1U,1U,1U
 };
 
 static const uint8_t cpu_steering_effect_deferred[
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT] = {
-    0U,0U,0U,0U,0U,0U,1U,0U,1U,0U,0U,1U,
+    0U,0U,0U,0U,0U,0U,1U,0U,0U,0U,0U,1U,
     1U,0U,0U,1U,0U,0U,0U,0U,1U,0U,0U,1U
 };
 
@@ -1932,7 +1932,6 @@ bool tecmo_gameplay_cpu_steering_play_step(
                     TECMO_GAMEPLAY_CPU_STEERING_DEFER_INVALID_TARGET_OBJECT;
             }
             break;
-        case 8U:
         case 11U:
         case 12U:
         case 20U:
@@ -1944,6 +1943,26 @@ bool tecmo_gameplay_cpu_steering_play_step(
             result.deferred_reason =
                 TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS;
             break;
+        case 8U: {
+            uint16_t redirect_offset = (uint16_t)command.arguments[0U] |
+                ((uint16_t)command.arguments[1U] << 8U);
+            uint16_t ball_x = (uint16_t)input->ball_position.x;
+            bool redirect = input->orientation_035a == 0U
+                ? ball_x < 0x0140U
+                : ball_x >= 0x01C0U;
+            next_state.actor_state[actor] = 0x04U;
+            /* `$8ED7-$8F11` also clears `$0588&7`; that global observation
+               is deliberately unretained by the actor-local play state. */
+            if (redirect) {
+                if (!play_stream_offset_valid(redirect_offset)) return false;
+                following_offset = redirect_offset;
+                result.jump_offset = redirect_offset;
+                result.jumped = true;
+            } else {
+                following_offset = play_next_offset(current_offset, 5U);
+            }
+            break;
+        }
         case 5U: {
             uint8_t direction;
             if (!play_opcode5_direction(
@@ -2136,11 +2155,14 @@ bool tecmo_gameplay_cpu_steering_play_step(
             break;
         }
 
-        if (command.opcode == 6U || command.opcode == 8U ||
+        if (command.opcode == 6U ||
             (command.opcode == 10U && !result.proximity_met) ||
             command.opcode == 12U || command.opcode == 15U ||
             (command.opcode == 16U && (input->flags_ba & 0x03U) != 0U)) {
             following_offset = current_offset;
+        } else if (command.opcode == 8U) {
+            /* Redirect stores C8:C9 directly and returns; the complement
+               writes state 4 then reaches the normal +5 tail. */
         } else if (command.opcode == 11U) {
             /* $8C40 itself calls $8FD9 after its source-dependent pose work. */
             following_offset = play_next_offset(current_offset, 5U);
@@ -2155,7 +2177,7 @@ bool tecmo_gameplay_cpu_steering_play_step(
         }
         if (following_offset == current_offset &&
             command.opcode != 7U && command.opcode != 15U &&
-            command.opcode != 6U && command.opcode != 8U &&
+            command.opcode != 6U &&
             command.opcode != 10U && command.opcode != 12U &&
             command.opcode != 20U &&
             command.opcode != 5U &&
@@ -3926,6 +3948,99 @@ bool tecmo_gameplay_cpu_steering_self_test(
         }
     }
     play_input.orientation_035a = 0U;
+
+    /* Opcode 8 has eight exact post-catch boundary records. The selected
+       holder snapshot is immutable for this play step; no raw `$0588`
+       availability is required for the transport/state result. */
+    {
+        static const uint16_t offsets[8U] = {
+            0x0B68U,0x0B77U,0x0B86U,0x0B95U,
+            0x0BA4U,0x0BB3U,0x0BC2U,0x0BD1U
+        };
+        static const uint16_t targets[8U] = {
+            0x025DU,0x029EU,0x02DAU,0x030CU,
+            0x025DU,0x029EU,0x02DAU,0x030CU
+        };
+        static const uint8_t orientations[4U] = {0U,0U,1U,1U};
+        static const int16_t ball_x[4U] = {
+            0x013F,0x0140,0x01BF,0x01C0
+        };
+        static const bool redirects[4U] = {true,false,false,true};
+        for (size_t record = 0U; record < 8U; ++record) {
+            if (!tecmo_gameplay_cpu_steering_decode_command(
+                    &assets, offsets[record], &command) ||
+                command.opcode != 8U ||
+                command.cpu_address !=
+                    (uint16_t)(0x9F2EU + offsets[record]) ||
+                command.arguments[0U] != (uint8_t)targets[record] ||
+                command.arguments[1U] !=
+                    (uint8_t)(targets[record] >> 8U) ||
+                command.arguments[2U] != 0U ||
+                command.arguments[3U] != 0U) {
+                (void)snprintf(message, message_size,
+                               "TGAI-3 opcode-8 exact record %u failed.",
+                               (unsigned)record);
+                tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+                return false;
+            }
+            if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+                    &assets, 0U, &play_state)) {
+                tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+                return false;
+            }
+            play_state.stream_offset[0U] = offsets[record];
+            play_state.actor_state[0U] = 0x09U;
+            play_input.orientation_035a = 0U;
+            play_input.ball_position.x = 0x013F;
+            if (!tecmo_gameplay_cpu_steering_play_step(
+                    &assets, &play_state, &play_input,
+                    &play_out, &play_result) || play_result.deferred ||
+                !play_result.jumped ||
+                play_result.jump_offset != targets[record] ||
+                play_out.stream_offset[0U] != targets[record] ||
+                play_out.actor_state[0U] != 0x04U) {
+                (void)snprintf(message, message_size,
+                               "TGAI-3 opcode-8 redirect target %u failed.",
+                               (unsigned)record);
+                tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+                return false;
+            }
+        }
+        if (play_stream_offset_valid(0x025EU) ||
+            play_stream_offset_valid(CPU_STEERING_COMMAND_STREAM_SIZE)) {
+            (void)snprintf(message, message_size,
+                           "TGAI-3 opcode-8 redirect validation failed.");
+            tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+            return false;
+        }
+        for (size_t edge = 0U; edge < 4U; ++edge) {
+            if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+                    &assets, 0U, &play_state)) {
+                tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+                return false;
+            }
+            play_state.stream_offset[0U] = 0x0B68U;
+            play_state.actor_state[0U] = 0x09U;
+            play_input.orientation_035a = orientations[edge];
+            play_input.ball_position.x = ball_x[edge];
+            if (!tecmo_gameplay_cpu_steering_play_step(
+                    &assets, &play_state, &play_input,
+                    &play_out, &play_result) || play_result.deferred ||
+                play_out.actor_state[0U] != 0x04U ||
+                play_result.jumped != redirects[edge] ||
+                play_out.stream_offset[0U] !=
+                    (redirects[edge] ? 0x025DU : 0x0B6DU) ||
+                play_result.next_offset !=
+                    play_out.stream_offset[0U]) {
+                (void)snprintf(message, message_size,
+                               "TGAI-3 opcode-8 boundary edge %u failed.",
+                               (unsigned)edge);
+                tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+                return false;
+            }
+        }
+        play_input.orientation_035a = 0U;
+    }
 
     /* Opcode 23 is the sole source predecessor. The selected/uncontrolled
        branch advances without sampling `$6A`, defender depth, or direction. */
