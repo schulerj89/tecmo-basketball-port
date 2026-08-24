@@ -1609,6 +1609,26 @@ Tests may bind an intentional typed fixture, which must still provide the
 separate `$BA` owner. TGCA's `$B721/$B783` same-frame opcode-20 capability is
 separate and cannot snapshot, persist, or authorize TGGL-1 for opcode 13.
 
+TGA9-1 is a pure `$A9DA` target plus `$AAB8/$A993` assignment subset, never a
+LIVE producer. Its inputs are normalized A9DA-time signed object-10 velocity,
+fixed multiplier `$002C`, raw ball X16/zero-extended depth8, actor raw X16 and
+court depth8, orientation, roles, fixed links, and current command planes.
+`$AAB8` never reads altitude. Scan 9 down to 0 excluding primary/defender;
+compare wrapping 16-bit `max(abs_x,abs_depth)+floor(min/2)` and replace only on
+strict lower, preserving the highest tied slot. Reject the outside-source-
+domain case in which no actor improves `$0505`; do not fabricate stale `$98`.
+The serial-admitted A9DA TGGL overwrite precedes both later gates. `$BA&3`
+aborts before `$0588|=$80`; `$05A1` aborts after that bit store. On success,
+chosen gets `$002D`, state 4, and action-state `$046E=0`; its fixed link gets
+`$005A`/state 4 unless primary/defender, and `$0587=3`. Project each stream seed
+into native `last_step_offset` only as bookkeeping, never as a claimed source
+write. Preserve `$0458` and the linked actor's `$046E`. The subset omits
+`$0478=$10`, `$B3DD->$049A/$04A5`, and `$4010/$4012/$4013/$4015` presentation/
+audio effects. Synthetic/frozen native rattle values cannot substitute for
+dynamic flight velocity, actor-motion freeze, embedded TGGL, or same-loop
+Bank06 traversal. Keep `missing-global-target`, `$0041` latest-writer, and
+`missing-opcode15-raw-lifecycle` boundaries intact.
+
 Opcode 20 has a source-exact bounded executor for Bank06 `$9032-$9052`. Its
 only records are `$000F` / CPU `$9F3D` and `$0019` / CPU `$9F47`, both
 `14 00 00 00 00` and each followed by a goto `$0000`. Reuse only the typed raw

@@ -62,11 +62,35 @@ unowned. The current ball and TGCA's one-frame opcode-20 capability are not
 substitutes, so LIVE remains `missing-global-target`.
 
 The `$002D` opcode-13 record is source-linked to the anchored
-`$A9DA->$A993` family. The later `$0041` record retains an explicit
-latest-writer/scheduling boundary; neither relationship authorizes native
-scene input. Exact importer anchors cover all five writer spans, Bank06
-`$9125-$9145`, and fixed `$CC30-$CC85` reset/page clear, with independent
-mutation rejection for every span.
+`$A9DA->$A993` family. TGA9-1 models only its typed target/assignment subset:
+normalized A9DA-time signed object-10 velocity is multiplied by the fixed
+`$002C` and arithmetic-shifted right six; wrapping projection starts from raw
+ball X16 and zero-extended ball depth8, then commits the TGGL A9DA producer.
+That commit precedes both later aborts. `$BA&3` aborts before `$0588|=$80`;
+`$05A1` aborts after that bit store but before selection/assignment.
+
+`$AAB8-$AB35` scans 9 down to 0, excludes `$0308/$0309`, and compares each
+actor's raw X16 (`$73+$X/$E8+$X`) and court depth8 (`$F3+$X`) to orientation
+targets `(A0,00,94)` or `(60,02,94)`. Its wrapping 16-bit metric is the larger
+absolute axis plus half the smaller. Only a strict lower metric replaces the
+winner, so the highest tied slot survives. Typed admission rejects the
+outside-source-domain case where no eligible metric improves initial `$0505`;
+it never fabricates stale scratch `$98`. `$A993-$A9C4` seeds chosen `$002D`,
+state 4, and action-state `$046E=0`; its fixed-link actor receives `$005A` and
+state 4 unless it is primary/defender. `$0587=3` is final. Native
+`last_step_offset` mirrors each stream seed only as port bookkeeping, not as an
+original RAM write; `$0458` and the linked actor's `$046E` are preserved.
+
+This is not complete `$A9DA`: object state `$0478=$10`, `$B3DD` position stores
+to `$049A/$04A5`, and the `$4010/$4012/$4013/$4015` presentation/audio tail are
+outside the helper. The current native rattle inputs are synthetic/frozen and
+cannot substitute for the dynamic flight velocity, actor-motion freeze,
+embedded TGGL, or same-loop Bank06 traversal. The later `$0041` record retains
+an explicit latest-writer/scheduling boundary. LIVE therefore remains
+`missing-global-target`; opcode 15 remains `missing-opcode15-raw-lifecycle`.
+Exact importer anchors cover `$A8E9-$A9D9`, `$A9DA-$AA44`, `$AAB8-$AB35`,
+`$BDEF-$BDF4`, `$A993-$A9C4`, the other TGGL writers, Bank06 consumer, and
+fixed reset/page clear, with independent mutation rejection for every span.
 
 ## What the harness proves
 

@@ -483,6 +483,20 @@ in deterministic LIVE proof JSON.
 | `$9032-$9052` opcode 20, raw `$038D:$038E/$038F:$0390` latch words | Exact records are `$000F` / CPU `$9F3D` and `$0019` / `$9F47`, both `14 00 00 00 00`. TGCA now types the exact `$B721` and `$B783` stores (`$7D:$F2/$FD:$00`) plus the immediate `$0019` actor mask from the same successful assignment. A single-use scene context exposes that value only to those masked actors during the following Bank06 9..0 traversal; cursor coincidence, selected/delayed `$000A`, and opcode 13 cannot consume it. | Production remains `missing-global-target` because native LIVE owns neither the raw `$A214` gates nor object-slot scheduler and therefore never binds the context. Intentional exact-event fixtures prove same-frame consume/expiry/rollback. An accepted opcode 20 computes wrapping raw deltas, preserves target-plane bits under inactive-storage provenance, clears former semantic/raw meaning, applies exact zero-vector/state-4 or nonzero-direction behavior, and advances +5 without `$BA`. |
 | `$9172-$9216` opcode 15 raw lifecycle | Harness-only transactional primary and defender captures plus persistent typed `$059E`/state-7 consumer evidence; no scene binding. | `missing-opcode15-raw-lifecycle`: `$0499` scheduling, same-command `$007E`, multi-producer `$06D5/$06D6`, complete presentation planes, and selector owners remain missing. |
 
+TGA9-1 narrows TGGL's `$A9DA` family to a pure target/assignment subset. It
+accepts normalized A9DA-time signed velocities only, enforces fixed `$002C`,
+zero-extends ball depth8, and reproduces the signed-product arithmetic shift by
+six and raw16 wrap. `$AAB8` uses actor raw X16 and court depth8—not altitude—
+with the exact orientation tables, 9-to-0 role exclusion, strict-lower metric,
+and highest-slot tied winner. `$A993` clears chosen action-state `$046E`, not a
+wait plane; `$0458` survives. Chosen/linked stream seeds also update native
+`last_step_offset` solely as bookkeeping. The helper explicitly omits
+`$0478=$10`, `$B3DD->$049A/$04A5`, and the presentation/audio register tail.
+Natural no-write values corroborate projections `009D + (004B*002C >> 6) =
+00D0`, `93 + (FFFB*002C >> 6) = 008F`, then `00C7/0088` for the second pass.
+Native rattle inputs remain synthetic/frozen, so they cannot authorize a LIVE
+TGGL write or same-loop opcode-13 consume.
+
 Production automatic-pass selection now enters from made-score restart:
 Bank05 `$901F` state 1 reaches Bank06 `$8661-$8727`, publishes the selected
 primary at `$0168`, and `$8728-$8773` refreshes the other four offense streams

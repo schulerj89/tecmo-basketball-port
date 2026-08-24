@@ -384,6 +384,13 @@ try {
         @{ label="Fixed CC30-CC57 full reset"; bank=7; fixed=$true; start=0xCC30; size=0x28; hash="10BDB98E" },
         @{ label="Fixed CC58-CC85 page clear"; bank=7; fixed=$true; start=0xCC58; size=0x2E; hash="AEF866A8" }
     )
+    $A9daAssignmentAnchorSpans = @(
+        @{ label="Bank05 A8E9-A9D9 caller/gates"; bank=5; fixed=$false; start=0xA8E9; size=0xF1; hash="8A09C556" },
+        @{ label="Bank05 A9DA-AA44 projection/write"; bank=5; fixed=$false; start=0xA9DA; size=0x6B; hash="75FB9A30" },
+        @{ label="Bank05 AAB8-AB35 selector"; bank=5; fixed=$false; start=0xAAB8; size=0x7E; hash="16BFF0A5" },
+        @{ label="Bank05 BDEF-BDF4 target table"; bank=5; fixed=$false; start=0xBDEF; size=6; hash="F4F6458F" },
+        @{ label="Bank05 A993-A9C4 assignment stores"; bank=5; fixed=$false; start=0xA993; size=0x32; hash="0E85BBD7" }
+    )
     # The first entry below is a separately copied raw helper. The remaining
     # handler/tail anchors overlap the retained command-handler source span;
     # they are semantic anchors, not additional copied source entries.
@@ -438,6 +445,18 @@ try {
             $Map.opcode13_global_latch_contract.tgca_separation -match
                 'cannot authorize opcode13' -and
             @($Map.opcode13_global_latch_contract.missing_live_owners).Count -eq 5 -and
+            $Map.opcode13_global_latch_contract.a9da_assignment.scope -eq
+                'pure transactional helper only; no LIVE binding' -and
+            @($Map.opcode13_global_latch_contract.a9da_assignment.anchors).Count -eq 5 -and
+            $Map.opcode13_global_latch_contract.a9da_assignment.projection -match
+                'normalized A9DA-time.*fixed \$002C.*zero-extended.*depth8' -and
+            $Map.opcode13_global_latch_contract.a9da_assignment.metric -match
+                'raw X16.*depth8.*strict.*9->0' -and
+            $Map.opcode13_global_latch_contract.a9da_assignment.writes -match
+                '\$046E=0.*\$0458.*preserved.*\$0587=3' -and
+            @($Map.opcode13_global_latch_contract.a9da_assignment.omitted_a9da_effects).Count -eq 3 -and
+            $Map.opcode13_global_latch_contract.a9da_assignment.production_boundary -match
+                'synthetic/frozen.*not substitutes' -and
             $Map.opcode15_source_contract.scope -eq
                 'harness-only; LIVE opcode 15 remains deferred' -and
             $Map.opcode15_source_contract.dispatch.bank -eq 6 -and
@@ -963,6 +982,14 @@ try {
             throw "Canonical global-latch anchor changed at $($Span.label)."
         }
     }
+    foreach ($Span in $A9daAssignmentAnchorSpans) {
+        $Offset = $Prg + $Span.bank * 0x4000 + ($Span.start - 0x8000)
+        $Raw = New-Object byte[] ([int]$Span.size)
+        [Array]::Copy($RomBytes, $Offset, $Raw, 0, [int]$Span.size)
+        if ((Get-Fnv1a32 $Raw) -ne $Span.hash) {
+            throw "Canonical A9DA assignment anchor changed at $($Span.label)."
+        }
+    }
     $RomMutationCount = 0
     foreach ($Span in $ExpectedSpans) {
         $CpuBase = if ($Span.fixed) { 0xC000 } else { 0x8000 }
@@ -1088,11 +1115,31 @@ try {
         ++$GlobalLatchRomMutationCount
     }
 
+    $A9daAssignmentRomMutationCount = 0
+    foreach ($Span in $A9daAssignmentAnchorSpans) {
+        $Offset = $Prg + $Span.bank * 0x4000 + ($Span.start - 0x8000)
+        $MutatedRom = Join-Path $Scratch `
+            ("rom-a9da-assignment-{0:X4}.nes" -f $Span.start)
+        $Bytes = [byte[]]$RomBytes.Clone()
+        $Bytes[$Offset] = $Bytes[$Offset] -bxor 1
+        [IO.File]::WriteAllBytes($MutatedRom, $Bytes)
+        $Output = @(& $Executable --gameplay-cpu-steering-source-test `
+            $MutatedRom 2>&1)
+        if ($LASTEXITCODE -eq 0 -or
+            ($Output -join [Environment]::NewLine) -notmatch
+                'TGAI-3 import requires the exact Rev1 ROM fingerprint') {
+            throw ("Rev1 A9DA assignment anchor mutation at $($Span.label) " +
+                "was accepted.`n$(Get-ShortTail $Output)")
+        }
+        ++$RomMutationCount
+        ++$A9daAssignmentRomMutationCount
+    }
+
     Write-Host ("TGAI-3 focused tests passed: exact Rev1 importer and twelve " +
         "source spans plus eight lifecycle anchor/table spans, nine exact " +
         "regulation-entry spans, five auto-pass spans, and twelve opcode-15 " +
         "source/semantic-anchor spans, eight global-latch producer/reset/" +
-        "consumer anchors, 680 aligned " +
+        "consumer anchors, five A9DA/AAB8/A993 spans, 680 aligned " +
         "commands, 24 handlers, eight exact " +
         "direction codes, deterministic ten-coordinate/context harness, " +
         "transactional TGMO direction/movement composition, " +
@@ -1100,7 +1147,8 @@ try {
         "$RomMutationCount ROM mutations ($LifecycleRomMutationCount lifecycle " +
         "anchor/table; $RegulationEntryRomMutationCount regulation entry; " +
         "$Opcode15RomMutationCount opcode-15; $AutoPassRomMutationCount " +
-        "auto-pass; $GlobalLatchRomMutationCount global-latch), bounded live scene " +
+        "auto-pass; $GlobalLatchRomMutationCount global-latch; " +
+        "$A9daAssignmentRomMutationCount A9DA assignment), bounded live scene " +
         "adapter enabled")
     $global:LASTEXITCODE = 0
 } finally {
