@@ -5,6 +5,7 @@
 #include "tecmo_gameplay_scene_internal.h"
 #include "tecmo_asset_pack.h"
 #include "tecmo_gameplay_defense_contact.h"
+#include "tecmo_gameplay_defense_interaction.h"
 #include "tecmo_nes_video.h"
 
 #include <limits.h>
@@ -1452,9 +1453,14 @@ static bool scene_handoff_miss_claimant(
 void scene_loose_ball_clear(TecmoGameplayScene *scene)
 {
     if (scene == NULL) return;
+    if (scene->loose_ball_state.airborne_interaction) {
+        scene->jump_ball_altitude_q8 = 0U;
+    }
     memset(&scene->loose_ball_state, 0, sizeof(scene->loose_ball_state));
     scene->loose_ball_state.shooting_team = TECMO_GAMEPLAY_SCENE_NO_TEAM;
     scene->loose_ball_state.chase_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    scene->loose_ball_state.interaction_actor =
+        TECMO_GAMEPLAY_SCENE_NO_ACTOR;
 }
 
 bool scene_loose_ball_state_valid(const TecmoGameplayScene *scene)
@@ -1464,9 +1470,22 @@ bool scene_loose_ball_state_valid(const TecmoGameplayScene *scene)
     if (!scene->loose_ball_state.active) {
         return scene->loose_ball_state.shooting_team ==
                    TECMO_GAMEPLAY_SCENE_NO_TEAM &&
+               !scene->loose_ball_state.airborne_interaction &&
                scene->loose_ball_state.chase_actor ==
                    TECMO_GAMEPLAY_SCENE_NO_ACTOR &&
-               scene->loose_ball_state.reserved == 0U;
+               scene->loose_ball_state.interaction_actor ==
+                   TECMO_GAMEPLAY_SCENE_NO_ACTOR &&
+               scene->loose_ball_state.raw_object_state == 0U &&
+               scene->loose_ball_state.raw_height_0499 == 0U &&
+               scene->loose_ball_state.raw_height_q8 == 0U &&
+               scene->loose_ball_state.raw_vertical_velocity_q8 == 0 &&
+               scene->loose_ball_state.raw_x == 0U &&
+               scene->loose_ball_state.raw_depth == 0U &&
+               scene->loose_ball_state.reserved == 0U &&
+               scene->loose_ball_state.tick_count == 0U &&
+               scene->loose_ball_state.immediate_opcode20_actor_mask == 0U &&
+               scene->loose_ball_state.launch_a0dd.contract_tag == 0U &&
+               scene->loose_ball_state.motion_a0dd.contract_tag == 0U;
     }
     if ((scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE &&
          scene->state.phase !=
@@ -1480,10 +1499,46 @@ bool scene_loose_ball_state_valid(const TecmoGameplayScene *scene)
         scene->loose_ball_state.chase_actor >=
             TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         !scene->actors[scene->loose_ball_state.chase_actor].active ||
-        scene->jump_ball_altitude_q8 != 0U ||
         scene->loose_ball_state.reserved != 0U ||
         scene_pass_active(scene) || scene_inbound_active(scene) ||
         !tecmo_gameplay_court_coordinate_q8_valid(&scene->ball_position)) {
+        return false;
+    }
+    if (scene->loose_ball_state.airborne_interaction) {
+        const TecmoGameplaySceneLooseBallState *loose =
+            &scene->loose_ball_state;
+        if (loose->interaction_actor >=
+                TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+            !scene->actors[loose->interaction_actor].active ||
+            loose->raw_object_state != 0x17U ||
+            loose->launch_a0dd.contract_tag !=
+                TECMO_GAMEPLAY_CPU_A0F3_RESULT_TAG ||
+            loose->motion_a0dd.contract_tag !=
+                TECMO_GAMEPLAY_CPU_A0F3_MOTION_TAG ||
+            loose->raw_height_0499 !=
+                (uint8_t)(loose->raw_height_q8 >> 8U) ||
+            loose->raw_x > INT16_MAX ||
+            scene->jump_ball_altitude_q8 != loose->raw_height_q8 ||
+            scene->ball_position.x_q8 != (int32_t)loose->raw_x * 256 ||
+            scene->ball_position.y_q8 !=
+                (int32_t)loose->raw_depth * 256 ||
+            loose->immediate_opcode20_actor_mask == 0U ||
+            (loose->immediate_opcode20_actor_mask & ~0x03FFU) != 0U) {
+            return false;
+        }
+    } else if (scene->loose_ball_state.interaction_actor !=
+                   TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+               scene->loose_ball_state.raw_object_state != 0U ||
+               scene->loose_ball_state.raw_height_0499 != 0U ||
+               scene->loose_ball_state.raw_height_q8 != 0U ||
+               scene->loose_ball_state.raw_vertical_velocity_q8 != 0 ||
+               scene->loose_ball_state.raw_x != 0U ||
+               scene->loose_ball_state.raw_depth != 0U ||
+               scene->loose_ball_state.tick_count != 0U ||
+               scene->loose_ball_state.immediate_opcode20_actor_mask != 0U ||
+               scene->loose_ball_state.launch_a0dd.contract_tag != 0U ||
+               scene->loose_ball_state.motion_a0dd.contract_tag != 0U ||
+               scene->jump_ball_altitude_q8 != 0U) {
         return false;
     }
     for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
@@ -1677,6 +1732,13 @@ bool scene_update_loose_ball(
         return false;
     }
     candidate = *scene;
+    /* `$A0DD->$A023`'s opcode-20 target is a same-update capability. The
+       launch transaction already selected the source-authorized chase actor;
+       it cannot remain available on the following outer scene update. */
+    if (candidate.loose_ball_state.airborne_interaction &&
+        candidate.a023_latch_frame_context.available) {
+        candidate.a023_latch_frame_context.available = false;
+    }
     if (candidate.state.phase ==
             TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE) {
         uint8_t retained_primary = candidate.live_foundation.primary_actor;
@@ -1714,6 +1776,65 @@ bool scene_update_loose_ball(
     if (!scene_move_actor_toward_loose_ball(
             &candidate, candidate.loose_ball_state.chase_actor)) {
         return false;
+    }
+    if (candidate.loose_ball_state.airborne_interaction) {
+        TecmoGameplayCpuA0f3PublishedPosition published;
+        uint16_t velocity = (uint16_t)candidate.loose_ball_state
+            .raw_vertical_velocity_q8;
+        uint16_t height;
+        uint8_t height_high;
+        if (candidate.loose_ball_state.motion_a0dd.remaining_ticks != 0U) {
+            if (!tecmo_gameplay_cpu_a0f3_motion_tick_publish(
+                    &candidate.loose_ball_state.motion_a0dd,
+                    &published)) {
+                return false;
+            }
+            candidate.loose_ball_state.raw_x = published.raw_x;
+            candidate.loose_ball_state.raw_depth = published.raw_depth;
+        }
+        velocity = (uint16_t)(velocity - 0x28U);
+        height = (uint16_t)(candidate.loose_ball_state.raw_height_q8 +
+                            velocity);
+        height_high = (uint8_t)(height >> 8U);
+        /* Exact `$B678` ground classification shared with pass state `$18`. */
+        if (height_high == 0U || height_high >= 0xF6U) {
+            height = 0U;
+            velocity = 0U;
+        }
+        candidate.loose_ball_state.raw_height_q8 = height;
+        candidate.loose_ball_state.raw_height_0499 =
+            (uint8_t)(height >> 8U);
+        candidate.loose_ball_state.raw_vertical_velocity_q8 =
+            (int16_t)velocity;
+        ++candidate.loose_ball_state.tick_count;
+        candidate.ball_position.x_q8 =
+            (int32_t)candidate.loose_ball_state.raw_x * 256;
+        candidate.ball_position.y_q8 =
+            (int32_t)candidate.loose_ball_state.raw_depth * 256;
+        candidate.jump_ball_altitude_q8 = height;
+        if (height != 0U ||
+            candidate.loose_ball_state.motion_a0dd.remaining_ticks != 0U) {
+            if (!scene_loose_ball_state_valid(&candidate)) return false;
+            *scene = candidate;
+            return true;
+        }
+        /* Slot 10 is now grounded. Retain the A023-selected chase actor but
+           retire every state-$17/A0DD workspace before claimant settlement. */
+        candidate.loose_ball_state.airborne_interaction = false;
+        candidate.loose_ball_state.interaction_actor =
+            TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+        candidate.loose_ball_state.raw_object_state = 0U;
+        candidate.loose_ball_state.raw_height_0499 = 0U;
+        candidate.loose_ball_state.raw_height_q8 = 0U;
+        candidate.loose_ball_state.raw_vertical_velocity_q8 = 0;
+        candidate.loose_ball_state.raw_x = 0U;
+        candidate.loose_ball_state.raw_depth = 0U;
+        candidate.loose_ball_state.tick_count = 0U;
+        candidate.loose_ball_state.immediate_opcode20_actor_mask = 0U;
+        memset(&candidate.loose_ball_state.launch_a0dd, 0,
+               sizeof(candidate.loose_ball_state.launch_a0dd));
+        memset(&candidate.loose_ball_state.motion_a0dd, 0,
+               sizeof(candidate.loose_ball_state.motion_a0dd));
     }
     possession = (TecmoGameplayTeam)candidate.loose_ball_state.shooting_team;
     if (!scene_select_shot_claimant(
@@ -3565,6 +3686,272 @@ static bool scene_try_live_defensive_foul_bridge(
     return true;
 }
 
+static bool scene_actor_is_controlled_local(
+    const TecmoGameplayScene *scene, uint8_t actor)
+{
+    size_t controller;
+    if (scene == NULL || actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT)
+        return false;
+    for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
+         ++controller) {
+        if (scene->controlled_actor[controller] == actor) return true;
+    }
+    return false;
+}
+
+static uint8_t scene_interaction_chase_actor(
+    const TecmoGameplayScene *scene, uint16_t actor_mask)
+{
+    uint8_t actor;
+    if (scene == NULL || (actor_mask & ~0x03FFU) != 0U) {
+        return TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        if ((actor_mask & (uint16_t)(1U << actor)) != 0U &&
+            scene->actors[actor].active &&
+            !scene_actor_is_controlled_local(scene, actor)) {
+            return actor;
+        }
+    }
+    return TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+}
+
+static bool scene_begin_a0dd_interaction_deflection(
+    TecmoGameplayScene *scene, uint8_t interaction_actor,
+    uint8_t launch_raw_006a)
+{
+    TecmoGameplayScene candidate;
+    TecmoGameplayCourtCoordinateQ8 origin;
+    TecmoGameplayCpuA0f3Input launch_input;
+    TecmoGameplayCpuA0f3Result launch;
+    TecmoGameplayCpuA0f3Motion motion;
+    TecmoGameplayActorCommandAssignmentInput assignment_input;
+    TecmoGameplayActorCommandAssignmentResult assignment;
+    TecmoGameplayActorCommandAssignmentSameFrameLatch latch;
+    TecmoGameplaySceneA023LatchFrameContext context;
+    TecmoGameplayLiveFoundation foundation;
+    uint8_t chase_actor;
+    uint16_t duration;
+    if (scene == NULL || interaction_actor >=
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
+        scene_pass_active(scene) || scene_inbound_active(scene) ||
+        scene->loose_ball_state.active ||
+        scene->actor_command_assignment_assets == NULL ||
+        !scene->actor_command_assignment_assets->available ||
+        !scene_attached_ball_position(
+            &scene->actors[scene->ball_holder], &origin) ||
+        origin.x_q8 < 0 || origin.y_q8 < 0 ||
+        origin.x_q8 / 256 > UINT16_MAX ||
+        origin.y_q8 / 256 > UINT8_MAX) {
+        return false;
+    }
+    memset(&launch_input, 0, sizeof(launch_input));
+    memset(&launch, 0, sizeof(launch));
+    memset(&motion, 0, sizeof(motion));
+    launch_input.contract_tag = TECMO_GAMEPLAY_CPU_A0F3_INPUT_TAG;
+    launch_input.raw_x_7d_f2 = (uint16_t)(origin.x_q8 / 256);
+    launch_input.raw_depth_fd = (uint8_t)(origin.y_q8 / 256);
+    launch_input.raw_direction =
+        scene->actors[interaction_actor].movement_direction;
+    launch_input.raw_006a = launch_raw_006a;
+    if (launch_input.raw_direction >= 8U ||
+        !tecmo_gameplay_cpu_a0f3_solve(
+            &scene->cpu_a0f3_assets, &launch_input, &launch) ||
+        launch.target_x_95_94 > INT16_MAX ||
+        launch.target_depth_97_96 > UINT8_MAX ||
+        !tecmo_gameplay_cpu_a0f3_motion_begin(&launch, &motion)) {
+        return false;
+    }
+    memset(&assignment_input, 0, sizeof(assignment_input));
+    memset(&assignment, 0, sizeof(assignment));
+    memset(&latch, 0, sizeof(latch));
+    memset(&context, 0, sizeof(context));
+    assignment_input.contract_tag =
+        TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_INPUT_TAG;
+    assignment_input.caller =
+        TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_CALLER_INTERACTION_9FE2;
+    assignment_input.raw_object_state = 0x17U;
+    assignment_input.raw_0499 = 0x30U;
+    assignment_input.interaction_predecessor_owned = true;
+    assignment_input.object10_target_valid = true;
+    assignment_input.object10_target.x =
+        (int16_t)launch.target_x_95_94;
+    assignment_input.object10_target.y =
+        (int16_t)launch.target_depth_97_96;
+    assignment_input.object10_raw_target_valid = true;
+    assignment_input.object10_raw_target.x = launch.target_x_95_94;
+    assignment_input.object10_raw_target.depth =
+        launch.target_depth_97_96;
+    foundation = scene->live_foundation;
+    if (!tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
+            scene->actor_command_assignment_assets,
+            &scene->cpu_steering_assets, &assignment_input, &foundation,
+            &assignment, &latch) || !assignment.applied ||
+        latch.producer_kind !=
+            TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_A0DD ||
+        assignment.immediate_opcode20_actor_mask == 0U) {
+        return false;
+    }
+    chase_actor = scene_interaction_chase_actor(
+        scene, assignment.immediate_opcode20_actor_mask);
+    if (chase_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) return false;
+    candidate = *scene;
+    scene_loose_ball_clear(&candidate);
+    candidate.loose_ball_state.active = true;
+    candidate.loose_ball_state.airborne_interaction = true;
+    candidate.loose_ball_state.shooting_team =
+        (uint8_t)candidate.state.possession;
+    candidate.loose_ball_state.chase_actor = chase_actor;
+    candidate.loose_ball_state.interaction_actor = interaction_actor;
+    candidate.loose_ball_state.raw_object_state = 0x17U;
+    candidate.loose_ball_state.raw_height_0499 = 0x30U;
+    candidate.loose_ball_state.raw_height_q8 = 0x3000U;
+    duration = launch.duration_051e_0513;
+    /* `$B32C`'s height-30 branch multiplies duration by `$16`; `$A12A`
+       then performs four logical right shifts before state `$17` begins. */
+    candidate.loose_ball_state.raw_vertical_velocity_q8 =
+        (int16_t)(uint16_t)((uint16_t)(duration * 0x16U) >> 4U);
+    candidate.loose_ball_state.raw_x = launch_input.raw_x_7d_f2;
+    candidate.loose_ball_state.raw_depth = launch_input.raw_depth_fd;
+    candidate.loose_ball_state.tick_count = 0U;
+    candidate.loose_ball_state.immediate_opcode20_actor_mask =
+        assignment.immediate_opcode20_actor_mask;
+    candidate.loose_ball_state.launch_a0dd = launch;
+    candidate.loose_ball_state.motion_a0dd = motion;
+    candidate.live_foundation = foundation;
+    context.contract_tag =
+        TECMO_GAMEPLAY_SCENE_A023_LATCH_FRAME_CONTEXT_TAG;
+    context.latch = latch;
+    context.available = true;
+    candidate.a023_latch_frame_context = context;
+    candidate.ball_holder = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    candidate.ball_position.x_q8 =
+        (int32_t)launch_input.raw_x_7d_f2 * 256;
+    candidate.ball_position.y_q8 =
+        (int32_t)launch_input.raw_depth_fd * 256;
+    candidate.jump_ball_altitude_q8 = 0x3000U;
+    if (!scene_loose_ball_state_valid(&candidate)) return false;
+    *scene = candidate;
+    return true;
+}
+
+static bool scene_try_defense_interaction_actor(
+    TecmoGameplayScene *scene, TecmoGameplayTeam defending_team,
+    uint8_t defender, bool allow_human_94c6, bool *committed_out)
+{
+    TecmoGameplayScene candidate;
+    TecmoGameplayDefenseInteractionInput input;
+    TecmoGameplayDefenseInteractionResult probe;
+    TecmoGameplayDefenseInteractionResult result;
+    const TecmoGameplaySceneActor *holder;
+    const TecmoGameplaySceneActor *defender_actor;
+    const TecmoTeamDataPlayer *player;
+    int32_t delta_x;
+    int32_t delta_depth;
+    uint8_t post_9fa1;
+    bool foul_committed = false;
+    if (scene == NULL || committed_out == NULL ||
+        defender >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        defending_team >= TECMO_GAMEPLAY_TEAM_COUNT ||
+        defending_team == scene->state.possession ||
+        scene->live_foundation.defender_actor >=
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->live_foundation.primary_actor >=
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        !tecmo_gameplay_fixed_rng_valid(&scene->fixed_rng)) {
+        return false;
+    }
+    *committed_out = false;
+    holder = &scene->actors[scene->ball_holder];
+    defender_actor = &scene->actors[defender];
+    player = scene_actor_player(scene, defender_actor);
+    if (player == NULL || defender_actor->team != (uint8_t)defending_team ||
+        holder->team != (uint8_t)scene->state.possession ||
+        defender_actor->movement_direction >= 8U ||
+        holder->movement_direction >= 8U) {
+        return false;
+    }
+    delta_x = (int32_t)defender_actor->position.x - holder->position.x;
+    delta_depth =
+        (int32_t)defender_actor->position.y - holder->position.y;
+    memset(&input, 0, sizeof(input));
+    input.contract_tag = TECMO_GAMEPLAY_DEFENSE_INTERACTION_INPUT_TAG;
+    input.absolute_delta_x = (uint16_t)(delta_x < 0 ? -delta_x : delta_x);
+    input.absolute_delta_depth =
+        (uint16_t)(delta_depth < 0 ? -delta_depth : delta_depth);
+    input.raw_component_0378 = (uint8_t)input.absolute_delta_depth;
+    input.actor_direction_0463 = defender_actor->movement_direction;
+    input.delta_x_negative_0373 = delta_x < 0;
+    input.delta_depth_negative_0375 = delta_depth < 0;
+    /* Natural `$9F2F` traces retain `$0760=0` in ordinary live contact. */
+    input.timer_0760 = 0U;
+    input.player_profile_0533 = player->profile[4U];
+    input.gate_raw_006a = scene->fixed_rng.raw_006a;
+    input.post_9fa1_raw_006a = scene->fixed_rng.raw_006a;
+    input.selected_defender_direction =
+        scene->actors[scene->live_foundation.defender_actor]
+            .movement_direction;
+    input.primary_direction =
+        scene->actors[scene->live_foundation.primary_actor]
+            .movement_direction;
+    if (!tecmo_gameplay_defense_interaction_resolve(&input, &probe))
+        return false;
+    if (!probe.reached_9fa1) return true;
+    candidate = *scene;
+    if (!tecmo_gameplay_fixed_rng_c05d(
+            &candidate.fixed_rng, TECMO_GAMEPLAY_FIXED_RNG_CALL_9FA1,
+            &post_9fa1)) {
+        return false;
+    }
+    input.post_9fa1_raw_006a = post_9fa1;
+    if (allow_human_94c6 &&
+        !scene_try_live_defensive_foul_bridge(
+            &candidate, defending_team, defender, &foul_committed)) {
+        return false;
+    }
+    input.value_05a1_after_94c6 = foul_committed;
+    if (!tecmo_gameplay_defense_interaction_resolve(&input, &result) ||
+        !result.reached_94c6) {
+        return false;
+    }
+    if (result.outcome ==
+            TECMO_GAMEPLAY_DEFENSE_INTERACTION_INTERRUPTED_94C6) {
+        *scene = candidate;
+        *committed_out = true;
+        return true;
+    }
+    if (result.outcome ==
+            TECMO_GAMEPLAY_DEFENSE_INTERACTION_POSSESSION_BA65) {
+        if (!scene_handoff_claimant_settlement(
+                &candidate, defending_team, defender) ||
+            !scene_sync_live_foundation(&candidate)) {
+            return false;
+        }
+        *scene = candidate;
+        *committed_out = true;
+        return true;
+    }
+    if (result.outcome ==
+            TECMO_GAMEPLAY_DEFENSE_INTERACTION_DEFLECTION_A0DD) {
+        uint8_t launch_raw_006a;
+        if (!tecmo_gameplay_fixed_rng_c05d(
+                &candidate.fixed_rng,
+                TECMO_GAMEPLAY_FIXED_RNG_CALL_A0DD,
+                &launch_raw_006a) ||
+            !scene_begin_a0dd_interaction_deflection(
+                &candidate, defender, launch_raw_006a)) {
+            return false;
+        }
+        *scene = candidate;
+        *committed_out = true;
+        return true;
+    }
+    return true;
+}
+
 bool scene_try_defense_action(TecmoGameplayScene *scene,
                               size_t controller)
 {
@@ -3582,8 +3969,8 @@ bool scene_try_defense_action(TecmoGameplayScene *scene,
     if (defending_team == scene->state.possession) return false;
     defender = scene->controlled_actor[controller];
     if (defender >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) return false;
-    if (!scene_try_live_defensive_foul_bridge(
-            scene, defending_team, defender, &foul_committed)) {
+    if (!scene_try_defense_interaction_actor(
+            scene, defending_team, defender, true, &foul_committed)) {
         return false;
     }
     /* The serial remains an owned deterministic action counter, but no longer

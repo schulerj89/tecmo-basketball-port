@@ -170,11 +170,25 @@ typedef struct TecmoGameplaySceneInboundState {
    scheduler or its earlier cancellation gates. */
 typedef struct TecmoGameplaySceneLooseBallState {
     bool active;
+    /* `$9FE2->$A0DD` launches object slot 10 in state `$17`; missed-shot
+       loose balls retain the older grounded form with this flag clear. */
+    bool airborne_interaction;
     uint8_t shooting_team;
     /* Deterministic class-3 locomotion adapter actor, never a claimant until
        the independent source-backed eligibility scan accepts it. */
     uint8_t chase_actor;
+    uint8_t interaction_actor;
+    uint8_t raw_object_state;
+    uint8_t raw_height_0499;
+    uint16_t raw_height_q8;
+    int16_t raw_vertical_velocity_q8;
+    uint16_t raw_x;
+    uint8_t raw_depth;
     uint8_t reserved;
+    uint16_t tick_count;
+    uint16_t immediate_opcode20_actor_mask;
+    TecmoGameplayCpuA0f3Result launch_a0dd;
+    TecmoGameplayCpuA0f3Motion motion_a0dd;
 } TecmoGameplaySceneLooseBallState;
 
 typedef struct TecmoGameplaySceneLaunch {

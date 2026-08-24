@@ -365,6 +365,10 @@ static bool caller_gates_valid(
 {
     if (input == NULL) return false;
     switch (input->caller) {
+    case TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_CALLER_INTERACTION_9FE2:
+        return input->interaction_predecessor_owned &&
+            input->raw_object_state == 0x17U &&
+            input->raw_0499 == 0x30U;
     case TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_CALLER_OBJECT_STATE10_B73A:
         /* $B6E5 -> $B73A. $0499 == 0 also satisfies the preceding
            (< $46 || negative $04AF) gate, but it remains represented here
@@ -412,6 +416,12 @@ static bool capture_same_frame_latch(
         assignment->immediate_opcode20_actor_mask;
     candidate.valid = true;
     switch (input->caller) {
+    case TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_CALLER_INTERACTION_9FE2:
+        /* `$A0DD` stores its constructed target directly in `$038D-$0390`
+           and `$9FE9` calls `$A023` before returning to Bank06. */
+        candidate.producer_kind =
+            TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_A0DD;
+        break;
     case TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_CALLER_OBJECT_STATE10_B73A:
         /* `$B721-$B73D` gates then stores `$7D:$F2/$FD:$00` before `$A023`. */
         candidate.producer_kind =
@@ -453,13 +463,6 @@ bool tecmo_gameplay_actor_command_assignment_apply(
     memset(&result, 0, sizeof(result));
     result.contract_tag = TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_RESULT_TAG;
     result.caller = input->caller;
-    if (input->caller ==
-        TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_CALLER_INTERACTION_9FE2) {
-        result.noop_reason =
-            TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_NOOP_INTERACTION_UNOWNED;
-        *result_out = result;
-        return true;
-    }
     if (!caller_gates_valid(input)) {
         result.noop_reason = TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_NOOP_CALLER_GATES;
         *result_out = result;
@@ -1093,7 +1096,7 @@ bool tecmo_gameplay_actor_command_assignment_self_test(
         goto cleanup;
     }
 
-    /* Gate and interaction rejections are analytical no-ops; malformed tags
+    /* Gate and capability rejections are analytical no-ops; malformed tags
        remain fully transactional with an untouched result output. */
     foundation = before;
     input.caller =
@@ -1111,13 +1114,33 @@ bool tecmo_gameplay_actor_command_assignment_self_test(
     }
     input.caller =
         TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_CALLER_INTERACTION_9FE2;
+    input.raw_object_state = 0x17U;
+    input.raw_0499 = 0x30U;
+    input.interaction_predecessor_owned = false;
     if (!tecmo_gameplay_actor_command_assignment_apply(
             &assignment_assets, &steering_assets, &input, &foundation,
             &result) || result.applied || result.noop_reason !=
-            TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_NOOP_INTERACTION_UNOWNED ||
+            TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_NOOP_CALLER_GATES ||
         memcmp(&foundation, &before, sizeof(foundation)) != 0) {
         goto cleanup;
     }
+    foundation = baseline;
+    input.interaction_predecessor_owned = true;
+    input.object10_target.x = 0x0130;
+    input.object10_target.y = 0x0060;
+    input.object10_raw_target.x = 0x0130U;
+    input.object10_raw_target.depth = 0x0060U;
+    memset(&latch, 0, sizeof(latch));
+    if (!tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
+            &assignment_assets, &steering_assets, &input, &foundation,
+            &result, &latch) || !result.applied || !latch.valid ||
+        latch.producer_kind !=
+            TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_A0DD ||
+        latch.target.x != 0x0130U || latch.target.depth != 0x0060U ||
+        latch.b783_bit20_clear_follows_assignment) {
+        goto cleanup;
+    }
+    before = foundation;
     memset(&result_before, 0xA5, sizeof(result_before));
     result = result_before;
     input.contract_tag = 0U;

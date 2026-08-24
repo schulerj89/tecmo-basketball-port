@@ -547,10 +547,20 @@ bool scene_move_actor_toward_loose_ball(
             scene, &scene->actors[actor_index], &movement)) {
         return false;
     }
-    target.x = (int16_t)(scene->ball_position.x_q8 /
-                         TECMO_GAMEPLAY_COURT_COORDINATE_Q8_SCALE);
-    target.y = (int16_t)(scene->ball_position.y_q8 /
-                         TECMO_GAMEPLAY_COURT_COORDINATE_Q8_SCALE);
+    if (scene->loose_ball_state.airborne_interaction) {
+        /* `$A0DD` writes its constructed landing target to `$038D-$0390`
+           before `$A023`; opcode 20 chases that immutable target, not each
+           intermediate object-10 coordinate. */
+        target.x = (int16_t)scene->loose_ball_state
+            .launch_a0dd.target_x_95_94;
+        target.y = (int16_t)scene->loose_ball_state
+            .launch_a0dd.target_depth_97_96;
+    } else {
+        target.x = (int16_t)(scene->ball_position.x_q8 /
+                             TECMO_GAMEPLAY_COURT_COORDINATE_Q8_SCALE);
+        target.y = (int16_t)(scene->ball_position.y_q8 /
+                             TECMO_GAMEPLAY_COURT_COORDINATE_Q8_SCALE);
+    }
     horizontal = (int16_t)(target.x - scene->actors[actor_index].position.x);
     depth = (int16_t)(target.y - scene->actors[actor_index].position.y);
     if (horizontal == 0 && depth == 0) return true;
@@ -579,9 +589,10 @@ bool scene_move_actor_toward_loose_ball(
         !scene_actor_world_position_valid(&candidate_actors[actor_index])) {
         return false;
     }
-    /* Reuse the exact pure direction/TGMO kernels under adapter-owned state-0
-       secondary inputs. Which unowned actor receives this chase and those
-       inputs are class-3 policy, not Bank05 $B73E actor motion or B081. */
+    /* Grounded misses retain the older adapter-owned state-0 inputs. The
+       interaction route's actor and target are selected by the exact A023
+       transaction, while its remaining movement-state composition is shared
+       with the existing TGMO executor. */
     memcpy(scene->actors, candidate_actors, sizeof(candidate_actors));
     return true;
 }

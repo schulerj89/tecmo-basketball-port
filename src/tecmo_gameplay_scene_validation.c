@@ -1548,7 +1548,11 @@ bool scene_shot_state_valid(const TecmoGameplayScene *scene)
                    &scene->jump_made_settlement) &&
                scene->jump_actor_altitude_q8 == 0U &&
                scene->jump_actor_velocity_q8 == 0U &&
-               scene->jump_ball_altitude_q8 == 0U &&
+               (scene->loose_ball_state.airborne_interaction
+                    ? scene->loose_ball_state.active &&
+                      scene->jump_ball_altitude_q8 ==
+                          scene->loose_ball_state.raw_height_q8
+                    : scene->jump_ball_altitude_q8 == 0U) &&
                scene->jump_ball_bounce_q8 == 0U &&
                scene->jump_entry_pose_index == 0U &&
                scene->jump_resolved_pose_index == 0U &&

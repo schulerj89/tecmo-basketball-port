@@ -5,9 +5,8 @@
  * Strict, bounded observation of Bank05 $A023-$A0DC.  This is deliberately
  * not a generic post-possession, post-tip, rebound, or handoff operation.
  * The callable translation accepts only the three object-dispatch callers
- * whose raw gate inputs are represented explicitly below.  The $9F2F->$9FE2
- * interaction caller remains diagnostic-only: its preceding geometry/property
- * state has no faithful native owner yet.
+ * whose raw gate inputs are represented explicitly below. The `$9F2F->$9FE2`
+ * caller is admitted only after the exact TGDI predecessor reports `$9FE2`.
  */
 
 #include "tecmo_gameplay_live_foundation.h"
@@ -37,8 +36,7 @@ typedef enum TecmoGameplayActorCommandAssignmentSourceKind {
 
 typedef enum TecmoGameplayActorCommandAssignmentCaller {
     TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_CALLER_NONE = 0,
-    /* Bank05 $9F2F -> $9FE2. Not callable until its full predecessor state
-       has an owned native representation. */
+    /* Bank05 `$9F2F->$9FE2->$A0DD->$A023`. */
     TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_CALLER_INTERACTION_9FE2 = 1,
     /* $A214 state $10 -> $B6E5 -> $B73A -> $A023. */
     TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_CALLER_OBJECT_STATE10_B73A = 2,
@@ -53,7 +51,8 @@ typedef enum TecmoGameplayActorCommandAssignmentCaller {
 typedef enum TecmoGameplayActorCommandAssignmentLatchProducer {
     TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_NONE = 0,
     TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B721 = 1,
-    TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B783 = 2
+    TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B783 = 2,
+    TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_A0DD = 3
 } TecmoGameplayActorCommandAssignmentLatchProducer;
 
 typedef struct TecmoGameplayActorCommandAssignmentSameFrameLatch {
@@ -130,6 +129,10 @@ typedef struct TecmoGameplayActorCommandAssignmentInput {
     uint8_t raw_0067;
     uint8_t raw_0068;
     uint8_t raw_04af;
+    /* Capability emitted only by a successful TGDI `$9F2F-$9FE2`
+       transaction. It is required for the interaction caller and rejected
+       for every object-state caller. */
+    bool interaction_predecessor_owned;
     bool object10_target_valid;
     TecmoGameplayCourtCoordinate object10_target;
     /* Exact source bytes loaded by `$B721`/`$B783`: X is `$7D:$F2`, depth is
@@ -214,7 +217,7 @@ bool tecmo_gameplay_actor_command_assignment_apply(
  * producer overwrites every target/provenance byte. Production attaches this
  * transaction to the source-shaped state-$17 B783 path, A9DA's exact
  * next-update state-$10 B721 path, and the rare pass-catch state-$18 B7B6
- * path. The `$9F2F->$9FE2` interaction predecessor remains unbound. */
+ * path, and the source-shaped `$9F2F->$9FE2->$A0DD` interaction. */
 bool tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
     const TecmoGameplayActorCommandAssignmentAssets *assignment_assets,
     const TecmoGameplayCpuSteeringAssets *steering_assets,

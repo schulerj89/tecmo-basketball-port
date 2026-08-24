@@ -2489,13 +2489,15 @@ static bool scene_update_live_action_ordered(
                 return false;
             }
         }
-        if (!boundary_settled && !scene_pass_active(scene) &&
+        if (!boundary_settled && !scene->loose_ball_state.active &&
+            !scene_pass_active(scene) &&
             scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
             !scene_update_ai(scene, cpu_shot_request)) {
             scene_set_status(scene, "native offense update rejected");
             return false;
         }
-        if (!boundary_settled && !scene_pass_active(scene) &&
+        if (!boundary_settled && !scene->loose_ball_state.active &&
+            !scene_pass_active(scene) &&
             cpu_shot_request->requested) {
             /* scene_update_ai already attempted the excluded playback once
                on its complete candidate. Never call shots.c a second time.
@@ -2518,19 +2520,22 @@ static bool scene_update_live_action_ordered(
                     scene, "CPU shot request playback classification rejected");
                 return false;
             }
-        } else if (!boundary_settled && !scene_pass_active(scene) &&
+        } else if (!boundary_settled && !scene->loose_ball_state.active &&
+                   !scene_pass_active(scene) &&
                    cpu_shot_request->deferred) {
             scene_set_status(
                 scene, "CPU shot request deferred/non-launch");
         }
-        if (!boundary_settled && !scene_pass_active(scene) &&
+        if (!boundary_settled && !scene->loose_ball_state.active &&
+            !scene_pass_active(scene) &&
             scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
             !scene_settle_boundary_latch(scene, &boundary_settled)) {
             scene_set_status(
                 scene, "CPU out-of-bounds settlement rejected");
             return false;
         }
-        if (!boundary_settled && !scene_pass_active(scene) &&
+        if (!boundary_settled && !scene->loose_ball_state.active &&
+            !scene_pass_active(scene) &&
             scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
             TecmoGameplayBallDribbleFrame dribble = {0};
             if (!scene_attach_ball(scene)) {

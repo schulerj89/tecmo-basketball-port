@@ -8483,6 +8483,129 @@ static bool scene_test_music_and_steal_policy(
     return true;
 }
 
+static bool scene_test_a0dd_interaction_deflection(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneLaunch *launch_input,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplaySceneLaunch launch = *launch_input;
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    uint8_t defender;
+    uint8_t chase_actor;
+    uint32_t c05d_before;
+    uint16_t launch_target_x;
+    uint16_t launch_target_depth;
+    unsigned guard;
+
+    scene_test_bind_live_foul_launch(&launch);
+    tecmo_gameplay_scene_test_set_skip_pretip(true);
+    if (!tecmo_gameplay_scene_launch(scene, &launch) ||
+        !scene_sync_live_foundation(scene) ||
+        !scene_test_live_foul_ready(scene) ||
+        scene->live_foundation.primary_actor != scene->ball_holder ||
+        scene->live_foundation.defender_actor != scene->controlled_actor[1U]) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size, "A0DD interaction launch fixture rejected");
+        return false;
+    }
+    defender = scene->controlled_actor[1U];
+    scene->actors[scene->ball_holder].position.x = 400;
+    scene->actors[scene->ball_holder].anchor =
+        scene->actors[scene->ball_holder].position;
+    scene->ball_position.x_q8 = 400 * 256;
+    scene->actors[defender].position.x = 408;
+    scene->actors[defender].position.y =
+        scene->actors[scene->ball_holder].position.y;
+    scene->actors[defender].anchor = scene->actors[defender].position;
+    if (!scene_sync_live_foundation(scene) || !scene_ownership_valid(scene)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size, "A0DD interaction contact fixture rejected");
+        return false;
+    }
+    /* After the outer NMI tick, 1 becomes 2 and clears the exact chance
+       threshold. Direction 1 with a positive x delta clears `$A01F`; eight
+       pixels is inside `$9F2F` but deliberately outside `$9968`'s foul box. */
+    scene->actors[defender].movement_direction = 1U;
+    scene->actors[scene->ball_holder].movement_direction = 1U;
+    scene->fixed_rng.raw_006a = 1U;
+    c05d_before = scene->fixed_rng.c05d_serial;
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    p2.held.left = true;
+    p2.held.cancel = true;
+    p2.pressed.cancel = true;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        !scene->loose_ball_state.active ||
+        !scene->loose_ball_state.airborne_interaction ||
+        scene->loose_ball_state.interaction_actor != defender ||
+        scene->loose_ball_state.raw_object_state != 0x17U ||
+        scene->loose_ball_state.raw_height_0499 != 0x30U ||
+        scene->loose_ball_state.raw_height_q8 != 0x3000U ||
+        scene->jump_ball_altitude_q8 != 0x3000U ||
+        scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+        scene->fixed_rng.c05d_serial != c05d_before + 2U ||
+        scene->fixed_rng.last_callsite !=
+            TECMO_GAMEPLAY_FIXED_RNG_CALL_A0DD ||
+        scene->a023_latch_frame_context.available ||
+        scene->a023_latch_frame_context.latch.producer_kind !=
+            TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_A0DD) {
+        (void)snprintf(
+            message, message_size,
+            "A0DD launch mismatch active=%u air=%u actor=%u/%u state=%02X h=%02X/%04X alt=%04X holder=%u c05d=%u/%u call=%u latch=%u producer=%u",
+            scene->loose_ball_state.active ? 1U : 0U,
+            scene->loose_ball_state.airborne_interaction ? 1U : 0U,
+            (unsigned)scene->loose_ball_state.interaction_actor,
+            (unsigned)defender,
+            (unsigned)scene->loose_ball_state.raw_object_state,
+            (unsigned)scene->loose_ball_state.raw_height_0499,
+            (unsigned)scene->loose_ball_state.raw_height_q8,
+            (unsigned)scene->jump_ball_altitude_q8,
+            (unsigned)scene->ball_holder,
+            (unsigned)scene->fixed_rng.c05d_serial,
+            (unsigned)c05d_before,
+            (unsigned)scene->fixed_rng.last_callsite,
+            scene->a023_latch_frame_context.available ? 1U : 0U,
+            (unsigned)scene->a023_latch_frame_context.latch.producer_kind);
+        return false;
+    }
+    chase_actor = scene->loose_ball_state.chase_actor;
+    launch_target_x = scene->loose_ball_state.launch_a0dd.target_x_95_94;
+    launch_target_depth =
+        scene->loose_ball_state.launch_a0dd.target_depth_97_96;
+    if (chase_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        chase_actor == defender ||
+        (scene->loose_ball_state.immediate_opcode20_actor_mask &
+         (uint16_t)(1U << chase_actor)) == 0U) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size, "A0DD interaction A023 chase assignment failed");
+        return false;
+    }
+    memset(&p1, 0, sizeof(p1));
+    memset(&p2, 0, sizeof(p2));
+    for (guard = 0U; guard < 256U && scene->loose_ball_state.active;
+         ++guard) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {
+            tecmo_gameplay_scene_test_message(
+                message, message_size, "A0DD interaction flight update failed");
+            return false;
+        }
+        if (scene->a023_latch_frame_context.available) return false;
+    }
+    if (guard == 256U || scene->loose_ball_state.active ||
+        scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->jump_ball_altitude_q8 != 0U ||
+        launch_target_x == 0U || launch_target_depth == 0U ||
+        !scene_ownership_valid(scene)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size, "A0DD interaction flight/settlement did not terminate");
+        return false;
+    }
+    tecmo_gameplay_scene_end(scene);
+    return true;
+}
+
 static bool scene_test_foul_and_away_free_throws(
     TecmoGameplayScene *scene,
     TecmoGameplaySceneLaunch *launch_input,
@@ -8517,6 +8640,10 @@ static bool scene_test_foul_and_away_free_throws(
     }
     home_defender_roster =
         scene->actors[scene->controlled_actor[1U]].roster_index;
+    scene->actors[scene->ball_holder].position.x = 400;
+    scene->actors[scene->ball_holder].anchor =
+        scene->actors[scene->ball_holder].position;
+    scene->ball_position.x_q8 = 400 * 256;
     scene->actors[scene->controlled_actor[1]].position.x =
         scene->actors[scene->ball_holder].position.x + 1;
     scene->actors[scene->controlled_actor[1]].position.y =
@@ -8529,12 +8656,19 @@ static bool scene_test_foul_and_away_free_throws(
             "ordinary live-foul contact fixture did not synchronize");
         return false;
     }
+    /* `$9F2F` only reaches `$94C6` when the defender faces into the contact
+       and the current `$006A` byte clears `$9F69`.  The legacy foul fixture
+       predated those recovered gates, so make both source preconditions
+       explicit instead of relying on launch-state happenstance. */
+    scene->actors[scene->controlled_actor[1U]].movement_direction = 1U;
+    scene->fixed_rng.raw_006a = 1U;
     /* Ordinary Bank05 fall-through ($07E3=0, $0478=$19) does not select a
        free throw before the bonus threshold.  This is a real defensive-B
        contact path; only the counters are fixture setup. */
     scene->action_serial = 1U;
     memset(&p1, 0, sizeof(p1));
     memset(&p2, 0, sizeof(p2));
+    p2.held.left = true;
     p2.held.cancel = true;
     p2.pressed.cancel = true;
     if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
@@ -8605,7 +8739,7 @@ static bool scene_test_foul_and_away_free_throws(
     home_defender_roster =
         scene->actors[scene->controlled_actor[1U]].roster_index;
     scene->actors[scene->controlled_actor[1]].position.x =
-        scene->actors[scene->ball_holder].position.x + 1;
+        scene->actors[scene->ball_holder].position.x - 1;
     scene->actors[scene->controlled_actor[1]].position.y =
         scene->actors[scene->ball_holder].position.y;
     scene->actors[scene->controlled_actor[1]].anchor =
@@ -8616,6 +8750,8 @@ static bool scene_test_foul_and_away_free_throws(
             "bonus live-foul contact fixture did not synchronize");
         return false;
     }
+    scene->actors[scene->controlled_actor[1U]].movement_direction = 0U;
+    scene->fixed_rng.raw_006a = 1U;
     scene->state.team_fouls[TECMO_GAMEPLAY_TEAM_HOME] = 4U;
     scene->action_serial = 1U;
     p2.held.cancel = true;
@@ -13071,6 +13207,8 @@ bool tecmo_gameplay_scene_test_state_flow(
             scene, &launch, &p1, &p2, message, message_size) ||
         !scene_test_music_and_steal_policy(
             scene, &launch, &p1, &p2, message, message_size) ||
+        !scene_test_a0dd_interaction_deflection(
+            scene, &launch, message, message_size) ||
         !scene_test_foul_and_away_free_throws(
             scene, &launch, &p1, &p2, message, message_size) ||
         !scene_test_home_and_cpu_free_throws(
