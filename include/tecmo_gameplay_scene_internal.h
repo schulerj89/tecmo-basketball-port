@@ -288,6 +288,20 @@ bool scene_cpu_target_for_source_direction(
     uint8_t source_direction,
     TecmoGameplayCourtCoordinate *target_out);
 uint8_t scene_bank06_ordinary_actor_at(size_t source_index);
+/* Exact ordinary-LIVE opcode-10 projection seams. The selector trusts only
+   actual Bank02 stores; retained/no-store results remain unavailable. The
+   workspace seam owns only non-primary links, whose Bank06 branch does not
+   consume the unowned timer/rate/sample lifecycle. */
+bool scene_cpu_opcode10_selector_project(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplayCourtCoordinate
+        actor_position[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT],
+    const TecmoGameplayLiveFoundation *foundation,
+    TecmoGameplayCpuSteeringPlayInput *input);
+bool scene_cpu_opcode10_workspace_project(
+    uint8_t actor,
+    const TecmoGameplayLiveFoundation *foundation,
+    TecmoGameplayCpuSteeringPlayInput *input);
 bool scene_update_ai(
     TecmoGameplayScene *scene,
     TecmoGameplaySceneCpuShotRequest *shot_request_out);

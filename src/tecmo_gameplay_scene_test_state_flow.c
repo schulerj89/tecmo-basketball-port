@@ -3687,6 +3687,109 @@ static bool scene_test_live_foundation_regressions(
         LIVE_FAIL("LIVE Bank06 actor-order sentinel regressed");
     }
 
+    /* Exact ordinary-LIVE opcode-10 ownership. Preview TGBC with the current
+       ball snapshot: the stored state is deliberately zero at the boundary,
+       yet the selector must see the just-established frontcourt bit without
+       mutating or adjudicating the authoritative state. */
+    {
+        TecmoGameplayCourtCoordinate boundary_ball;
+        TecmoGameplayCpuSteeringPlayInput selector_play_input;
+        broken = *scene;
+        broken.backcourt_state.frontcourt_established = 0U;
+        boundary_ball.x = broken.orientation_state.attack_direction == 0U
+            ? (int16_t)(broken.backcourt_assets
+                            .orientation_zero_frontcourt_x - 1U)
+            : (int16_t)broken.backcourt_assets
+                  .orientation_one_frontcourt_x;
+        boundary_ball.y = 100;
+        if (!tecmo_gameplay_court_coordinate_to_q8(
+                &boundary_ball, &broken.ball_position)) {
+            LIVE_FAIL("LIVE opcode-10 boundary Q8 setup rejected");
+        }
+        candidate_foundation = broken.live_foundation;
+        candidate_foundation.primary_actor = 0U;
+        candidate_foundation.defender_actor = 8U;
+        memset(candidate_foundation.actor_selector_flags, 0,
+               sizeof(candidate_foundation.actor_selector_flags));
+        for (actor = 0U; actor < 10U; ++actor) {
+            positions[actor].x = (int16_t)(100U + actor * 10U);
+            positions[actor].y = 100;
+            candidate_foundation.dynamic_link[actor] = 1U;
+        }
+        positions[9U].x = 140;
+        positions[7U].x = 120;
+        candidate_foundation.actor_selector_flags[9U] = 0x10U;
+        candidate_foundation.dynamic_link[9U] = 0U;
+        candidate_foundation.actor_selector_flags[7U] = 0x10U;
+        memset(&selector_play_input, 0, sizeof(selector_play_input));
+        selector_play_input.contract_tag =
+            TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG;
+        selector_play_input.orientation_035a =
+            broken.orientation_state.attack_direction;
+        memcpy(selector_play_input.actor_position, positions,
+               sizeof(selector_play_input.actor_position));
+        if (!scene_cpu_opcode10_selector_project(
+                &broken, positions, &candidate_foundation,
+                &selector_play_input) ||
+            broken.backcourt_state.frontcourt_established != 0U ||
+            !selector_play_input.special_actor_07df_available ||
+            selector_play_input.special_actor_07df != 7U ||
+            !selector_play_input.linked_actor_branch_context_available) {
+            LIVE_FAIL("LIVE opcode-10 current-boundary selector regressed");
+        }
+
+        /* Actor 6 resolves through its exact dynamic link 2 and therefore
+           owns the non-primary workspace. The exceptional actor 7 resolves
+           to primary 0 and must retain the next honest missing-workspace
+           boundary because its timer/rate/sample inputs remain unowned. */
+        candidate_foundation.dynamic_link[6U] = 2U;
+        if (!scene_cpu_opcode10_workspace_project(
+                6U, &candidate_foundation, &selector_play_input) ||
+            !selector_play_input.linked_actor_resolved_valid ||
+            selector_play_input.linked_actor != 2U ||
+            !selector_play_input.linked_relative_valid) {
+            LIVE_FAIL("LIVE opcode-10 non-primary workspace regressed");
+        }
+        if (!scene_cpu_opcode10_workspace_project(
+                7U, &candidate_foundation, &selector_play_input) ||
+            !selector_play_input.linked_actor_resolved_valid ||
+            selector_play_input.linked_actor != 0U ||
+            selector_play_input.linked_relative_valid) {
+            LIVE_FAIL("LIVE opcode-10 primary workspace did not defer");
+        }
+
+        /* With only the initial actor qualified, $BFD1 takes its no-store
+           return. The artificial prior sentinel must never become a LIVE
+           owner. */
+        candidate_foundation.actor_selector_flags[7U] = 0U;
+        if (!scene_cpu_opcode10_selector_project(
+                &broken, positions, &candidate_foundation,
+                &selector_play_input) ||
+            selector_play_input.special_actor_07df_available ||
+            selector_play_input.linked_actor_branch_context_available) {
+            LIVE_FAIL("LIVE opcode-10 retained selector was projected");
+        }
+
+        /* Before frontcourt, the sole bit-$10 producer is clear and Bank02
+           explicitly stores $FF without reading candidate coordinates. */
+        boundary_ball.x = broken.orientation_state.attack_direction == 0U
+            ? (int16_t)broken.backcourt_assets
+                  .orientation_zero_frontcourt_x
+            : (int16_t)(broken.backcourt_assets
+                            .orientation_one_frontcourt_x - 1U);
+        if (!tecmo_gameplay_court_coordinate_to_q8(
+                &boundary_ball, &broken.ball_position) ||
+            !scene_cpu_opcode10_selector_project(
+                &broken, positions, &candidate_foundation,
+                &selector_play_input) ||
+            !selector_play_input.special_actor_07df_available ||
+            selector_play_input.special_actor_07df !=
+                TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
+            !selector_play_input.linked_actor_branch_context_available) {
+            LIVE_FAIL("LIVE opcode-10 explicit-$FF projection regressed");
+        }
+    }
+
     /* Production path proof for the strict Bank04 $9F2E canonical opcode-4
        record. The fixture only chooses an already imported record for an
        ordinary CPU player; scene_update_ai still builds its immutable player

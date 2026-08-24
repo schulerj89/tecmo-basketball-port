@@ -401,8 +401,10 @@ only `($BA & 3) == 0`; it does not recreate `$BA` or obtain its value from a
 clock or cleared C struct. It then reproduces the signed opcode-10 arrival
 interval `[-8,+7]` and opcode-16's `$90AC-$90D5` depth `+10/-10` and
 orientation-selected horizontal `+16/-16` adjustments. Those are pure
-source-contract paths, not evidence that the ordinary LIVE scene owns their
-caller workspaces.
+source-contract paths. Ordinary LIVE now owns the Bank02 selector only when
+it produces an actual `$07DF` store, and owns Bank06's relative workspace only
+when the resolved link is non-primary; the primary-link timer/rate/sample
+branch remains unavailable.
 
 ### LIVE command-input ownership and defer reasons
 
@@ -418,7 +420,7 @@ in deterministic LIVE proof JSON.
 | --- | --- | --- |
 | `$9146` opcode 14, `$04B0` bit `$10` | `LiveFoundation.actor_selector_flags`, synchronized before the input is built | Executed; an unselected `0` is valid. |
 | `$8F11` opcode 7, `$046E,C8` | None; the state-table lifecycle is not retained | `missing-actor-046e-probe`. |
-| `$8CD0/$8D59/$92CA` opcode 10, `$07DF`, `$0478/$06CB/$0308` branch context, linked-relative workspace, and `$BA` | No owner for the special-actor/branch/relative workspaces; the final `$BA` low-two gate may use the narrow ordinary-LIVE zero below | The first unavailable owner is reported: `missing-special-actor-07df`, `missing-linked-actor-branch-context`, `missing-linked-relative-workspace`, or `missing-ba-lifecycle`. |
+| `$8CD0/$8D59/$92CA` opcode 10, `$07DF`, `$0478/$06CB/$0308` branch context, linked-relative workspace, and `$BA` | Ordinary `$0478==0`: current-ball TGBC preview owns `$0588&$10`; `LiveFoundation` owns roles, `$04B0`, `$06CB`, and positions. Only actual candidate/explicit-`$FF` selector stores become available. A non-primary resolved link owns the exact position/hoop workspace branch; the ordinary-LIVE `$BA&3==0` seam owns the tail. | Non-primary links execute. A retained/no-store selector remains `missing-special-actor-07df`; a resolved-primary link remains `missing-linked-relative-workspace` because `$0798/$075F/$6A/$0760` are unowned. |
 | `$9085/$90AC` opcode 16, `$036E/$0370` | None | `missing-pointer-workspace`. |
 | `$8BF6-$8C17` opcode 21, `$058A/$0357/$0358/$007E` | Exact typed `shot_clock/clock_minutes/clock_seconds` own `$058A/$0357/$0358`; raw `$007E` bit 1 is unowned and explicitly approximated clear for ordinary LIVE | Executes the source +5/+10 branch from the typed clocks; whole-gate parity is not claimed. |
 | `$92CA` common target tail, `$BA` | `scene_cpu_common_tail_has_ordinary_live_zero`: exact `LIVE`, no result/abort, violation, free throw, shot, pass, lineup, or dunk lifecycle | Supplies only typed `flags_ba=0`, so Bank06 `$92CA-$92D0` takes its five-byte `$8FD9` increment. Every other path remains `missing-ba-lifecycle`. |

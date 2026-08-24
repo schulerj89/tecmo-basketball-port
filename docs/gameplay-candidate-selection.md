@@ -16,10 +16,13 @@ defensive `$B104`, before an A-button pass/switch consumes either result.
 | `$06DA-$06DD` | candidate actor/score result |
 | `$06CB-$06D4` | existing `dynamic_link[10]` handoff input |
 
-This typed `dynamic_link` does not by itself enable opcode 10. Bank02
-`$BFD1-$BFD8` can retain a prior `$07DF` value when no new candidate is
-stored, so current selector bits do not prove the same-cadence Bank06 branch.
-Opcode 10 remains explicitly deferred until that lifecycle has a typed owner.
+This typed `dynamic_link` does not by itself prove `$07DF`. Bank02
+`$BFD1-$BFD8` can retain a prior value when no new candidate is stored, so
+ordinary LIVE now calls the exact selector and exposes only actual candidate
+or explicit-`$FF` stores. A no-store result remains unavailable. Once a store
+is proven, `dynamic_link` owns the nonexceptional Bank06 branch; non-primary
+links also own the exact relative workspace, while primary links still defer
+for their unowned timer/rate/sample lifecycle.
 
 `tecmo_gameplay_candidate_directional_select()` reproduces `$B183-$B326`:
 descending scan, current-actor/polarity/viewport/sign filters, the five exact

@@ -4,6 +4,7 @@
 
 #include "tecmo_gameplay_scene_internal.h"
 #include "tecmo_gameplay_candidate_selection.h"
+#include "tecmo_gameplay_cpu_opcode_workspaces.h"
 #include "tecmo_gameplay_cpu_route_profile.h"
 #include "tecmo_gameplay_defense_contact.h"
 #include "tecmo_asset_pack.h"
@@ -2129,6 +2130,163 @@ static bool scene_cpu_common_tail_has_ordinary_live_zero(
            !tecmo_gameplay_scene_in_dunk_presentation(scene);
 }
 
+bool scene_cpu_opcode10_selector_project(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplayCourtCoordinate
+        actor_position[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT],
+    const TecmoGameplayLiveFoundation *foundation,
+    TecmoGameplayCpuSteeringPlayInput *input)
+{
+    TecmoGameplayBackcourtState backcourt;
+    TecmoGameplayBackcourtStepInput backcourt_input;
+    TecmoGameplayCpuOpcode10SelectorInput selector_input;
+    TecmoGameplayCpuOpcode10SelectorResult selector_result;
+    bool violation = false;
+    size_t actor;
+    if (scene == NULL || actor_position == NULL || foundation == NULL ||
+        input == NULL ||
+        input->contract_tag != TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG ||
+        foundation->primary_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        foundation->defender_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        scene->orientation_state.attack_direction > 1U ||
+        !tecmo_gameplay_backcourt_state_valid(
+            &scene->backcourt_assets, &scene->backcourt_state)) {
+        return false;
+    }
+    input->special_actor_07df_available = false;
+    input->special_actor_07df = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    input->linked_actor_branch_context_available = false;
+    input->linked_actor_resolved_valid = false;
+    input->linked_actor = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    input->linked_relative_valid = false;
+    input->linked_relative_x = 0;
+    input->linked_relative_depth = 0;
+
+    /* scene_update_ai precedes authoritative backcourt settlement. Preview
+       the exact TGBC step against this immutable ball snapshot so Bank05
+       $9737-$973C's bit-$10 projection has current-tick boundary cadence;
+       neither state nor a possible violation is committed here. */
+    memset(&backcourt_input, 0, sizeof(backcourt_input));
+    if (!tecmo_gameplay_court_coordinate_q8_floor(
+            &scene->ball_position, &backcourt_input.ball_position)) {
+        return false;
+    }
+    backcourt_input.orientation =
+        scene->orientation_state.attack_direction;
+    backcourt_input.global_object_state = 0U;
+    backcourt = scene->backcourt_state;
+    if (!tecmo_gameplay_backcourt_step(
+            &scene->backcourt_assets, &backcourt, &backcourt_input,
+            &violation)) {
+        return false;
+    }
+
+    memset(&selector_input, 0, sizeof(selector_input));
+    selector_input.contract_tag =
+        TECMO_GAMEPLAY_CPU_OPCODE10_SELECTOR_INPUT_TAG;
+    selector_input.flags_0588 = backcourt.frontcourt_established != 0U
+        ? 0x10U : 0U;
+    /* This seam is only Bank02's ordinary $0478==0 path. BA bit $40 is not
+       read on that branch and therefore is not manufactured here. */
+    selector_input.context_0478 = 0U;
+    selector_input.flags_ba = 0U;
+    selector_input.primary_actor_0308 = foundation->primary_actor;
+    selector_input.defender_actor_0309 = foundation->defender_actor;
+    selector_input.orientation_035a =
+        scene->orientation_state.attack_direction;
+    /* The prior byte is deliberately unavailable. It cannot influence either
+       kind of actual source store accepted below; a no-store result is never
+       projected into LIVE. */
+    selector_input.prior_special_actor_07df =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        selector_input.actor_selector_04b0[actor] =
+            foundation->actor_selector_flags[actor];
+        selector_input.dynamic_link_06cb[actor] =
+            foundation->dynamic_link[actor];
+        selector_input.actor_position[actor] = actor_position[actor];
+    }
+    if (!tecmo_gameplay_cpu_opcode10_selector_b02_harness(
+            &selector_input, &selector_result)) {
+        /* Typed world depth can exceed the selector's source byte. That is an
+           unavailable projection, not a reason to invent truncation or fail
+           the complete scene transaction. */
+        return true;
+    }
+    if (!selector_result.candidate_stored &&
+        !selector_result.explicit_ff_stored) {
+        return true;
+    }
+    input->special_actor_07df_available = true;
+    input->special_actor_07df = selector_result.special_actor_07df_after;
+    input->linked_actor_branch_context_available = true;
+    return true;
+}
+
+bool scene_cpu_opcode10_workspace_project(
+    uint8_t actor,
+    const TecmoGameplayLiveFoundation *foundation,
+    TecmoGameplayCpuSteeringPlayInput *input)
+{
+    TecmoGameplayCpuOpcode10WorkspaceInput workspace_input;
+    TecmoGameplayCpuOpcode10WorkspaceResult workspace_result;
+    uint8_t linked;
+    if (foundation == NULL || input == NULL ||
+        input->contract_tag != TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG ||
+        actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        foundation->primary_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        return false;
+    }
+    input->linked_actor_resolved_valid = false;
+    input->linked_actor = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    input->linked_relative_valid = false;
+    input->linked_relative_x = 0;
+    input->linked_relative_depth = 0;
+    if (!input->special_actor_07df_available ||
+        !input->linked_actor_branch_context_available) {
+        return true;
+    }
+    linked = actor == input->special_actor_07df
+        ? foundation->primary_actor : foundation->dynamic_link[actor];
+    if (linked >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) return false;
+    input->linked_actor_resolved_valid = true;
+    input->linked_actor = linked;
+    if (linked == foundation->primary_actor) {
+        /* $8DCE's primary-link branch consumes $0798/$075F/$6A/$0760. Their
+           launch/RNG cadence is not owned by this ordinary scene projection. */
+        return true;
+    }
+    if (input->actor_position[linked].y < 0 ||
+        input->actor_position[linked].y > UINT8_MAX) {
+        return true;
+    }
+    memset(&workspace_input, 0, sizeof(workspace_input));
+    workspace_input.contract_tag =
+        TECMO_GAMEPLAY_CPU_OPCODE10_WORKSPACE_INPUT_TAG;
+    workspace_input.actor_index = actor;
+    workspace_input.special_actor_07df = input->special_actor_07df;
+    workspace_input.primary_actor_0308 = foundation->primary_actor;
+    workspace_input.dynamic_link_06cb = foundation->dynamic_link[actor];
+    workspace_input.orientation_035a = input->orientation_035a;
+    workspace_input.linked_target_x =
+        (uint16_t)input->actor_position[linked].x;
+    workspace_input.linked_target_depth =
+        (uint8_t)input->actor_position[linked].y;
+    /* These fields are unowned zeros, but the exact non-primary source branch
+       does not read them. The harness result must confirm that branch. */
+    if (!tecmo_gameplay_cpu_opcode10_workspace_harness(
+            &workspace_input, &workspace_result) ||
+        workspace_result.linked_actor != linked ||
+        workspace_result.timer_reloaded ||
+        workspace_result.timer_decremented) {
+        return false;
+    }
+    input->linked_relative_valid = true;
+    input->linked_relative_x = workspace_result.linked_relative_x;
+    input->linked_relative_depth = workspace_result.linked_relative_depth;
+    return true;
+}
+
 static bool scene_cpu_build_play_input(
     const TecmoGameplayScene *scene,
     const TecmoGameplayCourtCoordinate
@@ -2171,18 +2329,16 @@ static bool scene_cpu_build_play_input(
     input->state_0357 = scene->state.clock_minutes;
     input->state_0358 = scene->state.clock_seconds;
     input->flags_007e = 0U;
-    /* The remaining Bank06 inputs have no faithful typed LIVE owner. Keep
-       their availability false rather than inventing $046E or $07DF. */
+    /* Opcode 7 still has no faithful typed LIVE owner. */
     input->actor_046e_probe_available = false;
-    input->special_actor_07df_available = false;
-    input->special_actor_07df = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     memcpy(input->actor_position, actor_position,
            sizeof(input->actor_position));
     if (!tecmo_gameplay_court_coordinate_q8_floor(
             &scene->ball_position, &input->ball_position)) {
         return false;
     }
-    return true;
+    return scene_cpu_opcode10_selector_project(
+        scene, actor_position, foundation, input);
 }
 
 static bool scene_cpu_shot_input(
@@ -2548,6 +2704,10 @@ bool scene_update_ai(
        produces zero, and never fetches another record on a state-6 tick. Other
        selected-primary states/gates remain inert/fail-closed. */
     actor = candidate_foundation.primary_actor;
+    if (!scene_cpu_opcode10_workspace_project(
+            (uint8_t)actor, &candidate_foundation, &play_input)) {
+        return false;
+    }
     if (actor == scene->ball_holder &&
         !scene_team_has_controller(scene, scene->state.possession) &&
         candidate_foundation.play_state.actor_state[actor] == 0x05U) {
@@ -2698,6 +2858,10 @@ bool scene_update_ai(
         }
         memset(&input, 0, sizeof(input));
         play_input.actor = (uint8_t)actor;
+        if (!scene_cpu_opcode10_workspace_project(
+                (uint8_t)actor, &candidate_foundation, &play_input)) {
+            return false;
+        }
         memset(&play_result, 0, sizeof(play_result));
         selected_defender =
             candidate_foundation.selected_defender_handoff_active &&
