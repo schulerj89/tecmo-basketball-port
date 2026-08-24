@@ -1631,6 +1631,11 @@ only after locally observed pass flight, catch, and marker retirement. Keep the
 optional fifth CLI operand backward-compatible, cap the sequence at 512 native
 640x480 frames, and validate two-run PNG inventories plus deterministic MP4s at
 `39375000/655171` fps; generated frames/videos stay ignored local evidence.
+Snapshot the selected passer and published candidate receiver at onset. The
+first active-to-retired marker edge must be the matching owned pass, all active
+pass frames must retain that pair, and the terminal holder/primary/last-holder
+must all be the snapshotted receiver; unrelated global pass counts are not
+capture lineage.
 
 The downstream pass unlock is a bounded three-handler stream. The exact records are opcode 5 at offset
 `$017C` / CPU `$A0AA` (`05 02 00 00 00`), opcode 23 at `$018B` / `$A0B9`

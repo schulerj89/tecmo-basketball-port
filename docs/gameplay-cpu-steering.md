@@ -486,6 +486,12 @@ with ffprobe, and requires identical frame-inventory and MP4 SHA-256 values.
 These PNGs and MP4s are presentation evidence; structured state remains the
 acceptance authority and all generated artifacts remain under ignored build
 output.
+The capture snapshots the selected primary/passer and published candidate
+receiver on its first frame. Marker retirement is accepted only on an active
+pass carrying that exact pair; swapped and self-pair negatives must reject.
+Every subsequent active pass frame retains the pair, and completion requires
+ball holder, selected primary, and foundation last holder to equal the
+snapshotted receiver. A global pass counter cannot satisfy this lineage.
 
 The TGLP native proof renders four deterministic automatic-pass
 checkpoints: opcode 5, retained opcode-6 action `$10`, packed `$32` gather,

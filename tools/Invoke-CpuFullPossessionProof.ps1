@@ -139,6 +139,12 @@ foreach ($Repeat in 1, 2) {
             ![bool]$Summary.score_restart_video.captured -or
             ![bool]$Summary.score_restart_video.completed -or
             [bool]$Summary.score_restart_video.failed -or
+            ![bool]$Summary.score_restart_video.retirement_transition_matched -or
+            ![bool]$Summary.score_restart_video.negative_mismatch_rejected -or
+            [int]$Summary.score_restart_video.expected_passer -ge 10 -or
+            [int]$Summary.score_restart_video.expected_receiver -ge 10 -or
+            [int]$Summary.score_restart_video.expected_passer -eq
+                [int]$Summary.score_restart_video.expected_receiver -or
             ![bool]$Summary.score_restart_video.pass_observed -or
             ![bool]$Summary.score_restart_video.catch_observed -or
             ![bool]$Summary.score_restart_video.marker_retired -or

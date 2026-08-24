@@ -133,6 +133,9 @@ score-restart marker, includes the natural `$0168` command progression and pass
 flight, and stops at caught-holder synchronization plus marker retirement.
 Two deterministic native-cadence encodes are required by the proof wrapper;
 the structured marker/pass/catch fields remain authoritative.
+The visual window is transaction-bound: onset snapshots the selected passer
+and candidate receiver, the first marker retirement must expose their matching
+active pass, and the terminal holder roles must all resolve to that receiver.
 
 The typed score transition owns the accepted selected-pair/side swap, actor-state and
 action-state clears, packed-action reset, role-bit toggle, `$0790` clear, and

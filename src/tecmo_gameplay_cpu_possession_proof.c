@@ -698,6 +698,18 @@ static bool proof_render_restart_frame(
         proof_render(runtime, path, hash_out);
 }
 
+static bool proof_restart_pass_matches(
+    const TecmoGameplayScene *scene, uint8_t expected_passer,
+    uint8_t expected_receiver)
+{
+    return scene != NULL &&
+        expected_passer < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+        expected_receiver < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+        expected_passer != expected_receiver && scene_pass_active(scene) &&
+        scene->pass_state.passer == expected_passer &&
+        scene->pass_state.receiver == expected_receiver;
+}
+
 static void proof_launch_init(TecmoGameplaySceneLaunch *launch)
 {
     static const uint8_t away[5] = {5U, 6U, 10U, 11U, 0U};
@@ -1074,6 +1086,12 @@ bool tecmo_gameplay_cpu_possession_proof(
     bool restart_capture_completed = false;
     bool restart_capture_failed = false;
     bool restart_capture_pass_observed = false;
+    bool restart_capture_previous_marker = false;
+    bool restart_capture_retirement_matched = false;
+    bool restart_capture_negative_checked = false;
+    bool restart_capture_catch_observed = false;
+    uint8_t restart_expected_passer = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    uint8_t restart_expected_receiver = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
     uint32_t restart_frame_hash = 0U;
     uint8_t active_shot_outcome = TECMO_GAMEPLAY_SHOT_OUTCOME_UNKNOWN;
     uint8_t active_shooting_team = TECMO_GAMEPLAY_TEAM_COUNT;
@@ -1501,10 +1519,66 @@ bool tecmo_gameplay_cpu_possession_proof(
         }
         if (restart_capture_enabled && score_restart_entry_observed &&
             !restart_capture_started) {
+            restart_expected_passer = scene->live_foundation.primary_actor;
+            restart_expected_receiver =
+                scene->live_foundation.candidate_actor_by_side[
+                    scene->live_foundation.offense_side];
+            if (!scene->live_foundation.score_restart_selection_active ||
+                restart_expected_passer >=
+                    TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+                restart_expected_receiver >=
+                    TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+                restart_expected_passer == restart_expected_receiver ||
+                scene->actors[restart_expected_passer].team !=
+                    scene->state.possession ||
+                scene->actors[restart_expected_receiver].team !=
+                    scene->state.possession) {
+                restart_capture_failed = true;
+                outcome = "score-restart-lineage-onset-invalid";
+                break;
+            }
             restart_capture_started = true;
+            restart_capture_previous_marker = true;
             restart_start_update = update;
         }
         if (restart_capture_started && !restart_capture_completed) {
+            bool marker_active =
+                scene->live_foundation.score_restart_selection_active;
+            if (restart_capture_previous_marker && !marker_active) {
+                if (!proof_restart_pass_matches(
+                        scene, restart_expected_passer,
+                        restart_expected_receiver)) {
+                    restart_capture_failed = true;
+                    outcome = "score-restart-lineage-retirement-mismatch";
+                    break;
+                }
+                restart_capture_retirement_matched = true;
+                restart_capture_negative_checked =
+                    !proof_restart_pass_matches(
+                        scene, restart_expected_receiver,
+                        restart_expected_passer) &&
+                    !proof_restart_pass_matches(
+                        scene, restart_expected_passer,
+                        restart_expected_passer);
+                if (!restart_capture_negative_checked) {
+                    restart_capture_failed = true;
+                    outcome = "score-restart-lineage-negative-failed";
+                    break;
+                }
+            } else if (!restart_capture_previous_marker && marker_active) {
+                restart_capture_failed = true;
+                outcome = "score-restart-lineage-marker-reappeared";
+                break;
+            }
+            if (restart_capture_retirement_matched &&
+                scene_pass_active(scene) &&
+                !proof_restart_pass_matches(
+                    scene, restart_expected_passer,
+                    restart_expected_receiver)) {
+                restart_capture_failed = true;
+                outcome = "score-restart-lineage-pass-mismatch";
+                break;
+            }
             if (restart_frame_count >=
                     POSSESSION_PROOF_RESTART_FRAME_LIMIT ||
                 !proof_render_restart_frame(
@@ -1515,20 +1589,24 @@ bool tecmo_gameplay_cpu_possession_proof(
                 break;
             }
             ++restart_frame_count;
-            if (scene_pass_active(scene)) {
+            if (restart_capture_retirement_matched &&
+                scene_pass_active(scene)) {
                 restart_capture_pass_observed = true;
                 ++restart_pass_frame_count;
             }
-            if (restart_capture_pass_observed &&
-                !scene->live_foundation.score_restart_selection_active &&
+            if (restart_capture_retirement_matched &&
+                restart_capture_pass_observed && !marker_active &&
                 !scene_pass_active(scene) &&
-                scene->ball_holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
-                scene->live_foundation.primary_actor == scene->ball_holder &&
+                scene->ball_holder == restart_expected_receiver &&
+                scene->live_foundation.primary_actor ==
+                    restart_expected_receiver &&
                 scene->live_foundation.last_ball_holder ==
-                    scene->ball_holder) {
+                    restart_expected_receiver) {
+                restart_capture_catch_observed = true;
                 restart_capture_completed = true;
                 restart_end_update = update;
             }
+            restart_capture_previous_marker = marker_active;
         }
         if (scene->state.clock_minutes == 0U &&
             scene->state.clock_seconds <= 59U) {
@@ -1618,6 +1696,9 @@ bool tecmo_gameplay_cpu_possession_proof(
         (!restart_capture_enabled ||
          (restart_capture_started && restart_capture_completed &&
           restart_capture_pass_observed && !restart_capture_failed &&
+          restart_capture_retirement_matched &&
+          restart_capture_negative_checked &&
+          restart_capture_catch_observed &&
           restart_frame_count > 0U &&
           restart_frame_count <= POSSESSION_PROOF_RESTART_FRAME_LIMIT)) &&
         !update_failed && !ownership_failure && !anchor_oob &&
@@ -1688,6 +1769,9 @@ bool tecmo_gameplay_cpu_possession_proof(
         "\"score_restart_video\":{\"enabled\":%s,\"captured\":%s,"
         "\"completed\":%s,\"failed\":%s,\"start_update\":%u,"
         "\"end_update\":%u,\"frame_count\":%u,\"frame_limit\":512,"
+        "\"expected_passer\":%u,\"expected_receiver\":%u,"
+        "\"retirement_transition_matched\":%s,"
+        "\"negative_mismatch_rejected\":%s,"
         "\"pass_observed\":%s,\"pass_frame_count\":%u,"
         "\"catch_observed\":%s,\"marker_retired\":%s,"
         "\"width\":640,\"height\":480,"
@@ -1798,10 +1882,14 @@ bool tecmo_gameplay_cpu_possession_proof(
         restart_capture_completed ? "true" : "false",
         restart_capture_failed ? "true" : "false",
         restart_start_update, restart_end_update, restart_frame_count,
+        (unsigned)restart_expected_passer,
+        (unsigned)restart_expected_receiver,
+        restart_capture_retirement_matched ? "true" : "false",
+        restart_capture_negative_checked ? "true" : "false",
         restart_capture_pass_observed ? "true" : "false",
         restart_pass_frame_count,
-        score_restart_catch_observed ? "true" : "false",
-        score_restart_marker_retired ? "true" : "false",
+        restart_capture_catch_observed ? "true" : "false",
+        restart_capture_retirement_matched ? "true" : "false",
         (unsigned)restart_frame_hash,
         pass_events,
         max_overhang, (unsigned)mid_horizon_hash,
