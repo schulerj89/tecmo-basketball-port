@@ -1142,6 +1142,26 @@ static bool scene_validation_jump_timeline_valid(
                TECMO_GAMEPLAY_JUMP_SLOT0_ACTOR_VELOCITY_Q8);
 }
 
+static bool scene_a9da_zero(const TecmoGameplayScene *scene)
+{
+    TecmoGameplayCpuGlobalLatch zero_latch;
+    TecmoGameplayCpuA9daInput zero_input;
+    TecmoGameplayCpuA9daResult zero_result;
+    memset(&zero_latch, 0, sizeof(zero_latch));
+    memset(&zero_input, 0, sizeof(zero_input));
+    memset(&zero_result, 0, sizeof(zero_result));
+    return scene != NULL && !scene->shot_a9da_assignment_valid &&
+        !scene->shot_a9da_opcode13_pending &&
+        memcmp(&scene->shot_a9da_latch, &zero_latch,
+               sizeof(zero_latch)) == 0 &&
+        memcmp(&scene->shot_a9da_input, &zero_input,
+               sizeof(zero_input)) == 0 &&
+        memcmp(&scene->shot_a9da_output, &zero_input,
+               sizeof(zero_input)) == 0 &&
+        memcmp(&scene->shot_a9da_result, &zero_result,
+               sizeof(zero_result)) == 0;
+}
+
 static bool scene_raw_launch_zero(const TecmoGameplayScene *scene)
 {
     TecmoGameplayCpuA0f3Result zero_result;
@@ -1171,7 +1191,50 @@ static bool scene_raw_launch_zero(const TecmoGameplayScene *scene)
         !scene->shot_a8e9_normalized_valid &&
         scene->shot_a8e9_raw_006a == 0U &&
         memcmp(&scene->shot_a8e9_normalized, &zero_normalized,
-               sizeof(zero_normalized)) == 0;
+               sizeof(zero_normalized)) == 0 &&
+        scene_a9da_zero(scene);
+}
+
+static bool scene_a9da_assignment_valid(const TecmoGameplayScene *scene)
+{
+    TecmoGameplayCpuGlobalLatch latch;
+    TecmoGameplayCpuA9daInput output;
+    TecmoGameplayCpuA9daResult result;
+    if (scene == NULL || !scene->shot_a9da_assignment_valid ||
+        scene->shot_a9da_input.contract_tag !=
+            TECMO_GAMEPLAY_CPU_A9DA_INPUT_TAG ||
+        scene->shot_a9da_result.contract_tag !=
+            TECMO_GAMEPLAY_CPU_A9DA_RESULT_TAG ||
+        scene->shot_a9da_input.expected_latch_serial != 0U ||
+        scene->shot_a9da_input.ball_x != scene->shot_a0f3_raw_x ||
+        scene->shot_a9da_input.ball_raw_depth_8 !=
+            scene->shot_a0f3_raw_depth ||
+        (uint16_t)scene->shot_a9da_input.normalized_object10_vx_a9da !=
+            scene->shot_a8e9_normalized.raw_vx_04f1_04fc ||
+        (uint16_t)scene->shot_a9da_input.normalized_object10_vz_a9da !=
+            scene->shot_a8e9_normalized.raw_vz_0507_0512 ||
+        scene->shot_a9da_input.multiplier_002c != 0x002CU ||
+        scene->shot_a9da_input.orientation_035a !=
+            scene->jump_rim_rattle.orientation ||
+        scene->shot_a9da_input.ba != 0U ||
+        scene->shot_a9da_input.value_05a1 != 0U ||
+        (scene->shot_a9da_opcode13_pending &&
+         scene->shot_frame != TECMO_GAMEPLAY_JUMP_RATTLE_HANDOFF_FRAME)) {
+        return false;
+    }
+    memset(&latch, 0, sizeof(latch));
+    memset(&output, 0, sizeof(output));
+    memset(&result, 0, sizeof(result));
+    return tecmo_gameplay_cpu_global_latch_init(&latch) &&
+        tecmo_gameplay_cpu_a9da_target_assignment_subset_apply(
+            &latch, &scene->shot_a9da_input, &output, &result) &&
+        result.outcome == TECMO_GAMEPLAY_CPU_A9DA_OUTCOME_ASSIGNED &&
+        result.chosen_actor_002d < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+        result.chosen_actor_002d != scene->shot_a9da_input.primary_0308 &&
+        result.chosen_actor_002d != scene->shot_a9da_input.defender_0309 &&
+        memcmp(&latch, &scene->shot_a9da_latch, sizeof(latch)) == 0 &&
+        memcmp(&output, &scene->shot_a9da_output, sizeof(output)) == 0 &&
+        memcmp(&result, &scene->shot_a9da_result, sizeof(result)) == 0;
 }
 
 static uint8_t scene_validation_rng_mix(uint8_t raw_006a, uint8_t raw_0053)
@@ -1230,7 +1293,8 @@ static bool scene_raw_launch_active_valid(const TecmoGameplayScene *scene)
             !scene->shot_a8e9_normalized_valid &&
             scene->shot_a8e9_raw_006a == 0U &&
             memcmp(&scene->shot_a8e9_normalized, &zero_normalized,
-                   sizeof(zero_normalized)) == 0;
+                    sizeof(zero_normalized)) == 0 &&
+            scene_a9da_zero(scene);
     }
     expected_preflight = scene_validation_rng_mix(
         (uint8_t)(scene->shot_a0f3_rng_start_raw_006a ^
@@ -1285,7 +1349,8 @@ static bool scene_raw_launch_active_valid(const TecmoGameplayScene *scene)
         return !scene->shot_a8e9_normalized_valid &&
             scene->shot_a8e9_raw_006a == 0U &&
             memcmp(&scene->shot_a8e9_normalized, &zero_normalized,
-                   sizeof(zero_normalized)) == 0;
+                    sizeof(zero_normalized)) == 0 &&
+            scene_a9da_zero(scene);
     }
     if (!scene->shot_a8e9_normalized_valid ||
         !scene_shot_captured_rattle_orientation(scene, &orientation) ||
@@ -1305,7 +1370,8 @@ static bool scene_raw_launch_active_valid(const TecmoGameplayScene *scene)
     return tecmo_gameplay_cpu_a8e9_velocity_normalize(
                &normalize_input, &normalized) &&
            memcmp(&normalized, &scene->shot_a8e9_normalized,
-                  sizeof(normalized)) == 0;
+                  sizeof(normalized)) == 0 &&
+           scene_a9da_assignment_valid(scene);
 }
 
 /* This is intentionally a scene-boundary validator rather than a second

@@ -2673,11 +2673,14 @@ static bool harness_input_valid(
         input->possession >= TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT ||
         input->orientation >=
             TECMO_GAMEPLAY_CPU_STEERING_ORIENTATION_COUNT ||
-        input->ball_holder >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
+        (input->ball_holder >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT &&
+         input->ball_holder != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR) ||
         input->matchup_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
         input->difficulty >=
             TECMO_GAMEPLAY_CPU_STEERING_DIFFICULTY_COUNT ||
-        harness_actor_team(input->ball_holder) != input->possession) {
+        (input->ball_holder == TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR
+             ? !input->has_explicit_target
+             : harness_actor_team(input->ball_holder) != input->possession)) {
         return false;
     }
     actor_team = harness_actor_team(input->actor);
@@ -3018,6 +3021,43 @@ static bool movement_composition_self_test(
             return false;
         }
     }
+
+    /* Shot flight has no possession holder, but the ordinary actor command
+       stream may still provide an exact target. Keep this admission narrower
+       than held-ball steering: no-holder without an explicit target must be
+       byte-identically rejected. */
+    input.steering.actor_position[5U] = start;
+    input.steering.ball_holder = TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    input.steering.has_explicit_target = true;
+    input.steering.explicit_target.x = (int16_t)(start.x + 10);
+    input.steering.explicit_target.y = start.y;
+    input.primary_selected_actor = false;
+    if (!tecmo_gameplay_movement_state_initialize(
+            &movement_assets, &input.movement, &start, 0U) ||
+        !tecmo_gameplay_cpu_steering_movement_step(
+            steering_assets, &movement_assets, &input, &result) ||
+        result.steering.ball_holder !=
+            TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
+        result.steering.target_position.x != start.x + 10 ||
+        result.steering.target_position.y != start.y ||
+        result.held_direction_bits != TECMO_GAMEPLAY_MOVEMENT_INPUT_RIGHT) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 no-holder explicit-target composition failed.");
+        tecmo_gameplay_movement_assets_destroy(&movement_assets);
+        return false;
+    }
+    input.steering.has_explicit_target = false;
+    if (!movement_step_rejected_unchanged(
+            steering_assets, &movement_assets, &input)) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 no-holder missing-target rejection failed.");
+        tecmo_gameplay_movement_assets_destroy(&movement_assets);
+        return false;
+    }
+    input.steering.ball_holder = 0U;
+    input.steering.has_explicit_target = false;
+    memset(&input.steering.explicit_target, 0,
+           sizeof(input.steering.explicit_target));
 
     input.steering.actor_position[0U].x = (int16_t)(start.x + 10);
     input.steering.actor_position[0U].y = start.y;

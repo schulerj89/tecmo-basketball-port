@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define TECMO_ASSET_PACK_SOURCE_MAP_BASE_CAPACITY 137216U
+#define TECMO_ASSET_PACK_SOURCE_MAP_BASE_CAPACITY 139264U
 #define TECMO_ASSET_PACK_SOURCE_MAP_TGCA_CAPACITY 4096U
 
 static uint64_t source_map_prg_bank_cpu_source_offset(uint64_t prg_offset,
@@ -2482,31 +2482,31 @@ static int append_gameplay_cpu_steering_source_map_entry(
     return tecmo_asset_pack_append_text(
         buffer, capacity, length,
         "],\"opcode13_global_latch_contract\":{"
-        "\"scope\":\"typed persistent provenance only; LIVE global_target_available remains false\","
+        "\"scope\":\"typed persistent provenance plus bounded frame-89 A9DA LIVE event; general global target remains unavailable\","
         "\"writers\":[\"Bank05 $A0F3-$A11A\",\"Bank05 $A790-$A7A5\",\"Bank05 $A9DA-$AA44\",\"Bank05 $B721-$B736\",\"Bank05 $B783-$B792\"],"
         "\"consumer\":\"Bank06 $9125-$9145\","
         "\"reset\":[\"fixed $CC30-$CC57\",\"fixed $CC58-$CC85\"],"
         "\"retention\":\"period and possession transitions retain all four raw bytes\","
         "\"construction\":\"one-shot; byte-zero virgin storage only; rejection byte-identical\","
         "\"overwrite\":\"atomic last-writer-wins with monotonic serial admission\","
-        "\"record_002d\":\"anchored $A9DA->$A993 assignment linkage; scheduler remains unbound\","
+        "\"record_002d\":\"anchored $A9DA->$A993 assignment linkage; bound only for the frame-89 ordinary shot same-update traversal\","
         "\"record_0041\":\"latest-writer and scheduling boundary unbound\","
         "\"tgca_separation\":\"B721/B783 same-frame opcode20 capability cannot authorize opcode13\","
-        "\"a9da_assignment\":{\"scope\":\"pure transactional helper only; no LIVE binding\","
+        "\"a9da_assignment\":{\"scope\":\"pure transactional helper bound to the frame-89 ordinary shot landing event\","
         "\"anchors\":[\"Bank05 $A8E9-$A9D9\",\"Bank05 $A9DA-$AA44\",\"Bank05 $AAB8-$AB35\",\"Bank05 $BDEF-$BDF4\",\"Bank05 $A993-$A9C4\"],"
         "\"projection\":\"normalized A9DA-time signed object10 velocity times fixed $002C then arithmetic shift right 6; wrapping raw X16 plus zero-extended ball depth8\","
         "\"metric\":\"orientation target raw X16/depth8; abs deltas; max plus half min; strict lower replacement scanning 9->0 retains highest ties\","
         "\"ordering\":\"A9DA latch write precedes BA/05A1 aborts; 0588 bit7 precedes only 05A1; successful first same-loop $002D and linked $005A stores project native last-step bookkeeping, not source writes\","
         "\"writes\":\"chosen stream=$002D/state=4/action-state $046E=0; non-role fixed link stream=$005A/state=4; $0458 and linked $046E preserved; $0587=3\","
         "\"omitted_a9da_effects\":[\"$0478=$10\",\"$B3DD->$049A/$04A5\",\"$4010/$4012/$4013/$4015 presentation/audio tail\"],"
-        "\"production_boundary\":\"native rattle raw inputs are synthetic/frozen and are not substitutes for dynamic flight velocity or actor-motion freeze; no embedded TGGL or same-loop Bank06 traversal; $0041 remains unbound\"},"
+        "\"production_boundary\":\"authoritative TGLS raw flight velocity feeds A8E9 then A9DA; a virgin event-local TGGL latch authorizes the eligible chosen actor's same-update $002D opcode13; $0041 remains unbound\"},"
         "\"a8e9_velocity_normalizer\":{\"scope\":\"typed raw16 helper with bounded TGLS-to-rattle LIVE input owner\","
         "\"anchors\":[\"Bank05 $A8E9-$A976 FNV 815E6881\",\"Bank05 $AA87-$AA9E FNV 6D37E9A0\"],"
         "\"negative_vz\":\"arithmetic-shift vz and vx twice; abs/clamp vx only for high=0 and low<$30; clamp=$30+($006A&$0F) with pre-clamp sign restored\","
         "\"nonnegative_vz\":\"arithmetic-shift vx twice; preserve vz; no clamp\","
         "\"orientation\":\"raw $035A 0 forces nonnegative vx; 1 forces negative vx\","
         "\"natural\":[\"FED7/FFEF -> 004B/FFFB\",\"FF65/FFC3 with $006A low E -> 003E/FFF0\"],"
-        "\"production_boundary\":\"bounded TGLS raw launch owns incoming rattle velocity; rendered lerp/altitude and LIVE A9DA remain excluded\"},"
+        "\"production_boundary\":\"bounded TGLS raw launch owns incoming rattle velocity; normalized frame-89 output feeds the bounded LIVE A9DA event; rendered lerp/altitude never substitutes for raw state\"},"
         "\"a0f3_launch_solver\":{\"scope\":\"pure typed solver; bound non-legacy ordinary MISS raw planar launch and rattle velocity are LIVE-bound\","
         "\"anchors\":[\"Bank05 $A0F3-$A158 FNV E0D639BE\",\"Bank05 $B32C-$B390 FNV D3DB4014\",\"Bank05 $BCF4-$BD68 FNV A8A390BB\",\"Bank05 $80A9-$815A FNV F5998EDB\",\"Bank05 $A15C-$A183 FNV 56696FEF\",\"Bank05 $BDF7-$BEF6 FNV 93FCF6CB\",\"Bank05 $BD6E-$BDC6 FNV 3F4FB637\",\"Bank05 $B522-$B52D FNV EF77B509\"],"
         "\"direction\":\"raw $0463 0..7; if $006A>=$40 apply $A15C remap; $006A remains a separate input\","
@@ -2515,13 +2515,13 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "\"coordinate_alias\":\"at X=$0A, $7D/$F2/$FD equals $73+X/$E8+X/$F3+X; one typed coordinate owns base, delta origin, LUT index, and accumulator seed\","
         "\"motion\":\"raw16 Q6 accumulators seed from the aliased object10/base coordinate; B522 zero gate then BD6E integrate/publish then B52A decrement\","
         "\"asset_dependency\":\"sanitized TGJS distance-table source BDF7-BEF6; no ROM bytes embedded\","
-        "\"production_boundary\":\"raw planar motion is authoritative for downstream rattle/A9DA; rendered shot position/altitude remains native presentation and LIVE A9DA plus actor traversal remain unbound\"},"
+        "\"production_boundary\":\"raw planar motion is authoritative for downstream rattle/A8E9/A9DA; active shots run controlled and descending 9->0 CPU off-ball movement, with same-update opcode13 limited to the frame-89 chosen actor\"},"
         "\"fixed_rng_live_checkpoint\":{\"scope\":\"native LIVE continuity checkpoint; PRETIP is not claimed as canonical global stream\","
         "\"anchors\":[\"fixed $CD7A-$CD7F NMI call order\",\"fixed $CD8F-$CD95 counter\",\"fixed $CD96-$CDAB mixer\",\"Bank05 $A0DD-$A0DF JSR $C05D\",\"fixed $C05D-$C05F JMP $CD96\"],"
         "\"ordering\":\"one transactional NMI tick per accepted bound LIVE scene frame; ordinary MISS release calls tagged $9FA1 then $A0DD\","
         "\"rollback\":\"rejected scene update restores RNG bytes/serials\","
         "\"parity_boundary\":\"LIVE $C05D call ledger remains noncanonical; shot raw $006A is a bounded native stream, not canonical global parity\"},"
-        "\"missing_live_owners\":[\"$A0DD object scheduler\",\"$A790 events\",\"$A9DA workspace/scheduling\",\"$A214 gates\",\"opcode15\"]},"
+        "\"missing_live_owners\":[\"$A0DD object scheduler\",\"$A790 events\",\"$A214 gates\",\"opcode15\"]},"
         "\"opcode15_source_contract\":{"
         "\"scope\":\"harness-only; LIVE opcode 15 remains deferred\","
         "\"dispatch\":{\"bank\":6,\"address\":\"$8B90-$8BE0\",\"opcode\":15,\"handler\":\"$9172\"},"

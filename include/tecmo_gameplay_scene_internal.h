@@ -187,6 +187,11 @@ bool scene_live_ball_frame_for_actors(
 bool scene_move_controlled_actor(TecmoGameplayScene *scene,
                                  size_t controller,
                                  const TecmoControlFrame *controls);
+/* Shot-flight directional-only phase. It excludes the shooter and never
+   dispatches action buttons or possession settlement. */
+bool scene_update_shot_controlled_offball(
+    TecmoGameplayScene *scene,
+    const TecmoControlFrame *controls[TECMO_GAMEPLAY_CONTROLLER_COUNT]);
 uint8_t scene_first_actor_for_team(TecmoGameplayTeam team);
 bool scene_attach_ball(TecmoGameplayScene *scene);
 bool scene_pass_active(const TecmoGameplayScene *scene);
@@ -330,6 +335,11 @@ bool scene_cpu_opcode16_workspace_project(
 bool scene_update_ai(
     TecmoGameplayScene *scene,
     TecmoGameplaySceneCpuShotRequest *shot_request_out);
+/* Bank06 ordinary 9..0 traversal while object-slot-10 owns shot flight and
+   no actor holds the ball. Selected primary/defender/shooter and all
+   possession actions are excluded. */
+bool scene_update_shot_cpu_offball(TecmoGameplayScene *scene);
+bool scene_apply_a9da_landing_assignment(TecmoGameplayScene *scene);
 bool scene_tick_fatigue(TecmoGameplayScene *scene);
 
 /* Shot/contact/possession orchestration seam. */

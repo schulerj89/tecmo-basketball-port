@@ -479,7 +479,7 @@ in deterministic LIVE proof JSON.
 | `$9085/$90AC` opcode 16, `$036E/$0370` | Fixed `$F031->$81F2->$8209/$833B/$9054` once-per-loop capture of the primary's pre-motion coordinate and orientation; the tagged scene context is bound once before Bank06 traversal. | Executes for eligible actors. Absent context is `missing-pointer-workspace`; malformed available context rolls back. |
 | `$8BF6-$8C17` opcode 21, `$058A/$0357/$0358/$007E` | Exact typed `shot_clock/clock_minutes/clock_seconds` own `$058A/$0357/$0358`; raw `$007E` bit 1 is unowned and explicitly approximated clear for ordinary LIVE | Executes the source +5/+10 branch from the typed clocks; whole-gate parity is not claimed. |
 | `$92CA` common target tail, `$BA` | `scene_cpu_common_tail_has_ordinary_live_zero`: exact `LIVE`, no result/abort, violation, free throw, shot, pass, lineup, or dunk lifecycle | Supplies only typed `flags_ba=0`, so Bank06 `$92CA-$92D0` takes its five-byte `$8FD9` increment. Every other path remains `missing-ba-lifecycle`. |
-| `$9125` opcode 13, raw `$038D:$038E/$038F:$0390` latch words | TGGL-1 types all five Bank05 writer families, atomic last-writer-wins serial/provenance, one-shot virgin construction, fixed full-reset clear, and period/possession retention. Both high bytes are live. The package is evidence-only: object/event scheduling, `$A214`, opcode 15, and `$0041` latest-writer timing are not bound, and the scene supplies no ball/current-position/TGCA substitute. | `missing-global-target`. An intentional test snapshot still separately requires the ordinary-LIVE `$BA&3==0` seam. |
+| `$9125` opcode 13, raw `$038D:$038E/$038F:$0390` latch words | TGGL-1 types all five Bank05 writer families, atomic last-writer-wins serial/provenance, one-shot virgin construction, fixed full-reset clear, and period/possession retention. The ordinary nonlegacy frame-89 landing path now binds `$A9DA->$A993`: an event-local latch authorizes an ordinary-loop-eligible chosen actor's `$002D` consume in the same descending 9-to-0 traversal. Other object/event scheduling, `$A214`, opcode 15, and `$0041` latest-writer timing remain unbound. | Executes only for that eligible chosen actor/event with the ordinary-LIVE `$BA&3==0` seam; all other contexts remain `missing-global-target`. |
 | `$9032-$9052` opcode 20, raw `$038D:$038E/$038F:$0390` latch words | Exact records are `$000F` / CPU `$9F3D` and `$0019` / `$9F47`, both `14 00 00 00 00`. TGCA now types the exact `$B721` and `$B783` stores (`$7D:$F2/$FD:$00`) plus the immediate `$0019` actor mask from the same successful assignment. A single-use scene context exposes that value only to those masked actors during the following Bank06 9..0 traversal; cursor coincidence, selected/delayed `$000A`, and opcode 13 cannot consume it. | Production remains `missing-global-target` because native LIVE owns neither the raw `$A214` gates nor object-slot scheduler and therefore never binds the context. Intentional exact-event fixtures prove same-frame consume/expiry/rollback. An accepted opcode 20 computes wrapping raw deltas, preserves target-plane bits under inactive-storage provenance, clears former semantic/raw meaning, applies exact zero-vector/state-4 or nonzero-direction behavior, and advances +5 without `$BA`. |
 | `$9172-$9216` opcode 15 raw lifecycle | Harness-only transactional primary and defender captures plus persistent typed `$059E`/state-7 consumer evidence; no scene binding. | `missing-opcode15-raw-lifecycle`: `$0499` scheduling, same-command `$007E`, multi-producer `$06D5/$06D6`, complete presentation planes, and selector owners remain missing. |
 
@@ -494,8 +494,16 @@ wait plane; `$0458` survives. Chosen/linked stream seeds also update native
 `$0478=$10`, `$B3DD->$049A/$04A5`, and the presentation/audio register tail.
 Natural no-write values corroborate projections `009D + (004B*002C >> 6) =
 00D0`, `93 + (FFFB*002C >> 6) = 008F`, then `00C7/0088` for the second pass.
-Native rattle inputs remain synthetic/frozen, so they cannot authorize a LIVE
-TGGL write or same-loop opcode-13 consume.
+Bound TGLS raw flight inputs remain authoritative through rattle and TGVN.
+At frame 89 the production shot path applies this helper, commits its event-local
+TGGL write and actor assignments, then gives only an ordinary-loop-eligible
+chosen actor the immediate
+`$002D` opcode-13 consume. The later `$0041` writer remains outside this binding.
+The TGLP proof reel includes independently replayed normal controller-B rattle
+frames 1, 9, 17, 25, 33, 65, and 89. A source-shaped state-5 CPU route and held
+direction on the non-shooting controller move through the ordinary production
+update with no ball holder; frame 89 asserts the A9DA winner and `$0032`
+post-opcode cursor. The fixture seeds route state, not shot outcome or phase.
 
 TGVN-1 is the direct raw16 C translation of `$A8E9-$A976/$AA87-$AA9E`.
 Negative Z shifts both planar components twice and alone admits the exact
@@ -505,7 +513,8 @@ nonnegative for 0 or negative for 1. The API defines arithmetic shift and
 wrapping negate on uint16 bits, so host signed-shift behavior is irrelevant.
 Bound non-legacy ordinary MISS playback now supplies TGLS launch velocity to
 rattle and runs this normalizer after the saved pair is restored. Legacy/debug
-fixtures retain an isolated synthetic sentinel. LIVE A9DA remains unbound.
+fixtures retain an isolated synthetic sentinel. Frame 89 supplies the normalized
+production values to the bounded LIVE A9DA event.
 
 TGLS-1 translates the direct `$A0F3` object-10 launch as a pure typed helper.
 Raw `$0463` direction remains 0..7 and `$006A` remains a separate explicit

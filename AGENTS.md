@@ -1641,7 +1641,11 @@ nonnegative; raw 1 forces it negative. Keep exact natural contracts
 Bound non-legacy ordinary MISS owns scene planar velocity/accumulator state
 from TGLS, passes it through rattle save/restore, then normalizes it with TGVN.
 Never infer raw state from rendered lerps. Keep synthetic sentinels isolated to
-legacy/debug fixtures and do not enable LIVE A9DA or actor traversal.
+legacy/debug fixtures. Ordinary active shots run the no-possession controlled
+and descending 9-to-0 CPU actor phases; frame 89 alone binds A9DA's event-local
+latch to an ordinary-loop-eligible chosen actor's same-update `$002D`
+opcode-13 consume. Keep `$0041`
+and other global-target scheduling unbound.
 
 TGLS-1 is the pure typed Bank05 `$A0F3-$A158` direct-launch solver. Keep raw
 `$0463` direction distinct from raw `$006A`; apply `$A15C` remap only when

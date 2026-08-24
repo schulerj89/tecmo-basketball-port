@@ -452,7 +452,7 @@ try {
             [bool]$Map.dependency.same_pack_required -and
             @($Map.source_spans).Count -eq 12 -and
             $Map.opcode13_global_latch_contract.scope -eq
-                'typed persistent provenance only; LIVE global_target_available remains false' -and
+                'typed persistent provenance plus bounded frame-89 A9DA LIVE event; general global target remains unavailable' -and
             @($Map.opcode13_global_latch_contract.writers).Count -eq 5 -and
             $Map.opcode13_global_latch_contract.consumer -eq
                 'Bank06 $9125-$9145' -and
@@ -460,14 +460,14 @@ try {
             $Map.opcode13_global_latch_contract.construction -match
                 'one-shot.*byte-zero virgin.*byte-identical' -and
             $Map.opcode13_global_latch_contract.record_002d -match
-                '\$A9DA->\$A993.*scheduler remains unbound' -and
+                '\$A9DA->\$A993.*frame-89.*same-update traversal' -and
             $Map.opcode13_global_latch_contract.record_0041 -match
                 'latest-writer.*unbound' -and
             $Map.opcode13_global_latch_contract.tgca_separation -match
                 'cannot authorize opcode13' -and
-            @($Map.opcode13_global_latch_contract.missing_live_owners).Count -eq 5 -and
+            @($Map.opcode13_global_latch_contract.missing_live_owners).Count -eq 4 -and
             $Map.opcode13_global_latch_contract.a9da_assignment.scope -eq
-                'pure transactional helper only; no LIVE binding' -and
+                'pure transactional helper bound to the frame-89 ordinary shot landing event' -and
             @($Map.opcode13_global_latch_contract.a9da_assignment.anchors).Count -eq 5 -and
             $Map.opcode13_global_latch_contract.a9da_assignment.projection -match
                 'normalized A9DA-time.*fixed \$002C.*zero-extended.*depth8' -and
@@ -477,7 +477,7 @@ try {
                 '\$046E=0.*\$0458.*preserved.*\$0587=3' -and
             @($Map.opcode13_global_latch_contract.a9da_assignment.omitted_a9da_effects).Count -eq 3 -and
             $Map.opcode13_global_latch_contract.a9da_assignment.production_boundary -match
-                'synthetic/frozen.*not substitutes' -and
+                'authoritative TGLS.*event-local TGGL.*same-update.*\$002D.*\$0041 remains unbound' -and
             $Map.opcode13_global_latch_contract.a8e9_velocity_normalizer.scope -match
                 'bounded TGLS-to-rattle LIVE input owner' -and
             @($Map.opcode13_global_latch_contract.a8e9_velocity_normalizer.anchors).Count -eq 2 -and

@@ -13,6 +13,7 @@
 #include "tecmo_gameplay_cpu_steering.h"
 #include "tecmo_gameplay_cpu_a0f3_launch.h"
 #include "tecmo_gameplay_cpu_a8e9_velocity.h"
+#include "tecmo_gameplay_cpu_a9da_assignment.h"
 #include "tecmo_gameplay_fixed_rng.h"
 #include "tecmo_gameplay_court.h"
 #include "tecmo_gameplay_court_orientation.h"
@@ -538,6 +539,15 @@ typedef struct TecmoGameplayScene {
     bool shot_a8e9_normalized_valid;
     uint8_t shot_a8e9_raw_006a;
     TecmoGameplayCpuA8e9VelocityResult shot_a8e9_normalized;
+    /* Exact same-update `$A9DA->$AAB8->$A993` landing assignment. The input
+       and output snapshots preserve source provenance; pending authorizes at
+       most the immediately following ordinary 9..0 opcode-13 traversal. */
+    bool shot_a9da_assignment_valid;
+    bool shot_a9da_opcode13_pending;
+    TecmoGameplayCpuGlobalLatch shot_a9da_latch;
+    TecmoGameplayCpuA9daInput shot_a9da_input;
+    TecmoGameplayCpuA9daInput shot_a9da_output;
+    TecmoGameplayCpuA9daResult shot_a9da_result;
     /* Scene-native playback and predicted-route bookkeeping with no direct
        RAM-byte identity. Bank05 $83E9-$842B and $8469-$847A supply bounded
        ordinary-jump pose-cycle evidence; live make/miss prediction remains

@@ -54,12 +54,14 @@ representation with five producer kinds (`$A0F3`, `$A790`, `$A9DA`, `$B721`,
 `$B783`), atomic last-writer-wins updates, immutable snapshots, monotonic
 serial admission, full-reset-only clear, and explicit retention across periods
 and possessions. Construction is one-shot and accepts only byte-zero virgin
-storage, so it cannot bypass reset serial admission. This is a provenance
-model, not a production binding. Unit
-fixtures may supply its raw words; LIVE does not, because the object/event
-schedulers, `$A214` gates, opcode 15, and exact latest-writer timing remain
-unowned. The current ball and TGCA's one-frame opcode-20 capability are not
-substitutes, so LIVE remains `missing-global-target`.
+storage, so it cannot bypass reset serial admission. The general ledger remains
+a provenance model, but production now owns one bounded event: on the ordinary
+nonlegacy shot's frame-89 landing path, `$A9DA` creates a virgin event-local
+latch and the chosen actor consumes the `$002D` opcode-13 record in that same
+descending 9-to-0 traversal. Other object/event schedulers, `$A214` gates,
+opcode 15, and exact `$0041` latest-writer timing remain unowned. Outside that
+event, the current ball and TGCA's one-frame opcode-20 capability are not
+substitutes, so opcode 13 still reports `missing-global-target`.
 
 The `$002D` opcode-13 record is source-linked to the anchored
 `$A9DA->$A993` family. TGA9-1 models only its typed target/assignment subset:
@@ -83,11 +85,14 @@ original RAM write; `$0458` and the linked actor's `$046E` are preserved.
 
 This is not complete `$A9DA`: object state `$0478=$10`, `$B3DD` position stores
 to `$049A/$04A5`, and the `$4010/$4012/$4013/$4015` presentation/audio tail are
-outside the helper. The current native rattle inputs are synthetic/frozen and
-cannot substitute for the dynamic flight velocity, actor-motion freeze,
-embedded TGGL, or same-loop Bank06 traversal. The later `$0041` record retains
-an explicit latest-writer/scheduling boundary. LIVE therefore remains
-`missing-global-target`; opcode 15 remains `missing-opcode15-raw-lifecycle`.
+outside the helper. TGLS raw flight state is authoritative through rattle and
+TGVN normalization; rendered flight never seeds this calculation. The bounded
+frame-89 event commits `$A9DA`, applies its stream/state/action assignments, and
+authorizes only an ordinary-loop-eligible selected actor's immediate `$002D`
+consume. The later
+`$0041` record retains an explicit latest-writer/scheduling boundary. Other
+opcode-13 contexts remain `missing-global-target`; opcode 15 remains
+`missing-opcode15-raw-lifecycle`.
 Exact importer anchors cover `$A8E9-$A9D9`, `$A9DA-$AA44`, `$AAB8-$AB35`,
 `$BDEF-$BDF4`, `$A993-$A9C4`, the other TGGL writers, Bank06 consumer, and
 fixed reset/page clear, with independent mutation rejection for every span.
@@ -105,8 +110,8 @@ low nibble E, `FF65/FFC3 -> 003E/FFF0`.
 
 Bound non-legacy ordinary MISS now owns the save/temp/normalize/restore bridge:
 TGLS supplies raw planar velocity, rattle restores it, and TGVN normalizes the
-restored pair. Rendered flight never seeds raw state; LIVE A9DA remains
-disabled. Exact importer and mutation anchors
+restored pair. Rendered flight never seeds raw state; frame 89 passes the
+normalized pair into the bounded LIVE A9DA event. Exact importer and mutation anchors
 cover `$A8E9-$A976` (FNV `815E6881`) and `$AA87-$AA9E` (FNV `6D37E9A0`).
 
 TGLS-1 now owns the pure direct-launch arithmetic immediately upstream. It
@@ -123,7 +128,8 @@ scene-owned for bound ordinary MISS; `$B522-$B52D` pins zero-gate, integrate/pub
 while `$BD6E-$BDC6` pins integrate-then-publish arithmetic. The explicit
 `$006A` is the second tagged `$C05D` result after `$9FA1->$A0DD`. TGFR-1 pins
 fixed `$CD7A-$CD7F/$CD8F-$CD95/$CD96-$CDAB`, checkpoints at accepted LIVE
-handoff, and rolls NMI back on rejected updates. No LIVE A9DA binding is implied.
+handoff, and rolls NMI back on rejected updates. This stream supplies the
+bounded frame-89 A9DA binding but does not claim canonical global RNG parity.
 `$A0DD-$A0DF` and `$C05D-$C05F` pin the translated call edges. Other LIVE
 `$C05D` callers remain unowned, so this shot stream is bounded native
 continuity rather than canonical global RNG parity.

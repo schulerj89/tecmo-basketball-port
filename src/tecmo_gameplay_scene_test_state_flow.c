@@ -10414,6 +10414,9 @@ static bool scene_test_production_terminal_scenarios(
     };
     TecmoControlFrame neutral;
     TecmoControlFrame held;
+    TecmoControlFrame offball_controls;
+    const TecmoControlFrame *offball_inputs[
+        TECMO_GAMEPLAY_CONTROLLER_COUNT];
     TecmoGameplayScene malformed;
     TecmoGameplayScene snapshot;
     uint16_t score_before;
@@ -10434,6 +10437,9 @@ static bool scene_test_production_terminal_scenarios(
     }
     memset(&neutral, 0, sizeof(neutral));
     memset(&held, 0, sizeof(held));
+    memset(&offball_controls, 0, sizeof(offball_controls));
+    offball_inputs[0U] = &neutral;
+    offball_inputs[1U] = &neutral;
     held.held.cancel = true;
 
     /* The exact captured make is a bound production launch: f0/p0/d1, point
@@ -10550,6 +10556,185 @@ static bool scene_test_production_terminal_scenarios(
         scene_test_terminal_failure = 16U;
         tecmo_gameplay_scene_end(scene);
         return false;
+    }
+    {
+        TecmoGameplayScene unchanged;
+        TecmoGameplayCourtCoordinate offball_before;
+        uint8_t controller = scene->shot_controller;
+        uint8_t offball_actor;
+        unsigned movement_ticks;
+        bool moved = false;
+        if (controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT ||
+            scene->controlled_actor[controller] != scene->shot_actor) {
+            scene_test_terminal_failure = 19U;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        offball_controls.pressed.confirm = true;
+        offball_controls.pressed.cancel = true;
+        offball_controls.held.left =
+            scene->actors[scene->shot_actor].position.x >= 384;
+        offball_controls.held.right = !offball_controls.held.left;
+        offball_inputs[controller] = &offball_controls;
+        unchanged = *scene;
+        if (!scene_update_shot_controlled_offball(scene, offball_inputs) ||
+            memcmp(scene, &unchanged, sizeof(*scene)) != 0) {
+            scene_test_terminal_failure = 190U;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        offball_actor = scene->shot_actor <
+                TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT
+            ? (uint8_t)((scene->shot_actor + 1U) %
+                        TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT)
+            : (uint8_t)(TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT +
+                        ((scene->shot_actor + 1U -
+                          TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT) %
+                         TECMO_GAMEPLAY_SCENE_TEAM_ACTOR_COUNT));
+        if (offball_actor == scene->shot_actor ||
+            scene->actors[offball_actor].team !=
+                scene->actors[scene->shot_actor].team) {
+            scene_test_terminal_failure = 191U;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        scene->controlled_actor[controller] = offball_actor;
+        offball_controls.held.left =
+            scene->actors[offball_actor].position.x >= 384;
+        offball_controls.held.right = !offball_controls.held.left;
+        offball_before = scene->actors[offball_actor].position;
+        for (movement_ticks = 0U; movement_ticks < 16U; ++movement_ticks) {
+            if (!scene_update_shot_controlled_offball(
+                    scene, offball_inputs)) {
+                scene_test_terminal_failure = 192U;
+                tecmo_gameplay_scene_end(scene);
+                return false;
+            }
+            if (scene->actors[offball_actor].position.x != offball_before.x ||
+                scene->actors[offball_actor].position.y != offball_before.y) {
+                moved = true;
+                break;
+            }
+        }
+        scene->controlled_actor[controller] = scene->shot_actor;
+        if (!moved || scene->shot_frame != unchanged.shot_frame ||
+            scene->shot_kind != unchanged.shot_kind ||
+            scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+            scene_pass_active(scene) ||
+            scene->actors[scene->shot_actor].position.x !=
+                unchanged.actors[unchanged.shot_actor].position.x ||
+            scene->actors[scene->shot_actor].position.y !=
+                unchanged.actors[unchanged.shot_actor].position.y) {
+            scene_test_terminal_failure = 193U;
+            tecmo_gameplay_scene_end(scene);
+            return false;
+        }
+        {
+            TecmoGameplayCourtCoordinate cpu_before[
+                TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+            TecmoGameplayCpuSteeringRouteMotionState *motion;
+            uint8_t primary = scene->live_foundation.primary_actor;
+            uint8_t defender = scene->live_foundation.defender_actor;
+            uint8_t route_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+            for (unsigned actor = 0U;
+                 actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+                cpu_before[actor] = scene->actors[actor].position;
+                scene->live_foundation.play_state.actor_state[actor] = 0x06U;
+                scene->live_foundation.play_state.wait_counter[actor] = 0xFFU;
+                scene->live_foundation.play_state.route_motion[actor].active =
+                    false;
+                if (route_actor == TECMO_GAMEPLAY_SCENE_NO_ACTOR &&
+                    actor != scene->shot_actor && actor != primary &&
+                    actor != defender &&
+                    actor != scene->controlled_actor[0U] &&
+                    actor != scene->controlled_actor[1U]) {
+                    route_actor = (uint8_t)actor;
+                }
+            }
+            if (route_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+                scene_test_terminal_failure = 194U;
+                tecmo_gameplay_scene_end(scene);
+                return false;
+            }
+            motion = &scene->live_foundation.play_state
+                          .route_motion[route_actor];
+            memset(motion, 0, sizeof(*motion));
+            motion->contract_tag =
+                TECMO_GAMEPLAY_CPU_STEERING_ROUTE_MOTION_STATE_TAG;
+            motion->horizontal_accumulator_q6 = (uint16_t)(
+                (uint16_t)scene->actors[route_actor].position.x << 6U);
+            motion->depth_accumulator_q6 = (uint16_t)(
+                (uint16_t)scene->actors[route_actor].position.y << 6U);
+            motion->horizontal_velocity_q6 =
+                scene->actors[route_actor].position.x < 700 ? 64 : -64;
+            motion->depth_velocity_q6 = 0;
+            motion->remaining_timer = 4U;
+            motion->active = true;
+            scene->live_foundation.play_state.actor_state[route_actor] = 0x05U;
+            scene->live_foundation.play_state.wait_counter[route_actor] = 0U;
+            scene->live_foundation.play_state.target_object[route_actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT;
+            scene->live_foundation.play_state.target_x[route_actor] =
+                scene->actors[route_actor].position.x;
+            scene->live_foundation.play_state.target_depth[route_actor] =
+                scene->actors[route_actor].position.y;
+            scene->live_foundation.source_target_valid[route_actor] = true;
+            scene->live_foundation.source_direction_valid[route_actor] = false;
+            scene->live_foundation.deferred[route_actor] = false;
+            scene->live_foundation.deferred_reason[route_actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+            scene->cpu_actors[route_actor].decision_serial = 1U;
+            scene->cpu_actors[route_actor].snapshot_fingerprint = 0U;
+            scene->cpu_actors[route_actor].target_position =
+                scene->actors[route_actor].position;
+            scene->cpu_actors[route_actor].target_kind =
+                TECMO_GAMEPLAY_CPU_STEERING_HARNESS_BALL_OBJECT_TARGET;
+            scene->cpu_actors[route_actor].direction =
+                TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+            scene->cpu_actors[route_actor].held_direction_bits =
+                TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
+            scene->cpu_actors[route_actor].target_valid = true;
+            scene->cpu_actors[route_actor].writes_direction = false;
+            scene->state.clock_divider = 2U;
+            memset(&scene->opcode16_frame_context, 0,
+                   sizeof(scene->opcode16_frame_context));
+            if (!tecmo_gameplay_live_foundation_valid(
+                    &scene->cpu_steering_assets,
+                    &scene->live_foundation) ||
+                !scene_cpu_opcode16_workspace_capture(
+                    scene, &scene->opcode16_frame_context) ||
+                !scene_update_shot_cpu_offball(scene)) {
+                scene_test_terminal_failure = 195U;
+                tecmo_gameplay_scene_end(scene);
+                return false;
+            }
+            if (scene->actors[route_actor].position.x ==
+                    cpu_before[route_actor].x ||
+                scene->actors[route_actor].position.y !=
+                    cpu_before[route_actor].y ||
+                !scene->live_foundation.play_state
+                     .route_motion[route_actor].active ||
+                scene->live_foundation.play_state
+                        .route_motion[route_actor].remaining_timer != 3U ||
+                scene->shot_frame != unchanged.shot_frame ||
+                scene->shot_kind != unchanged.shot_kind ||
+                scene_pass_active(scene)) {
+                scene_test_terminal_failure = 196U;
+                tecmo_gameplay_scene_end(scene);
+                return false;
+            }
+            for (unsigned actor = 0U;
+                 actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+                if ((actor == scene->shot_actor || actor == primary ||
+                     actor == defender) &&
+                    (scene->actors[actor].position.x != cpu_before[actor].x ||
+                     scene->actors[actor].position.y != cpu_before[actor].y)) {
+                    scene_test_terminal_failure = 197U;
+                    tecmo_gameplay_scene_end(scene);
+                    return false;
+                }
+            }
+        }
     }
     malformed = *scene;
     ++malformed.shot_start_position.x_q8;
@@ -10778,6 +10963,7 @@ static bool scene_test_production_terminal_scenarios(
             bool saw_tgls_first_tick = false;
             bool saw_authentic_rattle = false;
             bool saw_a8e9_normalized = false;
+            bool saw_a9da_assignment = false;
             bool release_corruption_checked = false;
             bool terminal_corruption_checked = false;
             uint16_t miss_score_before[TECMO_GAMEPLAY_TEAM_COUNT];
@@ -10912,18 +11098,49 @@ static bool scene_test_production_terminal_scenarios(
                 }
                 if (scenario == 3U &&
                     scene->shot_a8e9_normalized_valid) {
+                    uint8_t chosen =
+                        scene->shot_a9da_result.chosen_actor_002d;
                     saw_a8e9_normalized = true;
                     if (!terminal_corruption_checked) {
+                        if (!scene->shot_a9da_assignment_valid ||
+                            !scene->shot_a9da_opcode13_pending ||
+                            chosen >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+                            scene->shot_a9da_result.outcome !=
+                                TECMO_GAMEPLAY_CPU_A9DA_OUTCOME_ASSIGNED ||
+                            scene->shot_a9da_latch.producer !=
+                                TECMO_GAMEPLAY_CPU_GLOBAL_LATCH_PRODUCER_A9DA ||
+                            scene->shot_a9da_latch.raw_x_038d_038e !=
+                                scene->shot_a9da_result
+                                    .projected_x_038d_038e ||
+                            scene->shot_a9da_latch.raw_depth_038f_0390 !=
+                                scene->shot_a9da_result
+                                    .projected_depth_038f_0390 ||
+                            scene->shot_a9da_output
+                                    .stream_offset[chosen] != 0x002DU) {
+                            scene_test_terminal_failure = 226U;
+                            tecmo_gameplay_scene_end(scene);
+                            return false;
+                        }
                         for (unsigned raw_corruption = 0U;
-                             raw_corruption < 3U; ++raw_corruption) {
+                             raw_corruption < 7U; ++raw_corruption) {
                             malformed = *scene;
                             if (raw_corruption == 0U) {
                                 malformed.shot_a8e9_raw_006a ^= 1U;
                             } else if (raw_corruption == 1U) {
                                 malformed.shot_a8e9_normalized
                                     .raw_vx_04f1_04fc ^= 1U;
-                            } else {
+                            } else if (raw_corruption == 2U) {
                                 malformed.fixed_rng.serial = UINT32_MAX;
+                            } else if (raw_corruption == 3U) {
+                                malformed.shot_a9da_input.ball_x ^= 1U;
+                            } else if (raw_corruption == 4U) {
+                                malformed.shot_a9da_output
+                                    .stream_offset[chosen] ^= 1U;
+                            } else if (raw_corruption == 5U) {
+                                malformed.shot_a9da_result
+                                    .projected_x_038d_038e ^= 1U;
+                            } else {
+                                ++malformed.shot_a9da_latch.write_serial;
                             }
                             snapshot = malformed;
                             if (scene_update_jump_miss(
@@ -10936,6 +11153,52 @@ static bool scene_test_production_terminal_scenarios(
                                 return false;
                             }
                         }
+                        memset(&scene->opcode16_frame_context, 0,
+                               sizeof(scene->opcode16_frame_context));
+                        if (!scene_cpu_opcode16_workspace_capture(
+                                scene, &scene->opcode16_frame_context)) {
+                            scene_test_terminal_failure = 225U;
+                            scene_test_terminal_detail = 1U;
+                            tecmo_gameplay_scene_end(scene);
+                            return false;
+                        }
+                        if (!scene_update_shot_cpu_offball(scene)) {
+                            scene_test_terminal_failure = 225U;
+                            scene_test_terminal_detail = 2U;
+                            tecmo_gameplay_scene_end(scene);
+                            return false;
+                        }
+                        if (scene->shot_a9da_opcode13_pending ||
+                            scene->live_foundation.play_state
+                                    .stream_offset[chosen] != 0x0032U ||
+                            scene->live_foundation.last_step_offset[chosen] !=
+                                0x0032U ||
+                            !scene->live_foundation
+                                 .source_raw_target_valid[chosen] ||
+                            (uint16_t)scene->live_foundation.play_state
+                                    .target_x[chosen] !=
+                                scene->shot_a9da_latch.raw_x_038d_038e ||
+                            (uint16_t)scene->live_foundation.play_state
+                                    .target_depth[chosen] !=
+                                scene->shot_a9da_latch
+                                    .raw_depth_038f_0390) {
+                            scene_test_terminal_failure = 225U;
+                            scene_test_terminal_detail =
+                                scene->shot_a9da_opcode13_pending ? 3U :
+                                scene->live_foundation.play_state
+                                        .stream_offset[chosen] != 0x0032U ? 4U :
+                                scene->live_foundation.last_step_offset[chosen] !=
+                                        0x0032U ? 5U :
+                                !scene->live_foundation
+                                     .source_raw_target_valid[chosen] ? 6U :
+                                (uint16_t)scene->live_foundation.play_state
+                                        .target_x[chosen] !=
+                                    scene->shot_a9da_latch.raw_x_038d_038e ? 7U :
+                                8U;
+                            tecmo_gameplay_scene_end(scene);
+                            return false;
+                        }
+                        saw_a9da_assignment = true;
                         terminal_corruption_checked = true;
                     }
                 }
@@ -10992,8 +11255,9 @@ static bool scene_test_production_terminal_scenarios(
                 updates != miss_expected_updates[scenario] ||
                 (scenario == 3U && max_repeats != 3U) ||
                 (scenario == 3U &&
-                 (!saw_tgls_release || !saw_tgls_first_tick ||
-                  !saw_authentic_rattle || !saw_a8e9_normalized ||
+                  (!saw_tgls_release || !saw_tgls_first_tick ||
+                   !saw_authentic_rattle || !saw_a8e9_normalized ||
+                   !saw_a9da_assignment ||
                   !release_corruption_checked ||
                   !terminal_corruption_checked)) ||
                 (scenario != 3U && !tail_corruption_checked) ||

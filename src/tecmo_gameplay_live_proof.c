@@ -170,6 +170,17 @@ typedef struct LiveProofEventEvidence {
     uint32_t actor_command_assignment_scene_frame_after;
     uint32_t actor_command_assignment_sync_serial_before;
     uint32_t actor_command_assignment_sync_serial_after;
+    bool shot_offball_capture_proved;
+    uint16_t shot_offball_capture_frame;
+    uint8_t shot_offball_route_actor;
+    uint8_t shot_offball_controlled_actor;
+    TecmoGameplayCourtCoordinate shot_offball_route_start;
+    TecmoGameplayCourtCoordinate shot_offball_route_capture;
+    TecmoGameplayCourtCoordinate shot_offball_controlled_start;
+    TecmoGameplayCourtCoordinate shot_offball_controlled_capture;
+    bool shot_offball_a9da_observed;
+    uint8_t shot_offball_a9da_chosen_actor;
+    uint16_t shot_offball_a9da_stream_after;
 } LiveProofEventEvidence;
 
 static void live_proof_error(char *message, size_t message_size,
@@ -216,6 +227,26 @@ static uint32_t live_proof_fnv1a32(const uint8_t *bytes, size_t count)
     return hash;
 }
 
+static bool live_proof_offball_capture_frame(const char *event,
+                                             uint16_t *frame_out)
+{
+    static const char *const names[] = {
+        "shot-offball-1", "shot-offball-9", "shot-offball-17",
+        "shot-offball-25", "shot-offball-33", "shot-offball-65",
+        "shot-offball-89"
+    };
+    static const uint16_t frames[] = {1U, 9U, 17U, 25U, 33U, 65U, 89U};
+    size_t index;
+    if (event == NULL || frame_out == NULL) return false;
+    for (index = 0U; index < sizeof(frames) / sizeof(frames[0]); ++index) {
+        if (strcmp(event, names[index]) == 0) {
+            *frame_out = frames[index];
+            return true;
+        }
+    }
+    return false;
+}
+
 static bool live_proof_event_valid(const char *event)
 {
     static const char *const names[] = {
@@ -238,7 +269,9 @@ static bool live_proof_event_valid(const char *event)
         "defensive-foul-presentation"
     };
     size_t index;
+    uint16_t capture_frame;
     if (event == NULL || event[0] == '\0') return false;
+    if (live_proof_offball_capture_frame(event, &capture_frame)) return true;
     for (index = 0U; index < sizeof(names) / sizeof(names[0]); ++index) {
         if (strcmp(event, names[index]) == 0) return true;
     }
@@ -631,35 +664,31 @@ static bool live_proof_trigger_defensive_foul(
     return true;
 }
 
-/* Establish a deterministic, ordinary controller-B miss fixture from the
- * actual completed pre-tip live handoff. It never injects a claimant,
- * possession, phase, or finish call: the outer production update launches and
- * settles the shot, and the claimant is selected later by the normal
- * $B73E-derived scene scan. The limited coordinates/frame seed are transparent
- * test-fixture inputs rather than claims about original policy. */
-static bool live_proof_trigger_claimant_settlement(
+/* Launch a deterministic ordinary controller-B miss from the completed
+ * pre-tip handoff. The bounded coordinate/frame search enters through the
+ * production outer update and never injects a shot phase or outcome. */
+static bool live_proof_launch_controller_b_miss(
     TecmoGameplayScene *scene,
     LiveProofEventEvidence *evidence,
+    uint8_t *shooting_actor_out,
+    TecmoGameplayTeam *shooting_team_out,
+    size_t *controller_out,
+    bool require_jump_rattle,
     char *message,
     size_t message_size)
 {
     TecmoGameplayScene launched;
     TecmoControlFrame p1;
     TecmoControlFrame p2;
-    TecmoControlFrame neutral;
     TecmoGameplayCourtCoordinate shooter;
-    TecmoGameplayCourtCoordinate claimant;
     TecmoGameplayCourtCoordinate far_actor = {576, 192};
     TecmoGameplayTeam shooting_team;
-    TecmoGameplayTeam claimant_team;
     uint8_t shooting_actor;
-    uint8_t claimant_actor;
     size_t controller;
-    uint32_t serial_before;
-    uint16_t update;
     uint32_t seed;
 
-    if (scene == NULL || evidence == NULL ||
+    if (scene == NULL || evidence == NULL || shooting_actor_out == NULL ||
+        shooting_team_out == NULL || controller_out == NULL ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
         scene->state.possession >= TECMO_GAMEPLAY_TEAM_COUNT ||
         scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
@@ -669,12 +698,10 @@ static bool live_proof_trigger_claimant_settlement(
         scene->orientation_state.offensive_hoop.x >=
             TECMO_GAMEPLAY_COURT_WORLD_MAX_X - 48) {
         return live_proof_reject(message, message_size,
-                                 "claimant settlement native pre-tip handoff failed");
+                                 "controller-B miss native pre-tip handoff failed");
     }
     shooting_actor = scene->ball_holder;
     shooting_team = (TecmoGameplayTeam)scene->state.possession;
-    claimant_team = scene_other_team(shooting_team);
-    claimant_actor = scene_first_actor_for_team(claimant_team);
     for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
          ++controller) {
         if (scene->launch.controller_team[controller] == shooting_team &&
@@ -682,13 +709,10 @@ static bool live_proof_trigger_claimant_settlement(
             break;
         }
     }
-    if (controller == TECMO_GAMEPLAY_CONTROLLER_COUNT ||
-        claimant_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
-        claimant_actor == shooting_actor ||
-        scene->actors[claimant_actor].team != (uint8_t)claimant_team) {
+    if (controller == TECMO_GAMEPLAY_CONTROLLER_COUNT) {
         return live_proof_reject(
             message, message_size,
-            "claimant settlement native controller/claimant fixture failed");
+            "controller-B miss native controller fixture failed");
     }
 
     /* Bounded low-byte frame search selects a real normal-B miss. The explicit
@@ -699,8 +723,10 @@ static bool live_proof_trigger_claimant_settlement(
         launched = *scene;
         shooter.x = (int16_t)(
             launched.orientation_state.attack_direction == 0U
-                ? launched.orientation_state.offensive_hoop.x + 48
-                : launched.orientation_state.offensive_hoop.x - 48);
+                ? launched.orientation_state.offensive_hoop.x +
+                      (require_jump_rattle ? 64 : 48)
+                : launched.orientation_state.offensive_hoop.x -
+                      (require_jump_rattle ? 64 : 48));
         shooter.y = TECMO_GAMEPLAY_SHOT_TARGET_Y;
         if (!scene_actor_coordinate_valid(&shooter)) continue;
         for (size_t actor = 0U;
@@ -729,7 +755,10 @@ static bool live_proof_trigger_claimant_settlement(
         if (!tecmo_gameplay_scene_update(&launched, &p1, &p2) ||
             launched.shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE ||
             launched.shot_actor != shooting_actor ||
-            launched.shot_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS) {
+            launched.shot_outcome != TECMO_GAMEPLAY_SHOT_OUTCOME_MISS ||
+            (require_jump_rattle &&
+             (launched.shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_JUMP ||
+              !launched.shot_rim_rattle_selected))) {
             continue;
         }
         *scene = launched;
@@ -739,7 +768,51 @@ static bool live_proof_trigger_claimant_settlement(
     if (seed == 256U) {
         return live_proof_reject(
             message, message_size,
-            "claimant settlement fixture could not launch normal-B miss");
+            "controller-B fixture could not launch normal miss");
+    }
+    *shooting_actor_out = shooting_actor;
+    *shooting_team_out = shooting_team;
+    *controller_out = controller;
+    return true;
+}
+
+/* Establish a deterministic, ordinary controller-B miss fixture from the
+ * actual completed pre-tip live handoff. It never injects a claimant,
+ * possession, phase, or finish call: the outer production update launches and
+ * settles the shot, and the claimant is selected later by the normal
+ * $B73E-derived scene scan. The limited coordinates/frame seed are transparent
+ * test-fixture inputs rather than claims about original policy. */
+static bool live_proof_trigger_claimant_settlement(
+    TecmoGameplayScene *scene,
+    LiveProofEventEvidence *evidence,
+    char *message,
+    size_t message_size)
+{
+    TecmoControlFrame neutral;
+    TecmoGameplayCourtCoordinate claimant;
+    TecmoGameplayCourtCoordinate far_actor = {576, 192};
+    TecmoGameplayTeam shooting_team;
+    TecmoGameplayTeam claimant_team;
+    uint8_t shooting_actor;
+    uint8_t claimant_actor;
+    size_t controller;
+    uint32_t serial_before;
+    uint16_t update;
+
+    if (!live_proof_launch_controller_b_miss(
+            scene, evidence, &shooting_actor, &shooting_team, &controller,
+            false, message, message_size)) {
+        return false;
+    }
+    (void)controller;
+    claimant_team = scene_other_team(shooting_team);
+    claimant_actor = scene_first_actor_for_team(claimant_team);
+    if (claimant_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        claimant_actor == shooting_actor ||
+        scene->actors[claimant_actor].team != (uint8_t)claimant_team) {
+        return live_proof_reject(
+            message, message_size,
+            "claimant settlement native claimant fixture failed");
     }
 
     claimant.x = (int16_t)(scene->shot_end_position.x_q8 / 256);
@@ -802,6 +875,206 @@ static bool live_proof_trigger_claimant_settlement(
     evidence->claimant_shooting_actor = shooting_actor;
     evidence->claimant_actor = claimant_actor;
     evidence->claimant_settlement = scene->claimant_settlement_trace;
+    return true;
+}
+
+/* Produce independently replayable temporal frames from the same normal-B
+ * rattle. A source-shaped state-5 route and held direction on the non-shooting
+ * controller exercise only the production no-possession movement phases. */
+static bool live_proof_capture_shot_offball(
+    TecmoGameplayScene *scene,
+    uint16_t capture_frame,
+    LiveProofEventEvidence *evidence,
+    char *message,
+    size_t message_size)
+{
+    TecmoControlFrame controls[TECMO_GAMEPLAY_CONTROLLER_COUNT];
+    TecmoGameplayCpuSteeringRouteMotionState *motion;
+    TecmoGameplayTeam shooting_team;
+    uint8_t shooting_actor;
+    uint8_t controlled_actor;
+    uint8_t route_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    uint8_t rattle_orientation;
+    uint16_t target_x;
+    size_t shooting_controller;
+    size_t other_controller;
+    int actor;
+
+    if (!live_proof_launch_controller_b_miss(
+            scene, evidence, &shooting_actor, &shooting_team,
+            &shooting_controller, true, message, message_size)) {
+        return false;
+    }
+    (void)shooting_team;
+    if (capture_frame < scene->shot_frame || capture_frame > 89U) {
+        return live_proof_reject(message, message_size,
+                                 "off-ball capture frame outside rattle");
+    }
+    if (!scene_shot_captured_rattle_orientation(
+            scene, &rattle_orientation)) {
+        return live_proof_reject(message, message_size,
+                                 "off-ball rattle orientation unavailable");
+    }
+    other_controller = (shooting_controller + 1U) %
+        TECMO_GAMEPLAY_CONTROLLER_COUNT;
+    controlled_actor = scene->controlled_actor[other_controller];
+    for (actor = (int)TECMO_GAMEPLAY_SCENE_ACTOR_COUNT - 1;
+         actor >= 0; --actor) {
+        bool controlled = false;
+        bool pretip_recovery = false;
+        size_t index;
+        for (index = 0U; index < TECMO_GAMEPLAY_CONTROLLER_COUNT; ++index) {
+            if (scene->controlled_actor[index] == (uint8_t)actor) {
+                controlled = true;
+            }
+        }
+        if (scene->pretip_jump_active && scene->pretip_state.live_handoff &&
+            scene->pretip_state.simulation_active) {
+            for (index = 0U;
+                 index < TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT; ++index) {
+                if (scene->pretip_jumper_actor[index] == (uint8_t)actor) {
+                    pretip_recovery = true;
+                }
+            }
+        }
+        if ((uint8_t)actor != shooting_actor &&
+            (uint8_t)actor != scene->live_foundation.primary_actor &&
+            (uint8_t)actor != scene->live_foundation.defender_actor &&
+            !controlled && !pretip_recovery) {
+            route_actor = (uint8_t)actor;
+            break;
+        }
+    }
+    if (controlled_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        controlled_actor == shooting_actor ||
+        route_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        return live_proof_reject(message, message_size,
+                                 "off-ball capture actors unavailable");
+    }
+
+    target_x = rattle_orientation == 0U ? 0x00A0U : 0x0260U;
+    scene->actors[route_actor].position.x = (int16_t)(
+        rattle_orientation == 0U
+            ? target_x + 32U : target_x - 32U);
+    scene->actors[route_actor].position.y = 0x94;
+    scene->actors[route_actor].anchor = scene->actors[route_actor].position;
+    motion = &scene->live_foundation.play_state.route_motion[route_actor];
+    memset(motion, 0, sizeof(*motion));
+    motion->contract_tag =
+        TECMO_GAMEPLAY_CPU_STEERING_ROUTE_MOTION_STATE_TAG;
+    motion->horizontal_accumulator_q6 = (uint16_t)(
+        (uint16_t)scene->actors[route_actor].position.x << 6U);
+    motion->depth_accumulator_q6 = (uint16_t)(
+        (uint16_t)scene->actors[route_actor].position.y << 6U);
+    motion->horizontal_velocity_q6 =
+        rattle_orientation == 0U ? -64 : 64;
+    motion->depth_velocity_q6 = 0;
+    motion->remaining_timer = 32U;
+    motion->active = true;
+    scene->live_foundation.play_state.actor_state[route_actor] = 0x05U;
+    scene->live_foundation.play_state.wait_counter[route_actor] = 0U;
+    scene->live_foundation.play_state.target_object[route_actor] =
+        TECMO_GAMEPLAY_CPU_STEERING_BALL_OBJECT_SLOT;
+    scene->live_foundation.play_state.target_x[route_actor] =
+        (int16_t)target_x;
+    scene->live_foundation.play_state.target_depth[route_actor] =
+        scene->actors[route_actor].position.y;
+    scene->live_foundation.source_target_valid[route_actor] = true;
+    scene->live_foundation.source_direction_valid[route_actor] = false;
+    scene->live_foundation.deferred[route_actor] = false;
+    scene->live_foundation.deferred_reason[route_actor] =
+        TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+    scene->cpu_actors[route_actor].decision_serial = 1U;
+    scene->cpu_actors[route_actor].snapshot_fingerprint = 0U;
+    scene->cpu_actors[route_actor].target_position =
+        scene->actors[route_actor].position;
+    scene->cpu_actors[route_actor].target_position.x = (int16_t)target_x;
+    scene->cpu_actors[route_actor].target_kind =
+        TECMO_GAMEPLAY_CPU_STEERING_HARNESS_BALL_OBJECT_TARGET;
+    scene->cpu_actors[route_actor].direction =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
+    scene->cpu_actors[route_actor].held_direction_bits =
+        TECMO_GAMEPLAY_MOVEMENT_INPUT_NEUTRAL;
+    scene->cpu_actors[route_actor].target_valid = true;
+    scene->cpu_actors[route_actor].writes_direction = false;
+    evidence->shot_offball_route_start = scene->actors[route_actor].position;
+    evidence->shot_offball_controlled_start =
+        scene->actors[controlled_actor].position;
+    if (!tecmo_gameplay_live_foundation_valid(
+            &scene->cpu_steering_assets, &scene->live_foundation)) {
+        return live_proof_reject(message, message_size,
+                                 "off-ball source route fixture rejected");
+    }
+
+    live_proof_controls_neutral(&controls[0U]);
+    live_proof_controls_neutral(&controls[1U]);
+    if (scene->actors[controlled_actor].position.x >= 384) {
+        controls[other_controller].held.left = true;
+    } else {
+        controls[other_controller].held.right = true;
+    }
+    while (scene->shot_frame < capture_frame) {
+        uint16_t before_frame = scene->shot_frame;
+        if (!tecmo_gameplay_scene_update(
+                scene, &controls[0U], &controls[1U])) {
+            char detail[96];
+            (void)snprintf(detail, sizeof(detail),
+                           "off-ball production update rejected before frame %u",
+                           (unsigned)before_frame);
+            return live_proof_reject(message, message_size, detail);
+        }
+        if (scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
+            return live_proof_reject(message, message_size,
+                                     "off-ball rattle settled before capture");
+        }
+    }
+    evidence->shot_offball_capture_frame = capture_frame;
+    evidence->shot_offball_route_actor = route_actor;
+    evidence->shot_offball_controlled_actor = controlled_actor;
+    evidence->shot_offball_route_capture = scene->actors[route_actor].position;
+    evidence->shot_offball_controlled_capture =
+        scene->actors[controlled_actor].position;
+    evidence->shot_offball_a9da_observed =
+        scene->shot_a9da_assignment_valid;
+    evidence->shot_offball_a9da_chosen_actor =
+        scene->shot_a9da_assignment_valid
+            ? scene->shot_a9da_result.chosen_actor_002d
+            : TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+    evidence->shot_offball_a9da_stream_after =
+        scene->shot_a9da_assignment_valid
+            ? scene->live_foundation.last_step_offset[
+                  scene->shot_a9da_result.chosen_actor_002d]
+            : 0U;
+    if (scene->shot_frame != capture_frame ||
+        scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+        (capture_frame > 1U &&
+         (evidence->shot_offball_route_capture.x ==
+              evidence->shot_offball_route_start.x ||
+          evidence->shot_offball_controlled_capture.x ==
+              evidence->shot_offball_controlled_start.x)) ||
+        (capture_frame < 89U && scene->shot_a9da_assignment_valid) ||
+        (capture_frame == 89U &&
+         (!scene->shot_a9da_assignment_valid ||
+          scene->shot_a9da_opcode13_pending ||
+          scene->shot_a9da_result.chosen_actor_002d != route_actor ||
+          evidence->shot_offball_a9da_stream_after != 0x0032U))) {
+        char detail[192];
+        (void)snprintf(
+            detail, sizeof(detail),
+            "off-ball evidence mismatch frame=%u holder=%u route=%d/%d ctrl=%d/%d a9da=%u pending=%u chosen=%u expected=%u step=%04X",
+            (unsigned)scene->shot_frame, (unsigned)scene->ball_holder,
+            (int)evidence->shot_offball_route_start.x,
+            (int)evidence->shot_offball_route_capture.x,
+            (int)evidence->shot_offball_controlled_start.x,
+            (int)evidence->shot_offball_controlled_capture.x,
+            scene->shot_a9da_assignment_valid ? 1U : 0U,
+            scene->shot_a9da_opcode13_pending ? 1U : 0U,
+            (unsigned)evidence->shot_offball_a9da_chosen_actor,
+            (unsigned)route_actor,
+            (unsigned)evidence->shot_offball_a9da_stream_after);
+        return live_proof_reject(message, message_size, detail);
+    }
+    evidence->shot_offball_capture_proved = true;
     return true;
 }
 
@@ -1960,6 +2233,7 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
 {
     TecmoControlFrame p1;
     TecmoControlFrame p2;
+    uint16_t offball_capture_frame;
     if (scene == NULL || event == NULL || evidence == NULL) {
         return live_proof_reject(message, message_size,
                                  "LIVE proof event context missing");
@@ -2002,6 +2276,11 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
     if (strcmp(event, "claimant-settlement") == 0) {
         return live_proof_trigger_claimant_settlement(
             scene, evidence, message, message_size);
+    }
+    if (live_proof_offball_capture_frame(
+            event, &offball_capture_frame)) {
+        return live_proof_capture_shot_offball(
+            scene, offball_capture_frame, evidence, message, message_size);
     }
     if (strcmp(event, "actor-command-assignment-deferred") == 0) {
         return live_proof_observe_actor_command_assignment_deferred(
@@ -2982,6 +3261,35 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             rebound_decision.source_gate_eligible ? "true" : "false",
             tecmo_gameplay_rebound_audit_reason_name(
                 rebound_decision.reason))) {
+        return false;
+    }
+    if (!live_proof_append(
+            message, message_size, &length,
+            "\"shot_offball\":{\"proved\":%s,"
+            "\"entrypoint\":\"tecmo_gameplay_scene_update/normal-B-rattle\","
+            "\"capture_frame\":%u,\"ball_holder\":%u,"
+            "\"route_actor\":%u,\"route_position\":[[%d,%d],[%d,%d]],"
+            "\"controlled_actor\":%u,"
+            "\"controlled_position\":[[%d,%d],[%d,%d]],"
+            "\"a9da\":{\"observed\":%s,\"chosen_actor\":%u,"
+            "\"last_step_after\":\"%04X\"},"
+            "\"fixture\":\"source-shaped state5 route plus held direction; shot launch/outcome and every temporal advance use production update\"},",
+            evidence->shot_offball_capture_proved ? "true" : "false",
+            (unsigned)evidence->shot_offball_capture_frame,
+            (unsigned)scene->ball_holder,
+            (unsigned)evidence->shot_offball_route_actor,
+            (int)evidence->shot_offball_route_start.x,
+            (int)evidence->shot_offball_route_start.y,
+            (int)evidence->shot_offball_route_capture.x,
+            (int)evidence->shot_offball_route_capture.y,
+            (unsigned)evidence->shot_offball_controlled_actor,
+            (int)evidence->shot_offball_controlled_start.x,
+            (int)evidence->shot_offball_controlled_start.y,
+            (int)evidence->shot_offball_controlled_capture.x,
+            (int)evidence->shot_offball_controlled_capture.y,
+            evidence->shot_offball_a9da_observed ? "true" : "false",
+            (unsigned)evidence->shot_offball_a9da_chosen_actor,
+            (unsigned)evidence->shot_offball_a9da_stream_after)) {
         return false;
     }
     if (!live_proof_append(

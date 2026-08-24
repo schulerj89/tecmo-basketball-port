@@ -146,6 +146,12 @@ static void scene_shot_clear_raw_launch(TecmoGameplayScene *scene)
     scene->shot_a8e9_raw_006a = 0U;
     memset(&scene->shot_a8e9_normalized, 0,
            sizeof(scene->shot_a8e9_normalized));
+    scene->shot_a9da_assignment_valid = false;
+    scene->shot_a9da_opcode13_pending = false;
+    memset(&scene->shot_a9da_latch, 0, sizeof(scene->shot_a9da_latch));
+    memset(&scene->shot_a9da_input, 0, sizeof(scene->shot_a9da_input));
+    memset(&scene->shot_a9da_output, 0, sizeof(scene->shot_a9da_output));
+    memset(&scene->shot_a9da_result, 0, sizeof(scene->shot_a9da_result));
 }
 
 void scene_shot_clear_jump_playback(TecmoGameplayScene *scene)
@@ -2661,6 +2667,12 @@ static bool scene_update_jump_miss_mutating(
     }
     scene->shot_frame = next_frame;
     route_frame = next_frame;
+    /* Direct shot-step tests do not run the outer ordinary actor phase. The
+       A9DA capability is nevertheless single-update: if frame 89 did not
+       consume it, expire it before any later shot frame. */
+    if (next_frame > TECMO_GAMEPLAY_JUMP_RATTLE_HANDOFF_FRAME) {
+        scene->shot_a9da_opcode13_pending = false;
+    }
 
     if (!scene->legacy_direct_launch &&
         scene->shot_a0f3_motion_valid &&
@@ -2931,6 +2943,9 @@ static bool scene_update_jump_miss_rim_rattle(
                 scene->shot_a8e9_normalized_valid = true;
                 scene->shot_a8e9_raw_006a =
                     normalize_input.raw_006a;
+                if (!scene_apply_a9da_landing_assignment(scene)) {
+                    return false;
+                }
             }
             *route_frame = TECMO_GAMEPLAY_JUMP_RATTLE_BEGIN_FRAME;
         }

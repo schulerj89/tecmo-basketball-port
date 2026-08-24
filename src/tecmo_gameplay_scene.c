@@ -2248,6 +2248,37 @@ static bool scene_advance_state_and_restarts(
     return true;
 }
 
+bool scene_update_shot_controlled_offball(
+    TecmoGameplayScene *scene,
+    const TecmoControlFrame *controls[TECMO_GAMEPLAY_CONTROLLER_COUNT])
+{
+    size_t controller;
+    if (scene == NULL || controls == NULL) return false;
+    if (scene->legacy_direct_launch ||
+        scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE) {
+        return true;
+    }
+    /* Bank05 retires object-slot-10 possession while shot playback owns the
+       ball. Directional input still reaches each selected non-shooter actor;
+       action buttons remain owned by the shot branch and are never dispatched
+       as pass/switch/shot/defense actions here. */
+    if (scene->ball_holder != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+        scene->shot_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        return false;
+    }
+    for (controller = 0U;
+         controller < TECMO_GAMEPLAY_CONTROLLER_COUNT; ++controller) {
+        if (scene->controlled_actor[controller] == scene->shot_actor) {
+            continue;
+        }
+        if (!scene_move_controlled_actor(
+                scene, controller, controls[controller])) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool scene_update_live_action_ordered(
     TecmoGameplayScene *scene,
     const TecmoControlFrame *controls[TECMO_GAMEPLAY_CONTROLLER_COUNT],
@@ -2285,6 +2316,26 @@ static bool scene_update_live_action_ordered(
         if (!scene_update_shot(scene, shooting_controls)) {
             scene_set_status(scene, "shot animation update rejected");
             return false;
+        }
+        if (scene->shot_kind != TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+            !scene->legacy_direct_launch) {
+            memset(&scene->opcode16_frame_context, 0,
+                   sizeof(scene->opcode16_frame_context));
+            if (!scene_cpu_opcode16_workspace_capture(
+                    scene, &scene->opcode16_frame_context)) {
+                scene_set_status(
+                    scene, "shot opcode-16 workspace rejected");
+                return false;
+            }
+            if (!scene_update_shot_controlled_offball(scene, controls)) {
+                scene_set_status(
+                    scene, "shot off-ball controlled movement rejected");
+                return false;
+            }
+            if (!scene_update_shot_cpu_offball(scene)) {
+                scene_set_status(scene, "shot off-ball CPU movement rejected");
+                return false;
+            }
         }
         *jump_miss_settled_out = terminal_jump_miss &&
             scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE;

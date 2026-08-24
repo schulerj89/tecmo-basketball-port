@@ -1335,6 +1335,15 @@ try {
     # non-identity direct scene launch, runs real PRETIP (no skip hook), and
     # renders through the production TecmoRuntime court renderer. The flow
     # wrapper separately proves the game.c production launch bridge.
+    $ShotOffballEvents = @(
+        "shot-offball-1",
+        "shot-offball-9",
+        "shot-offball-17",
+        "shot-offball-25",
+        "shot-offball-33",
+        "shot-offball-65",
+        "shot-offball-89"
+    )
     $ProofEvents = @(
         "pretip-start",
         "live-handoff",
@@ -1348,7 +1357,8 @@ try {
         "cpu-auto-pass-action10",
         "cpu-auto-pass-gather",
         "cpu-auto-pass-stream",
-        "shot-path",
+        "shot-path"
+    ) + $ShotOffballEvents + @(
         "claimant-settlement",
         "defensive-foul-presentation"
     )
@@ -1471,6 +1481,49 @@ try {
                  [int]$State.action_serial -ne 1 -or
                  [int]$State.shot_frame -lt 1)) {
                 throw "LIVE proof shot event did not retain exact-once playback state."
+            }
+            if ($ShotOffballEvents -contains $Event) {
+                $ShotOffball = $State.shot_offball
+                $ExpectedCaptureFrame = [int]($Event -replace '^shot-offball-', '')
+                $RoutePosition = @($ShotOffball.route_position)
+                $ControlledPosition = @($ShotOffball.controlled_position)
+                if (![bool]$ShotOffball.proved -or
+                    $ShotOffball.entrypoint -ne
+                        "tecmo_gameplay_scene_update/normal-B-rattle" -or
+                    [int]$ShotOffball.capture_frame -ne $ExpectedCaptureFrame -or
+                    [int]$ShotOffball.ball_holder -ne 255 -or
+                    [int]$ShotOffball.route_actor -lt 0 -or
+                    [int]$ShotOffball.route_actor -ge 10 -or
+                    [int]$ShotOffball.controlled_actor -lt 0 -or
+                    [int]$ShotOffball.controlled_actor -ge 10 -or
+                    [int]$ShotOffball.route_actor -eq
+                        [int]$ShotOffball.controlled_actor -or
+                    $RoutePosition.Count -ne 2 -or
+                    $ControlledPosition.Count -ne 2 -or
+                    [string]$ShotOffball.fixture -notmatch
+                        'source-shaped state5 route.*production update') {
+                    throw "LIVE proof shot off-ball frame contract failed."
+                }
+                if ($ExpectedCaptureFrame -gt 1 -and
+                    ((@($RoutePosition[0]) -join ',') -eq
+                         (@($RoutePosition[1]) -join ',') -or
+                     (@($ControlledPosition[0]) -join ',') -eq
+                         (@($ControlledPosition[1]) -join ','))) {
+                    throw "LIVE proof shot off-ball actors did not move."
+                }
+                if ($ExpectedCaptureFrame -lt 89 -and
+                    [bool]$ShotOffball.a9da.observed) {
+                    throw "LIVE proof shot off-ball A9DA appeared before frame 89."
+                }
+                if ($ExpectedCaptureFrame -eq 89 -and
+                    (![bool]$ShotOffball.a9da.observed -or
+                     [int]$ShotOffball.a9da.chosen_actor -ne
+                        [int]$ShotOffball.route_actor -or
+                     [string]$ShotOffball.a9da.last_step_after -ne "0032")) {
+                    throw "LIVE proof frame-89 A9DA/opcode-13 handoff failed."
+                }
+            } elseif ([bool]$State.shot_offball.proved) {
+                throw "Non-off-ball LIVE proof event emitted temporal shot evidence."
             }
             if ($Event -eq "claimant-settlement") {
                 $Claimant = $State.claimant_settlement
@@ -1793,6 +1846,7 @@ try {
             "cpu-auto-pass-gather: following native scene update enters packed `$32 gather with passer action `$0F"
             "cpu-auto-pass-stream: gather releases into visible pass flight with deterministic ball/player position deltas"
             "shot-path: deterministic supported close-shot fixture"
+            "shot-offball-1..89: repeatable normal controller-B rattle; source-shaped CPU state5 route and held non-shooting controller direction advance only through production scene updates; frame 89 proves A9DA `$002D opcode13 consume"
             "claimant-settlement: native pre-tip handoff then deterministic coordinate/frame fixture, normal controller-B miss and production terminal claimant handoff (no direct claimant/phase/possession injection)"
             "defensive-foul-presentation: real PRETIP/live handoff, optional human A switch, human defensive-B, then neutral capture at TGVR visible group 1"
         )
@@ -2815,10 +2869,10 @@ try {
 
     $global:LASTEXITCODE = 0
     Write-Output ("GAMEPLAY SCENE TEST PASS: Rev1 full-pack provenance " +
-        "scene controls THUD-1 clean jersey/name HUD TGMO-1 human/CPU walking poses TGBD-1 held-ball bounce/sound TGFT-1 fatigue TPNL-1 out-of-bounds settlement TGBC-1 live backcourt settlement TGVR-1 native violation referee TGAI-3/TGMO-1 transactional ordinary CPU movement with opcode-15 raw-owner defer diagnostics TGCP-2 full-world camera fine-scroll guarded-margins actor-camera-projection/possession-slice-render/freeze TGFL-1 orientation-lineup TGOR two-basket shot ownership TGDK TGJS TGSR-4 jump entry/turn/release/flight poses jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
+        "scene controls THUD-1 clean jersey/name HUD TGMO-1 human/CPU walking poses TGBD-1 held-ball bounce/sound TGFT-1 fatigue TPNL-1 out-of-bounds settlement TGBC-1 live backcourt settlement TGVR-1 native violation referee TGAI-3/TGMO-1 transactional ordinary CPU movement plus shot no-possession controlled/CPU movement and frame-89 A9DA `$002D opcode13 consume, with opcode-15 raw-owner defer diagnostics TGCP-2 full-world camera fine-scroll guarded-margins actor-camera-projection/possession-slice-render/freeze TGFL-1 orientation-lineup TGOR two-basket shot ownership TGDK TGJS TGSR-4 jump entry/turn/release/flight poses jump-miss/jump-make/rim-rattle early-release/expiry shots dunk-cutaway frame75/audio state " +
         "halftime/final render-hashes/determinism missing malformed oversized " +
         "dependency-corrupt chr-mismatch")
-    $ProofSummary = ("LIVE PROOF {0}: root={1} manifest={2} native_videos=2 frames={3} contact_sheet=1920x{4}" -f
+    $ProofSummary = ("LIVE PROOF {0}: root={1} manifest={2} native_videos=2 frames={3} offball_temporal_frames=7 contact_sheet=1920x{4}" -f
         $FinalManifest.status, $ProofRoot, $ManifestPath,
         ([int]$ProofEvents.Count * 2),
         [int]([Math]::Ceiling($ProofEvents.Count / 3.0) * 480))

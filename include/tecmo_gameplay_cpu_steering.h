@@ -701,6 +701,9 @@ typedef struct TecmoGameplayCpuSteeringHarnessInput {
     uint8_t actor;
     uint8_t possession;
     uint8_t orientation;
+    /* NO_ACTOR is accepted only with an explicit target. This is the typed
+       shot-flight/no-possession seam; it never selects a hoop approach or a
+       holder-relative fallback. */
     uint8_t ball_holder;
     uint8_t matchup_actor;
     uint8_t difficulty;
