@@ -125,7 +125,7 @@ typedef struct LiveProofEventEvidence {
     uint8_t catch_gate_plus10_clock_minutes;
     uint8_t catch_gate_plus10_clock_seconds;
     bool catch_gate_exact_time_inputs;
-    bool catch_gate_007e_clear_approximation;
+    bool catch_gate_007e_bit1_exact;
     uint32_t catch_decision_serial_before;
     uint32_t catch_decision_serial_after_fetch;
     uint32_t catch_decision_serial_after_move;
@@ -1691,7 +1691,7 @@ static bool live_proof_cpu_catch_progression(
     evidence->catch_gate_plus10_clock_minutes = gate_skip->state.clock_minutes;
     evidence->catch_gate_plus10_clock_seconds = gate_skip->state.clock_seconds;
     evidence->catch_gate_exact_time_inputs = true;
-    evidence->catch_gate_007e_clear_approximation = true;
+    evidence->catch_gate_007e_bit1_exact = true;
     scene->state.shot_clock = 3U;
     scene->state.clock_minutes = 1U;
     scene->state.clock_seconds = 30U;
@@ -2990,8 +2990,8 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             "\"opcode21\":{\"exact_typed_time_inputs\":%s,"
             "\"plus5_input\":[%u,%u,%u],"
             "\"plus10_input\":[%u,%u,%u],"
-            "\"raw_007e_bit1_clear_approximation\":%s,"
-            "\"whole_gate_exact\":false,\"plus5_stream\":\"%04X\","
+            "\"raw_007e_bit1_exact\":%s,"
+            "\"whole_gate_exact\":true,\"plus5_stream\":\"%04X\","
             "\"plus10_stream\":\"%04X\"}},"
             "\"controller_assignment\":{\"controlled_before\":[%u,%u],"
             "\"controlled_after\":[%u,%u],"
@@ -3191,7 +3191,7 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             (unsigned)evidence->catch_gate_plus10_shot_clock,
             (unsigned)evidence->catch_gate_plus10_clock_minutes,
             (unsigned)evidence->catch_gate_plus10_clock_seconds,
-            evidence->catch_gate_007e_clear_approximation ? "true" : "false",
+            evidence->catch_gate_007e_bit1_exact ? "true" : "false",
             (unsigned)evidence->catch_stream_after_gate_plus5,
             (unsigned)evidence->catch_stream_after_gate_plus10,
             (unsigned)evidence->catch_controlled_before[0U],

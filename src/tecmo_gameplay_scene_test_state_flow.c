@@ -3508,9 +3508,9 @@ static bool scene_test_live_foundation_regressions(
             LIVE_FAIL(failure);
         }
         primary_stream_before = (uint16_t)scene->actors[receiver].position.x;
-        /* $00DC opcode 21 owns exact typed shot/game clocks. Select its +5
-           branch here so the natural long route reaches $00E1 action $17;
-           raw $007E bit 1 remains the labeled clear-bit approximation. */
+        /* $00DC opcode 21 owns exact typed shot/game clocks plus the fixed
+           $F07E-$F0B9 bit-1 predicate. Select its +5 branch here so the
+           natural long route reaches $00E1 action $17. */
         scene->state.shot_clock = 3U;
         scene->state.clock_minutes = 1U;
         scene->state.clock_seconds = 30U;
@@ -3818,8 +3818,8 @@ static bool scene_test_live_foundation_regressions(
         }
 
         /* Discriminate opcode 21's exact +10 clock branch. The accepted
-           typed clocks satisfy $058A>=4,$0357=0,$0358>=4; only raw $007E
-           bit 1 is supplied by the documented clear-bit approximation. */
+           typed clocks satisfy $058A>=4,$0357=0,$0358>=4 and fixed
+           $F07E-$F0B9 supplies the exact clear bit-1 result. */
         scene->state.shot_clock = 4U;
         scene->state.clock_minutes = 0U;
         scene->state.clock_seconds = 4U;
@@ -6350,6 +6350,9 @@ static bool scene_test_live_foundation_regressions(
     {
         TecmoGameplaySceneCpuShotRequest no_shot;
         TecmoGameplaySceneA023LatchFrameContext latch_context;
+        TecmoGameplayCourtCoordinate opcode21_positions[
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+        uint8_t opcode21_flags = 0U;
         uint8_t target_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
         uint8_t unrelated_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
         uint8_t late_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
@@ -6358,6 +6361,46 @@ static bool scene_test_live_foundation_regressions(
                 scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
             !scene_sync_live_foundation(scene)) {
             LIVE_FAIL("LIVE opcode-13 production fixture setup rejected");
+        }
+        for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            opcode21_positions[actor] = scene->actors[actor].position;
+        }
+        /* Fixed $F07E-$F0B9 exact bit-1 boundary vectors. */
+        broken = *scene;
+        broken.orientation_state.attack_direction = 0U;
+        opcode21_positions[broken.live_foundation.primary_actor].x = 0x00F7;
+        opcode21_positions[broken.live_foundation.primary_actor].y = 0x007B;
+        if (!scene_cpu_opcode21_flags_007e(
+                &broken, opcode21_positions, &broken.live_foundation,
+                &opcode21_flags) || opcode21_flags != 0x02U) {
+            LIVE_FAIL("LIVE opcode-21 orientation-0 set boundary failed");
+        }
+        opcode21_positions[broken.live_foundation.primary_actor].x = 0x00F8;
+        if (!scene_cpu_opcode21_flags_007e(
+                &broken, opcode21_positions, &broken.live_foundation,
+                &opcode21_flags) || opcode21_flags != 0U) {
+            LIVE_FAIL("LIVE opcode-21 orientation-0 clear boundary failed");
+        }
+        broken.orientation_state.attack_direction = 1U;
+        opcode21_positions[broken.live_foundation.primary_actor].x = 0x0208;
+        opcode21_positions[broken.live_foundation.primary_actor].y = 0x00AE;
+        if (!scene_cpu_opcode21_flags_007e(
+                &broken, opcode21_positions, &broken.live_foundation,
+                &opcode21_flags) || opcode21_flags != 0x02U) {
+            LIVE_FAIL("LIVE opcode-21 orientation-1 set boundary failed");
+        }
+        opcode21_positions[broken.live_foundation.primary_actor].x = 0x0207;
+        if (!scene_cpu_opcode21_flags_007e(
+                &broken, opcode21_positions, &broken.live_foundation,
+                &opcode21_flags) || opcode21_flags != 0U) {
+            LIVE_FAIL("LIVE opcode-21 orientation-1 clear boundary failed");
+        }
+        opcode21_positions[broken.live_foundation.primary_actor].x = 0x0208;
+        opcode21_positions[broken.live_foundation.primary_actor].y = 0x00AF;
+        if (!scene_cpu_opcode21_flags_007e(
+                &broken, opcode21_positions, &broken.live_foundation,
+                &opcode21_flags) || opcode21_flags != 0U) {
+            LIVE_FAIL("LIVE opcode-21 depth clear boundary failed");
         }
         candidate_foundation = scene->live_foundation;
         for (int scan = 9; scan >= 0; --scan) {

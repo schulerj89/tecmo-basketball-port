@@ -296,6 +296,12 @@ bool scene_cpu_target_for_source_direction(
     TecmoGameplayCourtCoordinate *target_out);
 bool scene_cpu_common_tail_has_ordinary_live_zero(
     const TecmoGameplayScene *scene);
+bool scene_cpu_opcode21_flags_007e(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplayCourtCoordinate
+        actor_position[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT],
+    const TecmoGameplayLiveFoundation *foundation,
+    uint8_t *flags_007e_out);
 uint8_t scene_bank06_ordinary_actor_at(size_t source_index);
 /* Exact ordinary-LIVE opcode-10 projection seams. The selector trusts only
    actual Bank02 stores; retained/no-store results remain unavailable. The

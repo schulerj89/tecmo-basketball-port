@@ -113,8 +113,8 @@ foreach ($Repeat in 1, 2) {
          [int]$Proof.progression.position[1][1] -eq
              [int]$Proof.progression.position[2][1]) -or
         ![bool]$Proof.progression.opcode21.exact_typed_time_inputs -or
-        ![bool]$Proof.progression.opcode21.raw_007e_bit1_clear_approximation -or
-        [bool]$Proof.progression.opcode21.whole_gate_exact -or
+        ![bool]$Proof.progression.opcode21.raw_007e_bit1_exact -or
+        ![bool]$Proof.progression.opcode21.whole_gate_exact -or
         (@($Proof.progression.opcode21.plus5_input) -join ',') -ne '3,1,30' -or
         (@($Proof.progression.opcode21.plus10_input) -join ',') -ne '4,0,4' -or
         [Convert]::ToInt32(
@@ -162,7 +162,7 @@ $ManifestPath = Join-Path $OutputDirectory "cpu-catch-state0-proof.json"
     assertion_authority = "structured TGLP assertions"
     screenshot_scope = "presentation-only; not ROM-frame parity"
     automatic_route = 'chosen source-valid $00D7 long-route approximation'
-    opcode21 = 'typed clocks exact; raw $007E bit1-clear is a justified approximation'
+    opcode21 = 'typed clocks and fixed $F07E-$F0B9 raw $007E bit1 predicate exact'
     action17 = "source-backed action17 dispatch; native close-admission adapter; exact imported phase assets within the existing playback seam; far recovery approximation"
     deterministic_png_sha256 = $Records[0].png_sha256
     deterministic_state_sha256 = $Records[0].state_sha256

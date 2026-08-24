@@ -556,6 +556,17 @@ try {
             $Map.native_contract.opcode_dispatch.count -eq 24 -and
             (@($Map.native_contract.opcode_dispatch.handler_cpu) -join ',') -eq
                 ($ExpectedHandlers -join ',') -and
+            $Map.native_contract.opcode21_gate.handler -eq
+                'Bank06 $8BF6-$8C17' -and
+            $Map.native_contract.opcode21_gate.bit1_writer -eq
+                'fixed $F07E-$F0B9' -and
+            $Map.native_contract.opcode21_gate.bit1_writer_size -eq 60 -and
+            $Map.native_contract.opcode21_gate.bit1_writer_fnv1a32 -eq
+                'F92274FB' -and
+            $Map.native_contract.opcode21_gate.predicate -match
+                'clear each loop.*\$0478==0.*\$7B.*\$AE.*\$00F8.*\$0208' -and
+            @($Map.native_contract.opcode21_gate.typed_owners).Count -eq 5 -and
+            [bool]$Map.native_contract.opcode21_gate.production_bound -and
             $Map.native_contract.opcode4_ball_target.caller_path -match
                 '\$81F7-\$82D3.*\$8B90-\$8BE0.*\$8FFA' -and
             $Map.native_contract.opcode4_ball_target.handler -eq

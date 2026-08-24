@@ -2368,6 +2368,45 @@ bool scene_cpu_common_tail_has_ordinary_live_zero(
            !tecmo_gameplay_scene_in_dunk_presentation(scene);
 }
 
+bool scene_cpu_opcode21_flags_007e(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplayCourtCoordinate
+        actor_position[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT],
+    const TecmoGameplayLiveFoundation *foundation,
+    uint8_t *flags_007e_out)
+{
+    uint8_t primary;
+    uint8_t orientation;
+    uint16_t x;
+    uint8_t depth;
+    if (flags_007e_out == NULL) return false;
+    *flags_007e_out = 0U;
+    if (scene == NULL || actor_position == NULL || foundation == NULL ||
+        !scene_cpu_common_tail_has_ordinary_live_zero(scene) ||
+        foundation->primary_actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        foundation->primary_actor != foundation->play_state.primary_actor ||
+        scene->orientation_state.attack_direction > 1U) {
+        return false;
+    }
+    /* Fixed `$F07E-$F0B9` clears bit 1 every loop. Its `$0478==0` gate is
+       exactly the already-owned ordinary-LIVE seam above. It then requires
+       primary depth `$7B..$AE` and sets bit 1 beyond the attacking baseline:
+       raw X below `$00F8` for orientation 0, or at/above `$0208` for 1. */
+    primary = foundation->primary_actor;
+    orientation = scene->orientation_state.attack_direction;
+    if (!tecmo_gameplay_court_coordinate_valid(&actor_position[primary])) {
+        return false;
+    }
+    x = (uint16_t)actor_position[primary].x;
+    depth = (uint8_t)actor_position[primary].y;
+    if (depth >= 0x7BU && depth < 0xAFU &&
+        ((orientation == 0U && x < 0x00F8U) ||
+         (orientation == 1U && x >= 0x0208U))) {
+        *flags_007e_out = 0x02U;
+    }
+    return true;
+}
+
 static bool scene_cpu_current_ball_snapshot(
     const TecmoGameplayScene *scene,
     const TecmoGameplayCourtCoordinate
@@ -2769,18 +2808,13 @@ static bool scene_cpu_build_play_input(
     input->common_tail_ba_available =
         scene_cpu_common_tail_has_ordinary_live_zero(scene);
     input->flags_ba = 0U;
-    /* Opcode 21 reads $058A/$0357/$0358 as shot-clock/game-clock values.
-       Their typed scene owners are exact. Raw $007E bit 1 is not retained;
-       use its clear branch as a justified ordinary-LIVE approximation so
-       the source stream can select its exact +5/+10 outcome without a
-       permanent false missing-input stall. This does not claim whole-gate
-       parity with the original raw flags plane or exact 6502 intra-frame
-       ordering between the clock update and Bank06 dispatch. */
-    input->opcode21_gate_inputs_available = true;
+    /* Fixed `$F07E-$F0B9` authors `$007E` bit 1 before Bank06 dispatch from
+       the owned ordinary slot-10 state, orientation, and primary coordinate. */
+    input->opcode21_gate_inputs_available = scene_cpu_opcode21_flags_007e(
+        scene, actor_position, foundation, &input->flags_007e);
     input->state_058a = scene->state.shot_clock;
     input->state_0357 = scene->state.clock_minutes;
     input->state_0358 = scene->state.clock_seconds;
-    input->flags_007e = 0U;
     /* Opcode 7 still has no faithful typed LIVE owner. */
     input->actor_046e_probe_available = false;
     memcpy(input->actor_position, actor_position,
