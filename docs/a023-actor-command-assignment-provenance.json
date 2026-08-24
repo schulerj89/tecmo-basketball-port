@@ -121,6 +121,13 @@
       "B783": "$A214 state $17 -> $B775; $0499<$04 and $0588&$20",
       "B7B6": "$A214 state $18 -> $B7B6 -> $B783; $0499==0",
       "9FE2": "$9F2F predecessor geometry/property/trajectory gates then $A0DD target construction, $A023, and fixed $C009 #$05"
+    },
+    "same_frame_raw_latch": {
+      "B721": "$7D->$038D, $F2->$038E, $FD->$038F, $00->$0390, then JSR $A023",
+      "B783": "$7D->$038D, $F2->$038E, $FD->$038F, $00->$0390, JSR $A023, then clear $0588 bit $20",
+      "consumer_order": "fixed Bank06 $8284-$82A4 traverses actors 9..0 after the Bank05 event",
+      "authorization": "only actors written to immediate stream $0019 by that same successful A023 assignment; cursor coincidence is insufficient",
+      "expiry": "one following Bank06 traversal in the same frame"
     }
   },
   "asset_and_verifier_contract": {
@@ -145,6 +152,8 @@
       "a defensive-contact/foul bridge"
     ],
     "synthetic_no_candidate": "A valid LIVE foundation always has five actors on each $04B0 bit-$10 selector side. The no-candidate scan test is intentionally a direct invalid-selector fixture, not an organic scene claim."
+    ,
+    "same_frame_latch": "Intentional exact-event scene fixtures cover masked $0019 consumption, unrelated-$0019 rejection, delayed $000A and opcode13 rejection, single-frame expiry, malformed provenance, and rollback. Production never binds the context because A214 gate/object-slot ownership is absent."
   },
   "native_caller_equivalence": [
     {

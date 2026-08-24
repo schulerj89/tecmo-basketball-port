@@ -78,6 +78,14 @@ Do not leave temporary worktrees or agent branches around after reviewed commits
 have landed on `main`. Keep untracked handoff notes such as `NEXT_SESSION.md`
 out of unrelated commits unless the user explicitly asks to commit them.
 
+The bounded TGCA same-frame latch seam pins Bank05 `$B721`/`$B783` stores of
+`$7D:$F2/$FD:$00`, including `$B783`'s post-`$A023` bit-$20 clear. Its typed
+actor mask comes from the same successful assignment and authorizes only the
+immediate `$0019` opcode-20 actor during the following Bank06 9..0 traversal.
+Do not infer authorization from a cursor alone, expose it to opcode 13 or the
+delayed `$000A` path, persist it across frames, or bind it in production until
+the raw `$A214` gate/object-slot lifecycle has a faithful native owner.
+
 ## Useful Verification Commands
 
 ```powershell

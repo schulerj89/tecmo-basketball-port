@@ -4994,7 +4994,10 @@ static bool scene_test_live_foundation_regressions(
        typed missing-global-target defer with no stream/target mutation. */
     {
         TecmoGameplaySceneCpuShotRequest no_shot;
+        TecmoGameplaySceneA023LatchFrameContext latch_context;
         uint8_t target_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+        uint8_t unrelated_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+        uint8_t late_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
         if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
             !scene_handoff_possession(
                 scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
@@ -5069,6 +5072,134 @@ static bool scene_test_live_foundation_regressions(
             scene->live_foundation.source_raw_target_valid[target_actor] ||
             scene->cpu_actors[target_actor].target_valid) {
             LIVE_FAIL("LIVE opcode-20 production input was fabricated");
+        }
+
+        /* Intentional exact-event attachment fixture. Production owns no
+           A214 caller yet, so construct only the already-proven B721 result:
+           one raw depth byte, exact producer provenance, and the actor mask
+           written to `$0019` by that same assignment. */
+        scene->live_foundation.play_state.stream_offset[target_actor] =
+            0x0019U;
+        scene->live_foundation.last_step_offset[target_actor] = 0x0019U;
+        scene->live_foundation.deferred[target_actor] = false;
+        scene->live_foundation.deferred_reason[target_actor] =
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+        memset(&latch_context, 0, sizeof(latch_context));
+        latch_context.contract_tag =
+            TECMO_GAMEPLAY_SCENE_A023_LATCH_FRAME_CONTEXT_TAG;
+        latch_context.available = true;
+        latch_context.latch.contract_tag =
+            TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_TAG;
+        latch_context.latch.valid = true;
+        latch_context.latch.producer_kind =
+            TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B721;
+        latch_context.latch.target.x = (uint16_t)(
+            scene->actors[target_actor].position.x + 24);
+        latch_context.latch.target.depth = (uint16_t)(uint8_t)
+            scene->actors[target_actor].position.y;
+        latch_context.latch.immediate_opcode20_actor_mask =
+            (uint16_t)(1U << target_actor);
+        broken = *scene;
+        if (!tecmo_gameplay_scene_bind_a023_latch_frame_context(
+                &broken, &latch_context) ||
+            !scene_update_ai(&broken, &no_shot) ||
+            broken.live_foundation.deferred[target_actor] ||
+            broken.live_foundation.play_state
+                    .stream_offset[target_actor] != 0x001EU ||
+            broken.live_foundation.source_target_valid[target_actor] ||
+            broken.live_foundation.source_raw_target_valid[target_actor] ||
+            !broken.live_foundation
+                 .source_inactive_target_storage[target_actor] ||
+            broken.a023_latch_frame_context.available) {
+            LIVE_FAIL("LIVE same-frame B721 opcode-20 consume failed");
+        }
+        /* The same exact offset on an actor absent from the assignment mask
+           is cursor coincidence, not authorization. */
+        for (actor = 0U; actor < 10U; ++actor) {
+            if (actor != target_actor &&
+                actor != scene->live_foundation.primary_actor &&
+                actor != scene->live_foundation.defender_actor) {
+                unrelated_actor = (uint8_t)actor;
+                break;
+            }
+        }
+        if (unrelated_actor >= 10U) {
+            LIVE_FAIL("LIVE same-frame latch unrelated actor unavailable");
+        }
+        broken = *scene;
+        broken.live_foundation.play_state
+            .stream_offset[unrelated_actor] = 0x0019U;
+        broken.live_foundation.last_step_offset[unrelated_actor] =
+            0x0019U;
+        broken.live_foundation.play_state.actor_state[unrelated_actor] =
+            0x04U;
+        broken.live_foundation.play_state.wait_counter[unrelated_actor] = 0U;
+        broken.live_foundation.play_state.actor_state[target_actor] =
+            0x06U;
+        broken.live_foundation.play_state.wait_counter[target_actor] =
+            0xFFU;
+        if (!tecmo_gameplay_scene_bind_a023_latch_frame_context(
+                &broken, &latch_context) ||
+            !scene_update_ai(&broken, &no_shot) ||
+            !broken.live_foundation.deferred[unrelated_actor] ||
+            broken.live_foundation.deferred_reason[unrelated_actor] !=
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_GLOBAL_TARGET ||
+            broken.live_foundation.play_state
+                    .stream_offset[unrelated_actor] != 0x0019U ||
+            broken.a023_latch_frame_context.available) {
+            LIVE_FAIL("LIVE same-frame latch cursor coincidence admitted");
+        }
+        broken = *scene;
+        broken.live_foundation.play_state.stream_offset[target_actor] =
+            0x000AU;
+        broken.live_foundation.last_step_offset[target_actor] = 0x000AU;
+        if (!tecmo_gameplay_scene_bind_a023_latch_frame_context(
+                &broken, &latch_context) ||
+            !scene_update_ai(&broken, &no_shot) ||
+            broken.live_foundation.play_state
+                    .stream_offset[target_actor] != 0x000FU ||
+            broken.a023_latch_frame_context.available) {
+            LIVE_FAIL("LIVE same-frame latch leaked into delayed opcode-20");
+        }
+        broken = *scene;
+        broken.live_foundation.play_state
+            .stream_offset[target_actor] = 0x002DU;
+        broken.live_foundation.last_step_offset[target_actor] = 0x002DU;
+        if (!tecmo_gameplay_scene_bind_a023_latch_frame_context(
+                &broken, &latch_context) ||
+            !scene_update_ai(&broken, &no_shot) ||
+            !broken.live_foundation.deferred[target_actor] ||
+            broken.live_foundation.play_state
+                    .stream_offset[target_actor] != 0x002DU) {
+            LIVE_FAIL("LIVE same-frame latch leaked into opcode-13");
+        }
+        broken = *scene;
+        for (actor = 0U; actor < target_actor; ++actor) {
+            if (actor != broken.live_foundation.primary_actor &&
+                actor != broken.live_foundation.defender_actor) {
+                late_actor = (uint8_t)actor;
+                break;
+            }
+        }
+        if (late_actor >= 10U) {
+            LIVE_FAIL("LIVE same-frame latch rollback actor unavailable");
+        }
+        broken.cpu_actors[late_actor].decision_serial = UINT32_MAX;
+        if (!tecmo_gameplay_scene_bind_a023_latch_frame_context(
+                &broken, &latch_context)) {
+            LIVE_FAIL("LIVE same-frame latch rollback bind rejected");
+        }
+        snapshot = broken;
+        if (scene_update_ai(&broken, &no_shot) ||
+            memcmp(&broken, &snapshot, sizeof(broken)) != 0) {
+            LIVE_FAIL("LIVE same-frame latch late failure did not roll back");
+        }
+        latch_context.latch.immediate_opcode20_actor_mask = 0U;
+        snapshot = *scene;
+        if (tecmo_gameplay_scene_bind_a023_latch_frame_context(
+                scene, &latch_context) ||
+            memcmp(scene, &snapshot, sizeof(*scene)) != 0) {
+            LIVE_FAIL("LIVE malformed same-frame latch bind mutated scene");
         }
     }
 

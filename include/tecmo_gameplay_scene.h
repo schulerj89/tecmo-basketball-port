@@ -5,6 +5,7 @@
 #include "tecmo_framebuffer.h"
 #include "tecmo_gameplay_assets.h"
 #include "tecmo_gameplay_audio.h"
+#include "tecmo_gameplay_actor_command_assignment.h"
 #include "tecmo_gameplay_camera.h"
 #include "tecmo_gameplay_ball_dribble.h"
 #include "tecmo_gameplay_backcourt.h"
@@ -51,6 +52,7 @@
 #define TECMO_GAMEPLAY_SCENE_CPU_NO_COMMAND_OFFSET 0xFFFFU
 #define TECMO_GAMEPLAY_SCENE_OPCODE10_FRAME_CONTEXT_TAG 0x4630314FU
 #define TECMO_GAMEPLAY_SCENE_OPCODE16_FRAME_CONTEXT_TAG 0x4636314FU
+#define TECMO_GAMEPLAY_SCENE_A023_LATCH_FRAME_CONTEXT_TAG 0x464C4341U
 
 /* The slot-3 trace spans 125 inclusive updates from CPU state-18 entry through
    launch. Native play uses that observed schedule until the original CPU
@@ -353,6 +355,16 @@ typedef struct TecmoGameplaySceneOpcode16FrameContext {
     uint16_t workspace_0370;
 } TecmoGameplaySceneOpcode16FrameContext;
 
+/* Testable attachment seam for an exact, already-proven B721/B783 event.
+   Production does not bind this until the upstream raw A214 gates/object
+   scheduler gain typed owners. The context is consumed by one following
+   Bank06 traversal and never persists to a later scene frame. */
+typedef struct TecmoGameplaySceneA023LatchFrameContext {
+    uint32_t contract_tag;
+    TecmoGameplayActorCommandAssignmentSameFrameLatch latch;
+    bool available;
+} TecmoGameplaySceneA023LatchFrameContext;
+
 typedef struct TecmoGameplayScene {
     uint32_t lifecycle_tag;
     bool available;
@@ -414,6 +426,7 @@ typedef struct TecmoGameplayScene {
     TecmoGameplayLiveFoundation live_foundation;
     TecmoGameplaySceneOpcode10FrameContext opcode10_frame_context;
     TecmoGameplaySceneOpcode16FrameContext opcode16_frame_context;
+    TecmoGameplaySceneA023LatchFrameContext a023_latch_frame_context;
     TecmoGameplaySceneClaimantSettlementTrace claimant_settlement_trace;
     uint8_t controlled_actor[TECMO_GAMEPLAY_CONTROLLER_COUNT];
     uint8_t ball_holder;
@@ -538,6 +551,9 @@ bool tecmo_gameplay_scene_bind_opcode10_frame_context(
 bool tecmo_gameplay_scene_bind_opcode16_frame_context(
     TecmoGameplayScene *scene,
     const TecmoGameplaySceneOpcode16FrameContext *context);
+bool tecmo_gameplay_scene_bind_a023_latch_frame_context(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneA023LatchFrameContext *context);
 bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
                                  const TecmoControlFrame *player_one,
                                  const TecmoControlFrame *player_two);

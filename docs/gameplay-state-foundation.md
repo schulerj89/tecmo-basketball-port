@@ -239,6 +239,16 @@ ranges, payload offsets, and FNV32/FNV64 values. The parser compares its stored
 Rev1 SHA identity, and a bounded one-span verifier gives focused tests direct
 descriptor/FNV32/FNV64 coverage behind the full-ROM/aggregate guards.
 
+The same asset now pins `$B721` and `$B783` byte-for-byte. Both atomically
+store raw X `$7D:$F2`, raw depth `$FD:$00`, then call `$A023`; `$B783` clears
+`$0588` bit `$20` only afterward. The typed resolver can pair that raw target
+with the exact actor mask assigned immediate stream `$0019`. A single-use
+scene context admits opcode 20 only when both the mask bit and `$0019` match
+in the following Bank06 descending traversal. It never admits a coincidental
+cursor, the `$000A` wait/delayed opcode-20 path, or opcode 13, and expires on
+the frame attempt. This remains fixture-only: production has no faithful
+owner for the upstream `$A214` gates/object scheduler and does not bind it.
+
 This is **not** integrated into normal tip-off, jump, pass, claimant, rebound,
 or generic possession handling.  The native scene's numeric `jump_ball_state`
 does not own the object-slot-10 state/coordinate or the `$BA`, `$05A1`,

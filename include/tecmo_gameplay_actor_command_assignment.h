@@ -19,6 +19,7 @@
 #define TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_COUNT 9U
 #define TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_INPUT_TAG 0x31414341U
 #define TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_RESULT_TAG 0x31514341U
+#define TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_TAG 0x314C4341U
 
 typedef enum TecmoGameplayActorCommandAssignmentSourceKind {
     TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_DISTANCE_HELPER = 1,
@@ -44,6 +45,29 @@ typedef enum TecmoGameplayActorCommandAssignmentCaller {
     /* $A214 state $18 -> $B7B6 -> $B783 -> $A023. */
     TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_CALLER_OBJECT_STATE18_B7B6 = 4
 } TecmoGameplayActorCommandAssignmentCaller;
+
+/* Exact Bank05 producers of the four-byte `$038D-$0390` latch immediately
+ * before `$A023` returns to the same gameplay loop's Bank06 traversal. */
+typedef enum TecmoGameplayActorCommandAssignmentLatchProducer {
+    TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_NONE = 0,
+    TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B721 = 1,
+    TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B783 = 2
+} TecmoGameplayActorCommandAssignmentLatchProducer;
+
+typedef struct TecmoGameplayActorCommandAssignmentSameFrameLatch {
+    uint32_t contract_tag;
+    TecmoGameplayCpuSteeringRawTarget16 target;
+    TecmoGameplayActorCommandAssignmentLatchProducer producer_kind;
+    bool valid;
+    /* `$B79A-$B7A1` clears `$0588` bit `$20` only after `$B783` has stored
+       all four bytes and called `$A023`. This is ordering evidence, not a
+       retained raw-flags mirror. */
+    bool b783_bit20_clear_follows_assignment;
+    /* Exact actors written to immediate opcode-20 offset `$0019` by the same
+       successful `$A023` transaction. Cursor coincidence alone is never
+       authorization to consume the latch. */
+    uint16_t immediate_opcode20_actor_mask;
+} TecmoGameplayActorCommandAssignmentSameFrameLatch;
 
 typedef enum TecmoGameplayActorCommandAssignmentNoopReason {
     TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_NOOP_NONE = 0,
@@ -96,6 +120,11 @@ typedef struct TecmoGameplayActorCommandAssignmentInput {
     uint8_t raw_04af;
     bool object10_target_valid;
     TecmoGameplayCourtCoordinate object10_target;
+    /* Exact source bytes loaded by `$B721`/`$B783`: X is `$7D:$F2`, depth is
+       `$FD:$00`. This is separate from the bounded court coordinate used by
+       TGCA's distance scan. */
+    bool object10_raw_target_valid;
+    TecmoGameplayCpuSteeringRawTarget16 object10_raw_target;
 } TecmoGameplayActorCommandAssignmentInput;
 
 typedef struct TecmoGameplayActorCommandAssignmentScan {
@@ -130,6 +159,7 @@ typedef struct TecmoGameplayActorCommandAssignmentResult {
     uint16_t defender_stream_after;
     uint8_t defender_state_before;
     uint8_t defender_state_after;
+    uint16_t immediate_opcode20_actor_mask;
     TecmoGameplayActorCommandAssignmentScan side10_scan;
     TecmoGameplayActorCommandAssignmentScan side00_scan;
 } TecmoGameplayActorCommandAssignmentResult;
@@ -159,6 +189,15 @@ bool tecmo_gameplay_actor_command_assignment_apply(
     const TecmoGameplayActorCommandAssignmentInput *input,
     TecmoGameplayLiveFoundation *foundation_io,
     TecmoGameplayActorCommandAssignmentResult *result_out);
+
+/* Transactional capture of the exact B721/B783 four-byte store. A rejected
+ * input leaves latch_io byte-for-byte unchanged. A later accepted producer
+ * atomically overwrites all target bytes and provenance. The caller owns the
+ * same-frame lifetime; this API does not attach the latch to production. */
+bool tecmo_gameplay_actor_command_assignment_capture_same_frame_latch(
+    const TecmoGameplayActorCommandAssignmentInput *input,
+    const TecmoGameplayActorCommandAssignmentResult *assignment,
+    TecmoGameplayActorCommandAssignmentSameFrameLatch *latch_io);
 
 bool tecmo_gameplay_actor_command_assignment_self_test(
     const char *asset_pack_path,

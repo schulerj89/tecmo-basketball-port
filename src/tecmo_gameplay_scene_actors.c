@@ -2586,6 +2586,30 @@ static bool scene_cpu_build_play_input(
         scene, actor_position, foundation, input);
 }
 
+static bool scene_cpu_a023_latch_context_valid(
+    const TecmoGameplaySceneA023LatchFrameContext *context)
+{
+    const TecmoGameplayActorCommandAssignmentSameFrameLatch *latch;
+    if (context == NULL ||
+        context->contract_tag !=
+            TECMO_GAMEPLAY_SCENE_A023_LATCH_FRAME_CONTEXT_TAG ||
+        !context->available) {
+        return false;
+    }
+    latch = &context->latch;
+    return latch->contract_tag ==
+               TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_TAG &&
+        latch->valid && latch->target.depth <= UINT8_MAX &&
+        latch->immediate_opcode20_actor_mask != 0U &&
+        (latch->immediate_opcode20_actor_mask & ~0x03FFU) == 0U &&
+        ((latch->producer_kind ==
+              TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B721 &&
+          !latch->b783_bit20_clear_follows_assignment) ||
+         (latch->producer_kind ==
+              TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B783 &&
+          latch->b783_bit20_clear_follows_assignment));
+}
+
 static void scene_cpu_selected_primary_opcode7_probe_begin(
     const TecmoGameplayScene *scene,
     TecmoGameplayCpuSteeringPlayInput *input)
@@ -2927,6 +2951,7 @@ bool scene_update_ai(
     TecmoGameplayBallDribbleFrame candidate_dribble;
     TecmoGameplayScene candidate_scene;
     TecmoGameplaySceneOpcode10FrameContext candidate_opcode10_context;
+    TecmoGameplaySceneA023LatchFrameContext candidate_a023_context;
     TecmoGameplaySceneOpcode10Projection primary_opcode10_projection;
     uint8_t actor_team[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
     bool selected_primary_stepped = false;
@@ -2963,6 +2988,7 @@ bool scene_update_ai(
     candidate_ball = scene->ball_position;
     candidate_foundation = scene->live_foundation;
     candidate_opcode10_context = scene->opcode10_frame_context;
+    candidate_a023_context = scene->a023_latch_frame_context;
     if (!tecmo_gameplay_live_foundation_synchronize(
             &scene->cpu_steering_assets, steering_snapshot,
             scene->orientation_state.attack_direction,
@@ -3294,11 +3320,29 @@ bool scene_update_ai(
         scene_cpu_opcode12_context_begin(
             &candidate_foundation, (uint8_t)actor, &play_input);
         if (actor != candidate_foundation.primary_actor &&
-            !selected_defender &&
-            !tecmo_gameplay_live_foundation_play_step(
+            !selected_defender) {
+            bool play_step_ok;
+            /* `$B721`/`$B783` stores precede the same loop's Bank06
+               traversal. Only TGCA's immediate selector-$10 assignment at
+               `$0019` can consume this ephemeral latch. The selected-primary
+               `$000A` wait route and every opcode-13 record remain unavailable. */
+            play_input.global_target_available =
+                candidate_foundation.play_state.stream_offset[actor] ==
+                    0x0019U &&
+                (candidate_a023_context.latch
+                     .immediate_opcode20_actor_mask &
+                 (uint16_t)(1U << actor)) != 0U &&
+                scene_cpu_a023_latch_context_valid(&candidate_a023_context);
+            if (play_input.global_target_available) {
+                play_input.global_target = candidate_a023_context.latch.target;
+            }
+            play_step_ok = tecmo_gameplay_live_foundation_play_step(
                 &scene->cpu_steering_assets, &play_input,
-                &candidate_foundation, &play_result)) {
-            return false;
+                &candidate_foundation, &play_result);
+            play_input.global_target_available = false;
+            memset(&play_input.global_target, 0,
+                   sizeof(play_input.global_target));
+            if (!play_step_ok) return false;
         }
         scene_cpu_opcode12_context_end(&play_input);
         if (!scene_cpu_opcode10_projection_commit(
@@ -3564,6 +3608,8 @@ bool scene_update_ai(
     scene->ball_position = candidate_ball;
     scene->live_foundation = candidate_foundation;
     scene->opcode10_frame_context = candidate_opcode10_context;
+    candidate_a023_context.available = false;
+    scene->a023_latch_frame_context = candidate_a023_context;
     return true;
 }
 

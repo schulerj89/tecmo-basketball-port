@@ -225,6 +225,24 @@ try {
         @{ name="action-table-low"; bank=7; fixed_bank=$true; cpu_start=0xCB33; bytes=62; payload_offset=1356; f32="CB4B3C42"; f64="25A0A0DFEDDD4702" },
         @{ name="action-table-high"; bank=7; fixed_bank=$true; cpu_start=0xCB71; bytes=62; payload_offset=1418; f32="CD228EDD"; f64="F8DCBA38D20596DD" }
     )
+    $RomBytes = [IO.File]::ReadAllBytes($RomPath)
+    $B721Offset = 16 + 5 * 0x4000 + (0xB721 - 0x8000)
+    $B783Offset = 16 + 5 * 0x4000 + (0xB783 - 0x8000)
+    $LoopOffset = 16 + 6 * 0x4000 + (0x8284 - 0x8000)
+    $B721 = ([BitConverter]::ToString(
+        $RomBytes[$B721Offset..($B721Offset + 28)])) -replace '-', ''
+    $B783 = ([BitConverter]::ToString(
+        $RomBytes[$B783Offset..($B783Offset + 30)])) -replace '-', ''
+    $Loop = ([BitConverter]::ToString(
+        $RomBytes[$LoopOffset..($LoopOffset + 34)])) -replace '-', ''
+    if ($B721 -ne
+            "A5670568F017A57D8D8D03A5F28D8E03A5FD8D8F03A9008D90032023A0" -or
+        $B783 -ne
+            "A57D8D8D03A5F28D8E03A5FD8D8F03A9008D90032023A0AD880529DF8D8805" -or
+        $Loop -ne
+            "A209EC0803F019EC0903F0148A48BC7C05B9B68285A4B9C48285A520B38268AACA10DF") {
+        throw "TGCA-1 B721/B783 latch or following Bank06 9..0 loop anchor changed."
+    }
     for ($Index = 0; $Index -lt $ExpectedSpans.Count; ++$Index) {
         $Span = $ExpectedSpans[$Index]
         $Record = 128 + $Index * 32

@@ -133,6 +133,20 @@ static bool source_semantics_valid(
     static const uint8_t state17_prefix[] = {
         0xADU,0x99U,0x04U,0xC9U,0x04U,0xB0U,0x31U
     };
+    static const uint8_t b721_latch_and_call[] = {
+        0xA5U,0x67U,0x05U,0x68U,0xF0U,0x17U,
+        0xA5U,0x7DU,0x8DU,0x8DU,0x03U,
+        0xA5U,0xF2U,0x8DU,0x8EU,0x03U,
+        0xA5U,0xFDU,0x8DU,0x8FU,0x03U,
+        0xA9U,0x00U,0x8DU,0x90U,0x03U,0x20U,0x23U,0xA0U
+    };
+    static const uint8_t b783_latch_call_and_clear[] = {
+        0xA5U,0x7DU,0x8DU,0x8DU,0x03U,
+        0xA5U,0xF2U,0x8DU,0x8EU,0x03U,
+        0xA5U,0xFDU,0x8DU,0x8FU,0x03U,
+        0xA9U,0x00U,0x8DU,0x90U,0x03U,0x20U,0x23U,0xA0U,
+        0xADU,0x88U,0x05U,0x29U,0xDFU,0x8DU,0x88U,0x05U
+    };
     if (source == NULL || bytes == NULL) return false;
     switch (source->kind) {
     case TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_DISTANCE_HELPER:
@@ -143,9 +157,14 @@ static bool source_semantics_valid(
         return memcmp(bytes, object_dispatch_prefix,
                       sizeof(object_dispatch_prefix)) == 0;
     case TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_OBJECT_STATE10:
-        return memcmp(bytes, state10_prefix, sizeof(state10_prefix)) == 0;
+        return memcmp(bytes, state10_prefix, sizeof(state10_prefix)) == 0 &&
+            memcmp(bytes + (0xB721U - 0xB6E5U), b721_latch_and_call,
+                   sizeof(b721_latch_and_call)) == 0;
     case TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_OBJECT_STATE17_18:
-        return memcmp(bytes, state17_prefix, sizeof(state17_prefix)) == 0;
+        return memcmp(bytes, state17_prefix, sizeof(state17_prefix)) == 0 &&
+            memcmp(bytes + (0xB783U - 0xB775U),
+                   b783_latch_call_and_clear,
+                   sizeof(b783_latch_call_and_clear)) == 0;
     case TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_ACTION_DISPATCH:
     case TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_ACTION_SELECTOR:
     case TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_SOURCE_ACTION_TABLE_LOW:

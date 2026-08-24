@@ -1082,6 +1082,40 @@ bool tecmo_gameplay_scene_bind_opcode16_frame_context(
     return true;
 }
 
+bool tecmo_gameplay_scene_bind_a023_latch_frame_context(
+    TecmoGameplayScene *scene,
+    const TecmoGameplaySceneA023LatchFrameContext *context)
+{
+    const TecmoGameplayActorCommandAssignmentSameFrameLatch *latch;
+    if (scene == NULL || context == NULL ||
+        scene->lifecycle_tag != TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG ||
+        context->contract_tag !=
+            TECMO_GAMEPLAY_SCENE_A023_LATCH_FRAME_CONTEXT_TAG ||
+        !context->available) {
+        return false;
+    }
+    latch = &context->latch;
+    if (latch->contract_tag !=
+            TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_TAG ||
+        !latch->valid || latch->target.depth > UINT8_MAX ||
+        latch->immediate_opcode20_actor_mask == 0U ||
+        (latch->immediate_opcode20_actor_mask & ~0x03FFU) != 0U ||
+        (latch->producer_kind !=
+             TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B721 &&
+         latch->producer_kind !=
+             TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B783) ||
+        (latch->producer_kind ==
+             TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B783 &&
+         !latch->b783_bit20_clear_follows_assignment) ||
+        (latch->producer_kind ==
+             TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B721 &&
+         latch->b783_bit20_clear_follows_assignment)) {
+        return false;
+    }
+    scene->a023_latch_frame_context = *context;
+    return true;
+}
+
 static void scene_pad_from_controls(TecmoGameplayPadInput *pad,
                                     const TecmoControlFrame *controls)
 {
@@ -2332,6 +2366,7 @@ bool tecmo_gameplay_scene_update(TecmoGameplayScene *scene,
         scene->lifecycle_tag == TECMO_GAMEPLAY_SCENE_LIFECYCLE_TAG) {
         scene->opcode10_frame_context.available = false;
         scene->opcode16_frame_context.available = false;
+        scene->a023_latch_frame_context.available = false;
     }
     return result;
 }
