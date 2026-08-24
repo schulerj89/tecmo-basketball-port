@@ -1263,7 +1263,7 @@ bool tecmo_gameplay_live_foundation_play_step(
     if (result.fetched && !result.deferred &&
         (result.command.opcode == 0U || result.command.opcode == 2U ||
          result.command.opcode == 4U || result.command.opcode == 10U ||
-         result.command.opcode == 16U)) {
+         result.command.opcode == 13U || result.command.opcode == 16U)) {
         TecmoGameplayCourtCoordinate target = {
             next_state.target_x[actor], next_state.target_depth[actor]};
         if (result.command.opcode == 4U || result.command.opcode == 10U ||

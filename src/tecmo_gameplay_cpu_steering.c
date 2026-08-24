@@ -46,7 +46,7 @@ static const TecmoGameplayCpuSteeringEffectKind
     TECMO_GAMEPLAY_CPU_STEERING_EFFECT_FIXED_LINK_PROXIMITY,
     TECMO_GAMEPLAY_CPU_STEERING_EFFECT_FIXED_LINK_RELATIVE_POSE,
     TECMO_GAMEPLAY_CPU_STEERING_EFFECT_FIXED_LINK_FOLLOW_UP,
-    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_GLOBAL_SCRATCH_TARGET,
+    TECMO_GAMEPLAY_CPU_STEERING_EFFECT_GLOBAL_TARGET,
     TECMO_GAMEPLAY_CPU_STEERING_EFFECT_GROUP_RESEED,
     TECMO_GAMEPLAY_CPU_STEERING_EFFECT_PRIMARY_DEFENDER_SWITCH,
     TECMO_GAMEPLAY_CPU_STEERING_EFFECT_POINTER_ACTOR_TARGET,
@@ -100,13 +100,13 @@ static const uint8_t cpu_steering_effect_jumps[
 static const uint8_t cpu_steering_effect_exact[
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT] = {
     1U,1U,1U,1U,1U,0U,0U,1U,0U,1U,1U,0U,
-    0U,0U,1U,0U,1U,1U,1U,1U,0U,1U,1U,0U
+    0U,1U,1U,0U,1U,1U,1U,1U,0U,1U,1U,0U
 };
 
 static const uint8_t cpu_steering_effect_deferred[
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT] = {
     0U,0U,0U,0U,0U,1U,1U,0U,1U,0U,0U,1U,
-    1U,1U,0U,1U,0U,0U,0U,0U,1U,0U,0U,1U
+    1U,0U,0U,1U,0U,0U,0U,0U,1U,0U,0U,1U
 };
 
 static const uint8_t cpu_steering_effect_approximation[
@@ -959,6 +959,8 @@ const char *tecmo_gameplay_cpu_steering_deferred_reason_name(
         return "missing-opcode15-raw-lifecycle";
     case TECMO_GAMEPLAY_CPU_STEERING_DEFER_NATIVE_TARGET_OUTSIDE_COURT:
         return "native-target-outside-court";
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_GLOBAL_TARGET:
+        return "missing-global-target";
     default:
         return "invalid-defer-reason";
     }
@@ -1031,9 +1033,14 @@ play_missing_live_input_reason(
             ? TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE
             : TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA;
     case 13U:
-        /* $9125 first reads the unretained $038D-$0390 global target before
-           it could reach $92CA. Do not report a later BA byte as its owner. */
-        return TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS;
+        /* $9125 reads the persistent $038D-$0390 latch first, then reaches
+           the same $92CA BA gate as the other target handlers. */
+        if (!input->global_target_available) {
+            return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_GLOBAL_TARGET;
+        }
+        return input->common_tail_ba_available
+            ? TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE
+            : TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA;
     case 7U:
         /* $8F11 probes $046E,C8 before selecting either stream branch. */
         return input->actor_046e_probe_available
@@ -1731,6 +1738,8 @@ bool tecmo_gameplay_cpu_steering_play_step(
          !play_valid_actor(input->special_actor_07df)) ||
         !play_valid_positions(input->actor_position) ||
         !tecmo_gameplay_court_coordinate_valid(&input->ball_position) ||
+        (input->global_target_available &&
+         !tecmo_gameplay_court_coordinate_valid(&input->global_target)) ||
         state_in->primary_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
         state_in->defender_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
         state_in->matchup_seed[0U] != 2U ||
@@ -1895,7 +1904,6 @@ bool tecmo_gameplay_cpu_steering_play_step(
         case 8U:
         case 11U:
         case 12U:
-        case 13U:
         case 20U:
         case 23U:
             /* Their effect inputs are deferred because the contract does not
@@ -1906,6 +1914,21 @@ bool tecmo_gameplay_cpu_steering_play_step(
             result.deferred_reason =
                 TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS;
             break;
+        case 13U: {
+            TecmoGameplayCourtCoordinate target = input->global_target;
+            next_state.target_object[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+            next_state.target_x[actor] = target.x;
+            next_state.target_depth[actor] = target.y;
+            result.target_horizontal_delta = play_opcode4_x_delta(
+                &target, &input->actor_position[actor]);
+            result.target_depth_delta = play_opcode4_depth_delta(
+                &target, &input->actor_position[actor]);
+            result.target_vector_zero =
+                result.target_horizontal_delta == 0 &&
+                result.target_depth_delta == 0;
+            break;
+        }
         case 10U: {
             uint8_t linked = input->linked_actor_resolved_valid
                 ? input->linked_actor
@@ -3432,6 +3455,8 @@ bool tecmo_gameplay_cpu_steering_self_test(
             tecmo_gameplay_cpu_steering_effect_metadata(&assets, 7U);
         const TecmoGameplayCpuSteeringEffectMetadata *metadata_10 =
             tecmo_gameplay_cpu_steering_effect_metadata(&assets, 10U);
+        const TecmoGameplayCpuSteeringEffectMetadata *metadata_13 =
+            tecmo_gameplay_cpu_steering_effect_metadata(&assets, 13U);
         const TecmoGameplayCpuSteeringEffectMetadata *metadata_17 =
             tecmo_gameplay_cpu_steering_effect_metadata(&assets, 17U);
         const TecmoGameplayCpuSteeringEffectMetadata *metadata_18 =
@@ -3441,6 +3466,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
         const TecmoGameplayCpuSteeringEffectMetadata *metadata_21 =
             tecmo_gameplay_cpu_steering_effect_metadata(&assets, 21U);
         if (metadata_0 == NULL || metadata_4 == NULL || metadata_7 == NULL || metadata_10 == NULL ||
+            metadata_13 == NULL ||
             metadata_17 == NULL || metadata_18 == NULL || metadata_19 == NULL ||
             metadata_21 == NULL ||
             !metadata_0->exact_bounded || metadata_0->deferred_inputs ||
@@ -3448,6 +3474,9 @@ bool tecmo_gameplay_cpu_steering_self_test(
             metadata_7->advance_policy !=
                 TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_PLUS_FIVE_OR_BRANCH_PLUS_FIVE ||
             !metadata_10->exact_bounded || metadata_10->deferred_inputs ||
+            !metadata_13->exact_bounded || metadata_13->deferred_inputs ||
+            metadata_13->kind !=
+                TECMO_GAMEPLAY_CPU_STEERING_EFFECT_GLOBAL_TARGET ||
             metadata_17->kind !=
                 TECMO_GAMEPLAY_CPU_STEERING_EFFECT_AGGREGATION_BARRIER ||
             metadata_18->kind != metadata_17->kind ||
@@ -3473,7 +3502,10 @@ bool tecmo_gameplay_cpu_steering_self_test(
                "missing-ba-lifecycle") != 0 ||
         strcmp(tecmo_gameplay_cpu_steering_deferred_reason_name(
                    TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS),
-               "unimplemented-handler") != 0) {
+               "unimplemented-handler") != 0 ||
+        strcmp(tecmo_gameplay_cpu_steering_deferred_reason_name(
+                   TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_GLOBAL_TARGET),
+               "missing-global-target") != 0) {
         (void)snprintf(message, message_size,
                        "TGAI-3 deferred-reason names changed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
@@ -4262,8 +4294,38 @@ bool tecmo_gameplay_cpu_steering_self_test(
     }
     play_input.common_tail_ba_available = true;
 
-    /* Opcode 13 starts at $9125 with the unretained $038D-$0390 target
-       workspace. Its later common-tail branch cannot make that handler live. */
+    /* The corpus contains exactly the two source-proven opcode-13 records at
+       Bank04 $9F5B/$9F6F. Both carry zero arguments because $9125 consumes
+       the external $038D-$0390 latch, then reaches the common BA tail. */
+    if (opcode_offsets[13U] != 0x002DU ||
+        !tecmo_gameplay_cpu_steering_decode_command(
+            &assets, 0x002DU, &command) || command.opcode != 13U ||
+        command.cpu_address != 0x9F5BU ||
+        memcmp(command.arguments, (const uint8_t[4U]){0U,0U,0U,0U}, 4U) != 0 ||
+        !tecmo_gameplay_cpu_steering_decode_command(
+            &assets, 0x0041U, &command) || command.opcode != 13U ||
+        command.cpu_address != 0x9F6FU ||
+        memcmp(command.arguments, (const uint8_t[4U]){0U,0U,0U,0U}, 4U) != 0 ||
+        !tecmo_gameplay_cpu_steering_decode_command(
+            &assets, 0x0032U, &command) || command.opcode != 14U ||
+        !tecmo_gameplay_cpu_steering_decode_command(
+            &assets, 0x0037U, &command) || command.opcode != 15U ||
+        !tecmo_gameplay_cpu_steering_decode_command(
+            &assets, 0x0046U, &command) || command.opcode != 14U ||
+        !tecmo_gameplay_cpu_steering_decode_command(
+            &assets, 0x004BU, &command) || command.opcode != 15U) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-13 canonical records failed "
+                       "(first=%u last_cpu=$%04X last_opcode=%u).",
+                       (unsigned int)opcode_offsets[13U],
+                       (unsigned int)command.cpu_address,
+                       (unsigned int)command.opcode);
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+
+    /* Missing latch input fails before the later BA gate and cannot mutate
+       target, stream, or lifecycle state. */
     if (!tecmo_gameplay_cpu_steering_play_state_initialize(
             &assets, 0U, &play_state)) {
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
@@ -4275,7 +4337,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             &assets, &play_state, &play_input, &play_out, &play_result) ||
         play_result.command.opcode != 13U || !play_result.deferred ||
         play_result.deferred_reason !=
-            TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS ||
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_GLOBAL_TARGET ||
         play_result.advanced ||
         play_result.next_offset != opcode_offsets[13U] ||
         memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
@@ -4284,6 +4346,96 @@ bool tecmo_gameplay_cpu_steering_self_test(
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
+    /* A valid latch still cannot substitute for the common-tail BA owner. */
+    play_input.global_target_available = true;
+    play_input.global_target.x = 320;
+    play_input.global_target.y = 120;
+    play_input.common_tail_ba_available = false;
+    play_before = play_state;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        !play_result.deferred || play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA ||
+        play_result.advanced ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-13 missing BA transaction failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+
+    /* Zero vector reaches the exact common tail, advances under BA&3==0,
+       writes the absolute no-object target, and preserves prior direction. */
+    play_input.common_tail_ba_available = true;
+    play_input.flags_ba = 0U;
+    play_input.global_target = play_input.actor_position[0U];
+    play_state.direction[0U] = 3U;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.deferred || !play_result.advanced ||
+        play_result.next_offset != 0x0032U ||
+        play_result.target_object != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
+        play_result.target_x != play_input.global_target.x ||
+        play_result.target_depth != play_input.global_target.y ||
+        !play_result.target_vector_zero ||
+        play_result.target_horizontal_delta != 0 ||
+        play_result.target_depth_delta != 0 ||
+        play_out.direction[0U] != 3U) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-13 zero-vector target failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+
+    /* The second record proves exact 16-bit-X and sign-extended byte-depth
+       subtraction while still latching the absolute point. */
+    if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+            &assets, 0U, &play_state)) {
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_state.stream_offset[0U] = 0x0041U;
+    play_input.actor_position[0U].x = 700;
+    play_input.actor_position[0U].y = 200;
+    play_input.global_target.x = 0;
+    play_input.global_target.y = 0;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.deferred || !play_result.advanced ||
+        play_result.next_offset != 0x0046U ||
+        play_result.target_object != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
+        play_result.target_x != 0 || play_result.target_depth != 0 ||
+        play_result.target_horizontal_delta != -700 ||
+        play_result.target_depth_delta != -200 ||
+        play_result.target_vector_zero) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-13 signed subtraction failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    /* BA&3 nonzero retains the source record after the exact target write. */
+    if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+            &assets, 0U, &play_state)) {
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_state.stream_offset[0U] = 0x002DU;
+    play_input.flags_ba = 1U;
+    play_input.global_target.x = 111;
+    play_input.global_target.y = 99;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.deferred || play_result.advanced ||
+        play_result.next_offset != 0x002DU ||
+        play_out.target_object[0U] != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
+        play_out.target_x[0U] != 111 || play_out.target_depth[0U] != 99) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-13 BA retention failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.flags_ba = 0U;
+    play_input.global_target_available = false;
 
     /* Orientation $035A and BA&3 gate target transport for opcode 0. */
     if (!tecmo_gameplay_cpu_steering_play_state_initialize(

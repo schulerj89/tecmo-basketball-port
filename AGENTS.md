@@ -1543,6 +1543,18 @@ the same values. Never persist it, recompute from post-move coordinates, or
 recompute per actor. Direct AI tests that intentionally execute opcode 16 must
 bind equivalent context; absent context stays `missing-pointer-workspace`, and
 malformed available context must roll back transactionally.
+
+Opcode 13 has a source-exact bounded executor for Bank06 `$9125-$9145`: typed
+`$038D-$0390` supplies one absolute no-object target, the handler computes the
+wrapping actor-relative deltas, and control reaches the existing `$92CB`
+common tail. Treat that target as a persistent latch with five source
+producers, not as per-frame scratch. Until all five producers and their reset/
+retention lifecycle are converted, the production scene builder must leave
+`global_target_available` false and report `missing-global-target`; never
+substitute the current ball, an actor position, or a raw shadow byte. Tests may
+bind an intentional typed fixture, which must still provide the separate `$BA`
+owner. Do not add a scene latch or any producer as part of the executor slice.
+
 `--gameplay-cpu-steering-test`,
 `--gameplay-cpu-steering-inspect`, `--gameplay-cpu-steering-harness`, and
 `--gameplay-cpu-steering-movement-harness` are console-only and must not

@@ -138,6 +138,7 @@ typedef enum TecmoGameplayCpuSteeringDeferredReason {
     TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE21_GATE_INPUTS,
     TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE15_RAW_LIFECYCLE,
     TECMO_GAMEPLAY_CPU_STEERING_DEFER_NATIVE_TARGET_OUTSIDE_COURT,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_GLOBAL_TARGET,
     TECMO_GAMEPLAY_CPU_STEERING_DEFER_REASON_COUNT
 } TecmoGameplayCpuSteeringDeferredReason;
 
@@ -359,6 +360,11 @@ typedef struct TecmoGameplayCpuSteeringPlayInput {
     uint8_t state_0357;
     uint8_t state_0358;
     uint8_t flags_007e;
+    /* Bank06 opcode 13 consumes the persistent `$038D-$0390` latch as one
+       absolute point. Availability requires a faithful producer lifecycle;
+       ordinary LIVE deliberately leaves it false. */
+    bool global_target_available;
+    TecmoGameplayCourtCoordinate global_target;
     /* Bounded opcode-10 workspace produced by $8D59-$8E21. Callers must
        explicitly prove these signed relative offsets; absence defers the
        command rather than silently substituting zero. */
@@ -404,8 +410,8 @@ typedef struct TecmoGameplayCpuSteeringPlayResult {
     uint8_t target_object;
     int16_t target_x;
     int16_t target_depth;
-    /* Exact opcode-4 $8FFD-$9027 subtraction evidence. X is 16-bit with
-       borrow; depth is the 8-bit subtraction sign-extended to 16 bits. */
+    /* Exact opcode-4/opcode-13 subtraction evidence. X is 16-bit with borrow;
+       depth is the 8-bit subtraction sign-extended to 16 bits. */
     int16_t target_horizontal_delta;
     int16_t target_depth_delta;
     bool fetched;
@@ -416,8 +422,8 @@ typedef struct TecmoGameplayCpuSteeringPlayResult {
     bool deferred;
     TecmoGameplayCpuSteeringDeferredReason deferred_reason;
     bool proximity_met;
-    /* The handler ORs both 16-bit deltas and skips $88DA on zero, preserving
-       its prior direction.  This flag is meaningful for opcode 4 only. */
+    /* The handlers OR both 16-bit deltas and skip $88DA on zero, preserving
+       prior direction. This flag is meaningful for opcodes 4 and 13. */
     bool target_vector_zero;
 } TecmoGameplayCpuSteeringPlayResult;
 

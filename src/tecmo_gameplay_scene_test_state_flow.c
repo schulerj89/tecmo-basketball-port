@@ -3504,6 +3504,37 @@ static bool scene_test_live_foundation_regressions(
             &scene->cpu_steering_assets, &candidate_foundation)) {
         LIVE_FAIL("LIVE deferred target became an unproven movement target");
     }
+    /* Intentional executor/foundation fixture: a typed synthetic latch makes
+       opcode 13 a validated no-object source target. Production scene input
+       never enables this bit in the slice below. */
+    candidate_foundation = foundation_before;
+    candidate_foundation.play_state.stream_offset[0U] = 0x002DU;
+    candidate_foundation.last_step_offset[0U] = 0x002DU;
+    candidate_foundation.play_state.actor_state[0U] = 0x04U;
+    candidate_foundation.play_state.wait_counter[0U] = 0U;
+    candidate_foundation.play_state.target_object[0U] =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    candidate_foundation.play_state.target_x[0U] = 0;
+    candidate_foundation.play_state.target_depth[0U] = 0;
+    candidate_foundation.source_target_valid[0U] = false;
+    play_input.actor = 0U;
+    play_input.global_target_available = true;
+    play_input.global_target = positions[2U];
+    if (!tecmo_gameplay_live_foundation_play_step(
+            &scene->cpu_steering_assets, &play_input,
+            &candidate_foundation, &play_result) ||
+        play_result.command.opcode != 13U || play_result.deferred ||
+        !play_result.advanced ||
+        !candidate_foundation.source_target_valid[0U] ||
+        candidate_foundation.play_state.target_object[0U] !=
+            TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
+        candidate_foundation.play_state.target_x[0U] != positions[2U].x ||
+        candidate_foundation.play_state.target_depth[0U] != positions[2U].y ||
+        !tecmo_gameplay_live_foundation_valid(
+            &scene->cpu_steering_assets, &candidate_foundation)) {
+        LIVE_FAIL("LIVE opcode-13 foundation target validation regressed");
+    }
+    play_input.global_target_available = false;
     candidate_foundation = foundation_before;
     candidate_foundation.play_state.target_object[0U] = 5U;
     candidate_foundation.play_state.target_x[0U] = positions[5U].x;
@@ -4292,6 +4323,69 @@ static bool scene_test_live_foundation_regressions(
         if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
             !scene_sync_live_foundation(scene)) {
             LIVE_FAIL("LIVE opcode-10 post-crossing fixture restore rejected");
+        }
+    }
+
+    /* Production opcode-13 boundary: scene_cpu_build_play_input has no owner
+       for persistent $038D-$0390 and must not substitute the current ball.
+       Park the exact record on an eligible ordinary actor and observe the
+       typed missing-global-target defer with no stream/target mutation. */
+    {
+        TecmoGameplaySceneCpuShotRequest no_shot;
+        uint8_t target_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+        if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
+            !scene_handoff_possession(
+                scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U) ||
+            !scene_sync_live_foundation(scene)) {
+            LIVE_FAIL("LIVE opcode-13 production fixture setup rejected");
+        }
+        candidate_foundation = scene->live_foundation;
+        for (int scan = 9; scan >= 0; --scan) {
+            if ((uint8_t)scan != candidate_foundation.primary_actor &&
+                (uint8_t)scan != candidate_foundation.defender_actor) {
+                target_actor = (uint8_t)scan;
+                break;
+            }
+        }
+        if (target_actor >= 10U) {
+            LIVE_FAIL("LIVE opcode-13 ordinary actor unavailable");
+        }
+        for (actor = 0U; actor < 10U; ++actor) {
+            candidate_foundation.play_state.wait_counter[actor] = 0xFFU;
+            candidate_foundation.play_state.actor_state[actor] = 0x06U;
+            candidate_foundation.play_state.target_object[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+            candidate_foundation.play_state.target_x[actor] = 0;
+            candidate_foundation.play_state.target_depth[actor] = 0;
+            candidate_foundation.source_target_valid[actor] = false;
+            candidate_foundation.deferred[actor] = false;
+            candidate_foundation.deferred_reason[actor] =
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+            memset(&candidate_foundation.play_state.route_motion[actor], 0,
+                   sizeof(candidate_foundation.play_state
+                              .route_motion[actor]));
+            candidate_foundation.play_state.route_motion[actor].contract_tag =
+                TECMO_GAMEPLAY_CPU_STEERING_ROUTE_MOTION_STATE_TAG;
+        }
+        candidate_foundation.play_state.wait_counter[target_actor] = 0U;
+        candidate_foundation.play_state.actor_state[target_actor] = 0x04U;
+        candidate_foundation.play_state.stream_offset[target_actor] = 0x002DU;
+        candidate_foundation.last_step_offset[target_actor] = 0x002DU;
+        if (!tecmo_gameplay_live_foundation_valid(
+                &scene->cpu_steering_assets, &candidate_foundation)) {
+            LIVE_FAIL("LIVE opcode-13 production foundation rejected");
+        }
+        scene->live_foundation = candidate_foundation;
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot) || no_shot.requested ||
+            !scene->live_foundation.deferred[target_actor] ||
+            scene->live_foundation.deferred_reason[target_actor] !=
+                TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_GLOBAL_TARGET ||
+            scene->live_foundation.play_state.stream_offset[target_actor] !=
+                0x002DU ||
+            scene->live_foundation.source_target_valid[target_actor] ||
+            scene->cpu_actors[target_actor].target_valid) {
+            LIVE_FAIL("LIVE opcode-13 production input was fabricated");
         }
     }
 

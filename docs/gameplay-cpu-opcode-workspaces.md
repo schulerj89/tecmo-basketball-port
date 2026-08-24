@@ -36,6 +36,15 @@ The existing TGAI-3 asset already pins the broader Bank06 handler and Bank04
 command spans. The private-ROM runner adds only narrow provenance checks for
 the caller-local helper and `$BA` lifecycle that TGAI-3 does not claim to own.
 
+Opcode 13 is an executor input contract rather than a workspace owned by this
+module. Bank06 `$9125-$9145` consumes the persistent absolute `$038D-$0390`
+latch and then enters the shared `$92CB` tail. The command corpus contains the
+two exact zero-argument records at offsets 45/65 (`$9F5B/$9F6F`), each followed
+by opcode 14 and opcode 15. Unit fixtures may supply a typed absolute target;
+production does not, because the latch's five source producers and persistence
+lifecycle remain unconverted. In particular, the current ball is not a valid
+substitute, so LIVE remains `missing-global-target`.
+
 ## What the harness proves
 
 | Area | Exact bounded conversion | First missing live dependency | LIVE disposition |
