@@ -127,6 +127,7 @@
       "B783": "$7D->$038D, $F2->$038E, $FD->$038F, $00->$0390, JSR $A023, then clear $0588 bit $20",
       "consumer_order": "fixed Bank06 $8284-$82A4 traverses actors 9..0 after the Bank05 event",
       "authorization": "only actors written to immediate stream $0019 by that same successful A023 assignment; cursor coincidence is insufficient",
+      "atomic_api": "assignment and latch capture share one input and commit foundation/result/latch together; raw target must equal the same event's court target, so stale results, altered gates, and mixed targets are rejected transactionally",
       "expiry": "one following Bank06 traversal in the same frame"
     }
   },

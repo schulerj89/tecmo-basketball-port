@@ -242,7 +242,10 @@ descriptor/FNV32/FNV64 coverage behind the full-ROM/aggregate guards.
 The same asset now pins `$B721` and `$B783` byte-for-byte. Both atomically
 store raw X `$7D:$F2`, raw depth `$FD:$00`, then call `$A023`; `$B783` clears
 `$0588` bit `$20` only afterward. The typed resolver can pair that raw target
-with the exact actor mask assigned immediate stream `$0019`. A single-use
+with the exact actor mask assigned immediate stream `$0019` only through one
+atomic apply-and-capture call. It requires the raw target to equal the court
+target used by that same assignment and rejects altered gates, mixed targets,
+or stale results without changing foundation/result/latch. A single-use
 scene context admits opcode 20 only when both the mask bit and `$0019` match
 in the following Bank06 descending traversal. It never admits a coincidental
 cursor, the `$000A` wait/delayed opcode-20 path, or opcode 13, and expires on

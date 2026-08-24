@@ -190,13 +190,17 @@ bool tecmo_gameplay_actor_command_assignment_apply(
     TecmoGameplayLiveFoundation *foundation_io,
     TecmoGameplayActorCommandAssignmentResult *result_out);
 
-/* Transactional capture of the exact B721/B783 four-byte store. A rejected
- * input leaves latch_io byte-for-byte unchanged. A later accepted producer
- * atomically overwrites all target bytes and provenance. The caller owns the
- * same-frame lifetime; this API does not attach the latch to production. */
-bool tecmo_gameplay_actor_command_assignment_capture_same_frame_latch(
+/* Atomic typed conversion of one exact B721/B783->$A023 event. The raw latch
+ * must equal the court target used by that same assignment (with source-zero
+ * depth high byte); assignment, foundation, result, and latch commit together.
+ * Rejection leaves all three outputs byte-for-byte unchanged. A later accepted
+ * producer overwrites every target/provenance byte. Production is not attached. */
+bool tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
+    const TecmoGameplayActorCommandAssignmentAssets *assignment_assets,
+    const TecmoGameplayCpuSteeringAssets *steering_assets,
     const TecmoGameplayActorCommandAssignmentInput *input,
-    const TecmoGameplayActorCommandAssignmentResult *assignment,
+    TecmoGameplayLiveFoundation *foundation_io,
+    TecmoGameplayActorCommandAssignmentResult *result_out,
     TecmoGameplayActorCommandAssignmentSameFrameLatch *latch_io);
 
 bool tecmo_gameplay_actor_command_assignment_self_test(

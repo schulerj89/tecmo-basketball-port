@@ -349,7 +349,7 @@ static bool caller_gates_valid(
     }
 }
 
-bool tecmo_gameplay_actor_command_assignment_capture_same_frame_latch(
+static bool capture_same_frame_latch(
     const TecmoGameplayActorCommandAssignmentInput *input,
     const TecmoGameplayActorCommandAssignmentResult *assignment,
     TecmoGameplayActorCommandAssignmentSameFrameLatch *latch_io)
@@ -490,6 +490,46 @@ bool tecmo_gameplay_actor_command_assignment_apply(
     return true;
 }
 
+bool tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
+    const TecmoGameplayActorCommandAssignmentAssets *assignment_assets,
+    const TecmoGameplayCpuSteeringAssets *steering_assets,
+    const TecmoGameplayActorCommandAssignmentInput *input,
+    TecmoGameplayLiveFoundation *foundation_io,
+    TecmoGameplayActorCommandAssignmentResult *result_out,
+    TecmoGameplayActorCommandAssignmentSameFrameLatch *latch_io)
+{
+    TecmoGameplayLiveFoundation foundation_candidate;
+    TecmoGameplayActorCommandAssignmentResult result_candidate;
+    TecmoGameplayActorCommandAssignmentSameFrameLatch latch_candidate;
+    if (input == NULL || foundation_io == NULL || result_out == NULL ||
+        latch_io == NULL || !input->object10_target_valid ||
+        !input->object10_raw_target_valid ||
+        !tecmo_gameplay_court_coordinate_valid(&input->object10_target) ||
+        input->object10_target.x < 0 || input->object10_target.y < 0 ||
+        input->object10_raw_target.depth > UINT8_MAX ||
+        input->object10_raw_target.x !=
+            (uint16_t)input->object10_target.x ||
+        input->object10_raw_target.depth !=
+            (uint16_t)input->object10_target.y) {
+        return false;
+    }
+    foundation_candidate = *foundation_io;
+    memset(&result_candidate, 0, sizeof(result_candidate));
+    memset(&latch_candidate, 0, sizeof(latch_candidate));
+    if (!tecmo_gameplay_actor_command_assignment_apply(
+            assignment_assets, steering_assets, input,
+            &foundation_candidate, &result_candidate) ||
+        !result_candidate.applied ||
+        !capture_same_frame_latch(
+            input, &result_candidate, &latch_candidate)) {
+        return false;
+    }
+    *foundation_io = foundation_candidate;
+    *result_out = result_candidate;
+    *latch_io = latch_candidate;
+    return true;
+}
+
 static bool build_self_test_foundation(
     const TecmoGameplayCpuSteeringAssets *steering_assets,
     TecmoGameplayLiveFoundation *foundation)
@@ -569,49 +609,79 @@ bool tecmo_gameplay_actor_command_assignment_self_test(
     input.object10_target.x = 152;
     input.object10_target.y = 104;
     input.object10_raw_target_valid = true;
-    input.object10_raw_target.x = 0x0198U;
-    input.object10_raw_target.depth = 0x00A4U;
+    input.object10_raw_target.x = 152U;
+    input.object10_raw_target.depth = 104U;
 
     /* $A0A6's two selected slots use independent automatic predicates.  The
        initialized side-0 fixture is automatic on both sides, so this checks
        $030C/$030D-shaped source writes without making them a scene event. */
     foundation = baseline;
-    if (!tecmo_gameplay_actor_command_assignment_apply(
+    memset(&latch, 0xA5, sizeof(latch));
+    if (!tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
             &assignment_assets, &steering_assets, &input, &foundation,
-            &result) || !result.applied ||
+            &result, &latch) || !result.applied ||
         result.side10_scan.required_04b0_bit10 != 0x10U ||
         result.side00_scan.required_04b0_bit10 != 0U ||
         !result.primary_automatic || !result.defender_automatic ||
         result.primary_stream_after != 0x000AU ||
         result.defender_stream_after != 0x0019U ||
         result.primary_state_after != 0x04U ||
-        result.defender_state_after != 0x04U) {
-        goto cleanup;
-    }
-    /* `$B721` atomically overwrites all four latch bytes and binds the exact
-       immediate-$0019 actors from this same successful assignment. A bad
-       depth-high byte leaves the prior latch untouched. */
-    memset(&latch, 0xA5, sizeof(latch));
-    if (!tecmo_gameplay_actor_command_assignment_capture_same_frame_latch(
-            &input, &result, &latch) || !latch.valid ||
+        result.defender_state_after != 0x04U || !latch.valid ||
         latch.contract_tag != TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_TAG ||
         latch.producer_kind !=
             TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B721 ||
-        latch.target.x != 0x0198U || latch.target.depth != 0x00A4U ||
+        latch.target.x != 152U || latch.target.depth != 104U ||
         latch.immediate_opcode20_actor_mask !=
             result.immediate_opcode20_actor_mask ||
         latch.immediate_opcode20_actor_mask == 0U ||
         latch.b783_bit20_clear_follows_assignment) {
         goto cleanup;
     }
+    /* Mixed gate/target evidence cannot be paired with this successful
+       event. Every rejection leaves foundation, result, and latch identical. */
+    before = foundation;
+    result_before = result;
     latch_before = latch;
     input.object10_raw_target.depth = 0x0100U;
-    if (tecmo_gameplay_actor_command_assignment_capture_same_frame_latch(
-            &input, &result, &latch) ||
+    if (tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
+            &assignment_assets, &steering_assets, &input, &foundation,
+            &result, &latch) ||
+        memcmp(&foundation, &before, sizeof(foundation)) != 0 ||
+        memcmp(&result, &result_before, sizeof(result)) != 0 ||
         memcmp(&latch, &latch_before, sizeof(latch)) != 0) {
         goto cleanup;
     }
-    input.object10_raw_target.depth = 0x00A4U;
+    input.object10_raw_target.depth = 104U;
+    input.object10_raw_target.x = 153U;
+    if (tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
+            &assignment_assets, &steering_assets, &input, &foundation,
+            &result, &latch) ||
+        memcmp(&foundation, &before, sizeof(foundation)) != 0 ||
+        memcmp(&result, &result_before, sizeof(result)) != 0 ||
+        memcmp(&latch, &latch_before, sizeof(latch)) != 0) {
+        goto cleanup;
+    }
+    input.object10_raw_target.x = 152U;
+    input.raw_0588 = 0U;
+    if (tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
+            &assignment_assets, &steering_assets, &input, &foundation,
+            &result, &latch) ||
+        memcmp(&foundation, &before, sizeof(foundation)) != 0 ||
+        memcmp(&result, &result_before, sizeof(result)) != 0 ||
+        memcmp(&latch, &latch_before, sizeof(latch)) != 0) {
+        goto cleanup;
+    }
+    input.raw_0588 = 0x80U;
+    input.object10_target.x = 153;
+    if (tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
+            &assignment_assets, &steering_assets, &input, &foundation,
+            &result, &latch) ||
+        memcmp(&foundation, &before, sizeof(foundation)) != 0 ||
+        memcmp(&result, &result_before, sizeof(result)) != 0 ||
+        memcmp(&latch, &latch_before, sizeof(latch)) != 0) {
+        goto cleanup;
+    }
+    input.object10_target.x = 152;
 
     /* Consume the two exact streams from the real assignment result, never a
        parked cursor. Defender selector `$10` starts at `$0019` and executes
@@ -803,18 +873,16 @@ bool tecmo_gameplay_actor_command_assignment_self_test(
     input.raw_0588 = 0x20U;
     input.raw_0067 = 0U;
     input.raw_0068 = 0U;
-    input.object10_raw_target.x = 0x02E1U;
+    input.object10_target.x = 528;
+    input.object10_target.y = 55;
+    input.object10_raw_target.x = 528U;
     input.object10_raw_target.depth = 0x0037U;
-    if (!tecmo_gameplay_actor_command_assignment_apply(
+    if (!tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
             &assignment_assets, &steering_assets, &input, &foundation,
-            &result) || !result.applied) {
-        goto cleanup;
-    }
-    if (!tecmo_gameplay_actor_command_assignment_capture_same_frame_latch(
-            &input, &result, &latch) || !latch.valid ||
+            &result, &latch) || !result.applied || !latch.valid ||
         latch.producer_kind !=
             TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B783 ||
-        latch.target.x != 0x02E1U || latch.target.depth != 0x0037U ||
+        latch.target.x != 528U || latch.target.depth != 0x0037U ||
         !latch.b783_bit20_clear_follows_assignment) {
         goto cleanup;
     }
@@ -826,13 +894,13 @@ bool tecmo_gameplay_actor_command_assignment_self_test(
     input.raw_object_state = 0x10U;
     input.raw_0588 = 0x80U;
     input.raw_0067 = 1U;
+    input.object10_target.x = 0x0123;
+    input.object10_target.y = 0x0056;
     input.object10_raw_target.x = 0x0123U;
     input.object10_raw_target.depth = 0x0056U;
-    if (!tecmo_gameplay_actor_command_assignment_apply(
+    if (!tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
             &assignment_assets, &steering_assets, &input, &foundation,
-            &result) || !result.applied ||
-        !tecmo_gameplay_actor_command_assignment_capture_same_frame_latch(
-            &input, &result, &latch) ||
+            &result, &latch) || !result.applied ||
         latch.producer_kind !=
             TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B721 ||
         latch.target.x != 0x0123U || latch.target.depth != 0x0056U ||
