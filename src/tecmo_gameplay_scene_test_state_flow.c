@@ -2115,13 +2115,24 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                         --scan_y;
                     }
                     before_reject = fixture;
+                    if (tecmo_gameplay_live_foundation_regulation_entry_apply(
+                            &scene->cpu_steering_assets, 1U, side, side,
+                            true, &fixture) ||
+                        memcmp(&fixture, &before_reject,
+                               sizeof(fixture)) != 0) {
+                        (void)snprintf(failure, sizeof(failure),
+                            "P1 claimant/selector mismatch rollback failed s%u",
+                            (unsigned)side);
+                        goto failed;
+                    }
                     malformed_fixture = fixture;
                     malformed_fixture.source_direction_valid[primary] = true;
                     malformed_fixture.source_direction[primary] = 0U;
                     malformed_fixture.play_state.direction[primary] = 0U;
                     fixture = malformed_fixture;
                     if (tecmo_gameplay_live_foundation_regulation_entry_apply(
-                            &scene->cpu_steering_assets, 1U, side, true,
+                            &scene->cpu_steering_assets, 1U, side,
+                            (uint8_t)(side ^ 1U), true,
                             &fixture) ||
                         memcmp(&fixture, &malformed_fixture,
                                sizeof(fixture)) != 0) {
@@ -2133,12 +2144,14 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                     if (!tecmo_gameplay_live_foundation_valid(
                             &scene->cpu_steering_assets, &fixture) ||
                         tecmo_gameplay_live_foundation_regulation_entry_apply(
-                            &scene->cpu_steering_assets, 1U, side, false,
+                            &scene->cpu_steering_assets, 1U, side,
+                            (uint8_t)(side ^ 1U), false,
                             &fixture) ||
                         memcmp(&fixture, &before_reject,
                                sizeof(fixture)) != 0 ||
                         !tecmo_gameplay_live_foundation_regulation_entry_apply(
-                            &scene->cpu_steering_assets, 1U, side, true,
+                            &scene->cpu_steering_assets, 1U, side,
+                            (uint8_t)(side ^ 1U), true,
                             &fixture) ||
                         fixture.primary_actor != primary ||
                         fixture.play_state.stream_offset[primary] != 0x017CU ||
@@ -2162,7 +2175,8 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                     }
                     before_reject = fixture;
                     if (tecmo_gameplay_live_foundation_regulation_entry_apply(
-                            &scene->cpu_steering_assets, 2U, side, true,
+                            &scene->cpu_steering_assets, 2U, side,
+                            fixture.period_entry_selector, true,
                             &fixture) ||
                         memcmp(&fixture, &before_reject,
                                sizeof(fixture)) != 0) {
@@ -2242,7 +2256,8 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                         if (!tecmo_gameplay_live_foundation_valid(
                                 &scene->cpu_steering_assets, &equality) ||
                             !tecmo_gameplay_live_foundation_regulation_entry_apply(
-                                &scene->cpu_steering_assets, 2U, 1U, true,
+                                &scene->cpu_steering_assets, 2U, 1U,
+                                equality.period_entry_selector, true,
                                 &equality) ||
                             equality.primary_actor !=
                                 before_reject.primary_actor ||
@@ -2279,7 +2294,8 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                         }
                         before_reject = equality;
                         if (tecmo_gameplay_live_foundation_regulation_entry_apply(
-                                &scene->cpu_steering_assets, 2U, 1U, true,
+                                &scene->cpu_steering_assets, 2U, 1U,
+                                equality.period_entry_selector, true,
                                 &equality) ||
                             memcmp(&equality, &before_reject,
                                    sizeof(equality)) != 0) {
@@ -2290,7 +2306,8 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
 
                         before_reject = lifecycle;
                         if (tecmo_gameplay_live_foundation_regulation_entry_apply(
-                                &scene->cpu_steering_assets, 2U, 1U, false,
+                                &scene->cpu_steering_assets, 2U, 1U,
+                                lifecycle.period_entry_selector, false,
                                 &lifecycle) ||
                             memcmp(&lifecycle, &before_reject,
                                    sizeof(lifecycle)) != 0) {
@@ -2311,7 +2328,7 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                         if (!tecmo_gameplay_live_foundation_valid(
                                 &scene->cpu_steering_assets, &equality) ||
                             tecmo_gameplay_live_foundation_regulation_entry_apply(
-                                &scene->cpu_steering_assets, 2U, 1U, true,
+                                &scene->cpu_steering_assets, 2U, 1U, 1U, true,
                                 &equality) ||
                             memcmp(&equality, &before_reject,
                                    sizeof(equality)) != 0) {
@@ -2349,7 +2366,9 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                             }
                             if (!tecmo_gameplay_live_foundation_regulation_entry_apply(
                                     &scene->cpu_steering_assets, period,
-                                    target_side, true, &lifecycle) ||
+                                    target_side,
+                                    lifecycle.period_entry_selector,
+                                    true, &lifecycle) ||
                                 lifecycle.primary_actor !=
                                     (expected_swap
                                          ? defender_before : primary_before) ||
@@ -2436,7 +2455,9 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                             before_reject = lifecycle;
                             if (tecmo_gameplay_live_foundation_regulation_entry_apply(
                                     &scene->cpu_steering_assets, period,
-                                    target_side, true, &lifecycle) ||
+                                    target_side,
+                                    lifecycle.period_entry_selector,
+                                    true, &lifecycle) ||
                                 memcmp(&lifecycle, &before_reject,
                                        sizeof(lifecycle)) != 0) {
                                 (void)snprintf(failure, sizeof(failure),
@@ -2464,7 +2485,9 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                             if (!tecmo_gameplay_live_foundation_regulation_entry_apply(
                                     &scene->cpu_steering_assets,
                                     regulation_period,
-                                    target_side, true, &regulation_four)) {
+                                    target_side,
+                                    regulation_four.period_entry_selector,
+                                    true, &regulation_four)) {
                                 (void)snprintf(failure, sizeof(failure),
                                     "overtime matrix P4 setup failed s%u p%u",
                                     (unsigned)side,
@@ -2714,13 +2737,15 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                     }
                     before_reject = fixture;
                     if (tecmo_gameplay_live_foundation_regulation_entry_apply(
-                            &scene->cpu_steering_assets, 1U, side, true,
+                            &scene->cpu_steering_assets, 1U, side,
+                            (uint8_t)(side ^ 1U), true,
                             &fixture) ||
                         memcmp(&fixture, &before_reject,
                                sizeof(fixture)) != 0 ||
                         tecmo_gameplay_live_foundation_regulation_entry_apply(
                             &scene->cpu_steering_assets, 3U,
-                            side, true, &fixture) ||
+                            side, fixture.period_entry_selector, true,
+                            &fixture) ||
                         memcmp(&fixture, &before_reject,
                                sizeof(fixture)) != 0) {
                         (void)snprintf(failure, sizeof(failure),

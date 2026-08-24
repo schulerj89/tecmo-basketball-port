@@ -622,6 +622,7 @@ static bool live_period_entry_seed(
     uint8_t period,
     uint8_t overtime_count,
     uint8_t target_offense_side,
+    uint8_t period_entry_selector,
     bool ordinary_ba_low2_clear,
     TecmoGameplayLiveFoundation *foundation_io)
 {
@@ -643,7 +644,7 @@ static bool live_period_entry_seed(
     if (assets == NULL || foundation_io == NULL || period < 1U ||
         period > 5U || (period < 5U && overtime_count != 0U) ||
         (period == 5U && overtime_count == 0U) ||
-        target_offense_side >= 2U ||
+        target_offense_side >= 2U || period_entry_selector >= 2U ||
         !ordinary_ba_low2_clear ||
         !tecmo_gameplay_live_foundation_valid(assets, foundation_io) ||
         foundation_io->first_sync_pending ||
@@ -660,8 +661,12 @@ static bool live_period_entry_seed(
              : foundation_io->regulation_entry_seed_serial == 0U) ||
         (period == 1U
              ? foundation_io->period_entry_selector !=
-                   TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR
+                   TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
+               period_entry_selector !=
+                   (uint8_t)(target_offense_side ^ 1U)
              : foundation_io->period_entry_selector >= 2U ||
+               period_entry_selector !=
+                   foundation_io->period_entry_selector ||
                (period < 5U &&
                target_offense_side !=
                    (uint8_t)(foundation_io->period_entry_selector ^
@@ -769,8 +774,7 @@ static bool live_period_entry_seed(
     if (period < 5U) {
         candidate.regulation_entry_seeded_period = period;
         if (period == 1U) {
-            candidate.period_entry_selector =
-                (uint8_t)(target_offense_side ^ 1U);
+            candidate.period_entry_selector = period_entry_selector;
         } else {
             candidate.period_entry_selector = target_offense_side;
         }
@@ -886,12 +890,14 @@ bool tecmo_gameplay_live_foundation_regulation_entry_apply(
     const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t period,
     uint8_t target_offense_side,
+    uint8_t period_entry_selector,
     bool ordinary_ba_low2_clear,
     TecmoGameplayLiveFoundation *foundation_io)
 {
     TecmoGameplayLiveFoundation candidate;
     if (assets == NULL || foundation_io == NULL || period < 1U ||
-        period > 4U || !ordinary_ba_low2_clear) {
+        period > 4U || period_entry_selector >= 2U ||
+        !ordinary_ba_low2_clear) {
         return false;
     }
     candidate = *foundation_io;
@@ -899,7 +905,8 @@ bool tecmo_gameplay_live_foundation_regulation_entry_apply(
          !live_regulation_entry_resolve_roles(
              assets, target_offense_side, true, &candidate)) ||
         !live_period_entry_seed(
-            assets, period, 0U, target_offense_side, true, &candidate)) {
+            assets, period, 0U, target_offense_side,
+            period_entry_selector, true, &candidate)) {
         return false;
     }
     *foundation_io = candidate;
@@ -924,7 +931,8 @@ bool tecmo_gameplay_live_foundation_overtime_entry_apply(
     if (!live_regulation_entry_resolve_roles(
             assets, target_offense_side, true, &candidate) ||
         !live_period_entry_seed(
-            assets, 5U, overtime_count, candidate.offense_side, true,
+            assets, 5U, overtime_count, candidate.offense_side,
+            candidate.period_entry_selector, true,
             &candidate)) {
         return false;
     }

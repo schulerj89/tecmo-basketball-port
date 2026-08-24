@@ -1733,6 +1733,7 @@ static bool scene_pretip_cpu_requested(
 
 static bool scene_apply_period_entry(
     TecmoGameplayScene *scene, uint8_t target_offense_side,
+    uint8_t period_entry_selector,
     bool require_pretip_handoff)
 {
     TecmoGameplayScene candidate;
@@ -1743,7 +1744,7 @@ static bool scene_apply_period_entry(
     if (scene == NULL || scene->state.period < 1U ||
         scene->state.period > 5U ||
         (scene->state.period == 5U && scene->state.overtime_count == 0U) ||
-        target_offense_side >= 2U ||
+        target_offense_side >= 2U || period_entry_selector >= 2U ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
         (require_pretip_handoff && !scene->pretip_state.live_handoff) ||
         scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
@@ -1761,7 +1762,7 @@ static bool scene_apply_period_entry(
     if (!(candidate.state.period < 5U
               ? tecmo_gameplay_live_foundation_regulation_entry_apply(
                     &candidate.cpu_steering_assets, candidate.state.period,
-                    target_offense_side, true,
+                    target_offense_side, period_entry_selector, true,
                     &candidate.live_foundation)
               : tecmo_gameplay_live_foundation_overtime_entry_apply(
                     &candidate.cpu_steering_assets,
@@ -1930,7 +1931,8 @@ static bool scene_apply_period_banner_entry(
         return false;
     }
     if (!scene_apply_period_entry(
-            &candidate, target_offense, false) ||
+            &candidate, target_offense,
+            candidate.live_foundation.period_entry_selector, false) ||
         candidate.live_foundation.primary_actor != preferred_primary ||
         candidate.live_foundation.offense_side != target_offense ||
         !tecmo_gameplay_camera_settle_court(
@@ -2036,10 +2038,14 @@ static bool scene_update_pretip_frame(
         TecmoGameplayTeam possession;
         uint8_t claimant_jumper;
         uint8_t claimant_actor;
+        uint8_t winner_side;
         uint8_t holder;
         if (!tecmo_gameplay_pretip_claimant_jumper(
                 &scene->pretip_assets, &scene->pretip_state,
                 &claimant_jumper) ||
+            !tecmo_gameplay_pretip_tip_winner(
+                &scene->pretip_assets, &scene->pretip_state,
+                &winner_side) ||
             claimant_jumper >= TECMO_GAMEPLAY_PRETIP_JUMPER_COUNT ||
             !scene_pretip_jumper_mapping_valid(scene)) {
             scene_set_status(scene, "pre-tip winner handoff rejected");
@@ -2053,6 +2059,10 @@ static bool scene_update_pretip_frame(
             return false;
         }
         possession = (TecmoGameplayTeam)scene->actors[claimant_actor].team;
+        if (winner_side != (uint8_t)possession) {
+            scene_set_status(scene, "pre-tip claimant/winner side rejected");
+            return false;
+        }
         /* $A274's jumper selection and $0380/$037F receiver selection are
            separate seams. Do not treat center slot 4/9 or team slot 0/5 as
            the possession receiver. */
@@ -2092,7 +2102,8 @@ static bool scene_update_pretip_frame(
                 handoff_reject = "pre-tip foundation sync rejected";
             } else if (!scene_apply_period_entry(
                            scene,
-                           scene->live_foundation.offense_side, true)) {
+                           scene->live_foundation.offense_side,
+                           (uint8_t)(possession ^ 1U), true)) {
                 handoff_reject = scene->status;
             } else if (!tecmo_gameplay_camera_settle_court(
                     &scene->camera_assets, &scene->camera_state,

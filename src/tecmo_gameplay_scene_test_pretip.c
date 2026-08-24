@@ -344,6 +344,8 @@ static bool scene_test_concurrent_tip_simulation(
         int seed_actor;
         if (scene->live_foundation.regulation_entry_seeded_period != 1U ||
             scene->live_foundation.regulation_entry_seed_serial != 1U ||
+            scene->live_foundation.period_entry_selector !=
+                (uint8_t)(side ^ 1U) ||
             primary != scene->ball_holder ||
             scene->live_foundation.selected_actor_by_side[side] != primary ||
             scene->live_foundation.play_state.actor_state[primary] != 0x04U ||

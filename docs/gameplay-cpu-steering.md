@@ -556,6 +556,11 @@ tip claimant `$A2A4/$A2B5`, follows coordinate selection `$A2B8-$A2C6`, solver
 `$E537-$E53F` projects the bit. Together with two natural no-write outcomes
 (P1 offense 0: `$04FC=FF,R=1`; P1 offense 1: `$04FC=00,R=0`), this proves the
 typed production mapping `R = P1 tip winner/offense ^ 1`.
+The regulation-entry transaction receives `R` as a distinct typed argument:
+the scene derives P1 only from the committed PRETIP claimant/winner and checks
+winner, claimant team, possession, and `R=winner^1` together; P2-P4 pass and
+validate the stored cumulative selector. A mismatched selector or holder-side
+substitution rejects the entire transaction byte-identically.
 
 At fixed `$E71B`, `$035C` indexes the bytes beginning at `$E740`. P1 increments
 `$035C` to 1 but seeds separately. P2 uses X=2 and XOR 0, P3 uses X=3 and XOR

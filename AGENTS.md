@@ -1805,6 +1805,10 @@ Bank06 `$85EA/$86D2` seed occurs at the real first-period PRETIP handoff and
 every accepted banner epoch. The P1 claimant/coordinate/state-17 chain through
 fixed `$E51B-$E53F`, corroborated by natural outcomes for both winners, proves
 binary `$0758` selector `R = P1 tip winner/offense ^ 1`. Production uses the
+selector as an explicit atomic transaction input: P1 derives it only from the
+committed PRETIP claimant/winner with claimant-team/possession checks, while
+P2-P4 pass the stored cumulative selector. Never derive it inside the
+foundation from a generic target/holder argument. The transaction uses the
 descending `$8728/$8774` scan and coordinate tables and exposes only final
 primary cursor `$017C`. Fixed
 `$E71B` equality keeps the selected pairs while ordinary-admitted mismatch
