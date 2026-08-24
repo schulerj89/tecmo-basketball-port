@@ -65,8 +65,9 @@ bool tecmo_gameplay_cpu_a0f3_assets_load(
     TecmoGameplayCpuA0f3Assets *assets,
     const char *asset_pack_path);
 
-/* Exact `$80A9` signed-numerator/unsigned-divisor result, before A0F3's
- * final wrapping left shift. */
+/* Exact `$80A9-$815A` signed-numerator/unsigned-divisor result, before
+ * A0F3's final wrapping left shift. Ordinary division retains the complete
+ * 16-bit quotient; divisor zero alone selects the 7FFF/8001 sentinel. */
 uint16_t tecmo_gameplay_cpu_a0f3_divide_q6(int32_t numerator_q6,
                                            uint16_t divisor);
 

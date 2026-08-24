@@ -399,7 +399,7 @@ try {
         @{ label="Bank05 A0F3-A158 launch"; bank=5; fixed=$false; start=0xA0F3; size=0x66; hash="E0D639BE" },
         @{ label="Bank05 B32C-B390 duration"; bank=5; fixed=$false; start=0xB32C; size=0x65; hash="D3DB4014" },
         @{ label="Bank05 BCF4-BD68 projection"; bank=5; fixed=$false; start=0xBCF4; size=0x75; hash="A8A390BB" },
-        @{ label="Bank05 80A9-813D divider"; bank=5; fixed=$false; start=0x80A9; size=0x95; hash="9A20473A" },
+        @{ label="Bank05 80A9-815A signed divider"; bank=5; fixed=$false; start=0x80A9; size=0xB2; hash="F5998EDB" },
         @{ label="Bank05 A15C-A183 direction tables"; bank=5; fixed=$false; start=0xA15C; size=0x28; hash="56696FEF" },
         @{ label="Bank05 BDF7-BEF6 lift LUT"; bank=5; fixed=$false; start=0xBDF7; size=0x100; hash="93FCF6CB" },
         @{ label="Bank05 BD6E-BDC6 Q6 tick/publish"; bank=5; fixed=$false; start=0xBD6E; size=0x59; hash="3F4FB637" }

@@ -110,12 +110,13 @@ synthetic sentinel, or enable LIVE A9DA. Exact importer and mutation anchors
 cover `$A8E9-$A976` (FNV `815E6881`) and `$AA87-$AA9E` (FNV `6D37E9A0`).
 
 TGLS-1 now owns the pure direct-launch arithmetic immediately upstream. It
-pins `$A0F3-$A158`, `$B32C-$B390`, `$BCF4-$BD68`, `$80A9-$813D`, direction
+pins `$A0F3-$A158`, `$B32C-$B390`, `$BCF4-$BD68`, `$80A9-$815A`, direction
 tables `$A15C-$A183`, and sanitized lift LUT `$BDF7-$BEF6`. Inputs are raw ball
 base X/depth, current object-10 X/depth, pre-remap `$0463`, and independent
 `$006A`. Duration uses `BDF7[current_depth]`, the exact horizontal-distance
 branch and `$003C` cap. Division is signed `(delta*64)/duration`, truncating
-toward zero with exact zero-divisor saturation, followed by the source's
+toward zero into the full raw16 quotient and restoring sign with wrap. Only
+divisor zero uses the `0000/7FFF/8001` sentinel path, followed by the source's
 wrapping double. The resulting raw16 velocities and Q6 accumulators are
 helper-only; `$BD6E-$BDC6` pins integrate-then-publish order. The explicit
 `$006A` is the second `$C05D` result after `$9FA1->$A0DD`; no scene scheduler,

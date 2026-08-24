@@ -75,7 +75,7 @@ uint16_t tecmo_gameplay_cpu_a0f3_divide_q6(int32_t numerator_q6,
         quotient = magnitude == 0U ? 0U : 0x7FFFU;
     } else {
         quotient = magnitude / divisor;
-        if (quotient > 0x7FFFU) quotient = 0x7FFFU;
+        if (quotient > 0xFFFFU) quotient = 0xFFFFU;
     }
     if (negative && quotient != 0U) return (uint16_t)(0U - quotient);
     return (uint16_t)quotient;
@@ -242,8 +242,11 @@ bool tecmo_gameplay_cpu_a0f3_launch_self_test(const char *asset_pack_path,
         tecmo_gameplay_cpu_a0f3_divide_q6(1, 0U) != 0x7FFFU ||
         tecmo_gameplay_cpu_a0f3_divide_q6(-1, 0U) != 0x8001U ||
         tecmo_gameplay_cpu_a0f3_divide_q6(-65, 2U) != 0xFFE0U ||
-        tecmo_gameplay_cpu_a0f3_divide_q6(INT32_MAX, 1U) != 0x7FFFU ||
-        tecmo_gameplay_cpu_a0f3_divide_q6(INT32_MIN, 1U) != 0x8001U)
+        tecmo_gameplay_cpu_a0f3_divide_q6(32768, 1U) != 0x8000U ||
+        tecmo_gameplay_cpu_a0f3_divide_q6(65535, 1U) != 0xFFFFU ||
+        tecmo_gameplay_cpu_a0f3_divide_q6(INT32_MAX, 1U) != 0xFFFFU ||
+        tecmo_gameplay_cpu_a0f3_divide_q6(-32768, 1U) != 0x8000U ||
+        tecmo_gameplay_cpu_a0f3_divide_q6(INT32_MIN, 1U) != 0x0001U)
         goto fail;
 
     memset(&input, 0, sizeof(input));

@@ -512,8 +512,10 @@ Raw `$0463` direction remains 0..7 and `$006A` remains a separate explicit
 second-`$C05D` result; only
 `$006A >= $40` selects the exact `$A15C` remap before the four direction
 tables. The solver imports the 256-byte `$BDF7` lift table through the
-sanitized TGJS source span, computes `$B32C` duration/cap, reproduces `$80A9`
-signed-numerator/unsigned-duration truncation and zero-divisor saturation, then
+sanitized TGJS source span, computes `$B32C` duration/cap, and reproduces
+`$80A9-$815A` signed-numerator/unsigned-duration truncation. Nonzero divisors
+retain the full raw16 quotient before wrapped sign restoration; divisor zero
+alone yields `0000/7FFF/8001`. The solver then
 applies `$A0F3`'s wrapping quotient double. Q6 motion seeds from current raw
 object-10 X/depth and the `$BD6E-$BDC6` typed tick integrates before
 publishing. The proven
