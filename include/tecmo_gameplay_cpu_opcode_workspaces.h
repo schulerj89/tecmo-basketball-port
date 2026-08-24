@@ -16,6 +16,8 @@
 #define TECMO_GAMEPLAY_CPU_OPCODE_WORKSPACE_ASSESSMENT_TAG 0x41575043U
 #define TECMO_GAMEPLAY_CPU_OPCODE10_WORKSPACE_INPUT_TAG 0x49315043U
 #define TECMO_GAMEPLAY_CPU_OPCODE10_WORKSPACE_RESULT_TAG 0x52315043U
+#define TECMO_GAMEPLAY_CPU_OPCODE10_SELECTOR_INPUT_TAG 0x49325343U
+#define TECMO_GAMEPLAY_CPU_OPCODE10_SELECTOR_RESULT_TAG 0x52325343U
 #define TECMO_GAMEPLAY_CPU_OPCODE16_WORKSPACE_INPUT_TAG 0x49365043U
 #define TECMO_GAMEPLAY_CPU_OPCODE16_WORKSPACE_RESULT_TAG 0x52365043U
 
@@ -98,6 +100,40 @@ typedef struct TecmoGameplayCpuOpcode10WorkspaceResult {
     bool timer_decremented;
 } TecmoGameplayCpuOpcode10WorkspaceResult;
 
+/* Exact caller-supplied Bank02 $BEE7-$BFD8 selector plane. These values must
+ * be observed at one selector invocation; this is not a LIVE RAM mirror. */
+typedef struct TecmoGameplayCpuOpcode10SelectorInput {
+    uint32_t contract_tag;
+    uint8_t flags_0588;
+    uint8_t context_0478;
+    uint8_t flags_ba;
+    uint8_t primary_actor_0308;
+    uint8_t defender_actor_0309;
+    uint8_t orientation_035a;
+    uint8_t prior_special_actor_07df;
+    uint8_t actor_selector_04b0[10U];
+    uint8_t dynamic_link_06cb[10U];
+    TecmoGameplayCourtCoordinate actor_position[10U];
+} TecmoGameplayCpuOpcode10SelectorInput;
+
+typedef struct TecmoGameplayCpuOpcode10SelectorResult {
+    uint32_t contract_tag;
+    uint8_t prior_special_actor_07df;
+    uint8_t special_actor_07df_after;
+    uint8_t initial_linked_actor;
+    uint8_t candidate_actor_99;
+    uint8_t threshold_97;
+    uint16_t initial_window_9495;
+    uint16_t winning_distance_9495;
+    bool gate_0588_passed;
+    bool context_gate_passed;
+    bool initial_link_found;
+    bool window_passed;
+    bool candidate_stored;
+    bool explicit_ff_stored;
+    bool prior_07df_retained;
+} TecmoGameplayCpuOpcode10SelectorResult;
+
 /* A strict arithmetic-only capture of Bank05 $9054-$90AF.  It does not prove
  * that Bank05 was called before a particular Bank06 opcode-16 record. */
 typedef struct TecmoGameplayCpuOpcode16WorkspaceInput {
@@ -126,6 +162,12 @@ bool tecmo_gameplay_cpu_opcode_workspace_assess(
 bool tecmo_gameplay_cpu_opcode10_workspace_harness(
     const TecmoGameplayCpuOpcode10WorkspaceInput *input,
     TecmoGameplayCpuOpcode10WorkspaceResult *result_out);
+
+/* Exact pure Bank02 $BEE7-$BFD8 selector. A final $99==$FF follows the
+ * source no-store return and retains prior_special_actor_07df. */
+bool tecmo_gameplay_cpu_opcode10_selector_b02_harness(
+    const TecmoGameplayCpuOpcode10SelectorInput *input,
+    TecmoGameplayCpuOpcode10SelectorResult *result_out);
 
 /* Exact Bank05 $9054-$90AF absolute-distance arithmetic harness. */
 bool tecmo_gameplay_cpu_opcode16_workspace_harness(

@@ -41,6 +41,7 @@ the caller-local helper and `$BA` lifecycle that TGAI-3 does not claim to own.
 | --- | --- | --- | --- |
 | Opcode 7 | Bank06 `$8F12-$8F29`: compare `C9` with `$046E[C8]`, then choose current `+5` or `CA/CB +5`; canonical records use object slot `C8=$0A`. | Slot-10/ball-object `$046E` lifecycle at the exact command point. Actor timers and ball coordinates are not substitutes. | Deferred/diagnostic-only. |
 | Opcode 10 | Bank06 `$8D59-$8E21` plus `$8E22-$8E4E`: orientation hoop delta, signed normalization, primary/non-primary threshold branches, and exact 1/2/3/4-bit shift entries. Canonical `$8DCE` is `BCC $8E03` (`90 33`): the zero-`$0798`, threshold-`<$6A` primary branch takes three shifts with no reload/decrement, despite a misleading lifted label. The harness names the Bank06 CPU X-register actor selector `actor_index`, so it cannot be mistaken for a court X coordinate. | Exact same-cadence `$07DF/$0478/$06CB/$0308` entry selection and caller-timed target workspace/continuation. `$07DF` itself is a comparison byte and may be a retained actor or non-actor sentinel; only the selected `$0308`/`$06CB` target is dereferenced. | Pure harness only; production remains fail-closed. |
+| Opcode 10 selector | Bank02 `$BEE7-$BFD8`: seed `$99=$FF`; apply the `$0588` and `$0478/BA` gates; find the first descending bit-`$10` actor whose `$06CB==$0308`; form the source-width X/depth window; then scan actors 9..0, excluding `$0309` and the initial actor. Equal distances replace the prior candidate, so the lowest tied slot wins. | Same-cadence native owners for `$0588`, `$0478`, and `$BA`, plus proof that this selector invocation owns the later Bank06 opcode-10 entry. | Typed pure harness only; it neither writes production `$07DF` nor enables LIVE. |
 | Opcode 16 | Bank05 `$9054-$90AF`: absolute hoop-X/depth workspaces. Bank06 `$9085-$90D7`: the existing executor can use them only when the pointer target and caller timing are proven. | Proof that Bank05 ran for the relevant actor immediately before the command; plus `$0309` pointer ownership. | Pure harness only. |
 | `$BA` | Bank06 target application consumes only `BA & 3`; the harness exposes that mask without a clock. | The cross-bank mutable lifecycle: bits 0..1 change in Bank05 state/possession paths and gate Bank06 formation/target paths; other bits have independent meanings. | External-lifecycle diagnostic; never `frame & 3`. |
 
@@ -61,6 +62,12 @@ The resolved-link executor input remains a pure/capture seam for a future
 same-cadence owner. `$0478`, `$07DF`, timer/rate/sample bytes, and raw RAM are
 not mirrored. Opcode 15 remains disabled and unchanged.
 
+A natural read-only observation provides limited corroboration: 442 opcode-10
+entries followed actual selector stores (434 candidate stores and 8 explicit
+`$FF` stores), while 17 no-store selector passes did not feed opcode 10. Those
+counts are not a universal source proof and do not supply any missing LIVE
+owner or cadence contract.
+
 `capture_complete` in the assessment means that a debugger/harness supplied
 all required owners at one command point. It deliberately does **not** mean a
 native scene has a faithful live producer. `live_producer_available` remains
@@ -76,6 +83,10 @@ The standalone test executable checks:
 - opcode-10 primary reload/decrement, the canonical three-shift sample branch,
   large-window scaling, `$50` and sub-`$50` branches, non-actor `$07DF`
   sentinel routing, signed restoration, and transactional invalid input;
+- Bank02 opcode-10 selector explicit-`$FF` gates, descending initial-link
+  choice, candidate exclusion and tie replacement, retained prior `$07DF` on
+  the final no-store path, source-width window rejection, and transactional
+  actor-index/coordinate validation;
 - opcode-16 left/right absolute workspace arithmetic and transactional invalid
   coordinates;
 - `$BA` low-bit masking preserves its external lifecycle rather than creating

@@ -193,6 +193,146 @@ bool tecmo_gameplay_cpu_opcode10_workspace_harness(
     return true;
 }
 
+static uint16_t selector_abs_x_delta(
+    const TecmoGameplayCourtCoordinate *candidate,
+    const TecmoGameplayCourtCoordinate *reference)
+{
+    uint16_t raw = (uint16_t)((uint16_t)candidate->x -
+                              (uint16_t)reference->x);
+    return (raw & 0x8000U) != 0U ? (uint16_t)(0U - raw) : raw;
+}
+
+static void selector_explicit_ff(
+    TecmoGameplayCpuOpcode10SelectorResult *result)
+{
+    result->special_actor_07df_after = 0xFFU;
+    result->explicit_ff_stored = true;
+}
+
+bool tecmo_gameplay_cpu_opcode10_selector_b02_harness(
+    const TecmoGameplayCpuOpcode10SelectorInput *input,
+    TecmoGameplayCpuOpcode10SelectorResult *result_out)
+{
+    static const uint8_t orientation_sign[2U] = {0x00U, 0x80U};
+    TecmoGameplayCpuOpcode10SelectorResult result;
+    uint8_t initial_actor = 0xFFU;
+    uint16_t window;
+    int actor;
+    size_t index;
+    if (input == NULL || result_out == NULL ||
+        input == (const void *)result_out ||
+        input->contract_tag !=
+            TECMO_GAMEPLAY_CPU_OPCODE10_SELECTOR_INPUT_TAG ||
+        !workspace_actor_valid(input->primary_actor_0308) ||
+        !workspace_actor_valid(input->defender_actor_0309) ||
+        input->orientation_035a > 1U ||
+        (input->prior_special_actor_07df != 0xFFU &&
+         !workspace_actor_valid(input->prior_special_actor_07df))) {
+        return false;
+    }
+    for (index = 0U; index < 10U; ++index) {
+        if (!workspace_actor_valid(input->dynamic_link_06cb[index]) ||
+            !workspace_coordinate_valid(&input->actor_position[index]) ||
+            input->actor_position[index].y > UINT8_MAX) {
+            return false;
+        }
+    }
+
+    memset(&result, 0, sizeof(result));
+    result.contract_tag =
+        TECMO_GAMEPLAY_CPU_OPCODE10_SELECTOR_RESULT_TAG;
+    result.prior_special_actor_07df = input->prior_special_actor_07df;
+    result.special_actor_07df_after = input->prior_special_actor_07df;
+    result.initial_linked_actor = 0xFFU;
+    /* $BEE7-$BEE9 seeds $99 to $FF on every invocation. */
+    result.candidate_actor_99 = 0xFFU;
+
+    /* $BEEB-$BF02: the two early failure paths explicitly store $FF. */
+    if ((input->flags_0588 & 0x10U) == 0U) {
+        selector_explicit_ff(&result);
+        *result_out = result;
+        return true;
+    }
+    result.gate_0588_passed = true;
+    if (input->context_0478 != 0U && (input->flags_ba & 0x40U) == 0U) {
+        selector_explicit_ff(&result);
+        *result_out = result;
+        return true;
+    }
+    result.context_gate_passed = true;
+
+    /* $BF03-$BF17: descending first match on bit-$10 and $06CB==$0308. */
+    for (actor = 9; actor >= 0; --actor) {
+        if ((input->actor_selector_04b0[actor] & 0x10U) != 0U &&
+            input->dynamic_link_06cb[actor] == input->primary_actor_0308) {
+            initial_actor = (uint8_t)actor;
+            break;
+        }
+    }
+    if (initial_actor == 0xFFU) {
+        selector_explicit_ff(&result);
+        *result_out = result;
+        return true;
+    }
+    result.initial_link_found = true;
+    result.initial_linked_actor = initial_actor;
+
+    /* $BF1A-$BF77: abs(16-bit X delta)+abs(8-bit depth delta). The branch
+       compares only the wrapped low byte of $9495 with threshold $97. */
+    {
+        uint16_t raw_x = (uint16_t)(
+            (uint16_t)input->actor_position[initial_actor].x -
+            (uint16_t)input->actor_position[input->primary_actor_0308].x);
+        uint8_t raw_depth = (uint8_t)(
+            (uint8_t)input->actor_position[initial_actor].y -
+            (uint8_t)input->actor_position[input->primary_actor_0308].y);
+        uint16_t abs_x = (raw_x & 0x8000U) != 0U
+            ? (uint16_t)(0U - raw_x) : raw_x;
+        uint8_t abs_depth = (raw_depth & 0x80U) != 0U
+            ? (uint8_t)(0U - raw_depth) : raw_depth;
+        result.threshold_97 =
+            ((uint8_t)(raw_x >> 8U) & 0x80U) ==
+                    orientation_sign[input->orientation_035a]
+                ? 0x08U : 0x1CU;
+        window = (uint16_t)(abs_x + abs_depth);
+    }
+    result.initial_window_9495 = window;
+    result.winning_distance_9495 = window;
+    if ((uint8_t)window < result.threshold_97) {
+        selector_explicit_ff(&result);
+        *result_out = result;
+        return true;
+    }
+    result.window_passed = true;
+
+    /* $BF79-$BFD0: descending scan, excluding $0309 and initial $98.
+       Candidate equality updates because the source rejects only borrow;
+       therefore the lowest slot wins an exact distance tie. */
+    for (actor = 9; actor >= 0; --actor) {
+        uint16_t distance;
+        if ((uint8_t)actor == input->defender_actor_0309 ||
+            (uint8_t)actor == initial_actor ||
+            (input->actor_selector_04b0[actor] & 0x10U) == 0U) {
+            continue;
+        }
+        distance = selector_abs_x_delta(
+            &input->actor_position[actor],
+            &input->actor_position[input->primary_actor_0308]);
+        if (result.winning_distance_9495 < distance) continue;
+        result.winning_distance_9495 = distance;
+        result.candidate_actor_99 = (uint8_t)actor;
+    }
+    if (result.candidate_actor_99 == 0xFFU) {
+        /* $BFD1 BMI $BFD8: no $07DF store. */
+        result.prior_07df_retained = true;
+    } else {
+        result.special_actor_07df_after = result.candidate_actor_99;
+        result.candidate_stored = true;
+    }
+    *result_out = result;
+    return true;
+}
+
 bool tecmo_gameplay_cpu_opcode16_workspace_harness(
     const TecmoGameplayCpuOpcode16WorkspaceInput *input,
     TecmoGameplayCpuOpcode16WorkspaceResult *result_out)
@@ -389,6 +529,142 @@ static bool workspace_test_opcode10(char *message, size_t message_size)
     return true;
 }
 
+static void workspace_selector_test_input_init(
+    TecmoGameplayCpuOpcode10SelectorInput *input)
+{
+    size_t actor;
+    memset(input, 0, sizeof(*input));
+    input->contract_tag =
+        TECMO_GAMEPLAY_CPU_OPCODE10_SELECTOR_INPUT_TAG;
+    input->flags_0588 = 0x10U;
+    input->primary_actor_0308 = 0U;
+    input->defender_actor_0309 = 8U;
+    input->prior_special_actor_07df = 3U;
+    for (actor = 0U; actor < 10U; ++actor) {
+        input->dynamic_link_06cb[actor] = 1U;
+        input->actor_position[actor].x =
+            (int16_t)(100U + actor * 10U);
+        input->actor_position[actor].y = 100;
+    }
+}
+
+static bool workspace_test_opcode10_selector(char *message,
+                                              size_t message_size)
+{
+    TecmoGameplayCpuOpcode10SelectorInput input;
+    TecmoGameplayCpuOpcode10SelectorResult result;
+    TecmoGameplayCpuOpcode10SelectorResult before;
+
+    /* $BEEB-$BEFD: a failed $0588 gate explicitly stores $FF. */
+    workspace_selector_test_input_init(&input);
+    input.flags_0588 = 0U;
+    if (!tecmo_gameplay_cpu_opcode10_selector_b02_harness(&input, &result) ||
+        result.special_actor_07df_after != 0xFFU ||
+        !result.explicit_ff_stored || result.gate_0588_passed ||
+        result.candidate_stored || result.prior_07df_retained) {
+        (void)snprintf(message, message_size,
+                       "opcode-10 selector explicit-$FF gate failed");
+        return false;
+    }
+
+    /* $BEF2-$BEFD: nonzero $0478 requires BA bit $40. */
+    workspace_selector_test_input_init(&input);
+    input.context_0478 = 1U;
+    input.flags_ba = 0U;
+    if (!tecmo_gameplay_cpu_opcode10_selector_b02_harness(&input, &result) ||
+        !result.gate_0588_passed || result.context_gate_passed ||
+        !result.explicit_ff_stored ||
+        result.special_actor_07df_after != 0xFFU) {
+        (void)snprintf(message, message_size,
+                       "opcode-10 selector $0478/BA gate failed");
+        return false;
+    }
+
+    /* Initial actor 9 establishes a 40-unit window. Candidate 8 is excluded
+       as $0309; candidates 7 and 6 tie at 20, and descending equality makes
+       the lower actor slot 6 the final $99/$07DF store. */
+    workspace_selector_test_input_init(&input);
+    input.actor_selector_04b0[9U] = 0x10U;
+    input.dynamic_link_06cb[9U] = 0U;
+    input.actor_position[9U].x = 140;
+    input.actor_selector_04b0[8U] = 0x10U;
+    input.actor_position[8U].x = 101;
+    input.actor_selector_04b0[7U] = 0x10U;
+    input.actor_position[7U].x = 120;
+    input.actor_selector_04b0[6U] = 0x10U;
+    input.actor_position[6U].x = 120;
+    if (!tecmo_gameplay_cpu_opcode10_selector_b02_harness(&input, &result) ||
+        !result.gate_0588_passed || !result.context_gate_passed ||
+        !result.initial_link_found || !result.window_passed ||
+        result.initial_linked_actor != 9U || result.threshold_97 != 8U ||
+        result.initial_window_9495 != 40U ||
+        result.winning_distance_9495 != 20U ||
+        result.candidate_actor_99 != 6U ||
+        result.special_actor_07df_after != 6U ||
+        !result.candidate_stored || result.explicit_ff_stored ||
+        result.prior_07df_retained) {
+        (void)snprintf(message, message_size,
+                       "opcode-10 selector candidate/tie scan failed");
+        return false;
+    }
+
+    /* $BFD1-$BFD8: after a valid initial scan/window, no final candidate
+       leaves $99 negative and performs no $07DF store. */
+    workspace_selector_test_input_init(&input);
+    input.actor_selector_04b0[9U] = 0x10U;
+    input.dynamic_link_06cb[9U] = 0U;
+    input.actor_position[9U].x = 140;
+    if (!tecmo_gameplay_cpu_opcode10_selector_b02_harness(&input, &result) ||
+        result.candidate_actor_99 != 0xFFU ||
+        result.special_actor_07df_after != 3U ||
+        !result.initial_link_found || !result.window_passed ||
+        !result.prior_07df_retained || result.candidate_stored ||
+        result.explicit_ff_stored) {
+        (void)snprintf(message, message_size,
+                       "opcode-10 selector retained no-store failed");
+        return false;
+    }
+
+    /* The initial scan is descending too: actor 9 wins even when actor 5
+       also links to $0308. A sub-threshold window explicitly stores $FF. */
+    workspace_selector_test_input_init(&input);
+    input.orientation_035a = 1U;
+    input.actor_selector_04b0[9U] = 0x10U;
+    input.dynamic_link_06cb[9U] = 0U;
+    input.actor_position[9U].x = 105;
+    input.actor_selector_04b0[5U] = 0x10U;
+    input.dynamic_link_06cb[5U] = 0U;
+    input.actor_position[5U].x = 140;
+    if (!tecmo_gameplay_cpu_opcode10_selector_b02_harness(&input, &result) ||
+        result.initial_linked_actor != 9U || result.threshold_97 != 0x1CU ||
+        result.initial_window_9495 != 5U || result.window_passed ||
+        !result.explicit_ff_stored ||
+        result.special_actor_07df_after != 0xFFU) {
+        (void)snprintf(message, message_size,
+                       "opcode-10 selector initial/window scan failed");
+        return false;
+    }
+
+    /* Actor-index and coordinate validation is transactional. */
+    before = result;
+    input.dynamic_link_06cb[4U] = 0xFFU;
+    if (tecmo_gameplay_cpu_opcode10_selector_b02_harness(&input, &result) ||
+        memcmp(&result, &before, sizeof(result)) != 0) {
+        (void)snprintf(message, message_size,
+                       "opcode-10 selector malformed transaction failed");
+        return false;
+    }
+    input.dynamic_link_06cb[4U] = 1U;
+    input.actor_position[4U].x = TECMO_GAMEPLAY_COURT_WORLD_MAX_X + 1;
+    if (tecmo_gameplay_cpu_opcode10_selector_b02_harness(&input, &result) ||
+        memcmp(&result, &before, sizeof(result)) != 0) {
+        (void)snprintf(message, message_size,
+                       "opcode-10 selector coordinate transaction failed");
+        return false;
+    }
+    return true;
+}
+
 static bool workspace_test_opcode16(char *message, size_t message_size)
 {
     TecmoGameplayCpuOpcode16WorkspaceInput input;
@@ -438,6 +714,7 @@ bool tecmo_gameplay_cpu_opcode_workspace_self_test(char *message,
     message[0] = '\0';
     if (!workspace_test_assessment(message, message_size) ||
         !workspace_test_opcode10(message, message_size) ||
+        !workspace_test_opcode10_selector(message, message_size) ||
         !workspace_test_opcode16(message, message_size)) {
         return false;
     }
