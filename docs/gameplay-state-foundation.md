@@ -117,13 +117,17 @@ the already accepted shot lifecycle. The accepted `$8FB9` path swaps
 `$8FE8-$902D` clears `$057C/$046E` for both selected actors, restores packed
 `$0458=$30`, clears `$0790`, and refreshes selected/candidate mirrors through
 the exact `$B98B` remap. `$9042-$9053` toggles `$04B0` bit `$10` for all ten
-actors. Bank07 then reaches Bank06 `$9621`; the typed scene enters its existing
-inbound transaction immediately, so ordinary Bank06 AI cannot consume a stale
-formation cursor between the score and the final `$B24F->$96B6` catch.
+actors. `$901F` writes state 1 before Bank06 `$8661-$8727` performs its exact
+descending primary scan and `$8728-$8773` refreshes formation/candidate
+streams. The scan uses unsigned orientation distance and strict replacement;
+`$88B0-$88D9` resets only a displaced primary. The physical restart passer
+remains distinct until gather. Automatic offense consumes `$0168`; human
+offense retains inbound presentation while still receiving selection writes.
 
 The typed score transition owns the accepted selected-pair/side swap, actor-state and
 action-state clears, packed-action reset, role-bit toggle, `$0790` clear, and
-leading `$9621` aggregation count/mask writes exactly. It does not claim raw
+leading `$9621` aggregation count/mask writes exactly. It also owns the
+transactional state-1 selection, candidate refresh, and gather retirement. It does not claim raw
 `$8FAD` admission parity. Cancelling C route/source
 metadata follows from that exact lifecycle reset but remains a typed adapter;
 the unmodeled `$8FE8` pose helpers and the rest of `$9621-$985C` presentation

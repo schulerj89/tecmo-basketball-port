@@ -1733,7 +1733,11 @@ bool scene_ownership_valid(const TecmoGameplayScene *scene)
          scene->live_foundation.last_possession !=
              (uint8_t)scene->state.possession ||
          scene->live_foundation.last_ball_holder != scene->ball_holder ||
-         scene->live_foundation.primary_actor != scene->ball_holder ||
+         (!scene->live_foundation.score_restart_selection_active &&
+          scene->live_foundation.primary_actor != scene->ball_holder) ||
+         (scene->live_foundation.score_restart_selection_active &&
+          scene->live_foundation.score_restart_passer !=
+              scene->ball_holder) ||
          scene->live_foundation.defender_actor >=
              TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
          scene->actors[scene->live_foundation.defender_actor].team ==

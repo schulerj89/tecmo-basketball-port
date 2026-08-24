@@ -467,18 +467,23 @@ in deterministic LIVE proof JSON.
 | `$9032-$9052` opcode 20, raw `$038D:$038E/$038F:$0390` latch words | Exact records are `$000F` / CPU `$9F3D` and `$0019` / `$9F47`, both `14 00 00 00 00`. TGCA now types the exact `$B721` and `$B783` stores (`$7D:$F2/$FD:$00`) plus the immediate `$0019` actor mask from the same successful assignment. A single-use scene context exposes that value only to those masked actors during the following Bank06 9..0 traversal; cursor coincidence, selected/delayed `$000A`, and opcode 13 cannot consume it. | Production remains `missing-global-target` because native LIVE owns neither the raw `$A214` gates nor object-slot scheduler and therefore never binds the context. Intentional exact-event fixtures prove same-frame consume/expiry/rollback. An accepted opcode 20 computes wrapping raw deltas, preserves target-plane bits under inactive-storage provenance, clears former semantic/raw meaning, applies exact zero-vector/state-4 or nonzero-direction behavior, and advances +5 without `$BA`. |
 | `$9172-$9216` opcode 15 raw lifecycle | None; harness-only capture contract | `missing-opcode15-raw-lifecycle`. |
 
-The TGLP native proof now renders four deterministic automatic-pass
+Production automatic-pass selection now enters from made-score restart:
+Bank05 `$901F` state 1 reaches Bank06 `$8661-$8727`, publishes the selected
+primary at `$0168`, and `$8728-$8773` refreshes the other four offense streams
+and final candidate. Tests cover both orientations, exclusions, strict ties,
+equality/mismatch, and the `$88B0` displaced-primary reset. Human offense
+receives those writes but does not automatically execute `$0168`.
+
+The TGLP native proof renders four deterministic automatic-pass
 checkpoints: opcode 5, retained opcode-6 action `$10`, packed `$32` gather,
 and released flight. Its `cpu_auto_pass_stream` JSON pins the `$017C/$018B/
 $0190` records, the opcode-3 wait sequence `6..0`, passer/receiver identities,
 pass phases, and player/ball position deltas. Object-slot-10 `$13` is labeled
 as an inference from the separate canonical executor and scene state-flow
-tests; the live scene does not retain or observe that write. The isolation
-fixture resets the selected automatic holder to state 4/wait 0/action 0,
-parks its cursor at `$017C`, and suspends every other actor at state 6/wait
-`$FF`. The proof therefore covers bounded
-execution and presentation, not the unconverted upstream play-selection route
-or an ordinary production actor schedule.
+tests; the live scene does not retain or observe that write. The existing
+isolation fixture still parks `$017C`; it proves downstream presentation only
+and is not evidence for the converted production `$0168` entry. Its refreshed
+visual baseline remains pending review.
 
 Unimplemented handler effects retain their source-pinned record transport
 only where that transport is already bounded, with the separate reason

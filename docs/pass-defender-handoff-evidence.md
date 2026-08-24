@@ -5,6 +5,11 @@
 Ordinary bound human passes and autonomous selected-primary action-`$21`
 passes share one actor-neutral transport rather than teleporting possession:
 
+- Made-score automatic play reaches this transport naturally. Bank05 `$901F`
+  writes state 1; Bank06 `$8661-$8727` selects the primary and `$8728-$8773`
+  refreshes formation/candidate streams. Automatic play begins at `$0168`.
+  Human offense receives selection writes but retains inbound presentation.
+
 - Bank06 opcode 9 is the already-owned writer of actor-local `$046E`. The
   native code does not force the Bank04 `$A05F` record or route CPU intent
   through NES A.
@@ -68,8 +73,8 @@ The current Q8 flight duration and linear interpolation are explicitly native
 adapters because `$B42F`, the Bank05 `$BB9F/$BBA0` trajectory lookup, and the
 five-`$B500` substep scheduler are not yet a strict pass asset. The source
 gather order, launch-time receiver lock/role swap, multi-update ball ownership,
-and catch-only handoff are preserved. Upstream CPU play selection/cursor reach,
-general pass desirability, `$B13F` interception/contact semantics, and the
+and catch-only handoff are preserved. General pass desirability, `$B13F`
+interception/contact semantics, and the
 complete Bank06 inbound formation route remain deferred/fail-closed.
 The exact `$96B6` automatic lifecycle invariant is closed, while its route
 branch remains approximate. Opcode 21 now owns `$058A/$0357/$0358` through

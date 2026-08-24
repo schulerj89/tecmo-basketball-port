@@ -863,13 +863,16 @@ bool scene_begin_cpu_pass_from_action21(TecmoGameplayScene *scene,
 static bool scene_begin_cpu_pass_from_action10(TecmoGameplayScene *scene,
                                                uint8_t passer)
 {
+    TecmoGameplayCourtCoordinateQ8 attached;
+    TecmoGameplayCourtCoordinateQ8 prior_ball_position;
+    TecmoGameplayLiveFoundation prior_foundation;
+    uint8_t prior_ball_holder;
     uint8_t receiver;
     if (scene == NULL || scene->legacy_direct_launch ||
         passer >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         scene->live_foundation.play_state.actor_state[passer] != 0x04U ||
         scene->live_foundation.play_state.action_state_046e[passer] !=
             0x10U ||
-        passer != scene->ball_holder ||
         scene->live_foundation.primary_actor != passer) {
         return false;
     }
@@ -881,14 +884,70 @@ static bool scene_begin_cpu_pass_from_action10(TecmoGameplayScene *scene,
             return false;
         }
     }
+    prior_ball_holder = scene->ball_holder;
+    prior_ball_position = scene->ball_position;
+    prior_foundation = scene->live_foundation;
+    if (scene->live_foundation.score_restart_selection_active) {
+        if (scene->ball_holder !=
+                scene->live_foundation.score_restart_passer ||
+            scene->actors[passer].team != (uint8_t)scene->state.possession ||
+            !scene_attached_ball_position(
+                &scene->actors[passer], &attached)) {
+            return false;
+        }
+        /* The score-restart presentation keeps the ball on the inbound
+           passer while the off-ball `$0168` play develops. At `$C711->$89DB`
+           gather, source selection becomes the physical passer. */
+        scene->ball_holder = passer;
+        scene->ball_position = attached;
+        receiver = scene->live_foundation.candidate_actor_by_side[
+            scene->live_foundation.offense_side];
+        if (!tecmo_gameplay_live_foundation_score_restart_gather(
+                &scene->cpu_steering_assets, passer, receiver,
+                &scene->live_foundation)) {
+            scene->ball_holder = prior_ball_holder;
+            scene->ball_position = prior_ball_position;
+            scene->live_foundation = prior_foundation;
+            return false;
+        }
+    } else if (passer != scene->ball_holder) {
+        return false;
+    }
     receiver = scene->live_foundation.candidate_actor_by_side[
         scene->live_foundation.offense_side];
     /* Fixed `$C711` selector 1 reaches Bank05 `$89DB`, which enters the
        existing `$89D7` gather owner. This consumes the action-$10 pending
        marker on the update after opcode 6; it does not skip the preceding
        canonical opcode-23 record or claim natural stream reachability. */
-    return scene_begin_actor_pass(
-        scene, passer, receiver, TECMO_GAMEPLAY_SCENE_NO_ACTOR);
+    if (!scene_begin_actor_pass(
+            scene, passer, receiver, TECMO_GAMEPLAY_SCENE_NO_ACTOR)) {
+        scene->ball_holder = prior_ball_holder;
+        scene->ball_position = prior_ball_position;
+        scene->live_foundation = prior_foundation;
+        return false;
+    }
+    return true;
+}
+
+static bool scene_selected_primary_automatic_dispatch_owned(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplayLiveFoundation *foundation,
+    uint8_t actor)
+{
+    size_t controller;
+    if (scene == NULL || foundation == NULL ||
+        actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        return false;
+    }
+    for (controller = 0U; controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
+         ++controller) {
+        if (scene->launch.controller_team[controller] ==
+            scene->state.possession) return false;
+    }
+    return actor == scene->ball_holder ||
+        (foundation->score_restart_selection_active &&
+         scene->ball_holder == foundation->score_restart_passer &&
+         actor == foundation->primary_actor);
 }
 
 bool scene_update_pass(TecmoGameplayScene *scene)
@@ -1071,6 +1130,14 @@ static bool scene_inbound_passer_for_restart(
         restart_team >= TECMO_GAMEPLAY_TEAM_COUNT) {
         return false;
     }
+    if (scene->live_foundation.score_restart_selection_active &&
+        scene->live_foundation.score_restart_passer <
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+        scene->actors[scene->live_foundation.score_restart_passer].team ==
+            (uint8_t)restart_team) {
+        *passer_out = scene->live_foundation.score_restart_passer;
+        return true;
+    }
     selected = scene->live_foundation.selected_actor_by_side[restart_team];
     if (selected < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
         scene->actors[selected].team == (uint8_t)restart_team) {
@@ -1165,7 +1232,9 @@ bool scene_begin_inbound(TecmoGameplayScene *scene,
     /* Bank07 reaches Bank06 $9621 after presentation/reset. The native
        ownership/orientation transaction remains explicit, then only the
        exact TGFL base-branch positions are applied below. */
-    if (!scene_handoff_possession(scene, restart_team, passer) ||
+    if (((scene->state.possession != restart_team ||
+          scene->ball_holder != passer) &&
+         !scene_handoff_possession(scene, restart_team, passer)) ||
         !scene_sync_live_foundation(scene)) {
         goto reject;
     }
@@ -1189,7 +1258,10 @@ bool scene_begin_inbound(TecmoGameplayScene *scene,
         scene->actors[actor].anchor = position;
     }
     if (!scene_attach_ball(scene) || !scene_sync_live_foundation(scene) ||
-        scene->live_foundation.primary_actor != passer ||
+        ((!scene->live_foundation.score_restart_selection_active &&
+          scene->live_foundation.primary_actor != passer) ||
+         (scene->live_foundation.score_restart_selection_active &&
+          scene->live_foundation.score_restart_passer != passer)) ||
         scene->live_foundation.defender_actor != defender ||
         !scene_inbound_receiver_for_setup(scene, restart_team, passer,
                                           &receiver) ||
@@ -1242,7 +1314,12 @@ bool scene_begin_scored_inbound(TecmoGameplayScene *scene,
                                 TecmoGameplayTeam restart_team)
 {
     TecmoGameplayScene candidate;
+    TecmoGameplayCourtCoordinate positions[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    uint8_t directions[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplayLiveAutoPassSelection selection;
     uint8_t restart_primary;
+    uint8_t presentation_receiver;
+    size_t actor;
     if (scene == NULL || restart_team >= TECMO_GAMEPLAY_TEAM_COUNT ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
         scene->live_foundation.defender_actor >=
@@ -1265,9 +1342,57 @@ bool scene_begin_scored_inbound(TecmoGameplayScene *scene,
     if (!tecmo_gameplay_live_foundation_score_restart_transition(
             &candidate.cpu_steering_assets, (uint8_t)restart_team,
             &candidate.live_foundation)) return false;
+    /* The scene orientation handoff precedes Bank05's scored-restart AI
+       transaction. Publish that already-committed attack direction before
+       `$901F` evaluates its orientation-specific unsigned distance. */
+    candidate.live_foundation.orientation =
+        candidate.orientation_state.attack_direction;
     if (candidate.live_foundation.primary_actor != restart_primary ||
         candidate.ball_holder != restart_primary) return false;
-    if (!scene_begin_inbound(&candidate, restart_team)) return false;
+    presentation_receiver = candidate.live_foundation.candidate_actor_by_side[
+        restart_team];
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        positions[actor] = candidate.actors[actor].position;
+        directions[actor] = candidate.actors[actor].movement_direction;
+        if (directions[actor] >=
+            TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT) {
+            /* Scene actors do not retain raw `$0463` while standing. Its
+               only observable reset distinction here is horizontal facing;
+               map that retained presentation to the matching cardinal slot
+               before the exact `$88B0` tables are applied. */
+            directions[actor] = candidate.actors[actor].facing_right
+                ? 0U : 4U;
+        }
+    }
+    if (!tecmo_gameplay_live_foundation_score_restart_auto_pass_select(
+            &candidate.cpu_steering_assets, positions, directions,
+            &candidate.live_foundation, &selection) ||
+        selection.contract_tag !=
+            TECMO_GAMEPLAY_LIVE_AUTO_PASS_SELECTION_TAG ||
+        !candidate.live_foundation.score_restart_selection_active ||
+        candidate.live_foundation.score_restart_passer != restart_primary ||
+        candidate.live_foundation.play_state.stream_offset[
+            candidate.live_foundation.primary_actor] != 0x0168U) {
+        return false;
+    }
+    if (candidate.live_foundation.control_mode[restart_team] == 0U) {
+        uint8_t selected_candidate =
+            candidate.live_foundation.candidate_actor_by_side[restart_team];
+        /* Human control still receives the exact state-1 selection, but its
+           already-owned inbound presentation retains the receiver that was
+           published by the scored-restart role swap. Restore the state-1
+           candidate after setup; gather atomically publishes the locked
+           inbound receiver. */
+        candidate.live_foundation.candidate_actor_by_side[restart_team] =
+            presentation_receiver;
+        candidate.live_foundation.play_state.candidate_actor =
+            presentation_receiver;
+        if (!scene_begin_inbound(&candidate, restart_team)) return false;
+        candidate.live_foundation.candidate_actor_by_side[restart_team] =
+            selected_candidate;
+        candidate.live_foundation.play_state.candidate_actor =
+            selected_candidate;
+    }
     if (!scene_inbound_state_valid(&candidate)) return false;
     *scene = candidate;
     return true;
@@ -1286,6 +1411,12 @@ bool scene_update_inbound(TecmoGameplayScene *scene)
     }
     inbound = scene->inbound_state;
     if (inbound.phase == TECMO_GAMEPLAY_SCENE_INBOUND_SETUP) {
+        if (scene->live_foundation.score_restart_selection_active &&
+            !tecmo_gameplay_live_foundation_score_restart_gather(
+                &scene->cpu_steering_assets, inbound.passer,
+                inbound.receiver, &scene->live_foundation)) {
+            return false;
+        }
         inbound.phase = TECMO_GAMEPLAY_SCENE_INBOUND_GATHER;
         if (!scene_attached_ball_position(&scene->actors[inbound.passer],
                                           &ball)) {
@@ -3088,8 +3219,8 @@ bool scene_update_ai(
     another Bank06 record can be fetched, preserving the source delay. */
     actor = candidate_foundation.primary_actor;
     if (actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
-        actor == scene->ball_holder &&
-        !scene_team_has_controller(scene, scene->state.possession) &&
+        scene_selected_primary_automatic_dispatch_owned(
+            scene, &candidate_foundation, (uint8_t)actor) &&
         candidate_foundation.play_state.actor_state[actor] == 0x04U &&
         candidate_foundation.play_state.action_state_046e[actor] == 0x10U) {
         candidate_scene = *scene;
@@ -3129,8 +3260,8 @@ bool scene_update_ai(
             &primary_opcode10_projection)) {
         return false;
     }
-    if (actor == scene->ball_holder &&
-        !scene_team_has_controller(scene, scene->state.possession) &&
+    if (scene_selected_primary_automatic_dispatch_owned(
+            scene, &candidate_foundation, (uint8_t)actor) &&
         candidate_foundation.play_state.actor_state[actor] == 0x05U) {
         if (!scene_cpu_route_step(
                 scene, actor, (uint8_t)(scene->state.clock_divider & 1U),
@@ -3139,8 +3270,8 @@ bool scene_update_ai(
             return false;
         }
         selected_primary_route_owned = true;
-    } else if (actor == scene->ball_holder &&
-        !scene_team_has_controller(scene, scene->state.possession) &&
+    } else if (scene_selected_primary_automatic_dispatch_owned(
+            scene, &candidate_foundation, (uint8_t)actor) &&
         candidate_foundation.play_state.actor_state[actor] == 0x06U) {
         TecmoGameplayCpuSteeringPlayResult primary_result;
         bool primary_step_ok;
@@ -3164,8 +3295,8 @@ bool scene_update_ai(
             return false;
         }
         selected_primary_stepped = true;
-    } else if (actor == scene->ball_holder &&
-        !scene_team_has_controller(scene, scene->state.possession) &&
+    } else if (scene_selected_primary_automatic_dispatch_owned(
+            scene, &candidate_foundation, (uint8_t)actor) &&
         candidate_foundation.play_state.actor_state[actor] == 0x04U) {
         TecmoGameplayCpuSteeringPlayResult primary_result;
         const TecmoTeamDataPlayer *primary_player =

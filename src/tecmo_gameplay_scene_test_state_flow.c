@@ -2885,6 +2885,84 @@ failed:
     return false;
 }
 
+static bool scene_test_score_restart_auto_pass_selector(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplayLiveFoundation *restart_foundation)
+{
+    static const uint8_t directions[10] = {
+        1U, 1U, 2U, 5U, 1U, 0U, 0U, 2U, 5U, 0U
+    };
+    TecmoGameplayCourtCoordinate positions[10];
+    uint8_t orientation;
+    uint8_t mismatch;
+    size_t actor;
+    if (scene == NULL || restart_foundation == NULL) return false;
+    for (orientation = 0U; orientation < 2U; ++orientation) {
+        for (mismatch = 0U; mismatch < 2U; ++mismatch) {
+            TecmoGameplayLiveFoundation auto_pass = *restart_foundation;
+            TecmoGameplayLiveFoundation auto_before;
+            TecmoGameplayLiveAutoPassSelection selection;
+            uint8_t expected_winner = mismatch != 0U ? 9U : 5U;
+            uint8_t expected_final = mismatch != 0U ? 5U : 6U;
+            auto_pass.control_mode[TECMO_GAMEPLAY_TEAM_HOME] = 1U;
+            auto_pass.orientation = orientation;
+            for (actor = 0U; actor < 10U; ++actor) {
+                positions[actor] = auto_pass.actor_position[actor];
+                if (auto_pass.actor_team[actor] == TECMO_GAMEPLAY_TEAM_HOME) {
+                    uint16_t distance = (uint16_t)(340U + actor);
+                    positions[actor].x = orientation == 0U
+                        ? (int16_t)(0x0400U - distance) : (int16_t)distance;
+                    positions[actor].y = (actor & 1U) != 0U ? 0x0095 : 0x0096;
+                }
+            }
+            positions[expected_winner].x = orientation == 0U ? 724 : 300;
+            if (mismatch != 0U) positions[8U].x = positions[9U].x;
+            auto_pass.candidate_actor_by_side[TECMO_GAMEPLAY_TEAM_HOME] =
+                expected_winner;
+            memset(&selection, 0xA5, sizeof(selection));
+            if (!tecmo_gameplay_live_foundation_score_restart_auto_pass_select(
+                    &scene->cpu_steering_assets, positions, directions,
+                    &auto_pass, &selection) ||
+                selection.contract_tag !=
+                    TECMO_GAMEPLAY_LIVE_AUTO_PASS_SELECTION_TAG ||
+                selection.old_primary != 5U ||
+                selection.new_primary != expected_winner ||
+                selection.winning_distance != 300U ||
+                selection.primary_changed != (mismatch != 0U) ||
+                !selection.candidate_collision_advanced ||
+                selection.candidate_before_refresh !=
+                    (mismatch != 0U ? 5U : 6U) ||
+                selection.candidate_after_refresh != expected_final ||
+                auto_pass.primary_actor != expected_winner ||
+                auto_pass.last_ball_holder != 5U ||
+                !auto_pass.score_restart_selection_active ||
+                auto_pass.score_restart_passer != 5U ||
+                auto_pass.play_state.stream_offset[expected_winner] != 0x0168U ||
+                auto_pass.play_state.actor_state[expected_winner] != 4U ||
+                auto_pass.play_state.wait_counter[expected_winner] != 0U ||
+                auto_pass.play_state.action_state_046e[expected_winner] != 0U ||
+                auto_pass.candidate_actor_by_side[TECMO_GAMEPLAY_TEAM_HOME] !=
+                    expected_final ||
+                auto_pass.play_state.candidate_actor != expected_final ||
+                (mismatch != 0U &&
+                 (auto_pass.play_state.pose[5U] != 0x0CU ||
+                  selection.old_primary_pose_high_044d != 0x04U ||
+                  selection.old_primary_sprite_flags_0479 != 0xC1U ||
+                  auto_pass.play_state.action[5U] != 0x30U)) ||
+                !tecmo_gameplay_live_foundation_valid(
+                    &scene->cpu_steering_assets, &auto_pass)) return false;
+            auto_before = auto_pass;
+            memset(&selection, 0xA5, sizeof(selection));
+            if (tecmo_gameplay_live_foundation_score_restart_auto_pass_select(
+                    &scene->cpu_steering_assets, positions, directions,
+                    &auto_pass, &selection) ||
+                memcmp(&auto_pass, &auto_before, sizeof(auto_pass)) != 0 ||
+                selection.contract_tag != 0xA5A5A5A5U) return false;
+        }
+    }
+    return true;
+}
+
 static bool scene_test_live_foundation_regressions(
     TecmoGameplayScene *scene,
     TecmoGameplaySceneLaunch *launch_input,
@@ -4005,6 +4083,13 @@ static bool scene_test_live_foundation_regressions(
         !tecmo_gameplay_live_foundation_valid(
             &scene->cpu_steering_assets, &candidate_foundation)) {
         LIVE_FAIL("LIVE scored restart selected-pair reset diverged");
+    }
+    /* Bank05 `$901F` state 1 reaches Bank06 `$8661-$8727`, then the shared
+       `$8728` refresh. The isolated helper keeps its large rollback snapshots
+       out of this already-large regression stack frame. */
+    if (!scene_test_score_restart_auto_pass_selector(
+            scene, &candidate_foundation)) {
+        LIVE_FAIL("LIVE natural auto-pass selector matrix failed");
     }
     candidate_foundation = foundation_before;
     snapshot.live_foundation = candidate_foundation;

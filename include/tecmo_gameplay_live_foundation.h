@@ -46,6 +46,22 @@ typedef struct TecmoGameplayLiveClaimantSettlement {
     bool raw_035a_save_and_toggle_observed;
 } TecmoGameplayLiveClaimantSettlement;
 
+#define TECMO_GAMEPLAY_LIVE_AUTO_PASS_SELECTION_TAG 0x4C415031U
+typedef struct TecmoGameplayLiveAutoPassSelection {
+    uint32_t contract_tag;
+    uint8_t old_primary;
+    uint8_t new_primary;
+    uint8_t candidate_before_refresh;
+    uint8_t candidate_after_refresh;
+    uint16_t winning_distance;
+    uint8_t old_primary_pose_low_0442;
+    uint8_t old_primary_pose_high_044d;
+    uint8_t old_primary_sprite_flags_0479;
+    uint8_t old_primary_action_0458;
+    bool primary_changed;
+    bool candidate_collision_advanced;
+} TecmoGameplayLiveAutoPassSelection;
+
 /* Passive observation made when a canonical opcode-15 record reaches the
  * LIVE executor. The native scene deliberately does not own $0499, $007E,
  * $06D5/$06D6, $0479, $059E, or the raw $0442/$044D pointer pair, so unavailable
@@ -115,6 +131,13 @@ typedef struct TecmoGameplayLiveFoundation {
     uint16_t candidate_score_by_side[TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT];
     uint8_t candidate_sector_by_side[TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT];
     uint8_t actor_team[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    /* Exact raw presentation bytes retained for the score-restart state-1
+       selector's `$88B0` old-primary reset. Pose low/action remain in the
+       shared play state. */
+    /* During the exact automatic score-restart play, `$0308` selection may
+       differ from the still-attached native inbound passer until gather. */
+    bool score_restart_selection_active;
+    uint8_t score_restart_passer;
     /* Last transactionally accepted live coordinates.  These are scene
        observations, not a replay of the Bank04 startup table. */
     TecmoGameplayCourtCoordinate actor_position[
@@ -252,6 +275,24 @@ bool tecmo_gameplay_live_foundation_synchronize(
 bool tecmo_gameplay_live_foundation_score_restart_transition(
     const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t resulting_possession,
+    TecmoGameplayLiveFoundation *foundation_io);
+
+/* Exact Bank05 `$901F` state-1 trigger followed by Bank06
+ * `$805B-$8089/$8661-$8773`. It is admitted only after the typed made-score
+ * role swap for automatic offense. Positions and `$0463` directions are one
+ * immutable scene snapshot; failure leaves foundation/result byte-identical. */
+bool tecmo_gameplay_live_foundation_score_restart_auto_pass_select(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    const TecmoGameplayCourtCoordinate actor_position[
+        TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT],
+    const uint8_t actor_direction_0463[
+        TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT],
+    TecmoGameplayLiveFoundation *foundation_io,
+    TecmoGameplayLiveAutoPassSelection *result_out);
+bool tecmo_gameplay_live_foundation_score_restart_gather(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t selected_passer,
+    uint8_t receiver,
     TecmoGameplayLiveFoundation *foundation_io);
 
 /* Playability-only normalization for a non-source miss fallback after the

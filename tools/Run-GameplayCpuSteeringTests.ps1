@@ -367,6 +367,13 @@ try {
         @{ label="Bank05 8FE8-902D selected reset"; bank=5; fixed=$false; start=0x8FE8; size=0x46; hash="FFA12025" },
         @{ label="Bank05 BFA8-BFC8 all-actor reset"; bank=5; fixed=$false; start=0xBFA8; size=0x21; hash="7AD3EC16" }
     )
+    $AutoPassAnchorSpans = @(
+        @{ label="Bank05 8FAD-9041 score trigger"; bank=5; fixed=$false; start=0x8FAD; size=0x95; hash="8F50F4E2" },
+        @{ label="Bank06 805B-8089 state dispatch"; bank=6; fixed=$false; start=0x805B; size=0x2F; hash="B58B86CB" },
+        @{ label="Bank06 8661-8727 selector"; bank=6; fixed=$false; start=0x8661; size=0xC7; hash="5CF7B7F5" },
+        @{ label="Bank06 8728-8773 refresh"; bank=6; fixed=$false; start=0x8728; size=0x4C; hash="4DD31C29" },
+        @{ label="Bank06 88B0-88D9 old-primary reset"; bank=6; fixed=$false; start=0x88B0; size=0x2A; hash="AD834719" }
+    )
     # The first entry below is a separately copied raw helper. The remaining
     # handler/tail anchors overlap the retained command-handler source span;
     # they are semantic anchors, not additional copied source entries.
@@ -898,6 +905,15 @@ try {
                 "$($Span.label).")
         }
     }
+    foreach ($Span in $AutoPassAnchorSpans) {
+        $CpuBase = if ([bool]$Span.fixed) { 0xC000 } else { 0x8000 }
+        $Offset = $Prg + $Span.bank * 0x4000 + ($Span.start - $CpuBase)
+        $Raw = New-Object byte[] ([int]$Span.size)
+        [Array]::Copy($RomBytes, $Offset, $Raw, 0, [int]$Span.size)
+        if ((Get-Fnv1a32 $Raw) -ne $Span.hash) {
+            throw "Canonical auto-pass anchor changed at $($Span.label)."
+        }
+    }
     $RomMutationCount = 0
     foreach ($Span in $ExpectedSpans) {
         $CpuBase = if ($Span.fixed) { 0xC000 } else { 0x8000 }
@@ -981,9 +997,30 @@ try {
         ++$Opcode15RomMutationCount
     }
 
+    $AutoPassRomMutationCount = 0
+    foreach ($Span in $AutoPassAnchorSpans) {
+        $CpuBase = if ([bool]$Span.fixed) { 0xC000 } else { 0x8000 }
+        $Offset = $Prg + $Span.bank * 0x4000 + ($Span.start - $CpuBase)
+        $MutatedRom = Join-Path $Scratch `
+            ("rom-auto-pass-{0}-{1:X4}.nes" -f $Span.bank, $Span.start)
+        $Bytes = [byte[]]$RomBytes.Clone()
+        $Bytes[$Offset] = $Bytes[$Offset] -bxor 1
+        [IO.File]::WriteAllBytes($MutatedRom, $Bytes)
+        $Output = @(& $Executable --gameplay-cpu-steering-source-test `
+            $MutatedRom 2>&1)
+        if ($LASTEXITCODE -eq 0 -or
+            ($Output -join [Environment]::NewLine) -notmatch
+                'TGAI-3 import requires the exact Rev1 ROM fingerprint') {
+            throw ("Rev1 auto-pass anchor mutation at $($Span.label) was " +
+                "accepted.`n$(Get-ShortTail $Output)")
+        }
+        ++$RomMutationCount
+        ++$AutoPassRomMutationCount
+    }
+
     Write-Host ("TGAI-3 focused tests passed: exact Rev1 importer and twelve " +
         "source spans plus eight lifecycle anchor/table spans, nine exact " +
-        "regulation-entry spans, and six opcode-15 " +
+        "regulation-entry spans, five auto-pass spans, and six opcode-15 " +
         "source/semantic-anchor spans, 680 aligned " +
         "commands, 24 handlers, eight exact " +
         "direction codes, deterministic ten-coordinate/context harness, " +
@@ -991,7 +1028,8 @@ try {
         "strict provenance/dependency/parser/input mutations, " +
         "$RomMutationCount ROM mutations ($LifecycleRomMutationCount lifecycle " +
         "anchor/table; $RegulationEntryRomMutationCount regulation entry; " +
-        "$Opcode15RomMutationCount opcode-15), bounded live scene " +
+        "$Opcode15RomMutationCount opcode-15; $AutoPassRomMutationCount " +
+        "auto-pass), bounded live scene " +
         "adapter enabled")
     $global:LASTEXITCODE = 0
 } finally {
