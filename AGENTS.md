@@ -1613,6 +1613,21 @@ Production tests must enter through a genuine pass catch that assigns the
 former selected actor `$0B63`, then observe opcode 2 advance it to `$0B68`;
 do not park `$0B63/$0B68` to claim post-catch reachability.
 
+Opcode 11 is the separate exact Bank06 `$8C40-$8CC7` fixed-link pose selector;
+opcode-8 redirect destinations begin with opcode decimal 17, not opcode 11.
+Its only records are `$0050` / CPU `$9F7E` and `$005F` / `$9F8D`, both
+`0B 00 00 00 00`. Use immutable positions and `play_state.fixed_link` (the
+source `$06CB` table), never `fixed_link_target` or the dynamic projection.
+Compute wrapping absolute 16-bit X and zero-extended 8-bit depth; horizontal
+wins ties. Commit raw `$0442={0A,0C,0E,10}`, raw `$044D=04`, packed `$0458=30`,
+state 4, and +5 without changing direction, targets, or coordinates. Keep
+`$0479=C1` unowned and do not map these raw bytes to a visible native pose
+without a separately validated presentation owner. The earlier formation
+`$26/$27` reachability claim is disproven: all 46 pinned formation starts must
+scan to zero occurrences of `$0050/$0055/$005F`. Keep positive coverage labeled
+as intentional canonical-record executor fixtures, and do not claim production
+cursor ownership until a separate source producer is converted.
+
 `--gameplay-cpu-steering-test`,
 `--gameplay-cpu-steering-inspect`, `--gameplay-cpu-steering-harness`, and
 `--gameplay-cpu-steering-movement-harness` are console-only and must not

@@ -300,6 +300,8 @@ typedef struct TecmoGameplayCpuSteeringPlayState {
     uint8_t actor_state[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t wait_counter[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t direction[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    /* Exact actor-local raw `$0442` pose-low and packed `$0458` action bytes.
+       These are source state, not native scene pose indexes. */
     uint8_t pose[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     uint8_t action[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     /* Bounded actor/object-state $046E[X] projection for converted Bank06
@@ -438,6 +440,12 @@ typedef struct TecmoGameplayCpuSteeringPlayResult {
     bool raw_target_valid;
     uint16_t raw_target_x;
     uint16_t raw_target_depth;
+    /* Exact opcode-11 raw pose/state evidence. `$0479=$C1` is excluded until
+       a typed sprite-plane owner exists. */
+    bool raw_pose_valid;
+    uint8_t raw_pose_low_0442;
+    uint8_t raw_pose_high_044d;
+    uint8_t raw_packed_action_0458;
     /* Exact automatic opcode-6 writes retained by this bounded result. The
        other handler writes `$0743/$0588` remain observations only. */
     bool opcode6_action10_written;

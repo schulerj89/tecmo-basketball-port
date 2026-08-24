@@ -99,13 +99,13 @@ static const uint8_t cpu_steering_effect_jumps[
    entries retain handler metadata and advance policy but defer their effect. */
 static const uint8_t cpu_steering_effect_exact[
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT] = {
-    1U,1U,1U,1U,1U,1U,1U,1U,1U,1U,1U,0U,
+    1U,1U,1U,1U,1U,1U,1U,1U,1U,1U,1U,1U,
     0U,1U,1U,0U,1U,1U,1U,1U,1U,1U,1U,1U
 };
 
 static const uint8_t cpu_steering_effect_deferred[
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT] = {
-    0U,0U,0U,0U,0U,0U,1U,0U,0U,0U,0U,1U,
+    0U,0U,0U,0U,0U,0U,1U,0U,0U,0U,0U,0U,
     1U,0U,0U,1U,0U,0U,0U,0U,0U,0U,0U,1U
 };
 
@@ -1938,7 +1938,6 @@ bool tecmo_gameplay_cpu_steering_play_step(
                     TECMO_GAMEPLAY_CPU_STEERING_DEFER_INVALID_TARGET_OBJECT;
             }
             break;
-        case 11U:
         case 12U:
             /* Their effect inputs are deferred because the contract does not
                carry the source RAM/workspace. The source-pinned transport is
@@ -1948,6 +1947,41 @@ bool tecmo_gameplay_cpu_steering_play_step(
             result.deferred_reason =
                 TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS;
             break;
+        case 11U: {
+            static const uint8_t pose_low[4U] = {0x0AU,0x0CU,0x0EU,0x10U};
+            uint8_t linked = next_state.fixed_link[actor];
+            uint16_t actor_x = (uint16_t)input->actor_position[actor].x;
+            uint16_t linked_x = (uint16_t)input->actor_position[linked].x;
+            uint16_t actor_depth =
+                (uint16_t)(uint8_t)input->actor_position[actor].y;
+            uint16_t linked_depth =
+                (uint16_t)(uint8_t)input->actor_position[linked].y;
+            bool actor_left = actor_x < linked_x;
+            bool actor_above = actor_depth < linked_depth;
+            uint16_t horizontal = actor_left
+                ? (uint16_t)(linked_x - actor_x)
+                : (uint16_t)(actor_x - linked_x);
+            uint16_t depth = actor_above
+                ? (uint16_t)(linked_depth - actor_depth)
+                : (uint16_t)(actor_depth - linked_depth);
+            uint8_t pose_index;
+            /* `$8C91-$8CAA` gives horizontal the tie. Its horizontal buckets
+               use the X borrow bit; depth buckets use the zero-extended
+               low-byte depth borrow bit. */
+            pose_index = horizontal >= depth
+                ? (actor_left ? 1U : 0U)
+                : (actor_above ? 3U : 2U);
+            next_state.pose[actor] = pose_low[pose_index];
+            next_state.action[actor] = 0x30U;
+            next_state.actor_state[actor] = 0x04U;
+            result.raw_pose_valid = true;
+            result.raw_pose_low_0442 = pose_low[pose_index];
+            result.raw_pose_high_044d = 0x04U;
+            result.raw_packed_action_0458 = 0x30U;
+            /* `$0479=$C1` is deliberately not retained: this bounded state
+               has no faithful sprite-plane owner. */
+            break;
+        }
         case 8U: {
             uint16_t redirect_offset = (uint16_t)command.arguments[0U] |
                 ((uint16_t)command.arguments[1U] << 8U);
@@ -3587,6 +3621,8 @@ bool tecmo_gameplay_cpu_steering_self_test(
             tecmo_gameplay_cpu_steering_effect_metadata(&assets, 7U);
         const TecmoGameplayCpuSteeringEffectMetadata *metadata_10 =
             tecmo_gameplay_cpu_steering_effect_metadata(&assets, 10U);
+        const TecmoGameplayCpuSteeringEffectMetadata *metadata_11 =
+            tecmo_gameplay_cpu_steering_effect_metadata(&assets, 11U);
         const TecmoGameplayCpuSteeringEffectMetadata *metadata_13 =
             tecmo_gameplay_cpu_steering_effect_metadata(&assets, 13U);
         const TecmoGameplayCpuSteeringEffectMetadata *metadata_17 =
@@ -3599,7 +3635,8 @@ bool tecmo_gameplay_cpu_steering_self_test(
             tecmo_gameplay_cpu_steering_effect_metadata(&assets, 20U);
         const TecmoGameplayCpuSteeringEffectMetadata *metadata_21 =
             tecmo_gameplay_cpu_steering_effect_metadata(&assets, 21U);
-        if (metadata_0 == NULL || metadata_4 == NULL || metadata_7 == NULL || metadata_10 == NULL ||
+        if (metadata_0 == NULL || metadata_4 == NULL || metadata_7 == NULL ||
+            metadata_10 == NULL || metadata_11 == NULL ||
             metadata_13 == NULL ||
             metadata_17 == NULL || metadata_18 == NULL || metadata_19 == NULL ||
             metadata_20 == NULL || metadata_21 == NULL ||
@@ -3608,6 +3645,9 @@ bool tecmo_gameplay_cpu_steering_self_test(
             metadata_7->advance_policy !=
                 TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_PLUS_FIVE_OR_BRANCH_PLUS_FIVE ||
             !metadata_10->exact_bounded || metadata_10->deferred_inputs ||
+            !metadata_11->exact_bounded || metadata_11->deferred_inputs ||
+            metadata_11->kind !=
+                TECMO_GAMEPLAY_CPU_STEERING_EFFECT_FIXED_LINK_RELATIVE_POSE ||
             !metadata_13->exact_bounded || metadata_13->deferred_inputs ||
             metadata_13->kind !=
                 TECMO_GAMEPLAY_CPU_STEERING_EFFECT_GLOBAL_TARGET ||
@@ -3707,6 +3747,174 @@ bool tecmo_gameplay_cpu_steering_self_test(
            sizeof(harness_positions));
     play_input.ball_position.x = 255;
     play_input.ball_position.y = 0;
+
+    /* Pin both opcode-11 records and their local following gotos. Exhaustive
+       formation scanning below deliberately rejects the earlier, incorrect
+       claim that a pinned formation starts at one of these offsets. */
+    if (!tecmo_gameplay_cpu_steering_decode_command(
+            &assets, 0x0050U, &command) || command.opcode != 11U ||
+        command.cpu_address != 0x9F7EU || command.handler_cpu != 0x8C40U ||
+        memcmp(command.arguments, (const uint8_t[4U]){0U,0U,0U,0U}, 4U) != 0 ||
+        !tecmo_gameplay_cpu_steering_decode_command(
+            &assets, 0x005FU, &command) || command.opcode != 11U ||
+        command.cpu_address != 0x9F8DU || command.handler_cpu != 0x8C40U ||
+        memcmp(command.arguments, (const uint8_t[4U]){0U,0U,0U,0U}, 4U) != 0 ||
+        !tecmo_gameplay_cpu_steering_decode_command(
+            &assets, 0x0055U, &command) || command.opcode != 1U ||
+        !tecmo_gameplay_cpu_steering_decode_command(
+            &assets, 0x0064U, &command) || command.opcode != 1U ||
+        command.arguments[0U] != 0x5AU || command.arguments[1U] != 0U) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-11 canonical records failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    {
+        size_t claimed_start_count = 0U;
+        static const uint16_t actor_x[7U] = {
+            200U,100U,100U,100U,200U,1U,100U};
+        static const uint8_t actor_depth[7U] = {
+            100U,100U,200U,100U,200U,100U,0U};
+        static const uint16_t linked_x[7U] = {
+            100U,200U,100U,100U,100U,767U,100U};
+        static const uint8_t linked_depth[7U] = {
+            100U,100U,100U,200U,100U,100U,223U};
+        static const uint8_t expected_pose[7U] = {
+            0x0AU,0x0CU,0x0EU,0x10U,0x0AU,0x0CU,0x10U};
+        for (size_t formation = 0U;
+             formation < assets.formation_start_count; ++formation) {
+            for (size_t formation_actor = 0U;
+                 formation_actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT;
+                 ++formation_actor) {
+                uint16_t start = assets.formation_stream_offsets[formation]
+                    [formation_actor];
+                if (start == 0x0050U || start == 0x0055U ||
+                    start == 0x005FU) {
+                    ++claimed_start_count;
+                }
+            }
+        }
+        if (claimed_start_count != 0U ||
+            assets.formation_source_pinned_count != 46U) {
+            (void)snprintf(message, message_size,
+                           "TGAI-3 opcode-11 formation nonreachability changed.");
+            tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+            return false;
+        }
+        for (size_t vector = 0U; vector < 7U; ++vector) {
+            TecmoGameplayCourtCoordinate positions_before[
+                TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+            if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+                    &assets, 0U, &play_state)) {
+                (void)snprintf(message, message_size,
+                               "TGAI-3 opcode-11 record fixture init failed.");
+                tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+                return false;
+            }
+            play_input.actor = 1U;
+            play_input.step_budget = 1U;
+            memcpy(play_input.actor_position, harness_positions,
+                   sizeof(harness_positions));
+            play_input.actor_position[1U].x = (int16_t)actor_x[vector];
+            play_input.actor_position[1U].y = (int16_t)actor_depth[vector];
+            play_input.actor_position[6U].x = (int16_t)linked_x[vector];
+            play_input.actor_position[6U].y = (int16_t)linked_depth[vector];
+            memcpy(positions_before, play_input.actor_position,
+                   sizeof(positions_before));
+            /* Intentional canonical-record executor fixture. No formation or
+               production cursor owner is inferred from this assignment. */
+            play_state.stream_offset[1U] = 0x0050U;
+            play_state.direction[1U] = 6U;
+            play_state.target_object[1U] = 7U;
+            play_state.target_x[1U] = 222;
+            play_state.target_depth[1U] = 111;
+            if (!tecmo_gameplay_cpu_steering_play_step(
+                    &assets, &play_state, &play_input, &play_out,
+                    &play_result) || play_result.command.opcode != 11U ||
+                play_result.deferred || !play_result.advanced ||
+                play_result.next_offset != 0x0055U ||
+                play_out.pose[1U] != expected_pose[vector] ||
+                play_out.action[1U] != 0x30U ||
+                play_out.actor_state[1U] != 0x04U ||
+                play_out.direction[1U] != 6U ||
+                play_out.target_object[1U] != 7U ||
+                play_out.target_x[1U] != 222 ||
+                play_out.target_depth[1U] != 111 ||
+                !play_result.raw_pose_valid ||
+                play_result.raw_pose_low_0442 != expected_pose[vector] ||
+                play_result.raw_pose_high_044d != 0x04U ||
+                play_result.raw_packed_action_0458 != 0x30U ||
+                memcmp(positions_before, play_input.actor_position,
+                       sizeof(positions_before)) != 0) {
+                (void)snprintf(message, message_size,
+                               "TGAI-3 opcode-11 quadrant vector %u failed (pose=%02X raw=%02X high=%02X action=%02X next=%04X defer=%u x=%d/%d y=%d/%d link=%u actor=%u).",
+                               (unsigned)vector,
+                               (unsigned)play_out.pose[1U],
+                               (unsigned)play_result.raw_pose_low_0442,
+                               (unsigned)play_result.raw_pose_high_044d,
+                               (unsigned)play_out.action[1U],
+                               (unsigned)play_result.next_offset,
+                               play_result.deferred ? 1U : 0U,
+                               (int)play_input.actor_position[1U].x,
+                               (int)play_input.actor_position[6U].x,
+                               (int)play_input.actor_position[1U].y,
+                               (int)play_input.actor_position[6U].y,
+                               (unsigned)play_state.fixed_link[1U],
+                               (unsigned)play_result.actor);
+                tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+                return false;
+            }
+            if (vector == 0U) {
+                play_state = play_out;
+                if (!tecmo_gameplay_cpu_steering_play_step(
+                        &assets, &play_state, &play_input, &play_out,
+                        &play_result) || !play_result.jumped ||
+                    play_result.next_offset != 0x0050U) {
+                    (void)snprintf(message, message_size,
+                                   "TGAI-3 opcode-11 first loop failed.");
+                    tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+                    return false;
+                }
+            }
+        }
+    if (!tecmo_gameplay_cpu_steering_play_state_initialize(
+            &assets, 0U, &play_state)) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-11 second record fixture init failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.actor = 6U;
+    memcpy(play_input.actor_position, harness_positions,
+           sizeof(harness_positions));
+    play_input.actor_position[6U].x = 200;
+    play_input.actor_position[1U].x = 100;
+    play_input.actor_position[7U].x = 300;
+    play_state.stream_offset[6U] = 0x005FU;
+    play_state.fixed_link_target[6U] = 7U;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.command.opcode != 11U || play_result.deferred ||
+        play_result.next_offset != 0x0064U || play_out.pose[6U] != 0x0AU) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-11 fixed-link source failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_state = play_out;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        !play_result.jumped || play_result.next_offset != 0x005AU) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-11 second goto failed (next=$%04X).",
+                       (unsigned)play_result.next_offset);
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    }
+    play_input.actor = 0U;
+    memcpy(play_input.actor_position, harness_positions,
+           sizeof(harness_positions));
 
     /* The first canonical record is opcode 4 C8=$0A. Canonical Bank06
        $8FFA-$9031 subtracts target object X as a 16-bit value and target
