@@ -1814,6 +1814,11 @@ static bool live_apply_96b6_route(
     larger = absolute_x >= absolute_depth ? absolute_x : absolute_depth;
     smaller = absolute_x >= absolute_depth ? absolute_depth : absolute_x;
     metric = (uint16_t)(larger + (smaller >> 1U));
+    /* `$9DF6` replaces all four persistent component bytes and `$8545`
+       reduces those exact bytes without changing them. Retain the reduced
+       value until the next admitted producer, just as source RAM does. */
+    candidate->shot_metric_8545_valid = true;
+    candidate->shot_metric_8545 = metric;
     memset(&route_input, 0, sizeof(route_input));
     memset(&route_result, 0, sizeof(route_result));
     route_input.contract_tag = TECMO_GAMEPLAY_CPU_STEERING_ROUTE_INPUT_TAG;

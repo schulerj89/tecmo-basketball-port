@@ -3296,17 +3296,14 @@ static void scene_cpu_selected_primary_opcode7_probe_end(
 
 static bool scene_cpu_shot_input(
     const TecmoGameplayScene *scene,
-    const TecmoGameplaySceneActor *holder,
+    const TecmoGameplayLiveFoundation *foundation,
     const TecmoTeamDataPlayer *player,
     TecmoGameplayCpuSteeringShotInput *input)
 {
     const TecmoGameplaySceneOpcode10FrameContext *context;
-    int32_t delta;
-    if (scene == NULL || holder == NULL || player == NULL || input == NULL ||
-        scene->orientation_state.offensive_hoop.x <
-            TECMO_GAMEPLAY_COURT_WORLD_MIN_X ||
-        scene->orientation_state.offensive_hoop.x >
-            TECMO_GAMEPLAY_COURT_WORLD_MAX_X) {
+    uint16_t metric;
+    if (scene == NULL || foundation == NULL || player == NULL ||
+        input == NULL || !foundation->shot_metric_8545_valid) {
         return false;
     }
     context = &scene->opcode10_frame_context;
@@ -3319,19 +3316,17 @@ static bool scene_cpu_shot_input(
     }
     memset(input, 0, sizeof(*input));
     input->contract_tag = TECMO_GAMEPLAY_CPU_STEERING_SHOT_INPUT_TAG;
-    /* State/gate zero is the supported ordinary live-action mapping. The
-       target delta remains the bounded holder-to-TGOR adapter. Fixed-frame
-       capture supplies the exact pre-movement `$0798`, `$075F`, `$0760`, and
-       `$006A` values consumed at `$8450-$8473`; Bank02 `$A8CC-$A8D0` proves
-       that TTDT profile[4] supplies `$0533`. */
+    /* State/gate zero is the supported ordinary live-action mapping.
+       `$9DF6` owns persistent absolute X/depth components and `$8545` reduces
+       them to max+min/2; the live foundation stores that exact reduced word.
+       Fixed-frame capture supplies exact pre-movement `$0798`, `$075F`,
+       `$0760`, and `$006A`; Bank02 `$A8CC-$A8D0` proves TTDT profile[4]
+       supplies `$0533`. */
     input->state_0588 = 0U;
     input->flags_ba = 0U;
-    delta = (int32_t)scene->orientation_state.offensive_hoop.x -
-            holder->position.x;
-    if (delta < 0) delta = -delta;
-    if (delta > 0xFFFF) delta = 0xFFFF;
-    input->target_delta_low = (uint8_t)delta;
-    input->target_delta_high = (uint8_t)((uint32_t)delta >> 8U);
+    metric = foundation->shot_metric_8545;
+    input->target_delta_low = (uint8_t)metric;
+    input->target_delta_high = (uint8_t)(metric >> 8U);
     input->gate_0478 = 0U;
     input->timer_0798 = context->timer_0798;
     input->difficulty = context->rate_index_075f;
@@ -4215,6 +4210,7 @@ bool scene_update_ai(
         !scene_team_has_controller(scene, scene->state.possession) &&
         !candidate_foundation.score_restart_selection_active &&
         candidate_opcode10_context.available &&
+        candidate_foundation.shot_metric_8545_valid &&
         !candidate_actors[scene->ball_holder].movement_boundary_latched) {
         TecmoGameplaySceneActor *holder =
             &candidate_actors[scene->ball_holder];
@@ -4223,7 +4219,8 @@ bool scene_update_ai(
         TecmoGameplayCpuSteeringShotInput shot_input;
         TecmoGameplayCpuSteeringShotResult shot_result;
         if (player == NULL ||
-            !scene_cpu_shot_input(scene, holder, player, &shot_input) ||
+            !scene_cpu_shot_input(
+                scene, &candidate_foundation, player, &shot_input) ||
             !tecmo_gameplay_live_foundation_shot_request(
                 &scene->cpu_steering_assets, &shot_input, scene->ball_holder,
                 &candidate_foundation, &shot_result)) {

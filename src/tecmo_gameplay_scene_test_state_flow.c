@@ -4573,6 +4573,9 @@ static bool scene_test_live_foundation_regressions(
             TECMO_GAMEPLAY_CPU_STEERING_ROUTE_RESULT_TAG ||
         !claimant_settlement.route_96b6.wrote_route ||
         claimant_settlement.route_96b6.actor != 1U ||
+        !candidate_foundation.shot_metric_8545_valid ||
+        candidate_foundation.shot_metric_8545 !=
+            claimant_settlement.route_96b6_metric_a184 ||
         candidate_foundation.play_state.stream_offset[1U] !=
             claimant_settlement.route_96b6.stream_offset ||
         candidate_foundation.play_state.actor_state[1U] != 0x04U ||
@@ -7966,6 +7969,8 @@ static bool scene_test_live_foundation_regressions(
             scene, &shot_frame_context)) {
         LIVE_FAIL("LIVE unsupported-shot fixed-frame bind rejected");
     }
+    scene->live_foundation.shot_metric_8545_valid = true;
+    scene->live_foundation.shot_metric_8545 = 0U;
     scene->actors[0U].position.x =
         scene->orientation_state.offensive_hoop.x;
     scene->actors[0U].position.y = TECMO_GAMEPLAY_COURT_WORLD_MAX_Y;
@@ -8024,6 +8029,8 @@ static bool scene_test_live_foundation_regressions(
                           ? "LIVE away far-shot setup rejected"
                           : "LIVE home far-shot setup rejected");
         }
+        scene->live_foundation.shot_metric_8545_valid = true;
+        scene->live_foundation.shot_metric_8545 = 0U;
         scene->actors[far_holder].position.x = (int16_t)(
             scene->orientation_state.offensive_hoop.x + 8);
         scene->actors[far_holder].position.y =
@@ -8070,9 +8077,9 @@ static bool scene_test_live_foundation_regressions(
     /* A separate close-range CPU fixture proves the positive scene adapter:
        the deterministic TGAI predicate requests once, the existing shots.c
        playback accepts it once, and a repeat while the shot is active cannot
-       create a second action. The bound fixed-frame gate inputs are exact;
-       `$8545` target geometry remains the native approximation, while the
-       playback/classification seam itself is tested. */
+       create a second action. The bound fixed-frame and persistent `$8545`
+       metric inputs are exact; the remaining caller gates and the
+       playback/classification seam stay explicitly classified. */
     {
         TecmoGameplaySceneLaunch close_shot_launch = bound;
         TecmoControlFrame repeat_p1;
@@ -8094,6 +8101,8 @@ static bool scene_test_live_foundation_regressions(
                 scene, &shot_frame_context)) {
             LIVE_FAIL("LIVE supported close-shot setup rejected");
         }
+        scene->live_foundation.shot_metric_8545_valid = true;
+        scene->live_foundation.shot_metric_8545 = 0U;
         close_position.x = (int16_t)(
             scene->orientation_state.offensive_hoop.x + 8);
         close_position.y = TECMO_GAMEPLAY_SHOT_TARGET_Y;
@@ -8106,6 +8115,14 @@ static bool scene_test_live_foundation_regressions(
         scene->state.clock_divider = 1U;
         if (!scene_attach_ball(scene)) {
             LIVE_FAIL("LIVE supported close-shot ball attachment failed");
+        }
+        broken = *scene;
+        broken.live_foundation.shot_metric_8545 = 0x0010U;
+        memset(&shot_request, 0, sizeof(shot_request));
+        if (!scene_update_ai(&broken, &shot_request) ||
+            shot_request.requested ||
+            broken.live_foundation.last_shot_request) {
+            LIVE_FAIL("LIVE exact $8545 metric boundary was not applied");
         }
         action_before = scene->action_serial;
         memset(&shot_request, 0, sizeof(shot_request));

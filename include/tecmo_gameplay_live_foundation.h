@@ -209,6 +209,12 @@ typedef struct TecmoGameplayLiveFoundation {
     bool last_shot_request;
     bool last_shot_deferred;
     bool last_shot_playback_supported;
+    /* Persistent `$0376-$0379` workspace reduced exactly by `$8545` to
+       max(abs X, abs depth) + floor(min/2). `valid` begins false so the
+       partially owned shot caller cannot treat reset zero as an admission;
+       each admitted `$9DF6` producer replaces and validates it. */
+    bool shot_metric_8545_valid;
+    uint16_t shot_metric_8545;
     /* Last actor evaluated by the deterministic shot predicate, including a
        negative result; NO_ACTOR means no predicate was evaluated this tick. */
     uint8_t last_shot_actor;
