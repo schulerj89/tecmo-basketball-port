@@ -10561,6 +10561,16 @@ static bool scene_test_production_terminal_scenarios(
         return false;
     }
     malformed = *scene;
+    ++malformed.shot_start_position.x_q8;
+    ++malformed.ball_position.x_q8;
+    snapshot = malformed;
+    if (scene_update_shot(&malformed, &neutral) ||
+        memcmp(&malformed, &snapshot, sizeof(malformed)) != 0) {
+        scene_test_terminal_failure = 18U;
+        tecmo_gameplay_scene_end(scene);
+        return false;
+    }
+    malformed = *scene;
     malformed.shot_rim_rattle_selected = true;
     snapshot = malformed;
     if (scene_update_shot(&malformed, &neutral) ||

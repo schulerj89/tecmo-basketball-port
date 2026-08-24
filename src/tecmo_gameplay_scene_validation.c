@@ -110,7 +110,10 @@ static bool scene_shot_captured_target_delta(
                               8U)) ||
                 scene->shot_a0f3_origin_depth != (uint8_t)(
                     (uint32_t)scene->shot_start_position.y_q8 >> 8U))
-                    : false)
+                    : (scene->shot_start_position.x_q8 !=
+                           expected_start_x_q8 ||
+                       scene->shot_start_position.y_q8 !=
+                           expected_start_y_q8))
              : (scene->shot_start_position.x_q8 != expected_start_x_q8 ||
                 scene->shot_start_position.y_q8 != expected_start_y_q8)) ||
         scene->shot_end_position.x_q8 != expected_end_x_q8 ||
