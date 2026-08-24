@@ -294,7 +294,7 @@ try {
         (@($Opcode15Harness.canonical_records) -join ',') -ne '0037,004B' -or
         $Opcode15Harness.branches.gate_noop -ne 'gate-noop' -or
         $Opcode15Harness.branches.primary_bit2_return -ne 'primary-bit2-return-9179' -or
-        $Opcode15Harness.branches.primary_swap -ne 'deferred-primary-swap' -or
+        $Opcode15Harness.branches.primary_swap -ne 'primary-replaced' -or
         $Opcode15Harness.branches.qualified_bit3_return -ne 'qualified-bit3-return-9179' -or
         $Opcode15Harness.branches.selected_defender -ne 'defender-replaced' -or
         ![bool]$Opcode15Harness.selected_defender.committed -or
@@ -393,7 +393,13 @@ try {
         @{ label="Bank06 9146-9216 handler"; bank=6; fixed=$false; start=0x9146; size=0xD1 },
         @{ label="Bank06 9208-9216 canonical tail"; bank=6; fixed=$false; start=0x9208; size=0x0F },
         @{ label="Bank04 9F65-9F69 canonical record A"; bank=4; fixed=$false; start=0x9F65; size=5 },
-        @{ label="Bank04 9F79-9F7D canonical record B"; bank=4; fixed=$false; start=0x9F79; size=5 }
+        @{ label="Bank04 9F79-9F7D canonical record B"; bank=4; fixed=$false; start=0x9F79; size=5 },
+        @{ label="Bank06 9187-91C1 primary replacement"; bank=6; fixed=$false; start=0x9187; size=0x3B },
+        @{ label="Bank06 9248-926F state7 consumer"; bank=6; fixed=$false; start=0x9248; size=0x28 },
+        @{ label="Bank06 938B-9403 formation outputs"; bank=6; fixed=$false; start=0x938B; size=0x79 },
+        @{ label="Bank06 943B-946E formation reassignment"; bank=6; fixed=$false; start=0x943B; size=0x34 },
+        @{ label="Fixed C060-C062 invalidation trampoline"; bank=7; fixed=$true; start=0xC060; size=3 },
+        @{ label="Fixed CBF7-CBFF FF invalidation"; bank=7; fixed=$true; start=0xCBF7; size=9 }
     )
     $SourceMap = ([Text.Encoding]::UTF8.GetString(
         (Get-EntryBytes $PackBytes $SourceMapEntry))) | ConvertFrom-Json
@@ -457,7 +463,16 @@ try {
             (@($Map.opcode15_source_contract.exact_no_advance_returns) -join '|') -eq
                 '$9185 D0 F2 -> $9179 RTS|$91C6 D0 B1 -> $9179 RTS' -and
             (@($Map.opcode15_source_contract.classified_deferred) -join '|') -eq
-                '$9187 primary swap|missing raw owner|invalid $0463 direction' -and
+                'missing raw owner|invalid $0463 direction|LIVE producer unavailable' -and
+            @($Map.opcode15_source_contract.supported_raw_branches).Count -eq 2 -and
+            $Map.opcode15_source_contract.primary_lifecycle.handler -eq '$9187-$91C1' -and
+            $Map.opcode15_source_contract.primary_lifecycle.handler_fnv1a32 -eq 'B33C7281' -and
+            $Map.opcode15_source_contract.primary_lifecycle.invalidation -match '\$C060->\$CBF7' -and
+            $Map.opcode15_source_contract.selection_059e_lifecycle.sole_writer -eq '$920D' -and
+            $Map.opcode15_source_contract.selection_059e_lifecycle.consumer -eq '$9248-$926F' -and
+            $Map.opcode15_source_contract.selection_059e_lifecycle.consumer_fnv1a32 -eq '96DD94EF' -and
+            $Map.opcode15_source_contract.selection_059e_lifecycle.reset -eq 'fixed $CC58 page clear' -and
+            $Map.opcode15_source_contract.selection_059e_lifecycle.persistence -match 'stale until next writer.*full reset only' -and
             $Map.opcode15_source_contract.c711.selector -eq 4 -and
             [bool]$Map.opcode15_source_contract.c711.observed_unexecuted -and
             $Map.opcode15_source_contract.conditional_06d5.gate -eq
@@ -1075,7 +1090,7 @@ try {
 
     Write-Host ("TGAI-3 focused tests passed: exact Rev1 importer and twelve " +
         "source spans plus eight lifecycle anchor/table spans, nine exact " +
-        "regulation-entry spans, five auto-pass spans, and six opcode-15 " +
+        "regulation-entry spans, five auto-pass spans, and twelve opcode-15 " +
         "source/semantic-anchor spans, eight global-latch producer/reset/" +
         "consumer anchors, 680 aligned " +
         "commands, 24 handlers, eight exact " +

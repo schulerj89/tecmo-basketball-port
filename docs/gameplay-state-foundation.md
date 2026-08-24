@@ -472,14 +472,19 @@ payload (`D56EE070`) requires exact same-pack TGMO-1 and revision-locks Bank06
 `$8AF4-$8B8F`, `$8B90-$8BE0`,
 `$8BE1-$9237`, `$9280-$9329`, `$938B-$9620`, fixed `$C006-$C008` and
 `$CBE0-$CBF6`, and Bank04 `$9F2E-$AC75`. It additionally revision-locks the
-Bank06 opcode-15 dispatch/handler anchors and canonical records, but only
-exposes the selected-defender branch as a raw transactional harness contract:
+Bank06 opcode-15 dispatch/handler anchors and canonical records, and exposes
+both replacement branches as a raw transactional harness contract:
 LIVE has no faithful owner for `$0499` and the related actor lifecycle bytes,
 so ordinary opcode-15 execution remains a no-mutation deferred diagnostic.
+The raw harness now also covers `$9187-$91C1` primary replacement with an
+explicit captured `$943B/$938B` formation-output plane; it does not manufacture
+that plane from LIVE. A separate typed `$059E` latch pins the sole `$920D`
+writer and `$9248-$926F` state-7 selector-3 consumer, including persistence,
+stale reuse, conditional state retirement, and full-reset-only clearing.
 The exact `$91F1-$91F5` compare preserves `$06D5` unless new X equals it; only
 then does `$91F6-$91F8` store old Y to `$06D5`, before the unconditional
 `$06D6=09`. The deterministic harness is synthetic source-contract evidence;
-a natural FCEUX `$91C8` capture remains open.
+a natural FCEUX opcode-15 replacement capture remains open.
 The state-4 path adds the actor's
 `$0547/$0551` offset to `$9F2E`; the fixed reader temporarily maps Bank04 and
 copies one five-byte record to `$C7-$CB`; Bank06 then dispatches its opcode

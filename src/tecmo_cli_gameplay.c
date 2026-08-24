@@ -206,6 +206,19 @@ static void tecmo_cli_opcode15_raw_fixture(
     input->raw_06d5 = 6U;
     input->raw_06d6 = 2U;
     input->raw_059e = 5U;
+    input->raw_037f_0380_primary_link[0U] = 8U;
+    input->raw_037f_0380_primary_link[1U] = 7U;
+    input->raw_06da = 3U;
+    input->raw_06db = 1U;
+    input->raw_058b = 0x22U;
+    input->raw_058c = 0x33U;
+    input->raw_06df = 4U;
+    input->raw_06e1 = 5U;
+    input->formation_output.contract_tag =
+        TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_FORMATION_TAG;
+    input->formation_output.assigned_actor_mask = 0x03AFU;
+    input->formation_output.raw_058b_after = 2U;
+    input->formation_output.raw_058c_after = 3U;
     for (uint8_t actor = 0U;
          actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT;
          ++actor) {
@@ -219,6 +232,9 @@ static void tecmo_cli_opcode15_raw_fixture(
         input->actor[actor].raw_044d_pose_high = 0xBBU;
         input->actor[actor].raw_0479_sprite_flags = 0x40U;
         input->actor[actor].raw_0458_action = 0x50U;
+        input->formation_output.actor_stream_offset[actor] =
+            (uint16_t)(0x0200U + actor * 5U);
+        input->formation_output.actor_state[actor] = 4U;
     }
     input->actor[9U].raw_0547_0551_stream_offset = 0x1234U;
     input->actor[9U].raw_057c_state = 0x08U;

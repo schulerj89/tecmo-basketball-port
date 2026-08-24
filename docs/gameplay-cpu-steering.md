@@ -246,7 +246,7 @@ padding, handler-table agreement with the ROM dispatch table, all 680 aligned
 opcodes, the canonical payload hash, and the same-pack TGMO dependency.
 Malformed or wrong-sized input fails closed.
 
-## Opcode 15: raw selected-defender source contract
+## Opcode 15: raw primary/selected-defender source contract
 
 Opcode 15 has exactly two canonical five-byte records in the retained Bank04
 command corpus: `$9F65-$9F69` / stream `$0037` and `$9F79-$9F7D` / stream
@@ -262,8 +262,8 @@ separately revision-locked `$9208-$9216` tail (15 bytes, `839F9D07`) performs
 The resolver records the selector and X/Y as **observed, unexecuted**; it does
 not invent a C meaning for `$C711`.
 
-The pure raw harness implements only the exact `$91C8` selected-defender
-stores when an external capture supplies every raw owner at the same command
+The pure raw harness implements both exact replacement paths when an external
+capture supplies every raw owner at the same command
 execution point. It writes the old defender's `$057C=04`, `$0547/$0551=$005A`,
 `$046E=0`, `$0442/$044D` and `$0479/$0458` through `$88B0-$88D9`; then it
 sets the new defender's `$0479=81`, `$057C=07`, `$059E=X`, `$06D6=09`, and the
@@ -274,19 +274,34 @@ then unconditional. Gate-noop is exact below `$0499 < $46`. Canonical raw
 branches `$9185 D0 F2` and `$91C6 D0 B1` both target `$9179 RTS`, so the
 typed harness classifies them as exact bit-2/bit-3 no-advance returns with no
 mutation; neither retries the altitude gate nor enters opcode 14's `$9146`
-mark-other loop. Primary-swap, invalid-direction, and missing-owner paths remain
-classified/deferred without mutation.
+mark-other loop. Invalid-direction and missing-owner paths remain
+classified/deferred without mutation. The `$9187-$91C1` primary path replaces
+`$0308`, applies the exact `$88B0` old-primary pose/action reset, publishes the
+old primary through `$037F[$030A]` and `$06DA` with `$06DB=09`, observes
+`$C060->$CBF7` invalidating `$058B/$058C` to `$FF`, and transactionally applies
+an explicit `$943B->$938B` formation-output capture. It then records `$9208`'s
+intermediate state-7/`$059E`/selector-4 handoff before the final
+`$046E=1B`, `$057C=0`, and `$000E[$030A]=new` stores.
+
+TGO15-1 separately models `$059E` as a persistent typed selection latch. Its
+sole writer is `$920D`; `$9248-$926F` requires the stored actor to be in state
+7, derives side scratch, observes selector 3, and clears state only when that
+actor is not `$0308` and its `$046E` is zero. The consumer never clears the
+latch, so a retained value is explicitly stale until the next writer. Only a
+serial-admitted full reset clears it; period and possession transitions retain
+it.
 
 LIVE intentionally still defers opcode 15. It has no faithful owner at the
 command point for `$0499`, `$007E`, `$06D5/$06D6`, `$0479`, the `$0442/$044D`
-pointer pair, or `$059E`; adding a detached mirror would not prove parity. To
+pointer pair, complete formation/presentation planes, or selector scheduling;
+adding a detached mirror would not prove parity. To
 capture a future valid live sample, watch `$0499` (slot 10), `$04B0,X`, `$007E`,
 `$0308/$0309/$030A/$030B`, `$000E,Y`, `$06D5/$06D6`, `$0547/$0551`, `$057C`,
 `$046E`, `$0463`, `$0442/$044D`, `$0479`, `$0458`, and `$059E` at a naturally
 executed canonical record. The `--gameplay-cpu-steering-opcode15-harness`
 command is deterministic synthetic source-contract proof only, not a gameplay
-command or a natural FCEUX `$91C8` capture. That natural capture remains open
-research evidence.
+command or a natural FCEUX opcode-15 replacement capture. That natural capture
+remains open research evidence.
 
 The core API, with CLI-only inspection wrappers, provides:
 
@@ -465,7 +480,7 @@ in deterministic LIVE proof JSON.
 | `$92CA` common target tail, `$BA` | `scene_cpu_common_tail_has_ordinary_live_zero`: exact `LIVE`, no result/abort, violation, free throw, shot, pass, lineup, or dunk lifecycle | Supplies only typed `flags_ba=0`, so Bank06 `$92CA-$92D0` takes its five-byte `$8FD9` increment. Every other path remains `missing-ba-lifecycle`. |
 | `$9125` opcode 13, raw `$038D:$038E/$038F:$0390` latch words | TGGL-1 types all five Bank05 writer families, atomic last-writer-wins serial/provenance, one-shot virgin construction, fixed full-reset clear, and period/possession retention. Both high bytes are live. The package is evidence-only: object/event scheduling, `$A214`, opcode 15, and `$0041` latest-writer timing are not bound, and the scene supplies no ball/current-position/TGCA substitute. | `missing-global-target`. An intentional test snapshot still separately requires the ordinary-LIVE `$BA&3==0` seam. |
 | `$9032-$9052` opcode 20, raw `$038D:$038E/$038F:$0390` latch words | Exact records are `$000F` / CPU `$9F3D` and `$0019` / `$9F47`, both `14 00 00 00 00`. TGCA now types the exact `$B721` and `$B783` stores (`$7D:$F2/$FD:$00`) plus the immediate `$0019` actor mask from the same successful assignment. A single-use scene context exposes that value only to those masked actors during the following Bank06 9..0 traversal; cursor coincidence, selected/delayed `$000A`, and opcode 13 cannot consume it. | Production remains `missing-global-target` because native LIVE owns neither the raw `$A214` gates nor object-slot scheduler and therefore never binds the context. Intentional exact-event fixtures prove same-frame consume/expiry/rollback. An accepted opcode 20 computes wrapping raw deltas, preserves target-plane bits under inactive-storage provenance, clears former semantic/raw meaning, applies exact zero-vector/state-4 or nonzero-direction behavior, and advances +5 without `$BA`. |
-| `$9172-$9216` opcode 15 raw lifecycle | None; harness-only capture contract | `missing-opcode15-raw-lifecycle`. |
+| `$9172-$9216` opcode 15 raw lifecycle | Harness-only transactional primary and defender captures plus persistent typed `$059E`/state-7 consumer evidence; no scene binding. | `missing-opcode15-raw-lifecycle`: `$0499` scheduling, same-command `$007E`, multi-producer `$06D5/$06D6`, complete presentation planes, and selector owners remain missing. |
 
 Production automatic-pass selection now enters from made-score restart:
 Bank05 `$901F` state 1 reaches Bank06 `$8661-$8727`, publishes the selected

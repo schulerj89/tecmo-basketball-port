@@ -1449,10 +1449,16 @@ remains a labeled no-controller native approximation, not raw `$030C/$030D`
 parity. Do not claim the omitted pose tables or selected/ordinary
 `$0458/$0479/$046E` presentation/action side effects.
 
-Opcode 15 is a separate, harness-only raw selected-defender contract. Its
+Opcode 15 is a separate, harness-only raw primary/selected-defender contract. Its
 canonical Bank04 records `$0037/$004B` dispatch through Bank06 `$9172`; the
-raw resolver may execute only the `$91C8` selected-defender stores after every
-named RAM owner is captured at that exact command point. In particular,
+raw resolver may execute `$9187-$91C1` primary replacement or `$91C8-$9216`
+selected-defender stores only after every named RAM owner is captured at that
+exact command point. Primary replacement represents `$88B0`, side-indexed
+`$037F`, `$06DA/$06DB`, `$C060->$CBF7` FF invalidation, and the explicit
+captured `$943B/$938B` formation outputs transactionally; never derive those
+outputs from incomplete native presentation state. Its `$9208` state-7,
+`$059E`, selector-4 handoff is intermediate: the primary tail then writes
+`$046E=1B`, `$057C=0`, and `$000E[$030A]=new`. In particular,
 `$91F1-$91F5` compares new X to `$06D5`; only equality reaches
 `$91F6-$91F8` and replaces `$06D5` with old Y, otherwise `$06D5` is preserved.
 The canonical Rev1 `$9208-$9216` tail sets new `$057C=07` and `$059E=X` before
@@ -1462,7 +1468,14 @@ without command-stream advance or mutation. Never label the former an altitude
 retry or the latter an opcode-14 mark-other branch. LIVE keeps
 opcode 15 deferred because `$0499` and the related raw lifecycle owners are not
 faithfully retained. Do not add shadow mirrors or claim the deterministic
-harness is a natural FCEUX `$91C8` capture; that capture remains open research.
+harness is a natural FCEUX opcode-15 capture; that capture remains open research.
+
+The typed `$059E` lifecycle has the sole `$920D` writer and pure
+`$9248-$926F` state-7 consumer. It persists across period/possession changes
+and is cleared only by full reset. Consumption never clears `$059E`: it becomes
+stale until the next writer. State 7 is the validity gate; selector 3 derives
+the side from the stored actor, then a non-primary actor with `$046E==0`
+retires to state 0. Keep this harness lifecycle separate from LIVE.
 
 Bank06 state 4 adds the actor-local `$0547/$0551` command offset to `$9F2E`.
 Fixed `$C006->$CBE0` maps Bank04, copies one five-byte record into `$C7-$CB`,

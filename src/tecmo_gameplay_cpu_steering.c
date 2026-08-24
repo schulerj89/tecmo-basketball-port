@@ -2,6 +2,7 @@
 
 #include "tecmo_gameplay_cpu_steering.h"
 #include "tecmo_gameplay_cpu_global_latch.h"
+#include "tecmo_gameplay_cpu_opcode15_selection.h"
 
 #include "asset_pack/tecmo_asset_pack_gameplay_cpu_steering.h"
 #include "asset_pack/tecmo_asset_pack_gameplay_movement.h"
@@ -124,7 +125,21 @@ static const uint8_t cpu_steering_rev1_sha256[32] = {
 };
 
 #define CPU_STEERING_OPCODE15_DEFENDER_REQUIRED_RAW \
-    TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_KNOWN_MASK
+    (TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_KNOWN_MASK & \
+     ~((uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_PRIMARY_LINKS | \
+       (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_FORMATION_OUTPUT))
+#define CPU_STEERING_OPCODE15_PRIMARY_REQUIRED_RAW \
+    ((uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SLOT10_0499 | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_ACTOR_04B0 | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_FLAGS_007E | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_PRIMARY_0308 | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_OFFENSE_SIDE_030A | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SIDE_SELECTION_000E | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_ACTOR_LIFECYCLE | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_DIRECTION_0463 | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_SELECTION_059E | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_PRIMARY_LINKS | \
+     (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_FORMATION_OUTPUT)
 
 static uint16_t read_u16(const uint8_t *bytes)
 {
@@ -464,6 +479,10 @@ static const char *opcode15_contract_error(const uint8_t *payload)
     if (memcmp(handlers + (0x9181U - 0x8BE1U),
                "\xA5\x7E\x29\x04\xD0\xF2", 6U) != 0) {
         return "TGAI-3 opcode-15 $9185->$9179 return rejected";
+    }
+    if (fnv1a32(handlers + (0x9187U - 0x8BE1U), 0x3BU) !=
+            0xB33C7281U) {
+        return "TGAI-3 opcode-15 primary lifecycle anchor rejected";
     }
     if (memcmp(handlers + (0x91C2U - 0x8BE1U),
                "\xA5\x7E\x29\x08\xD0\xB1", 6U) != 0) {
@@ -927,8 +946,8 @@ const char *tecmo_gameplay_cpu_steering_opcode15_branch_name(
         return "deferred-missing-raw";
     case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_PRIMARY_BIT2_RETURN:
         return "primary-bit2-return-9179";
-    case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_SWAP:
-        return "deferred-primary-swap";
+    case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_PRIMARY_REPLACED:
+        return "primary-replaced";
     case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_QUALIFIED_BIT3_RETURN:
         return "qualified-bit3-return-9179";
     case TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_INVALID_DIRECTION:
@@ -1591,8 +1610,29 @@ static bool opcode15_raw_input_valid(
         ((observed &
           TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_DEFENSE_SIDE_030B) != 0U &&
          input->raw_030b_defense_side >=
-             TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT)) {
+             TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT) ||
+        ((observed &
+          TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_FORMATION_OUTPUT) != 0U &&
+         (input->formation_output.contract_tag !=
+              TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_FORMATION_TAG ||
+          (input->formation_output.assigned_actor_mask & ~0x03FFU) != 0U ||
+          (input->formation_output.assigned_actor_mask &
+           (uint16_t)(1U << input->actor_x)) != 0U ||
+          input->formation_output.raw_06df_after != 0U ||
+          input->formation_output.raw_06e1_after != 0U))) {
         return false;
+    }
+    if ((observed &
+         TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_FORMATION_OUTPUT) != 0U) {
+        for (uint8_t actor = 0U;
+             actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT;
+             ++actor) {
+            if ((input->formation_output.assigned_actor_mask &
+                 (uint16_t)(1U << actor)) != 0U &&
+                input->formation_output.actor_state[actor] != 4U) {
+                return false;
+            }
+        }
     }
     return true;
 }
@@ -1655,6 +1695,24 @@ static void opcode15_result_capture_before(
         result->raw_059e_after = input->raw_059e;
     }
     if ((observed &
+         TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_PRIMARY_LINKS) != 0U &&
+        input->raw_030a_offense_side <
+            TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT) {
+        result->raw_037f_before = input->raw_037f_0380_primary_link[
+            input->raw_030a_offense_side];
+        result->raw_037f_after = result->raw_037f_before;
+        result->raw_06da_before = input->raw_06da;
+        result->raw_06da_after = input->raw_06da;
+        result->raw_06db_before = input->raw_06db;
+        result->raw_06db_after = input->raw_06db;
+        result->raw_058b_before = input->raw_058b;
+        result->raw_058c_before = input->raw_058c;
+        result->raw_058b_after = input->raw_058b;
+        result->raw_058c_after = input->raw_058c;
+        result->raw_06df_after = input->raw_06df;
+        result->raw_06e1_after = input->raw_06e1;
+    }
+    if ((observed &
          TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_ACTOR_LIFECYCLE) != 0U) {
         result->new_actor_state_before =
             input->actor[input->actor_x].raw_057c_state;
@@ -1671,6 +1729,7 @@ bool tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
     TecmoGameplayCpuSteeringOpcode15RawInput candidate;
     TecmoGameplayCpuSteeringOpcode15RawResult result;
     uint32_t observed;
+    uint8_t old_primary;
     uint8_t old_defender;
     uint8_t direction;
     if (input == NULL || output == NULL || result_out == NULL ||
@@ -1725,9 +1784,86 @@ bool tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
             result.branch =
                 TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_PRIMARY_BIT2_RETURN;
             result.returned_9179_without_advance = true;
-        } else {
+        } else if ((observed & CPU_STEERING_OPCODE15_PRIMARY_REQUIRED_RAW) !=
+                   CPU_STEERING_OPCODE15_PRIMARY_REQUIRED_RAW) {
             result.branch =
-                TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_SWAP;
+                TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MISSING_RAW;
+        } else {
+            old_primary = input->raw_0308_primary;
+            direction = input->actor[old_primary].raw_0463_direction;
+            if (direction >= TECMO_GAMEPLAY_CPU_STEERING_DIRECTION_COUNT) {
+                result.branch = TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_INVALID_DIRECTION;
+                *output = candidate;
+                *result_out = result;
+                return true;
+            }
+
+            /* `$9187-$91C1`: the source first replaces `$0308`, resets the
+               old primary through `$88B0`, publishes the old-primary links,
+               invalidates `$058B/$058C` through `$C060`, then consumes the
+               explicitly captured `$943B->$938B` reassignment outputs. */
+            candidate.raw_0308_primary = input->actor_x;
+            candidate.actor[old_primary].raw_0442_pose_low =
+                assets->opcode15_pose_low_0442[direction];
+            candidate.actor[old_primary].raw_044d_pose_high =
+                assets->opcode15_pose_high_044d[direction];
+            candidate.actor[old_primary].raw_0479_sprite_flags = 0xC1U;
+            candidate.actor[old_primary].raw_0458_action = 0x30U;
+            candidate.raw_037f_0380_primary_link[
+                input->raw_030a_offense_side] = old_primary;
+            candidate.raw_06da = old_primary;
+            candidate.raw_06db = 9U;
+            result.c060_invalidated_058b_058c_to_ff = true;
+            result.raw_058b_after_c060 = 0xFFU;
+            result.raw_058c_after_c060 = 0xFFU;
+            candidate.raw_058b = 0xFFU;
+            candidate.raw_058c = 0xFFU;
+            candidate.raw_058b = input->formation_output.raw_058b_after;
+            candidate.raw_058c = input->formation_output.raw_058c_after;
+            candidate.raw_06df = input->formation_output.raw_06df_after;
+            candidate.raw_06e1 = input->formation_output.raw_06e1_after;
+            for (uint8_t actor = 0U;
+                 actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT;
+                 ++actor) {
+                if ((input->formation_output.assigned_actor_mask &
+                     (uint16_t)(1U << actor)) != 0U) {
+                    candidate.actor[actor].raw_0547_0551_stream_offset =
+                        input->formation_output.actor_stream_offset[actor];
+                    candidate.actor[actor].raw_057c_state =
+                        input->formation_output.actor_state[actor];
+                }
+            }
+            /* `$9208` is an observable intermediate handoff. The following
+               primary-only tail immediately overwrites state 7 with zero. */
+            candidate.actor[input->actor_x].raw_057c_state = 7U;
+            candidate.raw_059e = input->actor_x;
+            result.primary_state7_handoff_observed = true;
+            result.c711_selector = 4U;
+            result.c711_x_actor = input->actor_x;
+            result.c711_y_actor = input->actor_x;
+            result.c711_selector_observed_unexecuted = true;
+            candidate.actor[input->actor_x].raw_046e_timer = 0x1BU;
+            candidate.actor[input->actor_x].raw_057c_state = 0U;
+            candidate.raw_000e_000f_selected_actor[
+                input->raw_030a_offense_side] = input->actor_x;
+
+            result.raw_0308_after = candidate.raw_0308_primary;
+            result.new_actor_state_after =
+                candidate.actor[input->actor_x].raw_057c_state;
+            result.raw_059e_after = candidate.raw_059e;
+            result.raw_037f_after = candidate.raw_037f_0380_primary_link[
+                input->raw_030a_offense_side];
+            result.raw_06da_after = candidate.raw_06da;
+            result.raw_06db_after = candidate.raw_06db;
+            result.raw_058b_after = candidate.raw_058b;
+            result.raw_058c_after = candidate.raw_058c;
+            result.raw_06df_after = candidate.raw_06df;
+            result.raw_06e1_after = candidate.raw_06e1;
+            result.formation_assigned_actor_mask =
+                input->formation_output.assigned_actor_mask;
+            result.committed = true;
+            result.branch =
+                TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_PRIMARY_REPLACED;
         }
         *output = candidate;
         *result_out = result;
@@ -3031,6 +3167,19 @@ static void opcode15_raw_fixture(
     input->raw_06d5 = 6U;
     input->raw_06d6 = 2U;
     input->raw_059e = 5U;
+    input->raw_037f_0380_primary_link[0U] = 8U;
+    input->raw_037f_0380_primary_link[1U] = 7U;
+    input->raw_06da = 3U;
+    input->raw_06db = 1U;
+    input->raw_058b = 0x22U;
+    input->raw_058c = 0x33U;
+    input->raw_06df = 4U;
+    input->raw_06e1 = 5U;
+    input->formation_output.contract_tag =
+        TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_FORMATION_TAG;
+    input->formation_output.assigned_actor_mask = 0x03AFU;
+    input->formation_output.raw_058b_after = 2U;
+    input->formation_output.raw_058c_after = 3U;
     for (uint8_t actor = 0U;
          actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT;
          ++actor) {
@@ -3044,6 +3193,9 @@ static void opcode15_raw_fixture(
         input->actor[actor].raw_044d_pose_high = 0xBBU;
         input->actor[actor].raw_0479_sprite_flags = 0x40U;
         input->actor[actor].raw_0458_action = 0x50U;
+        input->formation_output.actor_stream_offset[actor] =
+            (uint16_t)(0x0200U + actor * 5U);
+        input->formation_output.actor_state[actor] = 4U;
     }
     input->actor[9U].raw_0547_0551_stream_offset = 0x1234U;
     input->actor[9U].raw_057c_state = 0x08U;
@@ -3094,9 +3246,61 @@ static bool opcode15_raw_resolver_self_test(
     if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
             assets, &input, &output, &result) ||
         result.branch !=
-            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_PRIMARY_SWAP ||
-        result.committed || result.returned_9179_without_advance ||
-        memcmp(&output, &before, sizeof(output)) != 0) {
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_PRIMARY_REPLACED ||
+        !result.committed || result.returned_9179_without_advance ||
+        result.raw_0308_before != 4U || result.raw_0308_after != 6U ||
+        result.raw_037f_before != 8U || result.raw_037f_after != 4U ||
+        result.raw_06da_before != 3U || result.raw_06da_after != 4U ||
+        result.raw_06db_before != 1U || result.raw_06db_after != 9U ||
+        !result.c060_invalidated_058b_058c_to_ff ||
+        result.raw_058b_after_c060 != 0xFFU ||
+        result.raw_058c_after_c060 != 0xFFU ||
+        result.raw_058b_before != 0x22U || result.raw_058c_before != 0x33U ||
+        result.raw_058b_after != 2U || result.raw_058c_after != 3U ||
+        result.raw_06df_after != 0U || result.raw_06e1_after != 0U ||
+        result.formation_assigned_actor_mask != 0x03AFU ||
+        !result.primary_state7_handoff_observed ||
+        result.c711_selector != 4U ||
+        !result.c711_selector_observed_unexecuted ||
+        output.raw_0308_primary != 6U ||
+        output.actor[4U].raw_0442_pose_low != 0x0AU ||
+        output.actor[4U].raw_044d_pose_high != 0x04U ||
+        output.actor[4U].raw_0479_sprite_flags != 0xC1U ||
+        output.actor[4U].raw_0458_action != 0x30U ||
+        output.raw_037f_0380_primary_link[0U] != 4U ||
+        output.raw_06da != 4U || output.raw_06db != 9U ||
+        output.raw_058b != 2U || output.raw_058c != 3U ||
+        output.actor[5U].raw_0547_0551_stream_offset != 0x0219U ||
+        output.actor[5U].raw_057c_state != 4U ||
+        output.actor[6U].raw_046e_timer != 0x1BU ||
+        output.actor[6U].raw_057c_state != 0U ||
+        output.raw_059e != 6U ||
+        output.raw_000e_000f_selected_actor[0U] != 6U) {
+        return false;
+    }
+    opcode15_raw_fixture(&input);
+    input.raw_04b0_actor_x = 0U;
+    input.formation_output.assigned_actor_mask |= (uint16_t)(1U << 6U);
+    memset(&output, 0xA5, sizeof(output));
+    output_before = output;
+    memset(&result, 0xA5, sizeof(result));
+    result_before = result;
+    if (tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            assets, &input, &output, &result) ||
+        memcmp(&output, &output_before, sizeof(output)) != 0 ||
+        memcmp(&result, &result_before, sizeof(result)) != 0) {
+        return false;
+    }
+    opcode15_raw_fixture(&input);
+    input.raw_04b0_actor_x = 0U;
+    input.observed_mask &= ~((uint32_t)
+        TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_FORMATION_OUTPUT);
+    before = input;
+    if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            assets, &input, &output, &result) ||
+        result.branch !=
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFERRED_MISSING_RAW ||
+        result.committed || memcmp(&output, &before, sizeof(output)) != 0) {
         return false;
     }
     input.raw_04b0_actor_x = 0x10U;
@@ -3144,6 +3348,17 @@ static bool opcode15_raw_resolver_self_test(
         output.raw_000e_000f_selected_actor[1U] != 6U ||
         output.raw_06d5 != 9U || output.raw_06d6 != 9U ||
         output.raw_059e != 6U) {
+        return false;
+    }
+    opcode15_raw_fixture(&input);
+    input.observed_mask &=
+        ~((uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_PRIMARY_LINKS |
+          (uint32_t)TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_RAW_FORMATION_OUTPUT);
+    if (!tecmo_gameplay_cpu_steering_opcode15_resolve_raw(
+            assets, &input, &output, &result) ||
+        result.branch !=
+            TECMO_GAMEPLAY_CPU_STEERING_OPCODE15_BRANCH_DEFENDER_REPLACED ||
+        !result.committed) {
         return false;
     }
     input.command_record_offset =
@@ -3375,6 +3590,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     TecmoGameplayCpuSteeringPlayResult play_result;
     TecmoGameplayCpuSteeringPlayResult play_result_before;
     char global_latch_message[192];
+    char opcode15_selection_message[192];
     TecmoGameplayCpuSteeringShotInput shot_input;
     TecmoGameplayCpuSteeringShotResult shot_result;
     TecmoGameplayCpuSteeringShotResult shot_before;
@@ -6138,6 +6354,14 @@ bool tecmo_gameplay_cpu_steering_self_test(
         (void)snprintf(message, message_size,
                        "TGAI-3 global latch failed: %.180s",
                        global_latch_message);
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    if (!tecmo_gameplay_cpu_opcode15_selection_self_test(
+            opcode15_selection_message, sizeof(opcode15_selection_message))) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode15 selection failed: %.160s",
+                       opcode15_selection_message);
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }

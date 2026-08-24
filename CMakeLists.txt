@@ -84,6 +84,7 @@ set(TECMO_PORT_SOURCES
     src/tecmo_gameplay_ball_dribble.c
     src/tecmo_gameplay_fatigue.c
     src/tecmo_gameplay_cpu_steering.c
+    src/tecmo_gameplay_cpu_opcode15_selection.c
     src/tecmo_gameplay_cpu_global_latch.c
     src/tecmo_gameplay_cpu_opcode_workspaces.c
     src/tecmo_gameplay_candidate_selection.c
