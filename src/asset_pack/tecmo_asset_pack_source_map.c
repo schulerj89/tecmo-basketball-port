@@ -2522,7 +2522,7 @@ static int append_gameplay_cpu_steering_source_map_entry(
         "\"ordering\":\"one transactional NMI tick per accepted bound LIVE scene frame; ordinary MISS release calls tagged $9FA1 then $A0DD\","
         "\"rollback\":\"rejected scene update restores RNG bytes/serials\","
         "\"parity_boundary\":\"LIVE $C05D call ledger remains noncanonical; shot raw $006A is a bounded native stream, not canonical global parity\"},"
-        "\"missing_live_owners\":[\"$A0DD object scheduler beyond its bound RNG/launch/height edge\",\"$A214 state-specific gates except bound state17 B783\"]},"
+        "\"missing_live_owners\":[\"$9F2F interaction predecessor and $A0DD target construction\",\"$A214 states other than bound state10 B721, state17 B783, and pass state18 B7B6\"]},"
         "\"opcode15_source_contract\":{"
         "\"scope\":\"exact harness plus bounded shot/off-ball LIVE opcode 15 lifecycle\","
         "\"dispatch\":{\"bank\":6,\"address\":\"$8B90-$8BE0\",\"opcode\":15,\"handler\":\"$9172\"},"
@@ -3079,9 +3079,10 @@ static int append_gameplay_actor_command_assignment_source_map_entry(
         "\"depth_distance\":\"unsigned abs8 promoted to 16 bits\","
         "\"selected_exclusions\":[\"$0308\",\"$0309\"],"
         "\"owned_writes\":[\"$0547/$0551 stream offset\",\"$057C state\"]},"
-        "\"production_attachment\":false,"
+        "\"production_attachment\":true,"
+        "\"production_callers\":[\"state10-B721 after A9DA\",\"state17-B783 during shot\",\"pass-state18-B7B6 after rare catch\"],"
         "\"unsupported_effects\":[\"$046E\",\"$0484/$048F\",\"$C711\",\"$9DF6 scratch\"],"
-        "\"runtime_inputs\":\"fixture-only TGCA-1 plus typed LIVE foundation; no ROM, decompilation, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}",
+        "\"runtime_inputs\":\"strict TGCA-1 plus typed LIVE state10/state17/pass-state18 production owners; interaction remains fixture-only; no ROM, decompilation, trace, capture, screenshot, video, log, dump, Lua output, or save state\"}",
         (unsigned)TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_RAW_SIZE,
         (unsigned)
             TECMO_ASSET_PACK_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_RAW_FNV1A32);

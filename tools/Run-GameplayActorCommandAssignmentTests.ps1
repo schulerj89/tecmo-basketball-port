@@ -278,7 +278,10 @@ try {
             "tecmo.gameplay-actor-command-assignment/TGCA-1" -or
         [int]$SourceMaps[0].size -ne 1488 -or
         [string]$SourceMaps[0].fingerprint_fnv1a32 -ne "4C7C2B34" -or
-        [bool]$SourceMaps[0].production_attachment -or
+        ![bool]$SourceMaps[0].production_attachment -or
+        @($SourceMaps[0].production_callers).Count -ne 3 -or
+        [string]$SourceMaps[0].production_callers[2] -ne
+            "pass-state18-B7B6 after rare catch" -or
         @($SourceMaps[0].source_spans).Count -ne $ExpectedSpans.Count) {
         throw "TGCA-1 logical source-map entry is missing or malformed."
     }
@@ -319,6 +322,10 @@ try {
             "object-state17-B783" -or
         [string]$Provenance.production_proof_contract.state17_event.expected.dispatch_handler -ne
             '$B775' -or
+        [string]$Provenance.production_proof_contract.state18_pass_event.expected.dispatch_handler -ne
+            '$B7B6' -or
+        ![bool]$Provenance.production_proof_contract.state18_pass_event.expected.same_update_latch_consumed -or
+        @($Provenance.production_proof_contract.state18_pass_event.gate_vectors).Count -ne 3 -or
         $Provenance.fixture_boundary.resolver_inputs -notmatch "Synthetic") {
         throw "TGCA-1 machine-readable provenance is incomplete."
     }
@@ -358,8 +365,9 @@ try {
         "TGCA-1 tests passed: exact 9-span Rev1 fingerprints and source map; " +
         "whole-ROM importer rejection for nine targeted raw mutations; bounded " +
         "per-span FNV32/FNV64/descriptor branches; parser copied-byte/SHA/" +
-        "payload rejection; unsigned depth distance; fixture-only A023 gates, " +
-        "descending tie, selected exclusions, human/automatic modes, and " +
+        "payload rejection; unsigned depth distance; bounded A023 gates, " +
+        "descending tie, selected exclusions, human/automatic modes, " +
+        "production state10/state17/pass-state18 attachments, and " +
         "transactional rollback.")
     $global:LASTEXITCODE = 0
 } finally {

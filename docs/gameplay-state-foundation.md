@@ -275,26 +275,30 @@ or stale results without changing foundation/result/latch. A single-use
 scene context admits opcode 20 only when both the mask bit and `$0019` match
 in the following Bank06 descending traversal. It never admits a coincidental
 cursor, the `$000A` wait/delayed opcode-20 path, or opcode 13, and expires on
-the frame attempt. This remains fixture-only: production has no faithful
-owner for the upstream `$A214` gates/object scheduler and does not bind it.
+the frame attempt. Production binds three source-shaped callers: shot state
+`$17` through `$B775->$B783`, A9DA's next-update state `$10` through
+`$B6E5->$B721`, and the rare pass catch selected by `$B23B` when live `$6A`
+is 0 or 1. The pass route performs `$B24F` first, retains the receiver as
+holder in state `$18`, then follows fixed `$F031` workspace capture and
+player movement, `$F03D->$A214->$B7B6->$B783`, and the same-update descending
+Bank06 traversal. The current 2-D pass adapter supplies typed `$0499=0`, so
+this bounded route reaches `$B783` on the next update; exact flight altitude
+remains part of the separately documented pass-trajectory gap.
 
-This is **not** integrated into normal tip-off, jump, pass, claimant, rebound,
-or generic possession handling.  The native scene's numeric `jump_ball_state`
-does not own the object-slot-10 state/coordinate or the `$BA`, `$05A1`,
-`$0499`, `$0588`, `$67/$68`, and `$04AF` gate family required by
-`$B6E5->$B73A` or `$B775/$B7B6->$B783`; its defensive-contact path is
-`$9968/$9A24`-shaped rather than the preceding `$9F2F->$9FE2` geometry,
-property, direction, and `$A0DD` target-construction path.  Therefore all
-source-complete calls remain synthetic fixture inputs.  `$046E`,
-`$0484/$048F`, fixed `$C711`, and terminal scratch effects are observations,
-not native mutations.
+This is not a claim that every A023 predecessor is integrated. The native
+scene's defensive-contact path is `$9968/$9A24`-shaped rather than the
+preceding `$9F2F->$9FE2` geometry, property, direction, and `$A0DD` target-
+construction path. That interaction caller remains synthetic-only.
+`$046E`, `$0484/$048F`, fixed `$C711`, and terminal scratch effects remain
+observations rather than native mutations where documented.
 
 The opt-in `TGLP-1` `actor-command-assignment-deferred` event follows an
 ordinary PRETIP-to-LIVE scene route and emits `caller_identity:"none"`,
 `emitted:false`, and `production_mutated:false`; it records the selected
 exclusions, unexecuted scan/winner/score fields, and unchanged selected
-stream/state snapshots.  Its screenshot proves only that the normal native
-scene remained intact—it is explicitly not A023 gameplay-parity evidence.
+stream/state snapshots. Its screenshot proves only that this ordinary route
+did not emit an A023 event; it is not evidence against the separately tested
+production state-10, state-17, or pass state-18 callers.
 Run `tools\Run-GameplayActorCommandAssignmentTests.ps1 -RomPath <LOCAL_ROM>`
 for the isolated resolver/importer/mutation suite and
 `tools\Run-GameplaySceneTests.ps1 -RomPath <LOCAL_ROM>` for the real-flow

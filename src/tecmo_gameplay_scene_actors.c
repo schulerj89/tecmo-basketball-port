@@ -698,7 +698,9 @@ bool scene_pass_state_valid(const TecmoGameplayScene *scene)
          pass->controller != TECMO_GAMEPLAY_SCENE_NO_ACTOR) ||
         scene->actors[pass->passer].team != scene->state.possession ||
         scene->actors[pass->receiver].team != scene->state.possession ||
-        scene->ball_holder != pass->passer ||
+        (pass->phase == TECMO_GAMEPLAY_SCENE_PASS_STATE18
+             ? scene->ball_holder != pass->receiver
+             : scene->ball_holder != pass->passer) ||
         pass->flight_duration < TECMO_GAMEPLAY_PASS_MIN_FLIGHT_UPDATES ||
         pass->flight_duration > TECMO_GAMEPLAY_PASS_MAX_FLIGHT_UPDATES ||
         pass->flight_frame > pass->flight_duration) {
@@ -714,7 +716,9 @@ bool scene_pass_state_valid(const TecmoGameplayScene *scene)
                 return false;
             }
         }
-    } else if (scene->controlled_actor[pass->controller] != pass->passer ||
+    } else if (scene->controlled_actor[pass->controller] !=
+                   (pass->phase == TECMO_GAMEPLAY_SCENE_PASS_STATE18
+                        ? pass->receiver : pass->passer) ||
                scene->launch.controller_team[pass->controller] !=
                    scene->state.possession) {
         return false;
@@ -727,9 +731,23 @@ bool scene_pass_state_valid(const TecmoGameplayScene *scene)
                 pass->packed_animation_state == 0x02U ||
                 pass->packed_animation_state == 0x03U);
     }
-    if (pass->phase != TECMO_GAMEPLAY_SCENE_PASS_FLIGHT ||
+    if ((pass->phase != TECMO_GAMEPLAY_SCENE_PASS_FLIGHT &&
+         pass->phase != TECMO_GAMEPLAY_SCENE_PASS_STATE18) ||
         pass->packed_animation_state != 0x04U || !pass->receiver_locked) {
         return false;
+    }
+    if (pass->phase == TECMO_GAMEPLAY_SCENE_PASS_STATE18) {
+        return pass->reserved[0U] <= 1U &&
+            pass->reserved[1U] == 0U &&
+            pass->flight_frame == pass->flight_duration &&
+            pass->target_position.x_q8 % 256 == 0 &&
+            pass->target_position.y_q8 % 256 == 0 &&
+            pass->target_position.x_q8 >= 0 &&
+            pass->target_position.x_q8 / 256 <= INT16_MAX &&
+            pass->target_position.y_q8 >= 0 &&
+            pass->target_position.y_q8 / 256 <= UINT8_MAX &&
+            (scene->legacy_direct_launch ||
+             scene->live_foundation.primary_actor == pass->receiver);
     }
     if (!scene->legacy_direct_launch &&
         (scene->live_foundation.primary_actor != pass->passer ||
@@ -962,6 +980,69 @@ bool scene_update_pass(TecmoGameplayScene *scene)
         !scene_pass_state_valid(scene)) return false;
     candidate = *scene;
     pass = &candidate.pass_state;
+    if (pass->phase == TECMO_GAMEPLAY_SCENE_PASS_STATE18) {
+        TecmoGameplayObject10DispatchResult dispatch;
+        TecmoGameplayActorCommandAssignmentInput input;
+        TecmoGameplayActorCommandAssignmentResult assignment;
+        TecmoGameplayActorCommandAssignmentSameFrameLatch latch;
+        TecmoGameplaySceneA023LatchFrameContext context;
+        TecmoGameplayLiveFoundation foundation;
+        memset(&dispatch, 0, sizeof(dispatch));
+        memset(&input, 0, sizeof(input));
+        memset(&assignment, 0, sizeof(assignment));
+        memset(&latch, 0, sizeof(latch));
+        memset(&context, 0, sizeof(context));
+        if (candidate.legacy_direct_launch ||
+            candidate.a023_latch_frame_context.available ||
+            candidate.actor_command_assignment_assets == NULL ||
+            !candidate.actor_command_assignment_assets->available ||
+            !tecmo_gameplay_object10_dispatch_resolve(
+                candidate.actor_command_assignment_assets, 0x18U,
+                &dispatch) ||
+            dispatch.contract_tag !=
+                TECMO_GAMEPLAY_OBJECT10_DISPATCH_RESULT_TAG ||
+            dispatch.handler_cpu != 0xB7B6U) {
+            return false;
+        }
+        input.contract_tag =
+            TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_INPUT_TAG;
+        input.caller =
+            TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_CALLER_OBJECT_STATE18_B7B6;
+        input.raw_object_state = 0x18U;
+        input.raw_0499 = pass->reserved[1U];
+        input.object10_target_valid = true;
+        input.object10_target.x =
+            (int16_t)(pass->target_position.x_q8 / 256);
+        input.object10_target.y =
+            (int16_t)(pass->target_position.y_q8 / 256);
+        input.object10_raw_target_valid = true;
+        input.object10_raw_target.x =
+            (uint16_t)(pass->target_position.x_q8 / 256);
+        input.object10_raw_target.depth =
+            (uint16_t)(pass->target_position.y_q8 / 256);
+        foundation = candidate.live_foundation;
+        if (!tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
+                candidate.actor_command_assignment_assets,
+                &candidate.cpu_steering_assets, &input, &foundation,
+                &assignment, &latch) || !assignment.applied ||
+            assignment.caller != input.caller ||
+            latch.producer_kind !=
+                TECMO_GAMEPLAY_ACTOR_COMMAND_ASSIGNMENT_LATCH_PRODUCER_B783 ||
+            !latch.b783_bit20_clear_follows_assignment) {
+            return false;
+        }
+        context.contract_tag =
+            TECMO_GAMEPLAY_SCENE_A023_LATCH_FRAME_CONTEXT_TAG;
+        context.latch = latch;
+        context.available = true;
+        candidate.live_foundation = foundation;
+        candidate.a023_latch_frame_context = context;
+        scene_pass_clear(&candidate);
+        if (!scene_attach_ball(&candidate) ||
+            !scene_pass_state_valid(&candidate)) return false;
+        *scene = candidate;
+        return true;
+    }
     if (pass->phase == TECMO_GAMEPLAY_SCENE_PASS_GATHER) {
         bool release_now = false;
         if (pass->packed_animation_state == 0x32U)
@@ -1049,6 +1130,24 @@ bool scene_update_pass(TecmoGameplayScene *scene)
             &candidate, candidate.state.possession,
             &receiver_facing_right)) return false;
     candidate.actors[pass->receiver].facing_right = receiver_facing_right;
+    /* `$B23B` compares literal 1 with the live `$6A`. Values 0/1 call the
+       same `$B24F` handoff above and then fall through `$B244`, storing
+       object state `$18`; all other values finish the catch immediately.
+       The current 2-D pass adapter owns no vertical height, so its explicit
+       typed `$0499` is zero and `$B7B6` reaches `$B783` next update. */
+    if (!candidate.legacy_direct_launch &&
+        candidate.fixed_rng.raw_006a <= 1U) {
+        int32_t raw_x = pass->target_position.x_q8 / 256;
+        int32_t raw_depth = pass->target_position.y_q8 / 256;
+        if (raw_x < 0 || raw_x > INT16_MAX || raw_depth < 0 ||
+            raw_depth > UINT8_MAX) return false;
+        pass->reserved[0U] = candidate.fixed_rng.raw_006a;
+        pass->reserved[1U] = 0U;
+        pass->phase = TECMO_GAMEPLAY_SCENE_PASS_STATE18;
+        if (!scene_pass_state_valid(&candidate)) return false;
+        *scene = candidate;
+        return true;
+    }
     scene_pass_clear(&candidate);
     if (!scene_attach_ball(&candidate) ||
         !scene_pass_state_valid(&candidate)) return false;

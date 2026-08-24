@@ -148,13 +148,13 @@
     "not_production_inputs": [
       "a numeric native jump_ball_state alone",
       "generic pretip handoff",
-      "generic pass, claimant, rebound, or possession handoff",
+      "generic pass, claimant, rebound, or possession handoff other than the source-shaped rare state-$18 catch",
       "a CPU steering opcode-4 target alone",
       "a defensive-contact/foul bridge"
     ],
     "synthetic_no_candidate": "A valid LIVE foundation always has five actors on each $04B0 bit-$10 selector side. The no-candidate scan test is intentionally a direct invalid-selector fixture, not an organic scene claim."
     ,
-    "same_frame_latch": "Intentional exact-event scene fixtures cover masked $0019 consumption, unrelated-$0019 rejection, delayed $000A and opcode13 rejection, single-frame expiry, malformed provenance, and rollback. Production binds exact state-$17/$0588&$20 through A214->$B775->$B783 and A9DA's state-$10/B3DD/$0588&$80 lifecycle through A214->$B6E5->$B721."
+    "same_frame_latch": "Intentional exact-event scene fixtures cover masked $0019 consumption, unrelated-$0019 rejection, delayed $000A and opcode13 rejection, single-frame expiry, malformed provenance, and rollback. Production binds exact state-$17/$0588&$20 through A214->$B775->$B783, A9DA's state-$10/B3DD/$0588&$80 lifecycle through A214->$B6E5->$B721, and the rare pass-catch state-$18 route through A214->$B7B6->$B783."
   },
   "native_caller_equivalence": [
     {
@@ -169,8 +169,8 @@
     },
     {
       "asm_caller": "$B7B6->$B783->$A023",
-      "current_native_observation": "State-$18 object lifecycle and its $0499==0 admission remain unowned.",
-      "status": "deferred-no-production-attachment"
+      "current_native_observation": "Pass catch always performs B24F first. When live $6A is 0 or 1, native transport retains the receiver as holder in state $18 with typed $0499=0; the next production update captures the F031 opcode-16 workspace, moves controlled actors, resolves F03D->A214 handler B7B6, applies B783/A023, and consumes the masked opcode-20 latch in that same descending Bank06 traversal.",
+      "status": "production-bound-source-shaped-pass-state18"
     },
     {
       "asm_caller": "$9F2F->$9FE2->$A023",
@@ -208,6 +208,17 @@
         "production_mutated": true,
         "same_update_latch_consumed": true
       }
+    },
+    "state18_pass_event": {
+      "path": "ordinary CPU action-$21 pass through gather, receiver lock, exact B24F handoff, $B23B live-$6A gate, and next-update B7B6 dispatch",
+      "gate_vectors": [0, 1, 2],
+      "expected": {
+        "gate_0_or_1": "state-$18 then B783/A023 and same-update masked opcode-20 consumption",
+        "gate_above_1": "direct catch completion without state-$18",
+        "raw_0499": 0,
+        "dispatch_handler": "$B7B6",
+        "same_update_latch_consumed": true
+      }
     }
   },
   "unowned_or_unrecovered_effects": [
@@ -216,6 +227,6 @@
     "fixed $C711 action #$1D selector/table effects",
     "$9DF6/$9E0A scratch ownership beyond the exact resolver metric",
     "$9F2F predecessor and $A0DD target-construction effects",
-    "complete scene scheduling and object-slot ownership"
+    "object-slot scheduling outside the bound state-$10, state-$17, and pass state-$18 routes"
   ]
 }

@@ -91,6 +91,10 @@ typedef enum TecmoGameplayScenePassPhase {
     TECMO_GAMEPLAY_SCENE_PASS_NONE = 0,
     TECMO_GAMEPLAY_SCENE_PASS_GATHER,
     TECMO_GAMEPLAY_SCENE_PASS_FLIGHT,
+    /* Rare Bank05 `$B244` post-catch object state `$18`. `$B24F` has
+       already transferred possession; `$B7B6` waits for `$0499==0` before
+       the `$B783->$A023` assignment completes the transport. */
+    TECMO_GAMEPLAY_SCENE_PASS_STATE18,
     TECMO_GAMEPLAY_SCENE_PASS_PHASE_COUNT
 } TecmoGameplayScenePassPhase;
 
@@ -106,6 +110,8 @@ typedef struct TecmoGameplayScenePassState {
        selected/candidate roles at launch; $0308 remains the passer until
        the genuine Bank05 $B24F catch. */
     bool receiver_locked;
+    /* STATE18 reuses these otherwise-zero bytes for the source `$6A` gate
+       and the typed `$0499` high-altitude byte. */
     uint8_t reserved[2];
     uint16_t flight_frame;
     uint16_t flight_duration;

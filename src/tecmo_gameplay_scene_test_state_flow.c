@@ -3341,12 +3341,87 @@ static bool scene_test_live_foundation_regressions(
                 scene->live_foundation.offense_side] != passer) {
             LIVE_FAIL("LIVE CPU pass launch identity lock failed");
         }
+        /* Stop immediately before `$B23B` so all three literal-1 compare
+           outcomes are covered from the same exact flight candidate. */
         for (pass_updates = 0U;
-             scene_pass_active(scene) && pass_updates < 32U;
+             scene->pass_state.flight_frame + 1U <
+                 scene->pass_state.flight_duration &&
+             pass_updates < 32U;
              ++pass_updates) {
-            if (!scene_update_pass(scene)) {
-                LIVE_FAIL("LIVE CPU pass flight/catch rejected");
+            if (!scene_update_pass(scene) ||
+                scene->pass_state.phase !=
+                    TECMO_GAMEPLAY_SCENE_PASS_FLIGHT) {
+                LIVE_FAIL("LIVE CPU pass pre-catch flight rejected");
             }
+        }
+        if (scene->pass_state.flight_frame + 1U !=
+                scene->pass_state.flight_duration) {
+            LIVE_FAIL("LIVE CPU pass terminal flight frame unavailable");
+        }
+        before = *scene;
+        scene->fixed_rng.raw_006a = 2U;
+        if (!scene_update_pass(scene) || scene_pass_active(scene)) {
+            LIVE_FAIL("LIVE pass `$6A>1` catch did not finish directly");
+        }
+
+        /* Here it is: `$6A==1` reaches `$B244`, retains the already-caught
+           receiver as holder, and the next production update must execute
+           `$B7B6->$B783->$A023` before consuming every authorized opcode-20
+           latch in that update's descending Bank06 traversal. */
+        broken = before;
+        broken.fixed_rng.raw_006a = 1U;
+        if (!scene_update_pass(&broken) ||
+            broken.pass_state.phase !=
+                TECMO_GAMEPLAY_SCENE_PASS_STATE18 ||
+            broken.pass_state.reserved[0U] != 1U ||
+            broken.pass_state.reserved[1U] != 0U ||
+            broken.ball_holder != receiver ||
+            broken.a023_latch_frame_context.available) {
+            LIVE_FAIL("LIVE pass `$6A==1` state-18 entry failed");
+        }
+        snapshot = broken;
+        memset(&neutral_one, 0, sizeof(neutral_one));
+        memset(&neutral_two, 0, sizeof(neutral_two));
+        if (!tecmo_gameplay_scene_update(
+                &broken, &neutral_one, &neutral_two) ||
+            scene_pass_active(&broken) || broken.ball_holder != receiver ||
+            broken.a023_latch_frame_context.available) {
+            LIVE_FAIL("LIVE pass state-18 ordered production update failed");
+        }
+        {
+            bool consumed_immediate_opcode20 = false;
+            for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
+                 ++actor) {
+                if (broken.live_foundation.last_step_offset[actor] ==
+                        0x001EU &&
+                    broken.live_foundation.play_state.stream_offset[actor] ==
+                        0x001EU &&
+                    !broken.live_foundation.deferred[actor] &&
+                    broken.live_foundation
+                        .source_inactive_target_storage[actor]) {
+                    consumed_immediate_opcode20 = true;
+                    break;
+                }
+            }
+            if (!consumed_immediate_opcode20) {
+                LIVE_FAIL("LIVE pass state-18 opcode-20 latch was not consumed");
+            }
+        }
+
+        malformed_scene = before;
+        malformed_scene.fixed_rng.raw_006a = 0U;
+        if (!scene_update_pass(&malformed_scene) ||
+            malformed_scene.pass_state.phase !=
+                TECMO_GAMEPLAY_SCENE_PASS_STATE18 ||
+            malformed_scene.pass_state.reserved[0U] != 0U) {
+            LIVE_FAIL("LIVE pass `$6A==0` state-18 entry failed");
+        }
+        malformed_scene.pass_state.reserved[1U] = 1U;
+        snapshot = malformed_scene;
+        if (scene_pass_state_valid(&malformed_scene) ||
+            scene_update_pass(&malformed_scene) ||
+            memcmp(&malformed_scene, &snapshot, sizeof(snapshot)) != 0) {
+            LIVE_FAIL("LIVE pass state-18 nonzero `$0499` did not fail closed");
         }
         if (scene_pass_active(scene) || scene->ball_holder != receiver ||
             scene->controlled_actor[0U] != TECMO_GAMEPLAY_SCENE_NO_ACTOR ||

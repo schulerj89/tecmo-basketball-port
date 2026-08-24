@@ -2318,7 +2318,46 @@ static bool scene_update_live_action_ordered(
             return false;
         }
     } else if (scene_pass_active(scene)) {
-        if (!scene_update_pass(scene)) {
+        if (scene->pass_state.phase ==
+                TECMO_GAMEPLAY_SCENE_PASS_STATE18 &&
+            !scene->legacy_direct_launch) {
+            TecmoGameplayScene *candidate =
+                (TecmoGameplayScene *)malloc(sizeof(*candidate));
+            bool accepted = candidate != NULL;
+            if (accepted) {
+                *candidate = *scene;
+                /* Fixed `$F031` captures `$81F2` before player movement;
+                   `$F03D` then dispatches `$A214` state `$18`, and Bank06
+                   follows later in this same scheduler pass. Keep the
+                   B783/A023 target latch inside that exact update. */
+                memset(&candidate->opcode16_frame_context, 0,
+                       sizeof(candidate->opcode16_frame_context));
+                accepted = scene_cpu_opcode16_workspace_capture(
+                    candidate, &candidate->opcode16_frame_context);
+            }
+            for (controller = 0U;
+                 accepted && controller < TECMO_GAMEPLAY_CONTROLLER_COUNT;
+                 ++controller) {
+                accepted = scene_move_controlled_actor(
+                    candidate, controller, controls[controller]);
+            }
+            if (accepted) accepted = scene_update_pass(candidate);
+            if (accepted) {
+                accepted = !scene_pass_active(candidate) &&
+                    candidate->ball_holder <
+                        TECMO_GAMEPLAY_SCENE_ACTOR_COUNT &&
+                    scene_update_ai(candidate, cpu_shot_request) &&
+                    !candidate->a023_latch_frame_context.available &&
+                    scene_ownership_valid(candidate);
+            }
+            if (accepted) *scene = *candidate;
+            free(candidate);
+            if (!accepted) {
+                scene_set_status(
+                    scene, "pass state-18 ordered assignment rejected");
+                return false;
+            }
+        } else if (!scene_update_pass(scene)) {
             scene_set_status(scene, "pass animation update rejected");
             return false;
         }
