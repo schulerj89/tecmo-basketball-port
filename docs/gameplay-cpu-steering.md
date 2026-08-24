@@ -284,10 +284,11 @@ intermediate state-7/`$059E`/selector-4 handoff before the final
 `$046E=1B`, `$057C=0`, and `$000E[$030A]=new` stores.
 
 TGO15-1 separately models `$059E` as a persistent typed selection latch. Its
-sole writer is `$920D`; `$9248-$926F` requires the stored actor to be in state
-7, derives side scratch, observes selector 3, and clears state only when that
-actor is not `$0308` and its `$046E` is zero. The consumer never clears the
-latch, so a retained value is explicitly stale until the next writer. Only a
+sole writer is `$920D`; `$9248-$926F` is admitted because the independently
+typed dispatch actor is in state 7, then `$9248-$924D` replaces X with the
+stored actor. Side scratch, selector 3, and conditional retirement therefore
+use the stored actor even when it is stale and not state 7. The consumer never
+clears the latch, so a retained value is explicitly stale until the next writer. Only a
 serial-admitted full reset clears it; period and possession transitions retain
 it.
 

@@ -480,7 +480,8 @@ The raw harness now also covers `$9187-$91C1` primary replacement with an
 explicit captured `$943B/$938B` formation-output plane; it does not manufacture
 that plane from LIVE. A separate typed `$059E` latch pins the sole `$920D`
 writer and `$9248-$926F` state-7 selector-3 consumer, including persistence,
-stale reuse, conditional state retirement, and full-reset-only clearing.
+stale reuse, dispatch-actor state-7 admission, stored-actor side/retirement,
+and full-reset-only clearing.
 The exact `$91F1-$91F5` compare preserves `$06D5` unless new X equals it; only
 then does `$91F6-$91F8` store old Y to `$06D5`, before the unconditional
 `$06D6=09`. The deterministic harness is synthetic source-contract evidence;

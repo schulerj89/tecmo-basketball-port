@@ -1473,9 +1473,11 @@ harness is a natural FCEUX opcode-15 capture; that capture remains open research
 The typed `$059E` lifecycle has the sole `$920D` writer and pure
 `$9248-$926F` state-7 consumer. It persists across period/possession changes
 and is cleared only by full reset. Consumption never clears `$059E`: it becomes
-stale until the next writer. State 7 is the validity gate; selector 3 derives
-the side from the stored actor, then a non-primary actor with `$046E==0`
-retires to state 0. Keep this harness lifecycle separate from LIVE.
+stale until the next writer. The independently dispatched actor's state 7 is
+the handler-admission validity gate. `$9248` then
+loads the stored actor from `$059E`; selector 3 derives that actor's side, and
+that stored actor retires to state 0 when non-primary with `$046E==0`, even if
+its own state was not 7. Keep this harness lifecycle separate from LIVE.
 
 Bank06 state 4 adds the actor-local `$0547/$0551` command offset to `$9F2E`.
 Fixed `$C006->$CBE0` maps Bank04, copies one five-byte record into `$C7-$CB`,

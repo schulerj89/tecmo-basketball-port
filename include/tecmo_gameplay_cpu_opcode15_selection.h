@@ -21,6 +21,7 @@ typedef struct TecmoGameplayCpuOpcode15SelectionLatch {
 typedef struct TecmoGameplayCpuOpcode15State7Input {
     uint32_t contract_tag;
     uint32_t expected_write_serial;
+    uint8_t dispatch_actor;
     uint8_t primary_0308;
     uint8_t actor_state_057c[TECMO_GAMEPLAY_CPU_OPCODE15_ACTOR_COUNT];
     uint8_t actor_timer_046e[TECMO_GAMEPLAY_CPU_OPCODE15_ACTOR_COUNT];
@@ -29,6 +30,7 @@ typedef struct TecmoGameplayCpuOpcode15State7Input {
 typedef struct TecmoGameplayCpuOpcode15State7Result {
     uint32_t contract_tag;
     uint32_t write_serial;
+    uint8_t dispatch_actor;
     uint8_t actor_059e;
     uint8_t scratch_00bf_actor;
     uint8_t scratch_00be_side;
@@ -54,7 +56,8 @@ bool tecmo_gameplay_cpu_opcode15_selection_retain_possession(
 
 /* Pure `$9248-$926F` state-7 consumer. `$059E` is never source-cleared here:
  * the accepted consume only marks its typed provenance stale until `$920D`
- * writes again. State 7 is the source validity gate. */
+ * writes again. State 7 gates the actor that dispatched this handler; $9248
+ * then replaces X with the independently stored `$059E` actor. */
 bool tecmo_gameplay_cpu_opcode15_state7_consume(
     TecmoGameplayCpuOpcode15SelectionLatch *latch,
     const TecmoGameplayCpuOpcode15State7Input *input,
