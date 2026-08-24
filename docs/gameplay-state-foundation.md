@@ -245,6 +245,19 @@ object-coordinate entry. The
 transaction records the `$035A` save/toggle branch as an observation only.
 No semantic season steal/rebound/block category is claimed yet.
 
+The direct defense-contact entry `$9FA4->$94C6` now has an exact production
+admission plan through `$95A9` (228 Rev-1 bytes, SHA-256
+`D1ABEA266D12A89B241AA42734832437CCA323E521EDB881BEB9257147A3B02D`).
+It preserves the automatic-side early return, the unconditional
+`$042A/$038A/$0435` writes on human-side entry, `$0587/$05A1/$0358` gates,
+wrapping `$0420` increment, direction-property overlap at 36 ticks, and the
+direct-entry `$9675[2]=$0E` post-`$C05D` threshold. Accepted LIVE contact
+projects the exact `$07E3` save, conditional `$0478=$19`, primary action
+`$1F`, defender action `$14`, and `$05A1` interrupt into the existing native
+consequence bridge. The external helper/motion sequence beginning at `$95AE`
+still requires full raw-state ownership before all of `$94C6-$9674` can be
+declared complete.
+
 For opt-in diagnosis, `TGPS-1` snapshots expose typed raw labels
 `$0308/$0309`, `$030A/$030B`, `$030C/$030D`, `$000E/$000F`, `$037F/$0380`,
 the `$04B0` bit-`$10` mirror, `$06CB`, `$0547/$0551`, and `$057C`, alongside

@@ -8798,7 +8798,9 @@ static bool scene_test_foul_and_away_free_throws(
        predated those recovered gates, so make both source preconditions
        explicit instead of relying on launch-state happenstance. */
     scene->actors[scene->controlled_actor[1U]].movement_direction = 1U;
-    scene->fixed_rng.raw_006a = 1U;
+    scene->fixed_rng.raw_006a = 0U;
+    scene->fixed_rng.raw_0053 = 0U;
+    scene->state.clock_seconds = 30U;
     /* Ordinary Bank05 fall-through ($07E3=0, $0478=$19) does not select a
        free throw before the bonus threshold.  This is a real defensive-B
        contact path; only the counters are fixture setup. */
@@ -8827,9 +8829,25 @@ static bool scene_test_foul_and_away_free_throws(
         scene->foul_presentation.free_throw_attempts != 0U ||
         scene->foul_presentation.team_in_bonus ||
         scene->foul_presentation.fouled_out) {
-        tecmo_gameplay_scene_test_message(
+        (void)snprintf(
             message, message_size,
-            "ordinary live pushing foul did not preserve no-bonus consequences");
+            "ordinary live pushing foul mismatch phase=%u team=%u individual=%u attempts=%u serial=%u rng=%u/%u clock=%u wait=%u primary_action=%u defender_action=%u presentation=%u",
+            (unsigned)scene->state.phase,
+            (unsigned)scene->state.team_fouls[TECMO_GAMEPLAY_TEAM_HOME],
+            (unsigned)scene->state.individual_fouls[TECMO_GAMEPLAY_TEAM_HOME]
+                [home_defender_roster],
+            (unsigned)scene->state.free_throws.attempts_remaining,
+            (unsigned)scene->action_serial,
+            (unsigned)scene->fixed_rng.raw_006a,
+            (unsigned)scene->fixed_rng.raw_0053,
+            (unsigned)scene->state.clock_seconds,
+            (unsigned)scene->live_foundation.play_state.wait_counter[
+                scene->controlled_actor[1U]],
+            (unsigned)scene->live_foundation.play_state.action_state_046e[
+                scene->ball_holder],
+            (unsigned)scene->live_foundation.play_state.action_state_046e[
+                scene->controlled_actor[1U]],
+            scene->foul_presentation.valid ? 1U : 0U);
         return false;
     }
     memset(&p1, 0, sizeof(p1));
@@ -8888,7 +8906,9 @@ static bool scene_test_foul_and_away_free_throws(
         return false;
     }
     scene->actors[scene->controlled_actor[1U]].movement_direction = 0U;
-    scene->fixed_rng.raw_006a = 1U;
+    scene->fixed_rng.raw_006a = 0U;
+    scene->fixed_rng.raw_0053 = 0U;
+    scene->state.clock_seconds = 30U;
     scene->state.team_fouls[TECMO_GAMEPLAY_TEAM_HOME] = 4U;
     scene->action_serial = 1U;
     p2.held.cancel = true;

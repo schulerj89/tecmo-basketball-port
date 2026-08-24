@@ -7,6 +7,91 @@ static const uint8_t direction_property_bfa0[8] = {
     0x01U, 0x02U, 0x04U, 0x05U, 0x06U, 0x08U, 0x09U, 0x0AU
 };
 
+bool tecmo_gameplay_defense_94c6_direct_plan(
+    const TecmoGameplayDefense94c6Input *input,
+    TecmoGameplayDefense94c6Result *result_out)
+{
+    TecmoGameplayDefense94c6Result result;
+    uint8_t wait_after;
+    if (input == NULL || result_out == NULL ||
+        input->contract_tag != TECMO_GAMEPLAY_DEFENSE_94C6_INPUT_TAG ||
+        input->actor_bf >= 10U || input->primary_0308 >= 10U ||
+        input->defender_0309 >= 10U ||
+        input->primary_0308 == input->defender_0309 ||
+        input->actor_bf != input->defender_0309 || input->side_be >= 2U ||
+        input->side_control_030c > 1U ||
+        input->opposing_control_030c > 1U ||
+        input->actor_direction_0463 >= 8U ||
+        input->primary_direction_0463 >= 8U) {
+        return false;
+    }
+    memset(&result, 0, sizeof(result));
+    result.contract_tag = TECMO_GAMEPLAY_DEFENSE_94C6_RESULT_TAG;
+    result.wait_0420_after = input->wait_0420;
+    result.route_0478_after = input->route_0478;
+
+    /* `$94C6-$94CF`: this direct entry is inert for automatic-side control. */
+    if (input->side_control_030c != 0U) {
+        *result_out = result;
+        return true;
+    }
+
+    /* `$94D0-$94DD` always precedes every later early return. */
+    result.entry_writes_applied = true;
+    result.raw_042a_after = 0x04U;
+    result.raw_038a_after = 0x2FU;
+    result.raw_0435_after = input->primary_0308;
+
+    /* The admitted production caller supplies BF==$0309, so `$94E5-$94F6`
+       bypasses only the `$0478==5` alternate-actor return. */
+    if (input->raw_0587 != 0U || input->raw_05a1 != 0U ||
+        input->clock_seconds_0358 < 2U) {
+        *result_out = result;
+        return true;
+    }
+
+    /* `$9500-$9521`: the selected defender is distinct from `$0308`, so the
+       `$048F` primary-only branch is unreachable and INC wraps as a byte. */
+    wait_after = (uint8_t)(input->wait_0420 + 1U);
+    result.wait_0420_after = wait_after;
+    result.wait_incremented = true;
+    result.direction_property_actor =
+        direction_property_bfa0[input->actor_direction_0463];
+    result.direction_property_primary =
+        direction_property_bfa0[input->primary_direction_0463];
+    if (wait_after >= 0x24U &&
+        (result.direction_property_actor &
+         result.direction_property_primary) != 0U) {
+        result.direction_overlap_admitted = true;
+    } else {
+        /* Direct `$94C6` wrote `$038A[BE]=$2F`; four LSRs select
+           `$9675[2]=$0E`. `$956D` rejects only when table < `$006A`. */
+        result.random_gate_used = true;
+        result.random_threshold_9675 = 0x0EU;
+        if (input->raw_006a > result.random_threshold_9675) {
+            *result_out = result;
+            return true;
+        }
+    }
+
+    /* `$9571-$95A9`: `$0435[BF]` is the primary written above. */
+    result.wait_0420_after = 0U;
+    result.saved_route_07e3 = input->route_0478;
+    result.route_0478_after = input->route_0478;
+    if (input->route_0478 != 0x05U && input->route_0478 != 0x07U &&
+        input->route_0478 != 0x08U) {
+        result.route_0478_after = 0x19U;
+        result.route_replaced_with_19 = true;
+    }
+    result.external_tail_requested = true;
+    result.sets_05a1 = true;
+    result.target_action_046e = 0x1FU;
+    result.defender_action_046e = 0x14U;
+    result.sets_target_state_057c_08 = input->opposing_control_030c != 0U;
+    *result_out = result;
+    return true;
+}
+
 bool tecmo_gameplay_defense_interaction_resolve(
     const TecmoGameplayDefenseInteractionInput *input,
     TecmoGameplayDefenseInteractionResult *result_out)
@@ -170,6 +255,9 @@ bool tecmo_gameplay_defense_interaction_self_test(
     TecmoGameplayDefensePossessionState possession_state;
     TecmoGameplayDefensePossessionState possession_sentinel;
     TecmoGameplayDefensePossessionResult possession_result;
+    TecmoGameplayDefense94c6Input contact_input;
+    TecmoGameplayDefense94c6Result contact_result;
+    TecmoGameplayDefense94c6Result contact_sentinel;
     if (message == NULL || message_size == 0U) return false;
     memset(&input, 0, sizeof(input));
     memset(&result, 0, sizeof(result));
@@ -228,6 +316,83 @@ bool tecmo_gameplay_defense_interaction_self_test(
         memcmp(&result, &sentinel, sizeof(result)) != 0) {
         (void)snprintf(message, message_size,
                        "TGDI transactional rejection failed");
+        return false;
+    }
+    memset(&contact_input, 0, sizeof(contact_input));
+    memset(&contact_result, 0, sizeof(contact_result));
+    contact_input.contract_tag = TECMO_GAMEPLAY_DEFENSE_94C6_INPUT_TAG;
+    contact_input.actor_bf = 7U;
+    contact_input.side_be = 1U;
+    contact_input.primary_0308 = 2U;
+    contact_input.defender_0309 = 7U;
+    contact_input.clock_seconds_0358 = 30U;
+    contact_input.wait_0420 = 0x22U;
+    contact_input.actor_direction_0463 = 1U;
+    contact_input.primary_direction_0463 = 4U;
+    contact_input.raw_006a = 0x0EU;
+    contact_input.opposing_control_030c = 1U;
+    if (!tecmo_gameplay_defense_94c6_direct_plan(
+            &contact_input, &contact_result) ||
+        !contact_result.entry_writes_applied ||
+        contact_result.raw_042a_after != 0x04U ||
+        contact_result.raw_038a_after != 0x2FU ||
+        contact_result.raw_0435_after != 2U ||
+        !contact_result.wait_incremented ||
+        !contact_result.random_gate_used ||
+        contact_result.random_threshold_9675 != 0x0EU ||
+        !contact_result.external_tail_requested ||
+        !contact_result.sets_05a1 ||
+        contact_result.wait_0420_after != 0U ||
+        contact_result.route_0478_after != 0x19U ||
+        contact_result.target_action_046e != 0x1FU ||
+        contact_result.defender_action_046e != 0x14U ||
+        !contact_result.sets_target_state_057c_08) {
+        (void)snprintf(message, message_size,
+                       "TGDI $94C6 direct random admission failed");
+        return false;
+    }
+    contact_input.raw_006a = 0x0FU;
+    if (!tecmo_gameplay_defense_94c6_direct_plan(
+            &contact_input, &contact_result) ||
+        contact_result.external_tail_requested ||
+        contact_result.wait_0420_after != 0x23U) {
+        (void)snprintf(message, message_size,
+                       "TGDI $94C6 direct random rejection failed");
+        return false;
+    }
+    contact_input.wait_0420 = 0x23U;
+    contact_input.raw_006a = 0xFFU;
+    contact_input.actor_direction_0463 = 3U;
+    contact_input.primary_direction_0463 = 0U;
+    contact_input.route_0478 = 0x07U;
+    if (!tecmo_gameplay_defense_94c6_direct_plan(
+            &contact_input, &contact_result) ||
+        !contact_result.direction_overlap_admitted ||
+        contact_result.random_gate_used ||
+        !contact_result.external_tail_requested ||
+        contact_result.route_0478_after != 0x07U ||
+        contact_result.route_replaced_with_19) {
+        (void)snprintf(message, message_size,
+                       "TGDI $94C6 direction-overlap admission failed");
+        return false;
+    }
+    contact_input.side_control_030c = 1U;
+    if (!tecmo_gameplay_defense_94c6_direct_plan(
+            &contact_input, &contact_result) ||
+        contact_result.entry_writes_applied ||
+        contact_result.external_tail_requested) {
+        (void)snprintf(message, message_size,
+                       "TGDI $94C6 automatic-side return failed");
+        return false;
+    }
+    contact_sentinel = contact_result;
+    contact_input.contract_tag = 0U;
+    if (tecmo_gameplay_defense_94c6_direct_plan(
+            &contact_input, &contact_result) ||
+        memcmp(&contact_result, &contact_sentinel,
+               sizeof(contact_result)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGDI $94C6 transactional rejection failed");
         return false;
     }
     memset(&possession_input, 0, sizeof(possession_input));
@@ -294,6 +459,6 @@ bool tecmo_gameplay_defense_interaction_self_test(
         return false;
     }
     (void)snprintf(message, message_size,
-                   "TGDI Bank05 $9F2F-$9FE2 plus $9FC3/$BA65 transaction pass");
+                   "TGDI Bank05 $9F2F-$9FE2, direct $94C6-$95A9, and $9FC3/$BA65 pass");
     return true;
 }

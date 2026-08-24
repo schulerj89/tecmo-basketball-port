@@ -3845,6 +3845,8 @@ static bool scene_try_defense_interaction_actor(
     TecmoGameplayDefenseInteractionInput input;
     TecmoGameplayDefenseInteractionResult probe;
     TecmoGameplayDefenseInteractionResult result;
+    TecmoGameplayDefense94c6Input contact_94c6_input;
+    TecmoGameplayDefense94c6Result contact_94c6;
     const TecmoGameplaySceneActor *holder;
     const TecmoGameplaySceneActor *defender_actor;
     const TecmoTeamDataPlayer *player;
@@ -3907,18 +3909,68 @@ static bool scene_try_defense_interaction_actor(
         return false;
     }
     input.post_9fa1_raw_006a = post_9fa1;
-    if (allow_human_94c6 &&
+    memset(&contact_94c6_input, 0, sizeof(contact_94c6_input));
+    memset(&contact_94c6, 0, sizeof(contact_94c6));
+    contact_94c6_input.contract_tag =
+        TECMO_GAMEPLAY_DEFENSE_94C6_INPUT_TAG;
+    contact_94c6_input.actor_bf = defender;
+    contact_94c6_input.side_be = (uint8_t)defending_team;
+    contact_94c6_input.primary_0308 =
+        candidate.live_foundation.primary_actor;
+    contact_94c6_input.defender_0309 =
+        candidate.live_foundation.defender_actor;
+    contact_94c6_input.side_control_030c = allow_human_94c6 ? 0U : 1U;
+    contact_94c6_input.opposing_control_030c =
+        candidate.live_foundation.control_mode[
+            candidate.live_foundation.offense_side] != 0U ? 1U : 0U;
+    contact_94c6_input.raw_0587 =
+        candidate.defense_possession_state.raw_0587;
+    contact_94c6_input.raw_05a1 =
+        candidate.defense_possession_state.raw_05a1;
+    contact_94c6_input.route_0478 =
+        TECMO_GAMEPLAY_LIVE_FOUL_BRIDGE_SAVED_ROUTE;
+    contact_94c6_input.clock_seconds_0358 =
+        candidate.state.clock_seconds;
+    contact_94c6_input.wait_0420 = candidate.live_foundation.play_state
+        .wait_counter[defender];
+    contact_94c6_input.actor_direction_0463 =
+        defender_actor->movement_direction;
+    contact_94c6_input.primary_direction_0463 =
+        holder->movement_direction;
+    contact_94c6_input.raw_006a = post_9fa1;
+    if (!tecmo_gameplay_defense_94c6_direct_plan(
+            &contact_94c6_input, &contact_94c6)) {
+        return false;
+    }
+    if (contact_94c6.entry_writes_applied) {
+        candidate.live_foundation.play_state.wait_counter[defender] =
+            contact_94c6.wait_0420_after;
+    }
+    if (contact_94c6.external_tail_requested) {
+        candidate.live_foundation.play_state.action_state_046e[
+            candidate.live_foundation.primary_actor] =
+                contact_94c6.target_action_046e;
+        candidate.live_foundation.play_state.action_state_046e[defender] =
+            contact_94c6.defender_action_046e;
+        if (contact_94c6.sets_target_state_057c_08) {
+            candidate.live_foundation.play_state.actor_state[
+                candidate.live_foundation.primary_actor] = 0x08U;
+        }
+    }
+    if (contact_94c6.external_tail_requested && allow_human_94c6 &&
         !scene_try_live_defensive_foul_bridge(
             &candidate, defending_team, defender, &foul_committed)) {
         return false;
     }
-    input.value_05a1_after_94c6 = foul_committed;
+    input.value_05a1_after_94c6 = contact_94c6.sets_05a1;
     if (!tecmo_gameplay_defense_interaction_resolve(&input, &result) ||
         !result.reached_94c6) {
         return false;
     }
     if (result.outcome ==
             TECMO_GAMEPLAY_DEFENSE_INTERACTION_INTERRUPTED_94C6) {
+        /* The exact tail owns the interrupt even when its downstream native
+           consequence bridge produces no foul-presentation transition. */
         *scene = candidate;
         *committed_out = true;
         return true;
@@ -3990,6 +4042,9 @@ static bool scene_try_defense_interaction_actor(
         *committed_out = true;
         return true;
     }
+    /* `$9FA1` and any early `$94C6` writes are not transactional in the ROM;
+       retain them even when the later possession/deflection tests reject. */
+    *scene = candidate;
     return true;
 }
 

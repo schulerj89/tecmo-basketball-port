@@ -10,6 +10,8 @@
 #define TECMO_GAMEPLAY_DEFENSE_POSSESSION_INPUT_TAG 0x49504454U
 #define TECMO_GAMEPLAY_DEFENSE_POSSESSION_STATE_TAG 0x53504454U
 #define TECMO_GAMEPLAY_DEFENSE_POSSESSION_RESULT_TAG 0x52504454U
+#define TECMO_GAMEPLAY_DEFENSE_94C6_INPUT_TAG 0x49344354U
+#define TECMO_GAMEPLAY_DEFENSE_94C6_RESULT_TAG 0x52344354U
 
 typedef enum TecmoGameplayDefenseInteractionOutcome {
     TECMO_GAMEPLAY_DEFENSE_INTERACTION_REJECTED = 0,
@@ -49,6 +51,50 @@ typedef struct TecmoGameplayDefenseInteractionResult {
     bool reached_94c6;
     bool reached_9fe2;
 } TecmoGameplayDefenseInteractionResult;
+
+/* Exact direct `$94C6-$95A9` selected-defender entry used by `$9FA4`.
+ * External helper calls beginning at `$95AE` and their later actor-motion
+ * writes are reported as a tail request; they are not guessed here. */
+typedef struct TecmoGameplayDefense94c6Input {
+    uint32_t contract_tag;
+    uint8_t actor_bf;
+    uint8_t side_be;
+    uint8_t primary_0308;
+    uint8_t defender_0309;
+    uint8_t side_control_030c;
+    uint8_t opposing_control_030c;
+    uint8_t raw_0587;
+    uint8_t raw_05a1;
+    uint8_t route_0478;
+    uint8_t clock_seconds_0358;
+    uint8_t wait_0420;
+    uint8_t actor_direction_0463;
+    uint8_t primary_direction_0463;
+    uint8_t raw_006a;
+} TecmoGameplayDefense94c6Input;
+
+typedef struct TecmoGameplayDefense94c6Result {
+    uint32_t contract_tag;
+    uint8_t raw_042a_after;
+    uint8_t raw_038a_after;
+    uint8_t raw_0435_after;
+    uint8_t wait_0420_after;
+    uint8_t direction_property_actor;
+    uint8_t direction_property_primary;
+    uint8_t random_threshold_9675;
+    uint8_t saved_route_07e3;
+    uint8_t route_0478_after;
+    uint8_t target_action_046e;
+    uint8_t defender_action_046e;
+    bool entry_writes_applied;
+    bool wait_incremented;
+    bool direction_overlap_admitted;
+    bool random_gate_used;
+    bool route_replaced_with_19;
+    bool external_tail_requested;
+    bool sets_05a1;
+    bool sets_target_state_057c_08;
+} TecmoGameplayDefense94c6Result;
 
 /* Persistent scalar RAM owned by the admitted `$9FC3-$9FE1` possession
  * transaction.  The two-byte planes preserve the original modulo-256 team
@@ -100,6 +146,10 @@ typedef struct TecmoGameplayDefensePossessionResult {
 bool tecmo_gameplay_defense_interaction_resolve(
     const TecmoGameplayDefenseInteractionInput *input,
     TecmoGameplayDefenseInteractionResult *result_out);
+
+bool tecmo_gameplay_defense_94c6_direct_plan(
+    const TecmoGameplayDefense94c6Input *input,
+    TecmoGameplayDefense94c6Result *result_out);
 
 /* Exact admitted `$9FC3-$9FE1 -> $9FF1 -> $BA65-$BAC0` scalar transaction.
  * On rejection, state_io and result_out are byte-identical. */
