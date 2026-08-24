@@ -1738,8 +1738,6 @@ bool tecmo_gameplay_cpu_steering_play_step(
          !play_valid_actor(input->special_actor_07df)) ||
         !play_valid_positions(input->actor_position) ||
         !tecmo_gameplay_court_coordinate_valid(&input->ball_position) ||
-        (input->global_target_available &&
-         !tecmo_gameplay_court_coordinate_valid(&input->global_target)) ||
         state_in->primary_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
         state_in->defender_actor >= TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT ||
         state_in->matchup_seed[0U] != 2U ||
@@ -1915,18 +1913,34 @@ bool tecmo_gameplay_cpu_steering_play_step(
                 TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS;
             break;
         case 13U: {
-            TecmoGameplayCourtCoordinate target = input->global_target;
+            uint16_t horizontal_delta = (uint16_t)(
+                input->global_target.x -
+                (uint16_t)input->actor_position[actor].x);
+            uint16_t depth_delta = (uint16_t)(
+                input->global_target.depth -
+                (uint16_t)(uint8_t)input->actor_position[actor].y);
+            uint8_t direction;
             next_state.target_object[actor] =
                 TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
-            next_state.target_x[actor] = target.x;
-            next_state.target_depth[actor] = target.y;
-            result.target_horizontal_delta = play_opcode4_x_delta(
-                &target, &input->actor_position[actor]);
-            result.target_depth_delta = play_opcode4_depth_delta(
-                &target, &input->actor_position[actor]);
+            next_state.target_x[actor] = (int16_t)input->global_target.x;
+            next_state.target_depth[actor] =
+                (int16_t)input->global_target.depth;
+            result.raw_target_valid = true;
+            result.raw_target_x = input->global_target.x;
+            result.raw_target_depth = input->global_target.depth;
+            result.target_horizontal_delta = (int16_t)horizontal_delta;
+            result.target_depth_delta = (int16_t)depth_delta;
             result.target_vector_zero =
                 result.target_horizontal_delta == 0 &&
                 result.target_depth_delta == 0;
+            if (!result.target_vector_zero) {
+                if (!tecmo_gameplay_cpu_steering_direction_for_delta(
+                        assets, result.target_horizontal_delta,
+                        result.target_depth_delta, &direction)) {
+                    return false;
+                }
+                next_state.direction[actor] = direction;
+            }
             break;
         }
         case 10U: {
@@ -4349,7 +4363,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     /* A valid latch still cannot substitute for the common-tail BA owner. */
     play_input.global_target_available = true;
     play_input.global_target.x = 320;
-    play_input.global_target.y = 120;
+    play_input.global_target.depth = 120;
     play_input.common_tail_ba_available = false;
     play_before = play_state;
     if (!tecmo_gameplay_cpu_steering_play_step(
@@ -4368,15 +4382,21 @@ bool tecmo_gameplay_cpu_steering_self_test(
        writes the absolute no-object target, and preserves prior direction. */
     play_input.common_tail_ba_available = true;
     play_input.flags_ba = 0U;
-    play_input.global_target = play_input.actor_position[0U];
+    play_input.global_target.x =
+        (uint16_t)play_input.actor_position[0U].x;
+    play_input.global_target.depth =
+        (uint16_t)(uint8_t)play_input.actor_position[0U].y;
     play_state.direction[0U] = 3U;
     if (!tecmo_gameplay_cpu_steering_play_step(
             &assets, &play_state, &play_input, &play_out, &play_result) ||
         play_result.deferred || !play_result.advanced ||
         play_result.next_offset != 0x0032U ||
         play_result.target_object != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
-        play_result.target_x != play_input.global_target.x ||
-        play_result.target_depth != play_input.global_target.y ||
+        !play_result.raw_target_valid ||
+        play_result.raw_target_x != play_input.global_target.x ||
+        play_result.raw_target_depth != play_input.global_target.depth ||
+        (uint16_t)play_result.target_x != play_input.global_target.x ||
+        (uint16_t)play_result.target_depth != play_input.global_target.depth ||
         !play_result.target_vector_zero ||
         play_result.target_horizontal_delta != 0 ||
         play_result.target_depth_delta != 0 ||
@@ -4387,29 +4407,36 @@ bool tecmo_gameplay_cpu_steering_self_test(
         return false;
     }
 
-    /* The second record proves exact 16-bit-X and sign-extended byte-depth
-       subtraction while still latching the absolute point. */
+    /* The second record proves both latch high bytes remain live. `$0390=1`
+       makes depth `$0100-$00C8=+$0038`; raw X wraps `$FF00-$0100=$FE00`.
+       Neither raw target word is required to be a court coordinate. */
     if (!tecmo_gameplay_cpu_steering_play_state_initialize(
             &assets, 0U, &play_state)) {
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
     play_state.stream_offset[0U] = 0x0041U;
-    play_input.actor_position[0U].x = 700;
+    play_input.actor_position[0U].x = 0x0100;
     play_input.actor_position[0U].y = 200;
-    play_input.global_target.x = 0;
-    play_input.global_target.y = 0;
+    play_input.global_target.x = 0xFF00U;
+    play_input.global_target.depth = 0x0100U;
     if (!tecmo_gameplay_cpu_steering_play_step(
             &assets, &play_state, &play_input, &play_out, &play_result) ||
         play_result.deferred || !play_result.advanced ||
         play_result.next_offset != 0x0046U ||
         play_result.target_object != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
-        play_result.target_x != 0 || play_result.target_depth != 0 ||
-        play_result.target_horizontal_delta != -700 ||
-        play_result.target_depth_delta != -200 ||
+        !play_result.raw_target_valid ||
+        play_result.raw_target_x != 0xFF00U ||
+        play_result.raw_target_depth != 0x0100U ||
+        (uint16_t)play_result.target_x != 0xFF00U ||
+        (uint16_t)play_result.target_depth != 0x0100U ||
+        (uint16_t)play_out.target_x[0U] != 0xFF00U ||
+        (uint16_t)play_out.target_depth[0U] != 0x0100U ||
+        play_result.target_horizontal_delta != -512 ||
+        play_result.target_depth_delta != 56 ||
         play_result.target_vector_zero) {
         (void)snprintf(message, message_size,
-                       "TGAI-3 opcode-13 signed subtraction failed.");
+                       "TGAI-3 opcode-13 raw16 subtraction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }
@@ -4422,7 +4449,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
     play_state.stream_offset[0U] = 0x002DU;
     play_input.flags_ba = 1U;
     play_input.global_target.x = 111;
-    play_input.global_target.y = 99;
+    play_input.global_target.depth = 99;
     if (!tecmo_gameplay_cpu_steering_play_step(
             &assets, &play_state, &play_input, &play_out, &play_result) ||
         play_result.deferred || play_result.advanced ||
@@ -4431,6 +4458,27 @@ bool tecmo_gameplay_cpu_steering_self_test(
         play_out.target_x[0U] != 111 || play_out.target_depth[0U] != 99) {
         (void)snprintf(message, message_size,
                        "TGAI-3 opcode-13 BA retention failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    /* `$0390=$FF` is retained verbatim and participates in the complete
+       16-bit subtraction: `$FF10-$0020=$FEF0` (signed -272). */
+    play_state.stream_offset[0U] = 0x002DU;
+    play_input.flags_ba = 0U;
+    play_input.actor_position[0U].x = 16;
+    play_input.actor_position[0U].y = 0x20;
+    play_input.global_target.x = 16U;
+    play_input.global_target.depth = 0xFF10U;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.deferred ||
+        play_result.raw_target_depth != 0xFF10U ||
+        (uint16_t)play_out.target_depth[0U] != 0xFF10U ||
+        play_result.target_horizontal_delta != 0 ||
+        play_result.target_depth_delta != -272 ||
+        play_result.target_vector_zero) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-13 high-depth subtraction failed.");
         tecmo_gameplay_cpu_steering_assets_destroy(&assets);
         return false;
     }

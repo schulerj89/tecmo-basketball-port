@@ -140,6 +140,10 @@ typedef struct TecmoGameplayLiveFoundation {
     TecmoGameplayCpuSteeringDeferredReason deferred_reason[
         TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     bool source_target_valid[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    /* Opcode 13 stores raw 16-bit latch words in target_x/target_depth. This
+       provenance accepts those bit patterns without advertising a semantic
+       in-court movement target; source_direction carries the usable result. */
+    bool source_raw_target_valid[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     bool source_direction_valid[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     bool deferred[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     bool last_shot_request;

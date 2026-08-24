@@ -304,7 +304,9 @@ typedef struct TecmoGameplayCpuSteeringPlayState {
     uint8_t action_state_046e[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     /* Source target-object identity. Slots 0..9 identify player
        coordinates; slot 10 is the typed ball coordinate for the exact
-       opcode-4 C8 lookup. NO_ACTOR remains the no-object sentinel. */
+       opcode-4 C8 lookup. NO_ACTOR remains the no-object sentinel. Opcode 13
+       stores its two raw latch words in the signed fields bit-for-bit; callers
+       must use raw-target provenance rather than court-coordinate semantics. */
     uint8_t target_object[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     int16_t target_x[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     int16_t target_depth[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
@@ -335,6 +337,11 @@ typedef struct TecmoGameplayCpuSteeringPlayState {
     uint16_t step_serial;
 } TecmoGameplayCpuSteeringPlayState;
 
+typedef struct TecmoGameplayCpuSteeringRawTarget16 {
+    uint16_t x;
+    uint16_t depth;
+} TecmoGameplayCpuSteeringRawTarget16;
+
 typedef struct TecmoGameplayCpuSteeringPlayInput {
     uint32_t contract_tag;
     uint8_t actor;
@@ -360,11 +367,12 @@ typedef struct TecmoGameplayCpuSteeringPlayInput {
     uint8_t state_0357;
     uint8_t state_0358;
     uint8_t flags_007e;
-    /* Bank06 opcode 13 consumes the persistent `$038D-$0390` latch as one
-       absolute point. Availability requires a faithful producer lifecycle;
-       ordinary LIVE deliberately leaves it false. */
+    /* Bank06 opcode 13 consumes `$038D:$038E/$038F:$0390` as two raw
+       little-endian 16-bit words. They are not court-coordinate fields: both
+       high bytes are live source data. Availability requires a faithful
+       producer lifecycle; ordinary LIVE deliberately leaves it false. */
     bool global_target_available;
-    TecmoGameplayCourtCoordinate global_target;
+    TecmoGameplayCpuSteeringRawTarget16 global_target;
     /* Bounded opcode-10 workspace produced by $8D59-$8E21. Callers must
        explicitly prove these signed relative offsets; absence defers the
        command rather than silently substituting zero. */
@@ -410,8 +418,14 @@ typedef struct TecmoGameplayCpuSteeringPlayResult {
     uint8_t target_object;
     int16_t target_x;
     int16_t target_depth;
-    /* Exact opcode-4/opcode-13 subtraction evidence. X is 16-bit with borrow;
-       depth is the 8-bit subtraction sign-extended to 16 bits. */
+    /* Opcode 13 retains the exact raw latch words separately from the signed
+       target-storage bit patterns; they are not necessarily court-valid. */
+    bool raw_target_valid;
+    uint16_t raw_target_x;
+    uint16_t raw_target_depth;
+    /* Exact opcode-4/opcode-13 subtraction evidence. Opcode 4 uses its
+       16-bit-X/8-bit-depth object coordinate. Opcode 13 subtracts the actor's
+       16-bit X and zero-extended 8-bit depth from two raw 16-bit latch words. */
     int16_t target_horizontal_delta;
     int16_t target_depth_delta;
     bool fetched;

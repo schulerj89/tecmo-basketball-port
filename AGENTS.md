@@ -1545,9 +1545,12 @@ bind equivalent context; absent context stays `missing-pointer-workspace`, and
 malformed available context must roll back transactionally.
 
 Opcode 13 has a source-exact bounded executor for Bank06 `$9125-$9145`: typed
-`$038D-$0390` supplies one absolute no-object target, the handler computes the
-wrapping actor-relative deltas, and control reaches the existing `$92CB`
-common tail. Treat that target as a persistent latch with five source
+raw 16-bit `$038D:$038E/$038F:$0390` latch words produce wrapping deltas from
+actor X and zero-extended actor depth, and control reaches the existing `$92CB`
+common tail. Both high bytes are live and may make the raw words invalid as
+court coordinates. Preserve them as raw target evidence; publish only their
+exact direction through the bounded direction adapter, never fabricate a
+semantic court target. Treat the words as a persistent latch with five source
 producers, not as per-frame scratch. Until all five producers and their reset/
 retention lifecycle are converted, the production scene builder must leave
 `global_target_available` false and report `missing-global-target`; never

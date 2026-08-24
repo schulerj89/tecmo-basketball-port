@@ -3504,9 +3504,10 @@ static bool scene_test_live_foundation_regressions(
             &scene->cpu_steering_assets, &candidate_foundation)) {
         LIVE_FAIL("LIVE deferred target became an unproven movement target");
     }
-    /* Intentional executor/foundation fixture: a typed synthetic latch makes
-       opcode 13 a validated no-object source target. Production scene input
-       never enables this bit in the slice below. */
+    /* Intentional executor/foundation fixture: raw high-byte latch evidence
+       is retained without being advertised as an in-court source target.
+       Its exact signed delta still publishes the source direction used by the
+       bounded direction adapter. Production never enables this input. */
     candidate_foundation = foundation_before;
     candidate_foundation.play_state.stream_offset[0U] = 0x002DU;
     candidate_foundation.last_step_offset[0U] = 0x002DU;
@@ -3519,20 +3520,27 @@ static bool scene_test_live_foundation_regressions(
     candidate_foundation.source_target_valid[0U] = false;
     play_input.actor = 0U;
     play_input.global_target_available = true;
-    play_input.global_target = positions[2U];
+    play_input.global_target.x = 0xFF00U;
+    play_input.global_target.depth = 0x0100U;
     if (!tecmo_gameplay_live_foundation_play_step(
             &scene->cpu_steering_assets, &play_input,
             &candidate_foundation, &play_result) ||
         play_result.command.opcode != 13U || play_result.deferred ||
         !play_result.advanced ||
-        !candidate_foundation.source_target_valid[0U] ||
+        !play_result.raw_target_valid ||
+        play_result.raw_target_x != 0xFF00U ||
+        play_result.raw_target_depth != 0x0100U ||
+        candidate_foundation.source_target_valid[0U] ||
+        !candidate_foundation.source_raw_target_valid[0U] ||
+        !candidate_foundation.source_direction_valid[0U] ||
         candidate_foundation.play_state.target_object[0U] !=
             TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
-        candidate_foundation.play_state.target_x[0U] != positions[2U].x ||
-        candidate_foundation.play_state.target_depth[0U] != positions[2U].y ||
+        (uint16_t)candidate_foundation.play_state.target_x[0U] != 0xFF00U ||
+        (uint16_t)candidate_foundation.play_state.target_depth[0U] !=
+            0x0100U ||
         !tecmo_gameplay_live_foundation_valid(
             &scene->cpu_steering_assets, &candidate_foundation)) {
-        LIVE_FAIL("LIVE opcode-13 foundation target validation regressed");
+        LIVE_FAIL("LIVE opcode-13 raw target validation regressed");
     }
     play_input.global_target_available = false;
     candidate_foundation = foundation_before;
@@ -4384,6 +4392,7 @@ static bool scene_test_live_foundation_regressions(
             scene->live_foundation.play_state.stream_offset[target_actor] !=
                 0x002DU ||
             scene->live_foundation.source_target_valid[target_actor] ||
+            scene->live_foundation.source_raw_target_valid[target_actor] ||
             scene->cpu_actors[target_actor].target_valid) {
             LIVE_FAIL("LIVE opcode-13 production input was fabricated");
         }

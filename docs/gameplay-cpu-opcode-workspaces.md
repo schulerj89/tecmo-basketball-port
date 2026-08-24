@@ -37,10 +37,12 @@ command spans. The private-ROM runner adds only narrow provenance checks for
 the caller-local helper and `$BA` lifecycle that TGAI-3 does not claim to own.
 
 Opcode 13 is an executor input contract rather than a workspace owned by this
-module. Bank06 `$9125-$9145` consumes the persistent absolute `$038D-$0390`
-latch and then enters the shared `$92CB` tail. The command corpus contains the
+module. Bank06 `$9125-$9145` consumes persistent raw 16-bit words at
+`$038D:$038E` and `$038F:$0390`, subtracting actor X and zero-extended actor
+depth with source wrapping, and then enters the shared `$92CB` tail. Neither
+high byte is a court-coordinate validity field. The command corpus contains the
 two exact zero-argument records at offsets 45/65 (`$9F5B/$9F6F`), each followed
-by opcode 14 and opcode 15. Unit fixtures may supply a typed absolute target;
+by opcode 14 and opcode 15. Unit fixtures may supply the typed raw words;
 production does not, because the latch's five source producers and persistence
 lifecycle remain unconverted. In particular, the current ball is not a valid
 substitute, so LIVE remains `missing-global-target`.

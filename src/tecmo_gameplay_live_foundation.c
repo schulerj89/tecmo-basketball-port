@@ -243,6 +243,15 @@ static bool live_target_fields_valid(
     }
     target.x = foundation->play_state.target_x[actor];
     target.y = foundation->play_state.target_depth[actor];
+    if (foundation->source_target_valid[actor] &&
+        foundation->source_raw_target_valid[actor]) {
+        return false;
+    }
+    if (foundation->source_raw_target_valid[actor]) {
+        /* `$038D-$0390` is a pair of raw 16-bit latch words. Preserve the
+           exact stored bits, but never expose them as an in-court target. */
+        return target_object == TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    }
     if (foundation->source_target_valid[actor]) {
         /* A source object-target write carries both a referenced object slot
            and a source-recorded coordinate. Slots 0..9 follow the current
@@ -543,6 +552,7 @@ static void live_invalidate_source_metadata_actor(
     foundation->play_state.direction[actor] =
         TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
     foundation->source_target_valid[actor] = false;
+    foundation->source_raw_target_valid[actor] = false;
     foundation->source_direction_valid[actor] = false;
     foundation->source_direction[actor] =
         TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
@@ -1266,7 +1276,20 @@ bool tecmo_gameplay_live_foundation_play_step(
          result.command.opcode == 13U || result.command.opcode == 16U)) {
         TecmoGameplayCourtCoordinate target = {
             next_state.target_x[actor], next_state.target_depth[actor]};
-        if (result.command.opcode == 4U || result.command.opcode == 10U ||
+        candidate.source_target_valid[actor] = false;
+        candidate.source_raw_target_valid[actor] = false;
+        if (result.command.opcode == 13U) {
+            validated_target_write =
+                result.raw_target_valid &&
+                next_state.target_object[actor] ==
+                    TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR &&
+                (uint16_t)next_state.target_x[actor] == result.raw_target_x &&
+                (uint16_t)next_state.target_depth[actor] ==
+                    result.raw_target_depth;
+            candidate.source_raw_target_valid[actor] =
+                validated_target_write;
+        } else if (result.command.opcode == 4U ||
+            result.command.opcode == 10U ||
             result.command.opcode == 16U) {
             validated_target_write =
                 next_state.target_object[actor] <
@@ -1279,7 +1302,9 @@ bool tecmo_gameplay_live_foundation_play_step(
                 tecmo_gameplay_court_coordinate_valid(&target);
         }
     }
-    if (validated_target_write) candidate.source_target_valid[actor] = true;
+    if (validated_target_write && result.command.opcode != 13U) {
+        candidate.source_target_valid[actor] = true;
+    }
     if (next_state.direction[actor] !=
             TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION) {
         candidate.source_direction_valid[actor] = true;

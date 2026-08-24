@@ -395,11 +395,13 @@ duration/interpolation, shot proximity, and cadence remain native policy.
 
 The bounded executor accepts explicit captured inputs for opcode 10's
 `$8CD0` branch context and `$8D59-$8E21` relative workspace, plus opcode
-16's `$0309` / `$036E/$0370` workspace and opcode 13's persistent absolute
-`$038D-$0390` target latch. Opcode 13 subtracts the actor coordinate with the
-source's wrapping byte arithmetic, publishes a no-object absolute target, and
-then uses the same zero-vector/direction and `$92CA` behavior as the common
-target tail. `$92CA`'s `$BA` gate has one narrower
+16's `$0309` / `$036E/$0370` workspace and opcode 13's persistent raw
+`$038D:$038E/$038F:$0390` latch words. Opcode 13 performs complete wrapping
+16-bit subtraction against actor X and zero-extended actor depth, preserves
+both raw latch words as typed evidence, and then uses the same
+zero-vector/direction and `$92CA` behavior as the common target tail. Raw latch
+words are never relabeled as an in-court movement target; the exact resulting
+direction can use the existing bounded direction adapter. `$92CA`'s `$BA` gate has one narrower
 LIVE owner: an explicit ordinary-LIVE/no-transient-action condition projects
 only `($BA & 3) == 0`; it does not recreate `$BA` or obtain its value from a
 clock or cleared C struct. It then reproduces the signed opcode-10 arrival
@@ -450,7 +452,7 @@ in deterministic LIVE proof JSON.
 | `$9085/$90AC` opcode 16, `$036E/$0370` | Fixed `$F031->$81F2->$8209/$833B/$9054` once-per-loop capture of the primary's pre-motion coordinate and orientation; the tagged scene context is bound once before Bank06 traversal. | Executes for eligible actors. Absent context is `missing-pointer-workspace`; malformed available context rolls back. |
 | `$8BF6-$8C17` opcode 21, `$058A/$0357/$0358/$007E` | Exact typed `shot_clock/clock_minutes/clock_seconds` own `$058A/$0357/$0358`; raw `$007E` bit 1 is unowned and explicitly approximated clear for ordinary LIVE | Executes the source +5/+10 branch from the typed clocks; whole-gate parity is not claimed. |
 | `$92CA` common target tail, `$BA` | `scene_cpu_common_tail_has_ordinary_live_zero`: exact `LIVE`, no result/abort, violation, free throw, shot, pass, lineup, or dunk lifecycle | Supplies only typed `flags_ba=0`, so Bank06 `$92CA-$92D0` takes its five-byte `$8FD9` increment. Every other path remains `missing-ba-lifecycle`. |
-| `$9125` opcode 13, `$038D-$0390` global target | Typed harness/test input only. The latch is persistent and has five source producers whose complete lifecycle is not yet retained; the scene deliberately supplies no ball or current-position substitute. | `missing-global-target`. A supplied target still separately requires the ordinary-LIVE `$BA&3==0` seam. |
+| `$9125` opcode 13, raw `$038D:$038E/$038F:$0390` latch words | Typed harness/test input only. Both high bytes are live; the persistent latch has five source producers whose complete lifecycle is not yet retained. The scene deliberately supplies no ball or current-position substitute. | `missing-global-target`. A supplied raw latch still separately requires the ordinary-LIVE `$BA&3==0` seam. |
 | `$9172-$9216` opcode 15 raw lifecycle | None; harness-only capture contract | `missing-opcode15-raw-lifecycle`. |
 
 Unimplemented handler effects retain their source-pinned record transport
