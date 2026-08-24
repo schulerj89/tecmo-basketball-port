@@ -203,6 +203,61 @@ static bool scene_test_enter_free_throw_sequence(
     return true;
 }
 
+static bool scene_test_ot_ordinary_transitions_do_not_reseed(
+    const TecmoGameplayScene *scene)
+{
+    TecmoGameplayScene *probe;
+    TecmoGameplayFoulRequest foul;
+    TecmoGameplayTeam other_team;
+    uint8_t overtime_count;
+    uint32_t seed_serial;
+    bool ok = false;
+
+    if (scene == NULL || scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.period != 5U || scene->state.overtime_count == 0U) {
+        return false;
+    }
+    probe = (TecmoGameplayScene *)malloc(sizeof(*probe));
+    if (probe == NULL) return false;
+    overtime_count = scene->live_foundation.overtime_entry_last_applied_count;
+    seed_serial = scene->live_foundation.regulation_entry_seed_serial;
+    other_team = scene_other_team(scene->state.possession);
+
+    *probe = *scene;
+    if (!scene_begin_inbound(probe, scene->state.possession) ||
+        probe->live_foundation.overtime_entry_last_applied_count !=
+            overtime_count ||
+        probe->live_foundation.regulation_entry_seed_serial != seed_serial) {
+        goto done;
+    }
+
+    *probe = *scene;
+    if (!scene_begin_scored_inbound(probe, other_team) ||
+        probe->live_foundation.overtime_entry_last_applied_count !=
+            overtime_count ||
+        probe->live_foundation.regulation_entry_seed_serial != seed_serial) {
+        goto done;
+    }
+
+    *probe = *scene;
+    foul.fouling_team = other_team;
+    foul.free_throw_team = scene->state.possession;
+    foul.counter_effect = TECMO_GAMEPLAY_FOUL_COUNTER_BOTH;
+    foul.player_index = 0U;
+    foul.free_throw_attempts = 1U;
+    if (!tecmo_gameplay_request_foul(&probe->state, &foul) ||
+        probe->live_foundation.overtime_entry_last_applied_count !=
+            overtime_count ||
+        probe->live_foundation.regulation_entry_seed_serial != seed_serial) {
+        goto done;
+    }
+    ok = true;
+
+done:
+    free(probe);
+    return ok;
+}
+
 static bool scene_test_player_stats_contract(
     TecmoGameplayScene *scene,
     const TecmoGameplaySceneLaunch *base_launch,
@@ -745,6 +800,8 @@ static bool scene_test_period_expiry_and_restart(
     uint8_t expected_p3_defender;
     uint8_t expected_p4_primary;
     uint8_t expected_p4_defender;
+    uint8_t expected_ot_primary;
+    uint8_t expected_ot_defender;
     int16_t x;
     size_t frame;
     launch.controller_team[0] = TECMO_GAMEPLAY_TEAM_AWAY;
@@ -1043,6 +1100,161 @@ static bool scene_test_period_expiry_and_restart(
             (unsigned)scene->live_foundation.regulation_entry_seed_serial,
             (unsigned)scene->live_foundation.play_state.wait_counter[
                 expected_p4_primary]);
+        return false;
+    }
+    if (scene->state.score[TECMO_GAMEPLAY_TEAM_AWAY] !=
+            scene->state.score[TECMO_GAMEPLAY_TEAM_HOME]) {
+        tecmo_gameplay_scene_test_message(message, message_size,
+                           "overtime entry fixture was not tied");
+        return false;
+    }
+    scene->state.clock_minutes = 0U;
+    scene->state.clock_seconds = 1U;
+    scene->state.clock_divider = 2U;
+    scene->state.shot_clock = 20U;
+    for (frame = 0U; frame < 40U &&
+         (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE ||
+          scene->state.phase ==
+              TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE ||
+          scene->state.phase ==
+              TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_FIXED_WAIT); ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) break;
+    }
+    if (scene->state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
+        scene->state.period != 5U || scene->state.overtime_count != 1U ||
+        scene->state.banner != TECMO_GAMEPLAY_BANNER_OVERTIME) {
+        (void)snprintf(message, message_size,
+            "OT1 banner transition failed status=%s phase=%u period=%u overtime=%u banner=%u",
+            scene->status, (unsigned)scene->state.phase,
+            (unsigned)scene->state.period,
+            (unsigned)scene->state.overtime_count,
+            (unsigned)scene->state.banner);
+        return false;
+    }
+    expected_ot_primary = scene->live_foundation.defender_actor;
+    expected_ot_defender = scene->live_foundation.primary_actor;
+    scene->live_foundation.play_state.wait_counter[expected_ot_primary] = 41U;
+    scene->state.phase_frame = TECMO_GAMEPLAY_PERIOD_BANNER_FRAMES - 1U;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.period != 5U || scene->state.overtime_count != 1U ||
+        scene->live_foundation.primary_actor != expected_ot_primary ||
+        scene->live_foundation.defender_actor != expected_ot_defender ||
+        scene->ball_holder != expected_ot_primary ||
+        scene->live_foundation.offense_side != TECMO_GAMEPLAY_TEAM_AWAY ||
+        scene->orientation_state.attack_direction != 0U ||
+        scene->live_foundation.overtime_entry_last_applied_count != 1U ||
+        scene->live_foundation.overtime_entry_last_selector_raw != 0xA8U ||
+        scene->live_foundation.regulation_entry_seed_serial != 5U ||
+        scene->live_foundation.play_state.wait_counter[
+            expected_ot_primary] != 41U ||
+        !scene->live_foundation.regulation_entry_clamp_exemption_active ||
+        scene->live_foundation.regulation_entry_clamp_exempt_actor !=
+            expected_ot_primary ||
+        !scene_actor_world_position_valid(
+            &scene->actors[expected_ot_defender])) {
+        (void)snprintf(message, message_size,
+            "OT1 period entry failed status=%s possession=%u holder=%u orientation=%u primary=%u defender=%u epoch=%u raw=%02X serial=%u wait=%u",
+            scene->status, (unsigned)scene->state.possession,
+            (unsigned)scene->ball_holder,
+            (unsigned)scene->orientation_state.attack_direction,
+            (unsigned)scene->live_foundation.primary_actor,
+            (unsigned)scene->live_foundation.defender_actor,
+            (unsigned)scene->live_foundation
+                .overtime_entry_last_applied_count,
+            (unsigned)scene->live_foundation
+                .overtime_entry_last_selector_raw,
+            (unsigned)scene->live_foundation.regulation_entry_seed_serial,
+            (unsigned)scene->live_foundation.play_state.wait_counter[
+                expected_ot_primary]);
+        return false;
+    }
+    scene->state.clock_minutes = 0U;
+    scene->state.clock_seconds = 1U;
+    scene->state.clock_divider = 2U;
+    scene->state.shot_clock = 20U;
+    for (frame = 0U; frame < 40U &&
+         (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE ||
+          scene->state.phase ==
+              TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE ||
+          scene->state.phase ==
+              TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_FIXED_WAIT); ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) break;
+    }
+    if (scene->state.phase != TECMO_GAMEPLAY_PHASE_PERIOD_BANNER ||
+        scene->state.period != 5U || scene->state.overtime_count != 2U ||
+        scene->state.banner != TECMO_GAMEPLAY_BANNER_OVERTIME) {
+        tecmo_gameplay_scene_test_message(message, message_size,
+                           "OT2 banner transition failed");
+        return false;
+    }
+    expected_ot_primary = scene->live_foundation.defender_actor;
+    expected_ot_defender = scene->live_foundation.primary_actor;
+    scene->live_foundation.play_state.wait_counter[expected_ot_primary] = 42U;
+    scene->state.phase_frame = TECMO_GAMEPLAY_PERIOD_BANNER_FRAMES - 1U;
+    if (!tecmo_gameplay_scene_update(scene, &p1, &p2) ||
+        scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
+        scene->state.overtime_count != 2U ||
+        scene->live_foundation.primary_actor != expected_ot_primary ||
+        scene->live_foundation.defender_actor != expected_ot_defender ||
+        scene->ball_holder != expected_ot_primary ||
+        scene->live_foundation.offense_side != TECMO_GAMEPLAY_TEAM_HOME ||
+        scene->orientation_state.attack_direction != 1U ||
+        scene->live_foundation.overtime_entry_last_applied_count != 2U ||
+        scene->live_foundation.overtime_entry_last_selector_raw != 0x01U ||
+        scene->live_foundation.regulation_entry_seed_serial != 6U ||
+        scene->live_foundation.play_state.wait_counter[
+            expected_ot_primary] != 42U ||
+        !scene->live_foundation.regulation_entry_clamp_exemption_active ||
+        scene->live_foundation.regulation_entry_clamp_exempt_actor !=
+            expected_ot_primary ||
+        !scene_actor_world_position_valid(
+            &scene->actors[expected_ot_defender])) {
+        (void)snprintf(message, message_size,
+            "OT2 period entry failed status=%s possession=%u holder=%u orientation=%u primary=%u defender=%u epoch=%u raw=%02X serial=%u wait=%u",
+            scene->status, (unsigned)scene->state.possession,
+            (unsigned)scene->ball_holder,
+            (unsigned)scene->orientation_state.attack_direction,
+            (unsigned)scene->live_foundation.primary_actor,
+            (unsigned)scene->live_foundation.defender_actor,
+            (unsigned)scene->live_foundation
+                .overtime_entry_last_applied_count,
+            (unsigned)scene->live_foundation
+                .overtime_entry_last_selector_raw,
+            (unsigned)scene->live_foundation.regulation_entry_seed_serial,
+            (unsigned)scene->live_foundation.play_state.wait_counter[
+                expected_ot_primary]);
+        return false;
+    }
+    if (!tecmo_gameplay_set_score(
+            &scene->state, TECMO_GAMEPLAY_TEAM_AWAY, 2U)) {
+        tecmo_gameplay_scene_test_message(message, message_size,
+                           "OT non-tie setup failed");
+        return false;
+    }
+    if (!scene_test_ot_ordinary_transitions_do_not_reseed(scene)) {
+        tecmo_gameplay_scene_test_message(
+            message, message_size,
+            "OT restart/inbound/foul transition reseeded entry epoch");
+        return false;
+    }
+    scene->state.clock_minutes = 0U;
+    scene->state.clock_seconds = 1U;
+    scene->state.clock_divider = 2U;
+    scene->state.shot_clock = 20U;
+    for (frame = 0U; frame < 40U &&
+         (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE ||
+          scene->state.phase ==
+              TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_LIVE_SETTLE ||
+          scene->state.phase ==
+              TECMO_GAMEPLAY_PHASE_PERIOD_EXPIRY_FIXED_WAIT); ++frame) {
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) break;
+    }
+    if (scene->state.phase != TECMO_GAMEPLAY_PHASE_FINAL_SCORE_SCREEN ||
+        scene->live_foundation.overtime_entry_last_applied_count != 2U ||
+        scene->live_foundation.regulation_entry_seed_serial != 6U) {
+        tecmo_gameplay_scene_test_message(message, message_size,
+                           "OT non-tie final seeded another epoch");
         return false;
     }
     tecmo_gameplay_scene_end(scene);
@@ -2200,6 +2412,259 @@ static bool scene_test_pretip_cpu_common_tail_handoff(
                                     (unsigned)period);
                                 goto failed;
                             }
+                        }
+                    }
+                    if (orientation == 0U && slot == 0U) {
+                        TecmoGameplayLiveFoundation regulation_four = fixture;
+                        TecmoGameplayLiveFoundation overtime;
+                        TecmoGameplayLiveFoundation rollback;
+                        uint8_t current_side;
+                        uint8_t overtime_epoch;
+                        uint8_t prior_epoch;
+                        uint8_t regulation_period;
+
+                        for (regulation_period = 2U;
+                             regulation_period <= 4U;
+                             ++regulation_period) {
+                            uint8_t target_side = (uint8_t)(
+                                side ^ ((regulation_period & 1U) == 0U
+                                    ? 1U : 0U));
+                            if (!tecmo_gameplay_live_foundation_regulation_entry_apply(
+                                    &scene->cpu_steering_assets,
+                                    regulation_period,
+                                    target_side, true, &regulation_four)) {
+                                (void)snprintf(failure, sizeof(failure),
+                                    "overtime matrix P4 setup failed s%u p%u",
+                                    (unsigned)side,
+                                    (unsigned)regulation_period);
+                                goto failed;
+                            }
+                        }
+                        regulation_four.source_target_valid[2U] = true;
+                        regulation_four.play_state.target_x[2U] = 0x0180;
+                        regulation_four.play_state.target_depth[2U] = 0x0090;
+                        regulation_four.source_direction_valid[2U] = true;
+                        regulation_four.source_direction[2U] = 3U;
+                        regulation_four.play_state.direction[2U] = 3U;
+                        regulation_four.play_state.wait_counter[2U] = 77U;
+                        regulation_four.play_state.actor_state[2U] = 0x05U;
+                        regulation_four.play_state.route_motion[2U]
+                            .horizontal_accumulator_q6 = 0x4567U;
+                        regulation_four.play_state.route_motion[2U]
+                            .depth_accumulator_q6 = 0x2345U;
+                        regulation_four.play_state.route_motion[2U]
+                            .horizontal_velocity_q6 = -32;
+                        regulation_four.play_state.route_motion[2U]
+                            .depth_velocity_q6 = 16;
+                        regulation_four.play_state.route_motion[2U]
+                            .remaining_timer = 9U;
+                        regulation_four.play_state.route_motion[2U].active =
+                            true;
+                        rollback = regulation_four;
+                        if (tecmo_gameplay_live_foundation_overtime_entry_apply(
+                                &scene->cpu_steering_assets, 2U, true,
+                                &rollback) ||
+                            memcmp(&rollback, &regulation_four,
+                                   sizeof(rollback)) != 0) {
+                            (void)snprintf(failure, sizeof(failure),
+                                "overtime skipped-epoch rollback failed s%u",
+                                (unsigned)side);
+                            goto failed;
+                        }
+                        for (current_side = 0U; current_side < 2U;
+                             ++current_side) {
+                            for (overtime_epoch = 1U; overtime_epoch <= 4U;
+                                 ++overtime_epoch) {
+                                uint8_t expected_offense;
+                                uint8_t expected_primary;
+                                uint8_t expected_defender;
+                                uint8_t expected_raw =
+                                    (overtime_epoch & 1U) != 0U
+                                        ? (uint8_t)(0xA8U | side)
+                                        : (uint8_t)(side ^ 1U);
+                                bool expected_swap;
+                                overtime = regulation_four;
+                                for (prior_epoch = 1U;
+                                     prior_epoch < overtime_epoch;
+                                     ++prior_epoch) {
+                                    if (!tecmo_gameplay_live_foundation_overtime_entry_apply(
+                                            &scene->cpu_steering_assets,
+                                            prior_epoch, true, &overtime)) {
+                                        (void)snprintf(
+                                            failure, sizeof(failure),
+                                            "overtime prior-epoch setup failed s%u c%u n%u",
+                                            (unsigned)side,
+                                            (unsigned)current_side,
+                                            (unsigned)prior_epoch);
+                                        goto failed;
+                                    }
+                                }
+                                if (overtime.offense_side != current_side) {
+                                    uint8_t swap_actor =
+                                        overtime.primary_actor;
+                                    overtime.offense_side = current_side;
+                                    overtime.defense_side =
+                                        (uint8_t)(current_side ^ 1U);
+                                    overtime.primary_actor =
+                                        overtime.defender_actor;
+                                    overtime.play_state.primary_actor =
+                                        overtime.primary_actor;
+                                    overtime.defender_actor = swap_actor;
+                                    overtime.play_state.defender_actor =
+                                        swap_actor;
+                                    overtime.last_possession = current_side;
+                                    overtime.last_ball_holder =
+                                        overtime.primary_actor;
+                                    overtime.play_state.candidate_actor =
+                                        overtime.candidate_actor_by_side[
+                                            current_side];
+                                    for (fixture_actor = 0U;
+                                         fixture_actor <
+                                             TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
+                                         ++fixture_actor) {
+                                        overtime.actor_selector_flags[
+                                            fixture_actor] ^= 0x10U;
+                                    }
+                                }
+                                expected_swap =
+                                    (overtime_epoch & 1U) != 0U ||
+                                    current_side != (uint8_t)(side ^ 1U);
+                                expected_offense =
+                                    (overtime_epoch & 1U) != 0U
+                                        ? (uint8_t)(current_side ^ 1U)
+                                        : (uint8_t)(side ^ 1U);
+                                expected_primary = expected_swap
+                                    ? overtime.defender_actor
+                                    : overtime.primary_actor;
+                                expected_defender = expected_swap
+                                    ? overtime.primary_actor
+                                    : overtime.defender_actor;
+                                overtime.play_state.wait_counter[
+                                    expected_primary] =
+                                        (uint8_t)(30U + overtime_epoch);
+                                for (fixture_actor = 0U;
+                                     fixture_actor <
+                                         TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
+                                     ++fixture_actor) {
+                                    overtime.play_state.action_state_046e[
+                                        fixture_actor] =
+                                            (uint8_t)(0x60U + fixture_actor);
+                                }
+                                if (!tecmo_gameplay_live_foundation_valid(
+                                        &scene->cpu_steering_assets,
+                                        &overtime) ||
+                                    !tecmo_gameplay_live_foundation_overtime_entry_apply(
+                                        &scene->cpu_steering_assets,
+                                        overtime_epoch, true, &overtime) ||
+                                    overtime.offense_side != expected_offense ||
+                                    overtime.primary_actor != expected_primary ||
+                                    overtime.defender_actor != expected_defender ||
+                                    overtime.overtime_entry_last_applied_count !=
+                                        overtime_epoch ||
+                                    overtime.overtime_entry_last_selector_raw !=
+                                        expected_raw ||
+                                    overtime.regulation_entry_seed_serial !=
+                                        (uint32_t)(4U + overtime_epoch) ||
+                                    overtime.play_state.wait_counter[
+                                        expected_primary] !=
+                                        (uint8_t)(30U + overtime_epoch) ||
+                                    overtime.play_state.action[
+                                        expected_primary] != 0x30U ||
+                                    overtime.play_state.action[
+                                        expected_defender] != 0x30U ||
+                                    !overtime.source_target_valid[2U] ||
+                                    overtime.play_state.target_x[2U] !=
+                                        0x0180 ||
+                                    overtime.play_state.target_depth[2U] !=
+                                        0x0090 ||
+                                    !overtime.source_direction_valid[2U] ||
+                                    overtime.source_direction[2U] != 3U ||
+                                    overtime.play_state.direction[2U] != 3U ||
+                                    overtime.play_state.wait_counter[2U] !=
+                                        77U ||
+                                    overtime.play_state.route_motion[2U]
+                                        .horizontal_accumulator_q6 != 0x4567U ||
+                                    overtime.play_state.route_motion[2U]
+                                        .depth_accumulator_q6 != 0x2345U ||
+                                    overtime.play_state.route_motion[2U]
+                                        .horizontal_velocity_q6 != -32 ||
+                                    overtime.play_state.route_motion[2U]
+                                        .depth_velocity_q6 != 16 ||
+                                    overtime.play_state.route_motion[2U]
+                                        .remaining_timer != 9U) {
+                                    (void)snprintf(failure, sizeof(failure),
+                                        "overtime branch matrix failed s%u c%u n%u",
+                                        (unsigned)side,
+                                        (unsigned)current_side,
+                                        (unsigned)overtime_epoch);
+                                    goto failed;
+                                }
+                                for (fixture_actor = 0U;
+                                     fixture_actor <
+                                         TECMO_GAMEPLAY_SCENE_ACTOR_COUNT;
+                                     ++fixture_actor) {
+                                    if (overtime.play_state.action_state_046e[
+                                            fixture_actor] != 0U) {
+                                        (void)snprintf(
+                                            failure, sizeof(failure),
+                                            "overtime BFA8 clear failed s%u c%u n%u a%u",
+                                            (unsigned)side,
+                                            (unsigned)current_side,
+                                            (unsigned)overtime_epoch,
+                                            (unsigned)fixture_actor);
+                                        goto failed;
+                                    }
+                                }
+                                rollback = overtime;
+                                if (tecmo_gameplay_live_foundation_overtime_entry_apply(
+                                        &scene->cpu_steering_assets,
+                                        overtime_epoch, true, &rollback) ||
+                                    memcmp(&rollback, &overtime,
+                                           sizeof(rollback)) != 0) {
+                                    (void)snprintf(failure, sizeof(failure),
+                                        "overtime duplicate rollback failed s%u c%u n%u",
+                                        (unsigned)side,
+                                        (unsigned)current_side,
+                                        (unsigned)overtime_epoch);
+                                    goto failed;
+                                }
+                                if (overtime_epoch > 1U) {
+                                    rollback = overtime;
+                                    if (tecmo_gameplay_live_foundation_overtime_entry_apply(
+                                            &scene->cpu_steering_assets,
+                                            (uint8_t)(overtime_epoch - 1U),
+                                            true, &rollback) ||
+                                        memcmp(&rollback, &overtime,
+                                               sizeof(rollback)) != 0) {
+                                        (void)snprintf(
+                                            failure, sizeof(failure),
+                                            "overtime decreasing rollback failed s%u c%u n%u",
+                                            (unsigned)side,
+                                            (unsigned)current_side,
+                                            (unsigned)overtime_epoch);
+                                        goto failed;
+                                    }
+                                }
+                            }
+                        }
+                        overtime = regulation_four;
+                        overtime.overtime_entry_last_applied_count = UINT8_MAX;
+                        overtime.overtime_entry_last_selector_raw =
+                            (uint8_t)(0xA8U | side);
+                        overtime.regulation_entry_seed_serial =
+                            (uint32_t)(4U + UINT8_MAX);
+                        rollback = overtime;
+                        if (!tecmo_gameplay_live_foundation_valid(
+                                &scene->cpu_steering_assets, &overtime) ||
+                            tecmo_gameplay_live_foundation_overtime_entry_apply(
+                                &scene->cpu_steering_assets, 1U, true,
+                                &overtime) ||
+                            memcmp(&overtime, &rollback,
+                                   sizeof(overtime)) != 0) {
+                            (void)snprintf(failure, sizeof(failure),
+                                "overtime UINT8_MAX rollback failed s%u",
+                                (unsigned)side);
+                            goto failed;
                         }
                     }
                     before_reject = fixture;

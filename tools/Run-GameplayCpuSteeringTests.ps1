@@ -357,6 +357,7 @@ try {
     # fixed $E740 is both the JMP operand at $E73F and the table read by
     # $E723, so its raw overlap must remain inside the fixed span.
     $RegulationEntryAnchorSpans = @(
+        @{ label="Fixed E5E9-E61D overtime recurrence"; bank=7; fixed=$true; start=0xE5E9; size=0x35; hash="5B32743D" },
         @{ label="Fixed E71B-E756 entry/E740 overlap"; bank=7; fixed=$true; start=0xE71B; size=0x3C; hash="63D4F5A3" },
         @{ label="Bank05 8F97-8FAC equality"; bank=5; fixed=$false; start=0x8F97; size=0x16; hash="62809A8D" },
         @{ label="Bank05 8FAD-8FE7 mismatch"; bank=5; fixed=$false; start=0x8FAD; size=0x3B; hash="7C94E5EA" },
@@ -978,7 +979,7 @@ try {
     }
 
     Write-Host ("TGAI-3 focused tests passed: exact Rev1 importer and twelve " +
-        "source spans plus eight lifecycle anchor/table spans, five exact " +
+        "source spans plus eight lifecycle anchor/table spans, six exact " +
         "regulation-entry spans, and six opcode-15 " +
         "source/semantic-anchor spans, 680 aligned " +
         "commands, 24 handlers, eight exact " +

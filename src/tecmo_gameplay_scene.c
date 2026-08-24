@@ -1731,7 +1731,7 @@ static bool scene_pretip_cpu_requested(
            TECMO_GAMEPLAY_CONTROLLER_COUNT;
 }
 
-static bool scene_apply_regulation_entry(
+static bool scene_apply_period_entry(
     TecmoGameplayScene *scene, uint8_t target_offense_side,
     bool require_pretip_handoff)
 {
@@ -1741,13 +1741,15 @@ static bool scene_apply_regulation_entry(
     bool prior_clamp_active;
     size_t actor;
     if (scene == NULL || scene->state.period < 1U ||
-        scene->state.period > 4U || target_offense_side >= 2U ||
+        scene->state.period > 5U ||
+        (scene->state.period == 5U && scene->state.overtime_count == 0U) ||
+        target_offense_side >= 2U ||
         scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
         (require_pretip_handoff && !scene->pretip_state.live_handoff) ||
         scene->ball_holder >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
         !scene_cpu_common_tail_has_ordinary_live_zero(scene)) {
         if (scene != NULL) {
-            scene_set_status(scene, "regulation-entry seed admission rejected");
+            scene_set_status(scene, "period-entry seed admission rejected");
         }
         return false;
     }
@@ -1756,11 +1758,16 @@ static bool scene_apply_regulation_entry(
     prior_clamp_actor =
         scene->live_foundation.regulation_entry_clamp_exempt_actor;
     candidate = *scene;
-    if (!tecmo_gameplay_live_foundation_regulation_entry_apply(
-            &candidate.cpu_steering_assets, candidate.state.period,
-            target_offense_side, true,
-            &candidate.live_foundation)) {
-        scene_set_status(scene, "regulation-entry seed foundation rejected");
+    if (!(candidate.state.period < 5U
+              ? tecmo_gameplay_live_foundation_regulation_entry_apply(
+                    &candidate.cpu_steering_assets, candidate.state.period,
+                    target_offense_side, true,
+                    &candidate.live_foundation)
+              : tecmo_gameplay_live_foundation_overtime_entry_apply(
+                    &candidate.cpu_steering_assets,
+                    candidate.state.overtime_count, true,
+                    &candidate.live_foundation))) {
+        scene_set_status(scene, "period-entry seed foundation rejected");
         return false;
     }
     if (prior_clamp_active &&
@@ -1843,7 +1850,7 @@ static bool scene_apply_regulation_entry(
     return true;
 }
 
-static bool scene_apply_period_banner_regulation_entry(
+static bool scene_apply_period_banner_entry(
     TecmoGameplayScene *scene)
 {
     TecmoGameplayScene candidate;
@@ -1852,17 +1859,36 @@ static bool scene_apply_period_banner_regulation_entry(
     bool side_swap;
     size_t controller;
     if (scene == NULL || scene->state.phase != TECMO_GAMEPLAY_PHASE_LIVE ||
-        scene->state.period < 2U || scene->state.period > 4U ||
+        scene->state.period < 2U || scene->state.period > 5U ||
         scene->live_foundation.regulation_entry_initial_offense_side >= 2U ||
-        scene->live_foundation.regulation_entry_seeded_period !=
-            scene->state.period - 1U) {
+        (scene->state.period < 5U
+             ? scene->live_foundation.regulation_entry_seeded_period !=
+                   scene->state.period - 1U ||
+               scene->live_foundation.overtime_entry_last_applied_count != 0U
+             : scene->state.overtime_count == 0U ||
+               scene->live_foundation.regulation_entry_seeded_period != 4U ||
+               scene->live_foundation.overtime_entry_last_applied_count ==
+                   UINT8_MAX ||
+               scene->state.overtime_count != (uint8_t)(scene
+                   ->live_foundation.overtime_entry_last_applied_count + 1U))) {
         return false;
     }
     candidate = *scene;
-    target_offense = (uint8_t)(candidate.live_foundation
-        .regulation_entry_initial_offense_side ^
-        ((candidate.state.period & 1U) == 0U ? 1U : 0U));
-    side_swap = candidate.live_foundation.offense_side != target_offense;
+    if (candidate.state.period < 5U) {
+        target_offense = (uint8_t)(candidate.live_foundation
+            .regulation_entry_initial_offense_side ^
+            ((candidate.state.period & 1U) == 0U ? 1U : 0U));
+        side_swap =
+            candidate.live_foundation.offense_side != target_offense;
+    } else if ((candidate.state.overtime_count & 1U) != 0U) {
+        target_offense = candidate.live_foundation.defense_side;
+        side_swap = true;
+    } else {
+        target_offense = (uint8_t)(candidate.live_foundation
+            .regulation_entry_initial_offense_side ^ 1U);
+        side_swap =
+            candidate.live_foundation.offense_side != target_offense;
+    }
     preferred_primary = side_swap
         ? candidate.live_foundation.defender_actor
         : candidate.live_foundation.primary_actor;
@@ -1906,7 +1932,7 @@ static bool scene_apply_period_banner_regulation_entry(
         scene_set_status(scene, "regulation ordinary BA rejected");
         return false;
     }
-    if (!scene_apply_regulation_entry(
+    if (!scene_apply_period_entry(
             &candidate, target_offense, false) ||
         candidate.live_foundation.primary_actor != preferred_primary ||
         candidate.live_foundation.offense_side != target_offense ||
@@ -2067,7 +2093,7 @@ static bool scene_update_pretip_frame(
                 handoff_reject = "pre-tip possession handoff rejected";
             } else if (!scene_sync_live_foundation(scene)) {
                 handoff_reject = "pre-tip foundation sync rejected";
-            } else if (!scene_apply_regulation_entry(
+            } else if (!scene_apply_period_entry(
                            scene,
                            scene->live_foundation.offense_side, true)) {
                 handoff_reject = scene->status;
@@ -2170,20 +2196,9 @@ static bool scene_advance_state_and_restarts(
     }
     if (phase_before == TECMO_GAMEPLAY_PHASE_PERIOD_BANNER &&
         scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE) {
-        bool regulation_entry = scene->state.period <= 4U;
-        bool accepted = regulation_entry
-            ? scene_apply_period_banner_regulation_entry(scene)
-            : scene_handoff_possession(
-                  scene, scene->state.possession,
-                  scene_first_actor_for_team(scene->state.possession));
-        /* Overtime's adjacent `$E740` A9 overlap has a distinct recurrence
-           and remains outside this regulation-only conversion. Preserve the
-           prior native handoff without publishing `$85EA` provenance. */
-        if (!accepted) {
-            scene_set_status(scene,
-                regulation_entry
-                    ? "regulation period-entry synchronization rejected"
-                    : "overtime period restart synchronization rejected");
+        if (!scene_apply_period_banner_entry(scene)) {
+            scene_set_status(
+                scene, "period-entry synchronization rejected");
             return false;
         }
         restart_applied = true;

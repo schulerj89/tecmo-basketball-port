@@ -523,9 +523,10 @@ The unported `$8D59-$8E21` caller-specific scaling inputs and remaining
 dynamic `$06CB` assignment policy stay explicitly bounded as unresolved; the
 native port does not invent them.
 
-## Regulation-period `$85EA` entry lifecycle
+## Regulation and overtime `$85EA` entry lifecycle
 
-The real first-period PRETIP-to-LIVE handoff and each P2-P4 banner return now
+The real first-period PRETIP-to-LIVE handoff, each P2-P4 banner return, and
+each accepted overtime banner now
 perform the surviving Bank06 `$86D2/$85EA` transaction after role/foundation
 synchronization and before the first ordered LIVE update. Fixed `$E74F`
 selects Bank06 before calling `$85EA`; Bank05 `$85EA` is repeated data and is
@@ -546,13 +547,23 @@ state 0 and packed action `$30` before `$85EA` writes the offense state/cursor.
 One public transaction owns role resolution and seed together, so callers
 cannot publish or replay a half-entry. It does not broadly clear typed target,
 direction, route, or wait planes. P1 alone writes the initial primary wait 0;
-P2-P4 preserve every wait byte, including the newly selected primary. A
-monotonic serial plus the last seeded period rejects duplicate or out-of-order
-banner calls byte-identically. Overtime keeps its existing fallback and does
-not publish regulation-entry provenance.
+P2-P4 and overtime preserve every wait byte, including the newly selected
+primary. After P4 the persistent selector is `S^1`. For 1-based overtime `n`,
+odd `n` observes raw-equivalent `(S^1)^$A9 = $A8|S`, which cannot equal a
+binary side and therefore forces the exact mismatch swap regardless of current
+offense. Even `n` observes `S^1`; equality keeps the roles when current offense
+already equals `S^1`, otherwise the mismatch route swaps. Thus the diagnostic
+sequences are `A8,01,A8,01` for `S=0` and `A9,00,A9,00` for `S=1`.
+
+The public OT transaction uses `(period=5,overtime_count)` as its epoch key.
+The last applied OT count and shared monotonic seed serial reject duplicate,
+decreasing, skipped, and post-`UINT8_MAX` calls byte-identically. A non-tied
+final transition publishes no new seed. Regulation and OT each expose only an
+atomic role/reset/seed API, so no caller can publish a half-entry.
 
 `Run-GameplayCpuSteeringTests.ps1` pins the canonical Rev1 raw anchors
-independently of the copied TGAI payload: fixed `$E71B-$E756` including the
+independently of the copied TGAI payload: fixed `$E5E9-$E61D` (`5B32743D`),
+fixed `$E71B-$E756` including the
 `$E740` JMP-operand/table overlap (`63D4F5A3`), Bank05 `$8F97-$8FAC`
 (`62809A8D`), `$8FAD-$8FE7` (`7C94E5EA`), `$8FE8-$902D` (`FFA12025`), and
 `$BFA8-$BFC8` (`7AD3EC16`). Values are FNV1a32 over the inclusive range.
@@ -560,12 +571,12 @@ independently of the copied TGAI payload: fixed `$E71B-$E756` including the
 The coordinate tables seed the primary at `027B,94` or `0085,94` and the
 first two descending teammates from the exact side table. Those primary
 points intentionally lie just beyond the ordinary trapezoid. A typed
-regulation-entry exemption owns source bit `$0588&08` only for that selected
+period-entry exemption owns source bit `$0588&08` only for that selected
 primary, admits only the narrow seed-to-boundary re-entry corridor, and feeds
 TGMO flag `$08`. Human movement expires it on natural re-entry; the automatic
 opcode-5/pass route stays at the staging coordinate until catch changes the
 primary, when the former primary takes the ordinary secondary clamp. Opcode-5 facing is
 not composed into native locomotion during this staging lifecycle, matching
 the retained source position through opcode 6/pass. Generic possession
-changes, non-banner restarts, fouls, inbounds, malformed flags, duplicate
-period calls, and overtime remain outside this regulation-only owner.
+changes, non-banner restarts, fouls, inbounds, malformed flags, and duplicate
+or out-of-order period epochs remain outside this owner.

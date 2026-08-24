@@ -134,6 +134,10 @@ typedef struct TecmoGameplayLiveFoundation {
        period and serial reject duplicate banner/restart calls. */
     uint8_t regulation_entry_initial_offense_side;
     uint8_t regulation_entry_seeded_period;
+    /* Exact period-5 epoch and the fixed `$E740` raw-equivalent selector
+       observed for its last accepted banner. Zero means no OT entry yet. */
+    uint8_t overtime_entry_last_applied_count;
+    uint8_t overtime_entry_last_selector_raw;
     bool regulation_entry_clamp_exemption_active;
     /* Exact actor carrying the typed `$0588&$08` staging exemption. Keeping
        this identity explicit lets a catch rebind primary before the old
@@ -190,6 +194,13 @@ bool tecmo_gameplay_live_foundation_regulation_entry_apply(
     const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t period,
     uint8_t target_offense_side,
+    bool ordinary_ba_low2_clear,
+    TecmoGameplayLiveFoundation *foundation_io);
+/* Atomic period-5 banner entry. `overtime_count` is a 1-based epoch key;
+   duplicate, decreasing, or skipped epochs reject byte-identically. */
+bool tecmo_gameplay_live_foundation_overtime_entry_apply(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t overtime_count,
     bool ordinary_ba_low2_clear,
     TecmoGameplayLiveFoundation *foundation_io);
 bool tecmo_gameplay_live_foundation_refresh_formation(

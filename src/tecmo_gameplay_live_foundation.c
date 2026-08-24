@@ -314,13 +314,29 @@ static bool live_play_state_valid(
         (foundation->regulation_entry_seeded_period == 0U &&
          (foundation->regulation_entry_seed_serial != 0U ||
           foundation->regulation_entry_initial_offense_side !=
+              TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
+          foundation->overtime_entry_last_applied_count != 0U ||
+          foundation->overtime_entry_last_selector_raw !=
               TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR)) ||
         (foundation->regulation_entry_seeded_period > 4U) ||
         (foundation->regulation_entry_seeded_period != 0U &&
          (foundation->regulation_entry_seed_serial !=
-              foundation->regulation_entry_seeded_period ||
+              (uint32_t)foundation->regulation_entry_seeded_period +
+              foundation->overtime_entry_last_applied_count ||
           foundation->regulation_entry_initial_offense_side >=
               TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT)) ||
+        (foundation->regulation_entry_seeded_period < 4U &&
+         foundation->overtime_entry_last_applied_count != 0U) ||
+        (foundation->overtime_entry_last_applied_count == 0U &&
+         foundation->overtime_entry_last_selector_raw !=
+             TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR) ||
+        (foundation->overtime_entry_last_applied_count != 0U &&
+         foundation->overtime_entry_last_selector_raw !=
+             ((foundation->overtime_entry_last_applied_count & 1U) != 0U
+                  ? (uint8_t)(0xA8U |
+                        foundation->regulation_entry_initial_offense_side)
+                  : (uint8_t)(foundation
+                        ->regulation_entry_initial_offense_side ^ 1U))) ||
         (foundation->regulation_entry_clamp_exemption_active &&
          foundation->regulation_entry_seeded_period == 0U) ||
         (foundation->regulation_entry_clamp_exemption_active &&
@@ -478,6 +494,8 @@ void tecmo_gameplay_live_foundation_init(
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     foundation->regulation_entry_initial_offense_side =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    foundation->overtime_entry_last_selector_raw =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     foundation->regulation_entry_clamp_exempt_actor =
         TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
     foundation->prior_selected_actor = 4U;
@@ -603,9 +621,10 @@ static void live_invalidate_source_metadata(
     }
 }
 
-static bool live_regulation_entry_seed(
+static bool live_period_entry_seed(
     const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t period,
+    uint8_t overtime_count,
     uint8_t target_offense_side,
     bool ordinary_ba_low2_clear,
     TecmoGameplayLiveFoundation *foundation_io)
@@ -626,11 +645,19 @@ static bool live_regulation_entry_seed(
     size_t eligible_count = 0U;
     size_t teammate = 0U;
     if (assets == NULL || foundation_io == NULL || period < 1U ||
-        period > 4U || target_offense_side >= 2U ||
+        period > 5U || (period < 5U && overtime_count != 0U) ||
+        (period == 5U && overtime_count == 0U) ||
+        target_offense_side >= 2U ||
         !ordinary_ba_low2_clear ||
         !tecmo_gameplay_live_foundation_valid(assets, foundation_io) ||
         foundation_io->first_sync_pending ||
-        foundation_io->regulation_entry_seeded_period != period - 1U ||
+        (period < 5U
+             ? foundation_io->regulation_entry_seeded_period != period - 1U ||
+               foundation_io->overtime_entry_last_applied_count != 0U
+             : foundation_io->regulation_entry_seeded_period != 4U ||
+               foundation_io->overtime_entry_last_applied_count == UINT8_MAX ||
+               overtime_count != (uint8_t)(foundation_io
+                   ->overtime_entry_last_applied_count + 1U)) ||
         foundation_io->regulation_entry_seed_serial == UINT32_MAX ||
         (period == 1U
              ? foundation_io->regulation_entry_seed_serial != 0U
@@ -639,10 +666,11 @@ static bool live_regulation_entry_seed(
              ? foundation_io->regulation_entry_initial_offense_side !=
                    TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR
              : foundation_io->regulation_entry_initial_offense_side >= 2U ||
+               (period < 5U &&
                target_offense_side !=
                    (uint8_t)(foundation_io
                        ->regulation_entry_initial_offense_side ^
-                       ((period & 1U) == 0U ? 1U : 0U))) ||
+                       ((period & 1U) == 0U ? 1U : 0U)))) ||
         foundation_io->orientation >= 2U ||
         foundation_io->offense_side != target_offense_side ||
         foundation_io->last_ball_holder != foundation_io->primary_actor ||
@@ -653,7 +681,7 @@ static bool live_regulation_entry_seed(
     candidate = *foundation_io;
     /* `$85EA/$8728` does not clear target or direction planes. P1 requires
        untouched inputs because no prior LIVE command may exist. Later
-       regulation entries preserve those typed planes exactly; the rewritten
+       period entries preserve those typed planes exactly; the rewritten
        cursor/state determines which command consumes them next. */
     for (actor = 0; actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT;
          ++actor) {
@@ -747,7 +775,17 @@ static bool live_regulation_entry_seed(
         candidate.regulation_entry_initial_offense_side =
             target_offense_side;
     }
-    candidate.regulation_entry_seeded_period = period;
+    if (period < 5U) {
+        candidate.regulation_entry_seeded_period = period;
+    } else {
+        candidate.overtime_entry_last_applied_count = overtime_count;
+        candidate.overtime_entry_last_selector_raw =
+            (overtime_count & 1U) != 0U
+                ? (uint8_t)(0xA8U |
+                      candidate.regulation_entry_initial_offense_side)
+                : (uint8_t)(candidate
+                      .regulation_entry_initial_offense_side ^ 1U);
+    }
     candidate.regulation_entry_clamp_exemption_active = true;
     candidate.regulation_entry_clamp_exempt_actor = primary;
     candidate.regulation_entry_seed_serial =
@@ -763,6 +801,7 @@ static bool live_regulation_entry_seed(
 static bool live_regulation_entry_resolve_roles(
     const TecmoGameplayCpuSteeringAssets *assets,
     uint8_t target_offense_side,
+    bool force_swap,
     bool ordinary_ba_low2_clear,
     TecmoGameplayLiveFoundation *foundation_io)
 {
@@ -777,6 +816,8 @@ static bool live_regulation_entry_resolve_roles(
         target_offense_side >= TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT ||
         !live_play_state_valid(assets, foundation_io) ||
         (foundation_io->offense_side != target_offense_side &&
+         foundation_io->defense_side != target_offense_side) ||
+        (force_swap &&
          foundation_io->defense_side != target_offense_side)) {
         return false;
     }
@@ -795,7 +836,7 @@ static bool live_regulation_entry_resolve_roles(
        under ordinary BA-low2-clear admission. Mismatch swaps the side and
        selected pairs and toggles every selector bit before both routes share
        `$8FE8`. No target/direction/route or wait plane is cleared. */
-    if (old_offense != target_offense_side) {
+    if (force_swap || old_offense != target_offense_side) {
         candidate.offense_side = old_defense;
         candidate.defense_side = old_offense;
         candidate.primary_actor = defender;
@@ -866,9 +907,39 @@ bool tecmo_gameplay_live_foundation_regulation_entry_apply(
     candidate = *foundation_io;
     if ((period > 1U &&
          !live_regulation_entry_resolve_roles(
-             assets, target_offense_side, true, &candidate)) ||
-        !live_regulation_entry_seed(
-            assets, period, target_offense_side, true, &candidate)) {
+             assets, target_offense_side, false, true, &candidate)) ||
+        !live_period_entry_seed(
+            assets, period, 0U, target_offense_side, true, &candidate)) {
+        return false;
+    }
+    *foundation_io = candidate;
+    return true;
+}
+
+bool tecmo_gameplay_live_foundation_overtime_entry_apply(
+    const TecmoGameplayCpuSteeringAssets *assets,
+    uint8_t overtime_count,
+    bool ordinary_ba_low2_clear,
+    TecmoGameplayLiveFoundation *foundation_io)
+{
+    TecmoGameplayLiveFoundation candidate;
+    uint8_t target_offense_side;
+    bool force_swap;
+    if (assets == NULL || foundation_io == NULL || overtime_count == 0U ||
+        !ordinary_ba_low2_clear ||
+        foundation_io->regulation_entry_initial_offense_side >= 2U) {
+        return false;
+    }
+    candidate = *foundation_io;
+    force_swap = (overtime_count & 1U) != 0U;
+    target_offense_side = force_swap
+        ? candidate.defense_side
+        : (uint8_t)(candidate.regulation_entry_initial_offense_side ^ 1U);
+    if (!live_regulation_entry_resolve_roles(
+            assets, target_offense_side, force_swap, true, &candidate) ||
+        !live_period_entry_seed(
+            assets, 5U, overtime_count, candidate.offense_side, true,
+            &candidate)) {
         return false;
     }
     *foundation_io = candidate;
