@@ -104,9 +104,9 @@ separate TPTI bridge is not the opcode-10 RNG source.
 Before each scene update, the runtime binds one tagged frame context containing
 the stable sample, current timer, rate, and bias. The context is consumed after
 that update attempt, including failure. Projection is non-mutating. Only an
-actually fetched, nondeferred opcode 10 commits its pending timer result, in
+actually fetched, nondeferred opcode 10 or admitted opcode 12 commits its pending timer result, in
 selected-primary then ordinary actor `9..0` order; later commands in the same
-update see the earlier committed candidate timer. Non-opcode-10, skipped,
+update see the earlier committed candidate timer. Other opcodes, skipped,
 deferred, and non-primary paths do not consume it. A failed scene update does
 not publish the candidate timer back to the runtime. Absent or malformed frame
 context therefore keeps only primary links at `missing-linked-relative-workspace`.
@@ -160,6 +160,11 @@ The standalone test executable checks:
   non-primary workspace projection, primary rate/reload branches, serial
   actual-command timer commits, transactional malformed binding, and
   single-use frame context consumption;
+- opcode-12 `$006E/$9F9C` record identity, exact close `-8..+7` axes,
+  close/non-close and linked-primary-state-5 cursor outcomes, opcode-11 pose
+  composition, scoped automatic-offense/defender admission, target publication,
+  timer commit, missing-context defer, and late-scene rollback. The exhaustive
+  formation command graph records that upstream reachability is not owned;
 - opcode-16 left/right absolute workspace arithmetic, transactional invalid
   coordinates, exact dual canonical-record execution from one pre-motion
   capture, X/depth branch flip proof, absent-context defer, and malformed

@@ -2393,12 +2393,51 @@ bool scene_cpu_opcode10_projection_commit(
         return false;
     }
     if (!projection->primary_timer_pending || !play_result->fetched ||
-        play_result->command.opcode != 10U || play_result->deferred) {
+        (play_result->command.opcode != 10U &&
+         play_result->command.opcode != 12U) || play_result->deferred) {
         return true;
     }
     if (*candidate_timer_io != projection->timer_before) return false;
     *candidate_timer_io = projection->timer_after;
     return true;
+}
+
+static void scene_cpu_opcode12_context_begin(
+    const TecmoGameplayLiveFoundation *foundation, uint8_t actor,
+    TecmoGameplayCpuSteeringPlayInput *input)
+{
+    if (input == NULL) return;
+    input->opcode12_context_available = false;
+    input->opcode12_automatic_offense = false;
+    input->opcode12_actor_eligible = false;
+    input->opcode12_linked_actor_06cb =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    if (foundation == NULL ||
+        actor >= TECMO_GAMEPLAY_SCENE_ACTOR_COUNT ||
+        foundation->offense_side >= TECMO_GAMEPLAY_CPU_STEERING_TEAM_COUNT ||
+        foundation->dynamic_link[actor] >=
+            TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        return;
+    }
+    input->opcode12_context_available = true;
+    input->opcode12_automatic_offense =
+        foundation->actor_team[actor] == foundation->offense_side &&
+        foundation->control_mode[foundation->offense_side] != 0U;
+    input->opcode12_actor_eligible =
+        foundation->play_state.actor_state[actor] == 0x04U &&
+        actor != foundation->defender_actor;
+    input->opcode12_linked_actor_06cb = foundation->dynamic_link[actor];
+}
+
+static void scene_cpu_opcode12_context_end(
+    TecmoGameplayCpuSteeringPlayInput *input)
+{
+    if (input == NULL) return;
+    input->opcode12_context_available = false;
+    input->opcode12_automatic_offense = false;
+    input->opcode12_actor_eligible = false;
+    input->opcode12_linked_actor_06cb =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
 }
 
 static bool scene_cpu_opcode16_context_result(
@@ -2999,11 +3038,14 @@ bool scene_update_ai(
         bool primary_step_ok;
         memset(&primary_result, 0, sizeof(primary_result));
         play_input.actor = (uint8_t)actor;
+        scene_cpu_opcode12_context_begin(
+            &candidate_foundation, (uint8_t)actor, &play_input);
         scene_cpu_selected_primary_opcode7_probe_begin(scene, &play_input);
         primary_step_ok = tecmo_gameplay_live_foundation_play_step(
             &scene->cpu_steering_assets, &play_input,
             &candidate_foundation, &primary_result);
         scene_cpu_selected_primary_opcode7_probe_end(&play_input);
+        scene_cpu_opcode12_context_end(&play_input);
         if (!primary_step_ok ||
             !scene_cpu_opcode10_projection_commit(
                 &primary_opcode10_projection, &primary_result,
@@ -3024,12 +3066,15 @@ bool scene_update_ai(
         bool primary_step_ok;
         memset(&primary_result, 0, sizeof(primary_result));
         play_input.actor = (uint8_t)actor;
+        scene_cpu_opcode12_context_begin(
+            &candidate_foundation, (uint8_t)actor, &play_input);
         scene_cpu_selected_primary_opcode7_probe_begin(scene, &play_input);
         primary_step_ok = primary_player != NULL &&
             tecmo_gameplay_live_foundation_play_step(
                 &scene->cpu_steering_assets, &play_input,
                 &candidate_foundation, &primary_result);
         scene_cpu_selected_primary_opcode7_probe_end(&play_input);
+        scene_cpu_opcode12_context_end(&play_input);
         if (!primary_step_ok ||
             !scene_cpu_opcode10_projection_commit(
                 &primary_opcode10_projection, &primary_result,
@@ -3246,6 +3291,8 @@ bool scene_update_ai(
         }
         /* The selected-defender setup is also outside ordinary dispatch while
            Bank05 $9B27 owns its on-ball responsibility. */
+        scene_cpu_opcode12_context_begin(
+            &candidate_foundation, (uint8_t)actor, &play_input);
         if (actor != candidate_foundation.primary_actor &&
             !selected_defender &&
             !tecmo_gameplay_live_foundation_play_step(
@@ -3253,6 +3300,7 @@ bool scene_update_ai(
                 &candidate_foundation, &play_result)) {
             return false;
         }
+        scene_cpu_opcode12_context_end(&play_input);
         if (!scene_cpu_opcode10_projection_commit(
                 &opcode10_projection, &play_result,
                 &candidate_opcode10_context.timer_0798)) {

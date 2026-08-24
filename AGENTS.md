@@ -1527,10 +1527,21 @@ one `$CD96` remix per valid preseason/season launch. Preseason binds
 rate=difficulty/bias=0; season binds rate=2/bias=`low8(game_index>>5)`.
 Bind that state to a tagged single-use scene frame context; keep `$6A` stable
 for all actors in the frame, project without mutation, and commit `$0798` only
-after an actual nondeferred opcode-10 fetch in selected-primary then ordinary
+after an actual nondeferred opcode-10 fetch, or the exact admitted opcode-12
+subset, in selected-primary then ordinary
 `9..0` order. Scene failure rolls the timer back. Missing/malformed binding
 must preserve `missing-linked-relative-workspace`. This fixed owner is not the
 TPTI bridge and must not be described as full raw-RAM emulation.
+
+Opcode 12's only record is `$006E` / CPU `$9F9C`. Its exact safe LIVE subset
+reuses the opcode-10 selector/workspace/timer owner only for automatic offense,
+state 4, non-defender actors under the ordinary zero-`BA` seam. Preserve the
+source close window `-8..+7`, the close/non-close cursor outcomes `0/5/10`,
+the linked-primary-state-5 stall, and opcode-11 raw facing pose. Do not model
+the controlled `$07F4` path, `$0513/$051E`, `$8AF4`, or defender action `$1C`.
+The imported 46-formation command graph does not reach `$0069/$006E/$0073`,
+so direct canonical-record LIVE tests must disclose cursor parking and must not
+claim upstream play-selection ownership.
 
 Opcode 16's `$036E/$0370` workspace is ephemeral and shared. Fixed `$F031`
 calls Bank05 `$81F2` once per gameplay loop; unconditional `$8209-$8217`,

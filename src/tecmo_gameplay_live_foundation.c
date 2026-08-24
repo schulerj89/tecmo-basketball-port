@@ -1294,6 +1294,7 @@ bool tecmo_gameplay_live_foundation_play_step(
     if (result.fetched && !result.deferred &&
         (result.command.opcode == 0U || result.command.opcode == 2U ||
          result.command.opcode == 4U || result.command.opcode == 10U ||
+         (result.command.opcode == 12U && !result.proximity_met) ||
          result.command.opcode == 13U || result.command.opcode == 16U ||
          result.command.opcode == 20U)) {
         TecmoGameplayCourtCoordinate target = {
@@ -1317,7 +1318,7 @@ bool tecmo_gameplay_live_foundation_play_step(
             candidate.source_raw_target_valid[actor] =
                 validated_target_write;
         } else if (result.command.opcode == 4U ||
-            result.command.opcode == 10U ||
+            result.command.opcode == 10U || result.command.opcode == 12U ||
             result.command.opcode == 16U) {
             validated_target_write =
                 next_state.target_object[actor] <
@@ -1332,6 +1333,15 @@ bool tecmo_gameplay_live_foundation_play_step(
     }
     if (validated_target_write && result.command.opcode != 13U) {
         candidate.source_target_valid[actor] = true;
+    }
+    if (result.fetched && !result.deferred &&
+        result.command.opcode == 12U && result.proximity_met) {
+        /* The close branch never reaches `$92A8` and therefore authors no
+           target. Preserve the raw storage bits but make them inactive so a
+           prior native target cannot be republished as this opcode's effect. */
+        candidate.source_target_valid[actor] = false;
+        candidate.source_raw_target_valid[actor] = false;
+        candidate.source_inactive_target_storage[actor] = true;
     }
     if (next_state.direction[actor] !=
             TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION) {

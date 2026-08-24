@@ -74,7 +74,7 @@ static const TecmoGameplayCpuSteeringAdvancePolicy
     /* 9 */ TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_PLUS_FIVE,
     /* 10 */ TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_CONDITIONAL_BA_NONE_OR_FIVE_OR_RETRY_CANCEL,
     /* 11 */ TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_PLUS_FIVE,
-    /* 12 */ TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_CONDITIONAL_NONE_OR_FIVE,
+    /* 12 */ TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_OPCODE12_ZERO_FIVE_OR_TEN,
     /* 13 */ TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_CONDITIONAL_NONE_OR_FIVE,
     /* 14 */ TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_PLUS_FIVE,
     /* 15 */ TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_CONDITIONAL_NONE_OR_FIVE,
@@ -100,13 +100,13 @@ static const uint8_t cpu_steering_effect_jumps[
 static const uint8_t cpu_steering_effect_exact[
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT] = {
     1U,1U,1U,1U,1U,1U,1U,1U,1U,1U,1U,1U,
-    0U,1U,1U,0U,1U,1U,1U,1U,1U,1U,1U,1U
+    1U,1U,1U,0U,1U,1U,1U,1U,1U,1U,1U,1U
 };
 
 static const uint8_t cpu_steering_effect_deferred[
     TECMO_GAMEPLAY_CPU_STEERING_OPCODE_COUNT] = {
     0U,0U,0U,0U,0U,0U,1U,0U,0U,0U,0U,0U,
-    1U,0U,0U,1U,0U,0U,0U,0U,0U,0U,0U,1U
+    0U,0U,0U,1U,0U,0U,0U,0U,0U,0U,0U,1U
 };
 
 static const uint8_t cpu_steering_effect_approximation[
@@ -969,6 +969,10 @@ const char *tecmo_gameplay_cpu_steering_deferred_reason_name(
         return "missing-opcode23-context";
     case TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE23_CONTROLLED_BRANCH:
         return "opcode23-controlled-branch";
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE12_CONTEXT:
+        return "missing-opcode12-context";
+    case TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE12_UNSAFE_CONTEXT:
+        return "opcode12-unsafe-context";
     default:
         return "invalid-defer-reason";
     }
@@ -1108,6 +1112,25 @@ play_missing_live_input_reason(
         return input->common_tail_ba_available
             ? TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE
             : TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA;
+    case 12U:
+        if (!input->opcode12_context_available) {
+            return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE12_CONTEXT;
+        }
+        if (!input->opcode12_automatic_offense ||
+            !input->opcode12_actor_eligible ||
+            !play_valid_actor(input->opcode12_linked_actor_06cb)) {
+            return TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE12_UNSAFE_CONTEXT;
+        }
+        if (!input->linked_actor_resolved_valid ||
+            !play_valid_actor(input->linked_actor)) {
+            return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_ACTOR_BRANCH_CONTEXT;
+        }
+        if (!input->linked_relative_valid) {
+            return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_LINKED_RELATIVE_WORKSPACE;
+        }
+        return input->common_tail_ba_available
+            ? TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE
+            : TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_COMMON_TAIL_BA;
     case 15U:
         /* $9172-$9216 owns a wider raw lifecycle than this LIVE contract. */
         return TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE15_RAW_LIFECYCLE;
@@ -1138,6 +1161,39 @@ static bool play_proximity_axis(int16_t current, int16_t target)
 {
     int16_t delta = (int16_t)((uint16_t)current - (uint16_t)target);
     return delta >= -8 && delta <= 7;
+}
+
+static void play_apply_opcode11_pose(
+    TecmoGameplayCpuSteeringPlayState *state,
+    TecmoGameplayCpuSteeringPlayResult *result,
+    const TecmoGameplayCpuSteeringPlayInput *input,
+    uint8_t actor, uint8_t linked)
+{
+    static const uint8_t pose_low[4U] = {0x0AU,0x0CU,0x0EU,0x10U};
+    uint16_t actor_x = (uint16_t)input->actor_position[actor].x;
+    uint16_t linked_x = (uint16_t)input->actor_position[linked].x;
+    uint16_t actor_depth =
+        (uint16_t)(uint8_t)input->actor_position[actor].y;
+    uint16_t linked_depth =
+        (uint16_t)(uint8_t)input->actor_position[linked].y;
+    bool actor_left = actor_x < linked_x;
+    bool actor_above = actor_depth < linked_depth;
+    uint16_t horizontal = actor_left
+        ? (uint16_t)(linked_x - actor_x)
+        : (uint16_t)(actor_x - linked_x);
+    uint16_t depth = actor_above
+        ? (uint16_t)(linked_depth - actor_depth)
+        : (uint16_t)(actor_depth - linked_depth);
+    uint8_t pose_index = horizontal >= depth
+        ? (actor_left ? 1U : 0U)
+        : (actor_above ? 3U : 2U);
+    state->pose[actor] = pose_low[pose_index];
+    state->action[actor] = 0x30U;
+    state->actor_state[actor] = 0x04U;
+    result->raw_pose_valid = true;
+    result->raw_pose_low_0442 = pose_low[pose_index];
+    result->raw_pose_high_044d = 0x04U;
+    result->raw_packed_action_0458 = 0x30U;
 }
 
 static TecmoGameplayCourtCoordinate play_target_position_for_object(
@@ -1772,6 +1828,8 @@ bool tecmo_gameplay_cpu_steering_play_step(
         !play_valid_actor(input->actor) || input->step_budget == 0U ||
         input->step_budget > TECMO_GAMEPLAY_CPU_STEERING_PLAY_STEP_BUDGET ||
         input->orientation_035a > 1U ||
+        (input->opcode12_context_available &&
+         !play_valid_actor(input->opcode12_linked_actor_06cb)) ||
         (!input->special_actor_07df_available &&
          input->special_actor_07df != TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR) ||
         (input->special_actor_07df_available &&
@@ -1938,46 +1996,10 @@ bool tecmo_gameplay_cpu_steering_play_step(
                     TECMO_GAMEPLAY_CPU_STEERING_DEFER_INVALID_TARGET_OBJECT;
             }
             break;
-        case 12U:
-            /* Their effect inputs are deferred because the contract does not
-               carry the source RAM/workspace. The source-pinned transport is
-               selected by the opcode-specific policy below; it is not implied
-               that every deferred handler leaves this record in place. */
-            result.deferred = true;
-            result.deferred_reason =
-                TECMO_GAMEPLAY_CPU_STEERING_DEFER_UNSUPPORTED_HANDLER_INPUTS;
-            break;
         case 11U: {
-            static const uint8_t pose_low[4U] = {0x0AU,0x0CU,0x0EU,0x10U};
             uint8_t linked = next_state.fixed_link[actor];
-            uint16_t actor_x = (uint16_t)input->actor_position[actor].x;
-            uint16_t linked_x = (uint16_t)input->actor_position[linked].x;
-            uint16_t actor_depth =
-                (uint16_t)(uint8_t)input->actor_position[actor].y;
-            uint16_t linked_depth =
-                (uint16_t)(uint8_t)input->actor_position[linked].y;
-            bool actor_left = actor_x < linked_x;
-            bool actor_above = actor_depth < linked_depth;
-            uint16_t horizontal = actor_left
-                ? (uint16_t)(linked_x - actor_x)
-                : (uint16_t)(actor_x - linked_x);
-            uint16_t depth = actor_above
-                ? (uint16_t)(linked_depth - actor_depth)
-                : (uint16_t)(actor_depth - linked_depth);
-            uint8_t pose_index;
-            /* `$8C91-$8CAA` gives horizontal the tie. Its horizontal buckets
-               use the X borrow bit; depth buckets use the zero-extended
-               low-byte depth borrow bit. */
-            pose_index = horizontal >= depth
-                ? (actor_left ? 1U : 0U)
-                : (actor_above ? 3U : 2U);
-            next_state.pose[actor] = pose_low[pose_index];
-            next_state.action[actor] = 0x30U;
-            next_state.actor_state[actor] = 0x04U;
-            result.raw_pose_valid = true;
-            result.raw_pose_low_0442 = pose_low[pose_index];
-            result.raw_pose_high_044d = 0x04U;
-            result.raw_packed_action_0458 = 0x30U;
+            play_apply_opcode11_pose(
+                &next_state, &result, input, actor, linked);
             /* `$0479=$C1` is deliberately not retained: this bounded state
                has no faithful sprite-plane owner. */
             break;
@@ -2123,6 +2145,56 @@ bool tecmo_gameplay_cpu_steering_play_step(
             }
             break;
         }
+        case 12U: {
+            uint8_t linked = input->linked_actor;
+            uint8_t pose_linked = input->opcode12_linked_actor_06cb;
+            int16_t target_x;
+            int16_t target_depth;
+            bool close;
+            bool stalled;
+            if (next_state.actor_state[actor] != 0x04U ||
+                actor == next_state.defender_actor) {
+                result.deferred = true;
+                result.deferred_reason =
+                    TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE12_UNSAFE_CONTEXT;
+                break;
+            }
+            target_x = play_wrap_add_i16(
+                input->actor_position[linked].x,
+                input->linked_relative_x);
+            target_depth = play_wrap_add_i16(
+                input->actor_position[linked].y,
+                input->linked_relative_depth);
+            close = play_proximity_axis(
+                        input->actor_position[actor].x, target_x) &&
+                    play_proximity_axis(
+                        input->actor_position[actor].y, target_depth);
+            stalled = pose_linked == next_state.primary_actor &&
+                next_state.actor_state[pose_linked] == 0x05U;
+            result.proximity_met = close;
+            result.opcode12_stalled = stalled;
+
+            /* `$8CEF-$8D58` applies the close pose before `$8E98` can stall.
+               A non-close path instead publishes the synthesized target via
+               `$92A8`; the source target planes are untouched when close. */
+            if (close) {
+                play_apply_opcode11_pose(
+                    &next_state, &result, input, actor, pose_linked);
+                following_offset = stalled
+                    ? current_offset : play_next_offset(current_offset, 5U);
+            } else {
+                next_state.target_object[actor] = linked;
+                next_state.target_x[actor] = target_x;
+                next_state.target_depth[actor] = target_depth;
+                following_offset = play_next_offset(
+                    current_offset, stalled ? 5U : 10U);
+                if (!stalled) {
+                    play_apply_opcode11_pose(
+                        &next_state, &result, input, actor, pose_linked);
+                }
+            }
+            break;
+        }
         case 16U: {
             uint16_t pointer = (uint16_t)command.arguments[0U] |
                 ((uint16_t)command.arguments[1U] << 8U);
@@ -2226,15 +2298,17 @@ bool tecmo_gameplay_cpu_steering_play_step(
 
         if (command.opcode == 6U ||
             (command.opcode == 10U && !result.proximity_met) ||
-            command.opcode == 12U || command.opcode == 15U ||
+            command.opcode == 15U ||
             (command.opcode == 16U && (input->flags_ba & 0x03U) != 0U)) {
             following_offset = current_offset;
         } else if (command.opcode == 8U) {
             /* Redirect stores C8:C9 directly and returns; the complement
                writes state 4 then reaches the normal +5 tail. */
-        } else if (command.opcode == 11U) {
+        } else if (command.opcode == 11U || command.opcode == 12U) {
             /* $8C40 itself calls $8FD9 after its source-dependent pose work. */
-            following_offset = play_next_offset(current_offset, 5U);
+            if (command.opcode == 11U) {
+                following_offset = play_next_offset(current_offset, 5U);
+            }
         } else if (command.opcode == 13U || command.opcode == 16U ||
                    command.opcode == 0U || command.opcode == 2U) {
             /* The common $92CA tail skips $8FD9 when BA&3 is nonzero. */
@@ -3177,6 +3251,74 @@ static bool opcode15_parser_anchor_self_test(
     return valid;
 }
 
+static bool play_formation_graph_reaches_opcode12_record(
+    const TecmoGameplayCpuSteeringAssets *assets)
+{
+    bool visited[TECMO_GAMEPLAY_CPU_STEERING_COMMAND_COUNT] = {false};
+    uint16_t queue[TECMO_GAMEPLAY_CPU_STEERING_COMMAND_COUNT];
+    size_t head = 0U;
+    size_t tail = 0U;
+    uint16_t stream_size = (uint16_t)(
+        assets->command_record_count * TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE);
+    for (size_t formation = 0U;
+         formation < assets->formation_start_count; ++formation) {
+        for (size_t actor = 0U;
+             actor < TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT; ++actor) {
+            uint16_t offset = assets->formation_stream_offsets[formation][actor];
+            size_t index = offset / TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE;
+            if (offset < stream_size &&
+                offset % TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE == 0U &&
+                !visited[index]) {
+                visited[index] = true;
+                queue[tail++] = offset;
+            }
+        }
+    }
+    while (head < tail) {
+        TecmoGameplayCpuSteeringCommand command;
+        uint16_t edges[3U];
+        size_t edge_count = 0U;
+        uint16_t offset = queue[head++];
+        if (offset == 0x0069U || offset == 0x006EU || offset == 0x0073U) {
+            return true;
+        }
+        if (!tecmo_gameplay_cpu_steering_decode_command(
+                assets, offset, &command)) {
+            return true;
+        }
+        if (command.opcode == 1U) {
+            edges[edge_count++] = (uint16_t)command.arguments[0U] |
+                ((uint16_t)command.arguments[1U] << 8U);
+        } else {
+            edges[edge_count++] = play_next_offset(offset, 5U);
+            if (command.opcode == 7U) {
+                edges[edge_count++] = play_next_offset(
+                    (uint16_t)command.arguments[2U] |
+                        ((uint16_t)command.arguments[3U] << 8U), 5U);
+            } else if (command.opcode == 8U) {
+                edges[edge_count++] = (uint16_t)command.arguments[0U] |
+                    ((uint16_t)command.arguments[1U] << 8U);
+            } else if (command.opcode == 12U || command.opcode == 21U) {
+                edges[edge_count++] = play_next_offset(offset, 10U);
+            }
+        }
+        for (size_t edge = 0U; edge < edge_count; ++edge) {
+            uint16_t next = edges[edge];
+            size_t index = next / TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE;
+            if (next < stream_size &&
+                next % TECMO_GAMEPLAY_CPU_STEERING_COMMAND_SIZE == 0U &&
+                !visited[index]) {
+                if (tail >= TECMO_GAMEPLAY_CPU_STEERING_COMMAND_COUNT) {
+                    return true;
+                }
+                visited[index] = true;
+                queue[tail++] = next;
+            }
+        }
+    }
+    return false;
+}
+
 bool tecmo_gameplay_cpu_steering_self_test(
     const char *asset_pack_path,
     char *message,
@@ -3623,6 +3765,8 @@ bool tecmo_gameplay_cpu_steering_self_test(
             tecmo_gameplay_cpu_steering_effect_metadata(&assets, 10U);
         const TecmoGameplayCpuSteeringEffectMetadata *metadata_11 =
             tecmo_gameplay_cpu_steering_effect_metadata(&assets, 11U);
+        const TecmoGameplayCpuSteeringEffectMetadata *metadata_12 =
+            tecmo_gameplay_cpu_steering_effect_metadata(&assets, 12U);
         const TecmoGameplayCpuSteeringEffectMetadata *metadata_13 =
             tecmo_gameplay_cpu_steering_effect_metadata(&assets, 13U);
         const TecmoGameplayCpuSteeringEffectMetadata *metadata_17 =
@@ -3637,7 +3781,7 @@ bool tecmo_gameplay_cpu_steering_self_test(
             tecmo_gameplay_cpu_steering_effect_metadata(&assets, 21U);
         if (metadata_0 == NULL || metadata_4 == NULL || metadata_7 == NULL ||
             metadata_10 == NULL || metadata_11 == NULL ||
-            metadata_13 == NULL ||
+            metadata_12 == NULL || metadata_13 == NULL ||
             metadata_17 == NULL || metadata_18 == NULL || metadata_19 == NULL ||
             metadata_20 == NULL || metadata_21 == NULL ||
             !metadata_0->exact_bounded || metadata_0->deferred_inputs ||
@@ -3648,6 +3792,9 @@ bool tecmo_gameplay_cpu_steering_self_test(
             !metadata_11->exact_bounded || metadata_11->deferred_inputs ||
             metadata_11->kind !=
                 TECMO_GAMEPLAY_CPU_STEERING_EFFECT_FIXED_LINK_RELATIVE_POSE ||
+            !metadata_12->exact_bounded || metadata_12->deferred_inputs ||
+            metadata_12->advance_policy !=
+                TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_OPCODE12_ZERO_FIVE_OR_TEN ||
             !metadata_13->exact_bounded || metadata_13->deferred_inputs ||
             metadata_13->kind !=
                 TECMO_GAMEPLAY_CPU_STEERING_EFFECT_GLOBAL_TARGET ||
@@ -3915,6 +4062,160 @@ bool tecmo_gameplay_cpu_steering_self_test(
     play_input.actor = 0U;
     memcpy(play_input.actor_position, harness_positions,
            sizeof(harness_positions));
+
+    /* The sole opcode-12 record is exact. The imported 46-formation table
+       has no `$0069/$006E/$0073` start, contrary to an earlier exploratory
+       label, so this is deliberately a direct canonical-record fixture and
+       makes no upstream cursor-owner claim. */
+    if (!tecmo_gameplay_cpu_steering_decode_command(
+            &assets, 0x006EU, &command) || command.opcode != 12U ||
+        command.cpu_address != 0x9F9CU || command.handler_cpu != 0x8E4FU ||
+        memcmp(command.arguments, (const uint8_t[4U]){0U,0U,0U,0U}, 4U) != 0 ||
+        play_formation_graph_reaches_opcode12_record(&assets) ||
+        !tecmo_gameplay_cpu_steering_play_state_initialize(
+            &assets, 26U, &play_state)) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-12 canonical record failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.actor = 7U;
+    play_input.step_budget = 1U;
+    memcpy(play_input.actor_position, harness_positions,
+           sizeof(harness_positions));
+    play_state.stream_offset[7U] = 0x006EU;
+    play_state.actor_state[7U] = 0x04U;
+    play_input.opcode12_context_available = true;
+    play_input.opcode12_automatic_offense = true;
+    play_input.opcode12_actor_eligible = true;
+    play_input.opcode12_linked_actor_06cb = 2U;
+    play_input.linked_actor_resolved_valid = true;
+    play_input.linked_actor = 2U;
+    play_input.linked_relative_valid = true;
+    play_input.linked_relative_x = 0;
+    play_input.linked_relative_depth = 0;
+    play_input.actor_position[2U].x = 200;
+    play_input.actor_position[2U].y = 100;
+    play_input.actor_position[7U].x = 192; /* exact -8 close boundary */
+    play_input.actor_position[7U].y = 107; /* exact +7 close boundary */
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.deferred || !play_result.proximity_met ||
+        play_result.opcode12_stalled || play_result.next_offset != 0x0073U ||
+        !play_result.raw_pose_valid || play_out.target_object[7U] !=
+            TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
+        play_out.target_x[7U] != 0 || play_out.target_depth[7U] != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-12 close boundary failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+
+    /* Non-close `$92A8` publishes the target and contributes +5 before the
+       nonstalled final pose contributes the second +5. */
+    play_input.actor_position[7U].x = 191; /* -9 is outside */
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        play_result.deferred || play_result.proximity_met ||
+        play_result.next_offset != 0x0078U ||
+        play_out.target_object[7U] != 2U ||
+        play_out.target_x[7U] != 200 || play_out.target_depth[7U] != 100 ||
+        !play_result.raw_pose_valid) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-12 nonclose target failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+
+    /* Linked-primary state 5 stalls after the close path (zero advance) or
+       after the non-close common tail (+5). */
+    play_input.opcode12_linked_actor_06cb = play_state.primary_actor;
+    play_state.actor_state[play_state.primary_actor] = 0x05U;
+    play_input.actor_position[play_state.primary_actor].x = 200;
+    play_input.actor_position[play_state.primary_actor].y = 100;
+    play_input.linked_actor = play_state.primary_actor;
+    play_input.actor_position[7U].x = 200;
+    play_input.actor_position[7U].y = 100;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        !play_result.opcode12_stalled || !play_result.proximity_met ||
+        play_result.next_offset != 0x006EU || !play_result.raw_pose_valid) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-12 close stall failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.actor_position[7U].x = 208; /* +8 is outside */
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        !play_result.opcode12_stalled || play_result.proximity_met ||
+        play_result.next_offset != 0x0073U || play_result.raw_pose_valid ||
+        play_out.target_object[7U] != play_state.primary_actor) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-12 nonclose stall failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+
+    play_before = play_state;
+    play_result_before = play_result;
+    play_input.opcode12_context_available = false;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        !play_result.deferred || play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE12_CONTEXT ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-12 missing-context rollback failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.opcode12_context_available = true;
+    play_input.opcode12_automatic_offense = false;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        !play_result.deferred || play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE12_UNSAFE_CONTEXT ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-12 controlled exclusion failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.opcode12_automatic_offense = true;
+    play_input.opcode12_actor_eligible = false;
+    play_state.defender_actor = 7U;
+    if (!tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        !play_result.deferred || play_result.deferred_reason !=
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE12_UNSAFE_CONTEXT ||
+        memcmp(&play_out, &play_state, sizeof(play_out)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-12 defender exclusion failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_state = play_before;
+    play_input.opcode12_actor_eligible = true;
+    play_input.opcode12_linked_actor_06cb =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    play_out = play_before;
+    play_result = play_result_before;
+    if (tecmo_gameplay_cpu_steering_play_step(
+            &assets, &play_state, &play_input, &play_out, &play_result) ||
+        memcmp(&play_out, &play_before, sizeof(play_out)) != 0 ||
+        memcmp(&play_result, &play_result_before, sizeof(play_result)) != 0) {
+        (void)snprintf(message, message_size,
+                       "TGAI-3 opcode-12 malformed transaction failed.");
+        tecmo_gameplay_cpu_steering_assets_destroy(&assets);
+        return false;
+    }
+    play_input.opcode12_context_available = false;
+    play_input.opcode12_automatic_offense = false;
+    play_input.opcode12_actor_eligible = false;
+    play_input.opcode12_linked_actor_06cb = 0U;
+    play_input.linked_actor_resolved_valid = false;
+    play_input.linked_relative_valid = false;
 
     /* The first canonical record is opcode 4 C8=$0A. Canonical Bank06
        $8FFA-$9031 subtracts target object X as a 16-bit value and target

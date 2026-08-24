@@ -119,7 +119,8 @@ typedef enum TecmoGameplayCpuSteeringAdvancePolicy {
     TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_JUMP,
     TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_WAIT,
     TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_PLUS_FIVE_OR_RETRY_CANCEL,
-    TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_CONDITIONAL_BA_NONE_OR_FIVE_OR_RETRY_CANCEL
+    TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_CONDITIONAL_BA_NONE_OR_FIVE_OR_RETRY_CANCEL,
+    TECMO_GAMEPLAY_CPU_STEERING_ADVANCE_OPCODE12_ZERO_FIVE_OR_TEN
 } TecmoGameplayCpuSteeringAdvancePolicy;
 
 /* A deferred command is not a generic failure: Bank06 handlers consume
@@ -143,6 +144,8 @@ typedef enum TecmoGameplayCpuSteeringDeferredReason {
     TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE6_CONTROLLED_BRANCH,
     TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE23_CONTEXT,
     TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE23_CONTROLLED_BRANCH,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_MISSING_OPCODE12_CONTEXT,
+    TECMO_GAMEPLAY_CPU_STEERING_DEFER_OPCODE12_UNSAFE_CONTEXT,
     TECMO_GAMEPLAY_CPU_STEERING_DEFER_REASON_COUNT
 } TecmoGameplayCpuSteeringDeferredReason;
 
@@ -377,6 +380,13 @@ typedef struct TecmoGameplayCpuSteeringPlayInput {
        direction write. */
     bool opcode23_context_available;
     bool opcode23_uncontrolled;
+    /* Bank06 $8E4F-$8ED3 is admitted only for the typed automatic-offense
+       state-4 subset. `$06CB,X` remains distinct from the opcode-10-style
+       resolved target because the final opcode-11 facing step reads it. */
+    bool opcode12_context_available;
+    bool opcode12_automatic_offense;
+    bool opcode12_actor_eligible;
+    uint8_t opcode12_linked_actor_06cb;
     /* Exact opcode-21 gate inputs ($058A/$0357/$0358/$7E). */
     bool opcode21_gate_inputs_available;
     uint8_t state_058a;
@@ -464,6 +474,7 @@ typedef struct TecmoGameplayCpuSteeringPlayResult {
     bool deferred;
     TecmoGameplayCpuSteeringDeferredReason deferred_reason;
     bool proximity_met;
+    bool opcode12_stalled;
     /* The handlers OR both 16-bit deltas and skip $88DA on zero, preserving
        prior direction. This flag is meaningful for opcodes 4 and 13. */
     bool target_vector_zero;
