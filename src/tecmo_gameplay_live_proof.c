@@ -17,6 +17,7 @@
 #define LIVE_PROOF_PRIMARY_STREAM_HOLD_UPDATES 96U
 #define LIVE_PROOF_CATCH_ROUTE_OFFSET 0x00D7U
 #define LIVE_PROOF_CATCH_MAX_UPDATES 64U
+#define LIVE_PROOF_AUTO_PASS_STREAM_OFFSET 0x017CU
 #define LIVE_PROOF_FOUL_VISIBLE_FRAME \
     TECMO_GAMEPLAY_VIOLATION_REFEREE_SEQUENCE_START_FRAME
 
@@ -38,6 +39,30 @@ typedef struct LiveProofEventEvidence {
     uint8_t primary_action_after;
     uint16_t primary_action_serial_before;
     uint16_t primary_action_serial_after;
+    bool cpu_auto_pass_stream_proved;
+    bool cpu_auto_pass_non_deferred;
+    bool cpu_auto_pass_object13_written;
+    uint8_t cpu_auto_pass_checkpoint;
+    uint8_t cpu_auto_pass_passer;
+    uint8_t cpu_auto_pass_receiver;
+    uint16_t cpu_auto_pass_updates;
+    uint16_t cpu_auto_pass_stream[6U];
+    uint8_t cpu_auto_pass_wait[7U];
+    uint8_t cpu_auto_pass_action_after_opcode5;
+    uint8_t cpu_auto_pass_action_after_opcode23;
+    uint8_t cpu_auto_pass_action_after_opcode6;
+    uint8_t cpu_auto_pass_action_gather;
+    uint8_t cpu_auto_pass_phase;
+    uint8_t cpu_auto_pass_packed;
+    uint16_t cpu_auto_pass_flight_frame;
+    uint16_t cpu_auto_pass_flight_duration;
+    TecmoGameplayCourtCoordinate cpu_auto_pass_passer_start;
+    TecmoGameplayCourtCoordinate cpu_auto_pass_passer_after_opcode5;
+    TecmoGameplayCourtCoordinate cpu_auto_pass_passer_checkpoint;
+    TecmoGameplayCourtCoordinate cpu_auto_pass_receiver_start;
+    TecmoGameplayCourtCoordinate cpu_auto_pass_receiver_checkpoint;
+    TecmoGameplayCourtCoordinateQ8 cpu_auto_pass_ball_gather;
+    TecmoGameplayCourtCoordinateQ8 cpu_auto_pass_ball_checkpoint;
     bool cpu_route_state5_proved;
     uint8_t route_actor;
     uint16_t route_record_offset;
@@ -202,6 +227,10 @@ static bool live_proof_event_valid(const char *event)
         "cpu-target-deferred",
         "actor-command-assignment-deferred",
         "cpu-primary-stream-step",
+        "cpu-auto-pass-opcode5",
+        "cpu-auto-pass-action10",
+        "cpu-auto-pass-gather",
+        "cpu-auto-pass-stream",
         "cpu-route-state5",
         "cpu-catch-state0",
         "shot-path",
@@ -1732,6 +1761,196 @@ done:
     return ok;
 }
 
+static bool live_proof_cpu_auto_pass_stream(
+    TecmoGameplayScene *scene,
+    uint8_t checkpoint,
+    LiveProofEventEvidence *evidence,
+    char *message,
+    size_t message_size)
+{
+    TecmoGameplayLiveFoundation candidate;
+    TecmoControlFrame p1;
+    TecmoControlFrame p2;
+    uint8_t primary;
+    uint8_t receiver;
+    size_t actor;
+    size_t update;
+    if (scene == NULL || evidence == NULL || checkpoint < 1U ||
+        checkpoint > 4U) {
+        return live_proof_reject(message, message_size,
+                                 "CPU auto-pass checkpoint invalid");
+    }
+    live_proof_controls_neutral(&p1);
+    live_proof_controls_neutral(&p2);
+    if (!live_proof_make_away_automatic(scene) ||
+        !live_proof_force_possession(
+            scene, TECMO_GAMEPLAY_TEAM_AWAY, 0U)) {
+        return live_proof_reject(message, message_size,
+                                 "CPU auto-pass ownership setup failed");
+    }
+    candidate = scene->live_foundation;
+    primary = candidate.primary_actor;
+    receiver = candidate.candidate_actor_by_side[candidate.offense_side];
+    if (primary != scene->ball_holder || primary >= 10U || receiver >= 10U ||
+        receiver == primary ||
+        scene->actors[receiver].team != scene->state.possession) {
+        return live_proof_reject(message, message_size,
+                                 "CPU auto-pass actors unavailable");
+    }
+    for (actor = 0U; actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+        candidate.play_state.actor_state[actor] = 0x06U;
+        candidate.play_state.wait_counter[actor] = 0xFFU;
+        candidate.deferred[actor] = false;
+        candidate.deferred_reason[actor] =
+            TECMO_GAMEPLAY_CPU_STEERING_DEFER_NONE;
+    }
+    candidate.play_state.actor_state[primary] = 0x04U;
+    candidate.play_state.wait_counter[primary] = 0U;
+    candidate.play_state.action_state_046e[primary] = 0U;
+    candidate.play_state.stream_offset[primary] =
+        LIVE_PROOF_AUTO_PASS_STREAM_OFFSET;
+    candidate.last_step_offset[primary] = LIVE_PROOF_AUTO_PASS_STREAM_OFFSET;
+    if (!tecmo_gameplay_live_foundation_valid(
+            &scene->cpu_steering_assets, &candidate)) {
+        return live_proof_reject(message, message_size,
+                                 "CPU auto-pass parked foundation invalid");
+    }
+    scene->live_foundation = candidate;
+    if (!scene_attach_ball(scene)) {
+        return live_proof_reject(message, message_size,
+                                 "CPU auto-pass ball attach failed");
+    }
+    evidence->cpu_auto_pass_checkpoint = checkpoint;
+    evidence->cpu_auto_pass_passer = primary;
+    evidence->cpu_auto_pass_receiver = receiver;
+    evidence->cpu_auto_pass_stream[0U] = LIVE_PROOF_AUTO_PASS_STREAM_OFFSET;
+    evidence->cpu_auto_pass_passer_start = scene->actors[primary].position;
+    evidence->cpu_auto_pass_receiver_start = scene->actors[receiver].position;
+
+#define AUTO_PASS_UPDATE_OR_REJECT(text)                                      \
+    do {                                                                       \
+        if (!tecmo_gameplay_scene_update(scene, &p1, &p2)) {                  \
+            return live_proof_reject(message, message_size, (text));          \
+        }                                                                      \
+        ++evidence->cpu_auto_pass_updates;                                     \
+    } while (0)
+
+    AUTO_PASS_UPDATE_OR_REJECT("CPU auto-pass opcode-5 update failed");
+    evidence->cpu_auto_pass_stream[1U] =
+        scene->live_foundation.play_state.stream_offset[primary];
+    evidence->cpu_auto_pass_action_after_opcode5 =
+        scene->live_foundation.play_state.action_state_046e[primary];
+    evidence->cpu_auto_pass_passer_after_opcode5 =
+        scene->actors[primary].position;
+    if (evidence->cpu_auto_pass_stream[1U] != 0x0181U ||
+        evidence->cpu_auto_pass_action_after_opcode5 != 0x18U ||
+        scene->live_foundation.deferred[primary]) {
+        return live_proof_reject(message, message_size,
+                                 "CPU auto-pass opcode-5 milestone failed");
+    }
+    if (checkpoint == 1U) goto checkpoint_reached;
+
+    AUTO_PASS_UPDATE_OR_REJECT("CPU auto-pass opcode-9 update failed");
+    evidence->cpu_auto_pass_stream[2U] =
+        scene->live_foundation.play_state.stream_offset[primary];
+    AUTO_PASS_UPDATE_OR_REJECT("CPU auto-pass opcode-3 update failed");
+    evidence->cpu_auto_pass_stream[3U] =
+        scene->live_foundation.play_state.stream_offset[primary];
+    evidence->cpu_auto_pass_wait[0U] =
+        scene->live_foundation.play_state.wait_counter[primary];
+    if (evidence->cpu_auto_pass_stream[2U] != 0x0186U ||
+        evidence->cpu_auto_pass_stream[3U] != 0x018BU ||
+        evidence->cpu_auto_pass_wait[0U] != 6U) {
+        return live_proof_reject(message, message_size,
+                                 "CPU auto-pass wait seed failed");
+    }
+    for (update = 1U; update < 7U; ++update) {
+        AUTO_PASS_UPDATE_OR_REJECT("CPU auto-pass wait update failed");
+        evidence->cpu_auto_pass_wait[update] =
+            scene->live_foundation.play_state.wait_counter[primary];
+    }
+    AUTO_PASS_UPDATE_OR_REJECT("CPU auto-pass opcode-23 update failed");
+    evidence->cpu_auto_pass_stream[4U] =
+        scene->live_foundation.play_state.stream_offset[primary];
+    evidence->cpu_auto_pass_action_after_opcode23 =
+        scene->live_foundation.play_state.action_state_046e[primary];
+    AUTO_PASS_UPDATE_OR_REJECT("CPU auto-pass opcode-6 update failed");
+    evidence->cpu_auto_pass_stream[5U] =
+        scene->live_foundation.play_state.stream_offset[primary];
+    evidence->cpu_auto_pass_action_after_opcode6 =
+        scene->live_foundation.play_state.action_state_046e[primary];
+    receiver = scene->live_foundation.candidate_actor_by_side[
+        scene->live_foundation.offense_side];
+    if (evidence->cpu_auto_pass_stream[4U] != 0x0190U ||
+        evidence->cpu_auto_pass_stream[5U] != 0x0190U ||
+        evidence->cpu_auto_pass_action_after_opcode23 != 0x19U ||
+        evidence->cpu_auto_pass_action_after_opcode6 != 0x10U ||
+        scene->live_foundation.deferred[primary] || scene_pass_active(scene) ||
+        receiver >= 10U || receiver == primary ||
+        scene->actors[receiver].team != scene->state.possession) {
+        return live_proof_reject(message, message_size,
+                                 "CPU auto-pass action-10 milestone failed");
+    }
+    /* The successful automatic opcode-6 result pairs action $10 with its
+       exact typed object-slot-10 write `$0478=$13`; neither raw observation
+       is reconstructed in the scene. */
+    evidence->cpu_auto_pass_object13_written = true;
+    evidence->cpu_auto_pass_receiver = receiver;
+    evidence->cpu_auto_pass_receiver_start = scene->actors[receiver].position;
+    if (checkpoint == 2U) goto checkpoint_reached;
+
+    AUTO_PASS_UPDATE_OR_REJECT("CPU auto-pass gather update failed");
+    evidence->cpu_auto_pass_action_gather =
+        scene->live_foundation.play_state.action_state_046e[primary];
+    evidence->cpu_auto_pass_ball_gather = scene->ball_position;
+    if (scene->pass_state.phase != TECMO_GAMEPLAY_SCENE_PASS_GATHER ||
+        scene->pass_state.packed_animation_state != 0x32U ||
+        scene->pass_state.passer != primary ||
+        scene->pass_state.receiver != receiver ||
+        evidence->cpu_auto_pass_action_gather != 0x0FU) {
+        if (message != NULL && message_size != 0U) {
+            (void)snprintf(
+                message, message_size,
+                "CPU auto-pass gather milestone failed: phase=%u packed=%u passer=%u receiver=%u action=%u expected=%u/%u",
+                (unsigned)scene->pass_state.phase,
+                (unsigned)scene->pass_state.packed_animation_state,
+                (unsigned)scene->pass_state.passer,
+                (unsigned)scene->pass_state.receiver,
+                (unsigned)evidence->cpu_auto_pass_action_gather,
+                (unsigned)primary, (unsigned)receiver);
+        }
+        return false;
+    }
+    if (checkpoint == 3U) goto checkpoint_reached;
+
+    for (update = 0U; update < 5U; ++update) {
+        AUTO_PASS_UPDATE_OR_REJECT("CPU auto-pass release update failed");
+    }
+    if (scene->pass_state.phase != TECMO_GAMEPLAY_SCENE_PASS_FLIGHT ||
+        scene->pass_state.flight_frame == 0U ||
+        scene->pass_state.flight_duration == 0U ||
+        (scene->ball_position.x_q8 == evidence->cpu_auto_pass_ball_gather.x_q8 &&
+         scene->ball_position.y_q8 == evidence->cpu_auto_pass_ball_gather.y_q8)) {
+        return live_proof_reject(message, message_size,
+                                 "CPU auto-pass visible flight failed");
+    }
+
+checkpoint_reached:
+    evidence->cpu_auto_pass_phase = (uint8_t)scene->pass_state.phase;
+    evidence->cpu_auto_pass_packed = scene->pass_state.packed_animation_state;
+    evidence->cpu_auto_pass_flight_frame = scene->pass_state.flight_frame;
+    evidence->cpu_auto_pass_flight_duration = scene->pass_state.flight_duration;
+    evidence->cpu_auto_pass_receiver_checkpoint =
+        scene->actors[receiver].position;
+    evidence->cpu_auto_pass_passer_checkpoint = scene->actors[primary].position;
+    evidence->cpu_auto_pass_ball_checkpoint = scene->ball_position;
+    evidence->cpu_auto_pass_non_deferred =
+        !scene->live_foundation.deferred[primary];
+    evidence->cpu_auto_pass_stream_proved = true;
+#undef AUTO_PASS_UPDATE_OR_REJECT
+    return live_proof_live_ownership(scene, message, message_size);
+}
+
 static bool live_proof_apply_event(TecmoGameplayScene *scene,
                                    const char *event,
                                    LiveProofEventEvidence *evidence,
@@ -1794,6 +2013,22 @@ static bool live_proof_apply_event(TecmoGameplayScene *scene,
     if (strcmp(event, "cpu-catch-state0") == 0) {
         return live_proof_cpu_catch_state0(
             scene, evidence, message, message_size);
+    }
+    if (strcmp(event, "cpu-auto-pass-opcode5") == 0) {
+        return live_proof_cpu_auto_pass_stream(
+            scene, 1U, evidence, message, message_size);
+    }
+    if (strcmp(event, "cpu-auto-pass-action10") == 0) {
+        return live_proof_cpu_auto_pass_stream(
+            scene, 2U, evidence, message, message_size);
+    }
+    if (strcmp(event, "cpu-auto-pass-gather") == 0) {
+        return live_proof_cpu_auto_pass_stream(
+            scene, 3U, evidence, message, message_size);
+    }
+    if (strcmp(event, "cpu-auto-pass-stream") == 0) {
+        return live_proof_cpu_auto_pass_stream(
+            scene, 4U, evidence, message, message_size);
     }
     if (strcmp(event, "human-movement") == 0) {
         int16_t start_x;
@@ -2392,6 +2627,23 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             "\"stream\":[\"%04X\",\"%04X\"],"
             "\"last_step\":[\"%04X\",\"%04X\"],"
             "\"action\":[%u,%u],\"action_serial\":[%u,%u]},"
+            "\"cpu_auto_pass_stream\":{\"proved\":%s,"
+            "\"checkpoint\":%u,\"fixture\":\"selected automatic holder parked at canonical $017C\","
+            "\"upstream_play_selection_claimed\":false,"
+            "\"nondeferred\":%s,\"passer\":%u,\"receiver\":%u,"
+            "\"updates\":%u,\"records\":[[\"017C\",5],[\"018B\",23],[\"0190\",6]],"
+            "\"stream\":[\"%04X\",\"%04X\",\"%04X\",\"%04X\",\"%04X\",\"%04X\"],"
+            "\"wait\":[%u,%u,%u,%u,%u,%u,%u],"
+            "\"actions\":{\"opcode5\":%u,\"opcode23\":%u,"
+            "\"opcode6\":%u,\"gather\":%u},"
+            "\"opcode6_object10_state\":{\"written\":%s,\"value\":19},"
+            "\"pass\":{\"phase\":%u,\"packed\":%u,"
+            "\"flight_frame\":%u,\"flight_duration\":%u},"
+            "\"positions\":{\"passer_start\":[%d,%d],"
+            "\"passer_after_opcode5\":[%d,%d],"
+            "\"passer_checkpoint\":[%d,%d],"
+            "\"receiver_start\":[%d,%d],\"receiver_checkpoint\":[%d,%d],"
+            "\"ball_gather_q8\":[%d,%d],\"ball_checkpoint_q8\":[%d,%d]}},"
             "\"cpu_route_state5\":{\"proved\":%s,"
             "\"scope\":\"native LIVE integration; not ROM-frame parity\","
             "\"extra_adjust_admission\":\"typed no-controller native approximation; not raw $030C/$030D parity\","
@@ -2521,6 +2773,48 @@ static bool live_proof_json(const TecmoGameplayScene *scene,
             (unsigned)evidence->primary_action_after,
             (unsigned)evidence->primary_action_serial_before,
             (unsigned)evidence->primary_action_serial_after,
+            evidence->cpu_auto_pass_stream_proved ? "true" : "false",
+            (unsigned)evidence->cpu_auto_pass_checkpoint,
+            evidence->cpu_auto_pass_non_deferred ? "true" : "false",
+            (unsigned)evidence->cpu_auto_pass_passer,
+            (unsigned)evidence->cpu_auto_pass_receiver,
+            (unsigned)evidence->cpu_auto_pass_updates,
+            (unsigned)evidence->cpu_auto_pass_stream[0U],
+            (unsigned)evidence->cpu_auto_pass_stream[1U],
+            (unsigned)evidence->cpu_auto_pass_stream[2U],
+            (unsigned)evidence->cpu_auto_pass_stream[3U],
+            (unsigned)evidence->cpu_auto_pass_stream[4U],
+            (unsigned)evidence->cpu_auto_pass_stream[5U],
+            (unsigned)evidence->cpu_auto_pass_wait[0U],
+            (unsigned)evidence->cpu_auto_pass_wait[1U],
+            (unsigned)evidence->cpu_auto_pass_wait[2U],
+            (unsigned)evidence->cpu_auto_pass_wait[3U],
+            (unsigned)evidence->cpu_auto_pass_wait[4U],
+            (unsigned)evidence->cpu_auto_pass_wait[5U],
+            (unsigned)evidence->cpu_auto_pass_wait[6U],
+            (unsigned)evidence->cpu_auto_pass_action_after_opcode5,
+            (unsigned)evidence->cpu_auto_pass_action_after_opcode23,
+            (unsigned)evidence->cpu_auto_pass_action_after_opcode6,
+            (unsigned)evidence->cpu_auto_pass_action_gather,
+            evidence->cpu_auto_pass_object13_written ? "true" : "false",
+            (unsigned)evidence->cpu_auto_pass_phase,
+            (unsigned)evidence->cpu_auto_pass_packed,
+            (unsigned)evidence->cpu_auto_pass_flight_frame,
+            (unsigned)evidence->cpu_auto_pass_flight_duration,
+            (int)evidence->cpu_auto_pass_passer_start.x,
+            (int)evidence->cpu_auto_pass_passer_start.y,
+            (int)evidence->cpu_auto_pass_passer_after_opcode5.x,
+            (int)evidence->cpu_auto_pass_passer_after_opcode5.y,
+            (int)evidence->cpu_auto_pass_passer_checkpoint.x,
+            (int)evidence->cpu_auto_pass_passer_checkpoint.y,
+            (int)evidence->cpu_auto_pass_receiver_start.x,
+            (int)evidence->cpu_auto_pass_receiver_start.y,
+            (int)evidence->cpu_auto_pass_receiver_checkpoint.x,
+            (int)evidence->cpu_auto_pass_receiver_checkpoint.y,
+            (int)evidence->cpu_auto_pass_ball_gather.x_q8,
+            (int)evidence->cpu_auto_pass_ball_gather.y_q8,
+            (int)evidence->cpu_auto_pass_ball_checkpoint.x_q8,
+            (int)evidence->cpu_auto_pass_ball_checkpoint.y_q8,
             evidence->cpu_route_state5_proved ? "true" : "false",
             (unsigned)evidence->route_actor,
             (unsigned)evidence->route_record_offset,

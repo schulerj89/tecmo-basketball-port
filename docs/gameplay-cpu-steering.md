@@ -458,6 +458,15 @@ in deterministic LIVE proof JSON.
 | `$9125` opcode 13, raw `$038D:$038E/$038F:$0390` latch words | Typed harness/test input only. Both high bytes are live; the persistent latch has five source producers whose complete lifecycle is not yet retained. The scene deliberately supplies no ball or current-position substitute. | `missing-global-target`. A supplied raw latch still separately requires the ordinary-LIVE `$BA&3==0` seam. |
 | `$9172-$9216` opcode 15 raw lifecycle | None; harness-only capture contract | `missing-opcode15-raw-lifecycle`. |
 
+The TGLP native proof now renders four deterministic automatic-pass
+checkpoints: opcode 5, retained opcode-6 action `$10`, packed `$32` gather,
+and released flight. Its `cpu_auto_pass_stream` JSON pins the `$017C/$018B/
+$0190` records, the opcode-3 wait sequence `6..0`, typed object-slot-10 `$13`,
+passer/receiver identities, pass phases, and player/ball position deltas.
+The fixture explicitly parks the selected automatic holder at `$017C`; the
+proof therefore covers execution and presentation but does not claim the
+unconverted upstream play-selection route.
+
 Unimplemented handler effects retain their source-pinned record transport
 only where that transport is already bounded, with the separate reason
 `unimplemented-handler`. This does not claim CPU play, pass, shot, or dynamic

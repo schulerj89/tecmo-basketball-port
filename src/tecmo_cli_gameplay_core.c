@@ -278,7 +278,7 @@ int tecmo_cli_run_gameplay_core_commands(const TecmoCliContext *context)
         const char *pack_path = index < argc ? argv[index++] : NULL;
         const char *event = index < argc ? argv[index++] : NULL;
         const char *output_path = index < argc ? argv[index] : NULL;
-        char message[12288];
+        char message[16384];
         if (!tecmo_gameplay_live_foundation_proof(
                 root, pack_path, event, output_path,
                 message, sizeof(message))) {

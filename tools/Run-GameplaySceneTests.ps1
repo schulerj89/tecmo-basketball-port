@@ -1317,6 +1317,10 @@ try {
         "cpu-target-deferred",
         "actor-command-assignment-deferred",
         "cpu-primary-stream-step",
+        "cpu-auto-pass-opcode5",
+        "cpu-auto-pass-action10",
+        "cpu-auto-pass-gather",
+        "cpu-auto-pass-stream",
         "shot-path",
         "claimant-settlement",
         "defensive-foul-presentation"
@@ -1528,6 +1532,67 @@ try {
                     throw "LIVE proof selected-primary stream step regressed."
                 }
             }
+            if ($Event -like "cpu-auto-pass-*") {
+                $AutoPass = $State.cpu_auto_pass_stream
+                $ExpectedCheckpoint = switch ($Event) {
+                    "cpu-auto-pass-opcode5" { 1 }
+                    "cpu-auto-pass-action10" { 2 }
+                    "cpu-auto-pass-gather" { 3 }
+                    "cpu-auto-pass-stream" { 4 }
+                    default { 0 }
+                }
+                if ($null -eq $AutoPass -or ![bool]$AutoPass.proved -or
+                    [int]$AutoPass.checkpoint -ne $ExpectedCheckpoint -or
+                    [bool]$AutoPass.upstream_play_selection_claimed -or
+                    ![bool]$AutoPass.nondeferred -or
+                    [int]$AutoPass.passer -lt 0 -or
+                    [int]$AutoPass.passer -ge 10 -or
+                    [int]$AutoPass.receiver -lt 0 -or
+                    [int]$AutoPass.receiver -ge 10 -or
+                    [int]$AutoPass.passer -eq [int]$AutoPass.receiver -or
+                    ((@($AutoPass.records | ForEach-Object { $_[0] }) -join ',') -ne
+                        '017C,018B,0190') -or
+                    ((@($AutoPass.records | ForEach-Object { [int]$_[1] }) -join ',') -ne
+                        '5,23,6') -or
+                    [string]$AutoPass.stream[0] -ne '017C' -or
+                    [string]$AutoPass.stream[1] -ne '0181' -or
+                    [int]$AutoPass.actions.opcode5 -ne 24) {
+                    throw "LIVE proof CPU automatic pass base checkpoint regressed."
+                }
+                if ($ExpectedCheckpoint -ge 2 -and
+                    (((@($AutoPass.stream) -join ',') -ne
+                        '017C,0181,0186,018B,0190,0190') -or
+                     ((@($AutoPass.wait) -join ',') -ne '6,5,4,3,2,1,0') -or
+                     [int]$AutoPass.actions.opcode23 -ne 25 -or
+                     [int]$AutoPass.actions.opcode6 -ne 16 -or
+                     ![bool]$AutoPass.opcode6_object10_state.written -or
+                     [int]$AutoPass.opcode6_object10_state.value -ne 19)) {
+                    throw "LIVE proof CPU automatic pass source cadence regressed."
+                }
+                if ($ExpectedCheckpoint -eq 3 -and
+                    ([int]$AutoPass.pass.phase -ne 1 -or
+                     [int]$AutoPass.pass.packed -ne 50 -or
+                     [int]$AutoPass.actions.gather -ne 15)) {
+                    throw "LIVE proof CPU automatic pass gather checkpoint regressed."
+                }
+                if ($ExpectedCheckpoint -eq 4) {
+                    $BallGather = @($AutoPass.positions.ball_gather_q8)
+                    $BallFlight = @($AutoPass.positions.ball_checkpoint_q8)
+                    $PasserStart = @($AutoPass.positions.passer_start)
+                    $PasserAfter = @($AutoPass.positions.passer_checkpoint)
+                    $ReceiverStart = @($AutoPass.positions.receiver_start)
+                    $ReceiverAfter = @($AutoPass.positions.receiver_checkpoint)
+                    if ([int]$AutoPass.pass.phase -ne 2 -or
+                        [int]$AutoPass.pass.flight_frame -le 0 -or
+                        [int]$AutoPass.pass.flight_duration -le
+                            [int]$AutoPass.pass.flight_frame -or
+                        (($BallGather -join ',') -eq ($BallFlight -join ',')) -or
+                        ((($PasserStart -join ',') -eq ($PasserAfter -join ',')) -and
+                         (($ReceiverStart -join ',') -eq ($ReceiverAfter -join ',')))) {
+                        throw "LIVE proof CPU automatic pass visible flight/movement regressed."
+                    }
+                }
+            }
             if ($Event -eq "defensive-foul-presentation") {
                 $Foul = $State.live_foul
                 $Presentation = $Foul.presentation
@@ -1685,6 +1750,10 @@ try {
             "cpu-target-deferred: deterministic source-offset fixture"
             "actor-command-assignment-deferred: real PRETIP/live handoff, then no source-shaped A023 caller or mutation"
             "cpu-primary-stream-step: automatic selected `$0308` primary consumes one Bank04 opcode-4 record before ordinary-loop exclusion"
+            "cpu-auto-pass-opcode5: selected automatic holder parked at canonical `$017C; upstream play selection explicitly unclaimed"
+            "cpu-auto-pass-action10: exact opcode9/wait6/opcode23/opcode6 cadence reaches retained `$0190 action `$10/object-slot-10 `$13"
+            "cpu-auto-pass-gather: following native scene update enters packed `$32 gather with passer action `$0F"
+            "cpu-auto-pass-stream: gather releases into visible pass flight with deterministic ball/player position deltas"
             "shot-path: deterministic supported close-shot fixture"
             "claimant-settlement: native pre-tip handoff then deterministic coordinate/frame fixture, normal controller-B miss and production terminal claimant handoff (no direct claimant/phase/possession injection)"
             "defensive-foul-presentation: real PRETIP/live handoff, optional human A switch, human defensive-B, then neutral capture at TGVR visible group 1"
