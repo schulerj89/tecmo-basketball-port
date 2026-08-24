@@ -501,8 +501,25 @@ bool tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch(
     TecmoGameplayLiveFoundation foundation_candidate;
     TecmoGameplayActorCommandAssignmentResult result_candidate;
     TecmoGameplayActorCommandAssignmentSameFrameLatch latch_candidate;
-    if (input == NULL || foundation_io == NULL || result_out == NULL ||
-        latch_io == NULL || !input->object10_target_valid ||
+    if (assignment_assets == NULL || steering_assets == NULL ||
+        input == NULL || foundation_io == NULL || result_out == NULL ||
+        latch_io == NULL ||
+        (const void *)assignment_assets == (const void *)steering_assets ||
+        (const void *)assignment_assets == (const void *)input ||
+        (const void *)assignment_assets == (const void *)foundation_io ||
+        (const void *)assignment_assets == (const void *)result_out ||
+        (const void *)assignment_assets == (const void *)latch_io ||
+        (const void *)steering_assets == (const void *)input ||
+        (const void *)steering_assets == (const void *)foundation_io ||
+        (const void *)steering_assets == (const void *)result_out ||
+        (const void *)steering_assets == (const void *)latch_io ||
+        (const void *)input == (const void *)foundation_io ||
+        (const void *)input == (const void *)result_out ||
+        (const void *)input == (const void *)latch_io ||
+        (const void *)foundation_io == (const void *)result_out ||
+        (const void *)foundation_io == (const void *)latch_io ||
+        (const void *)result_out == (const void *)latch_io ||
+        !input->object10_target_valid ||
         !input->object10_raw_target_valid ||
         !tecmo_gameplay_court_coordinate_valid(&input->object10_target) ||
         input->object10_target.x < 0 || input->object10_target.y < 0 ||
@@ -568,12 +585,15 @@ bool tecmo_gameplay_actor_command_assignment_self_test(
     size_t message_size)
 {
     TecmoGameplayActorCommandAssignmentAssets assignment_assets;
+    TecmoGameplayActorCommandAssignmentAssets assignment_assets_before;
     TecmoGameplayCpuSteeringAssets steering_assets;
+    TecmoGameplayCpuSteeringAssets steering_assets_before;
     TecmoGameplayLiveFoundation baseline;
     TecmoGameplayLiveFoundation foundation;
     TecmoGameplayLiveFoundation before;
     TecmoGameplayLiveFoundation candidate;
     TecmoGameplayActorCommandAssignmentInput input;
+    TecmoGameplayActorCommandAssignmentInput input_before;
     TecmoGameplayActorCommandAssignmentResult result;
     TecmoGameplayActorCommandAssignmentResult result_before;
     TecmoGameplayActorCommandAssignmentSameFrameLatch latch;
@@ -611,6 +631,84 @@ bool tecmo_gameplay_actor_command_assignment_self_test(
     input.object10_raw_target_valid = true;
     input.object10_raw_target.x = 152U;
     input.object10_raw_target.depth = 104U;
+
+    /* The atomic seam rejects every pointer-identity pair before reading or
+       writing through it. Sentinels prove all underlying objects remain
+       byte-identical, including when a mutable output is cast onto const
+       asset/input storage. */
+    foundation = baseline;
+    memset(&result, 0xA5, sizeof(result));
+    memset(&latch, 0x5A, sizeof(latch));
+    assignment_assets_before = assignment_assets;
+    steering_assets_before = steering_assets;
+    input_before = input;
+    before = foundation;
+    result_before = result;
+    latch_before = latch;
+#define TGCA_EXPECT_ATOMIC_ALIAS_REJECT(a_, s_, i_, f_, r_, l_) do { \
+        if (tecmo_gameplay_actor_command_assignment_apply_and_capture_same_frame_latch( \
+                (a_), (s_), (i_), (f_), (r_), (l_)) || \
+            memcmp(&assignment_assets, &assignment_assets_before, \
+                   sizeof(assignment_assets)) != 0 || \
+            memcmp(&steering_assets, &steering_assets_before, \
+                   sizeof(steering_assets)) != 0 || \
+            memcmp(&input, &input_before, sizeof(input)) != 0 || \
+            memcmp(&foundation, &before, sizeof(foundation)) != 0 || \
+            memcmp(&result, &result_before, sizeof(result)) != 0 || \
+            memcmp(&latch, &latch_before, sizeof(latch)) != 0) { \
+            goto cleanup; \
+        } \
+    } while (0)
+    TGCA_EXPECT_ATOMIC_ALIAS_REJECT(
+        &assignment_assets,
+        (const TecmoGameplayCpuSteeringAssets *)&assignment_assets,
+        &input, &foundation, &result, &latch);
+    TGCA_EXPECT_ATOMIC_ALIAS_REJECT(
+        &assignment_assets, &steering_assets,
+        (const TecmoGameplayActorCommandAssignmentInput *)&assignment_assets,
+        &foundation, &result, &latch);
+    TGCA_EXPECT_ATOMIC_ALIAS_REJECT(
+        &assignment_assets, &steering_assets, &input,
+        (TecmoGameplayLiveFoundation *)&assignment_assets, &result, &latch);
+    TGCA_EXPECT_ATOMIC_ALIAS_REJECT(
+        &assignment_assets, &steering_assets, &input, &foundation,
+        (TecmoGameplayActorCommandAssignmentResult *)&assignment_assets,
+        &latch);
+    TGCA_EXPECT_ATOMIC_ALIAS_REJECT(
+        &assignment_assets, &steering_assets, &input, &foundation, &result,
+        (TecmoGameplayActorCommandAssignmentSameFrameLatch *)&assignment_assets);
+    TGCA_EXPECT_ATOMIC_ALIAS_REJECT(
+        &assignment_assets, &steering_assets,
+        (const TecmoGameplayActorCommandAssignmentInput *)&steering_assets,
+        &foundation, &result, &latch);
+    TGCA_EXPECT_ATOMIC_ALIAS_REJECT(
+        &assignment_assets, &steering_assets, &input,
+        (TecmoGameplayLiveFoundation *)&steering_assets, &result, &latch);
+    TGCA_EXPECT_ATOMIC_ALIAS_REJECT(
+        &assignment_assets, &steering_assets, &input, &foundation,
+        (TecmoGameplayActorCommandAssignmentResult *)&steering_assets, &latch);
+    TGCA_EXPECT_ATOMIC_ALIAS_REJECT(
+        &assignment_assets, &steering_assets, &input, &foundation, &result,
+        (TecmoGameplayActorCommandAssignmentSameFrameLatch *)&steering_assets);
+    TGCA_EXPECT_ATOMIC_ALIAS_REJECT(
+        &assignment_assets, &steering_assets, &input,
+        (TecmoGameplayLiveFoundation *)&input, &result, &latch);
+    TGCA_EXPECT_ATOMIC_ALIAS_REJECT(
+        &assignment_assets, &steering_assets, &input, &foundation,
+        (TecmoGameplayActorCommandAssignmentResult *)&input, &latch);
+    TGCA_EXPECT_ATOMIC_ALIAS_REJECT(
+        &assignment_assets, &steering_assets, &input, &foundation, &result,
+        (TecmoGameplayActorCommandAssignmentSameFrameLatch *)&input);
+    TGCA_EXPECT_ATOMIC_ALIAS_REJECT(
+        &assignment_assets, &steering_assets, &input, &foundation,
+        (TecmoGameplayActorCommandAssignmentResult *)&foundation, &latch);
+    TGCA_EXPECT_ATOMIC_ALIAS_REJECT(
+        &assignment_assets, &steering_assets, &input, &foundation, &result,
+        (TecmoGameplayActorCommandAssignmentSameFrameLatch *)&foundation);
+    TGCA_EXPECT_ATOMIC_ALIAS_REJECT(
+        &assignment_assets, &steering_assets, &input, &foundation, &result,
+        (TecmoGameplayActorCommandAssignmentSameFrameLatch *)&result);
+#undef TGCA_EXPECT_ATOMIC_ALIAS_REJECT
 
     /* $A0A6's two selected slots use independent automatic predicates.  The
        initialized side-0 fixture is automatic on both sides, so this checks
