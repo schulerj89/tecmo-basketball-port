@@ -51,9 +51,13 @@ Headless source analysis establishes Bank05 `$9737-$973C` as the sole
 `$0588` bit-`$10` producer; `$B534-$B539` masks with `$BF` and therefore
 preserves bit `$10`. TGBC's exact Bank05 `$971F-$9786` state already owns that
 frontcourt predicate. Because AI dispatch precedes authoritative backcourt
-settlement, the scene previews TGBC transactionally with the current floored
-ball coordinate and consumes only the previewed `frontcourt_established` bit.
-It neither commits that state nor adjudicates a previewed violation.
+settlement—and controlled actors move before the stored Q8 ball is
+reattached—the scene first resolves the held-ball/dribble coordinate over the
+same immutable post-human actor snapshot used by AI. It previews TGBC
+transactionally with that current coordinate and consumes only the previewed
+`frontcourt_established` bit. It neither commits that state nor adjudicates a
+previewed violation. The same current snapshot supplies PlayInput's ball
+coordinate, so opcode-4 ball targeting cannot observe the older attached Q8.
 
 The production selector supports only ordinary `$0478==0`. It supplies typed
 foundation roles, flags, dynamic links, and positions to the pure Bank02
@@ -96,7 +100,8 @@ The standalone test executable checks:
   choice, candidate exclusion and tie replacement, retained prior `$07DF` on
   the final no-store path, source-width window rejection, and transactional
   actor-index/coordinate validation;
-- ordinary-LIVE current-ball frontcourt preview without TGBC mutation,
+- ordinary-LIVE post-human held-ball/dribble projection while the stored Q8
+  remains stale, current-ball frontcourt preview without TGBC mutation,
   actual-store-only selector projection, retained/no-store rejection, exact
   non-primary workspace projection, and primary-link fail-closed behavior;
 - opcode-16 left/right absolute workspace arithmetic and transactional invalid

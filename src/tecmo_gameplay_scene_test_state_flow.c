@@ -3698,9 +3698,9 @@ static bool scene_test_live_foundation_regressions(
         broken.backcourt_state.frontcourt_established = 0U;
         boundary_ball.x = broken.orientation_state.attack_direction == 0U
             ? (int16_t)(broken.backcourt_assets
-                            .orientation_zero_frontcourt_x - 1U)
-            : (int16_t)broken.backcourt_assets
-                  .orientation_one_frontcourt_x;
+                            .orientation_zero_frontcourt_x - 16U)
+            : (int16_t)(broken.backcourt_assets
+                            .orientation_one_frontcourt_x + 16U);
         boundary_ball.y = 100;
         if (!tecmo_gameplay_court_coordinate_to_q8(
                 &boundary_ball, &broken.ball_position)) {
@@ -3712,12 +3712,12 @@ static bool scene_test_live_foundation_regressions(
         memset(candidate_foundation.actor_selector_flags, 0,
                sizeof(candidate_foundation.actor_selector_flags));
         for (actor = 0U; actor < 10U; ++actor) {
-            positions[actor].x = (int16_t)(100U + actor * 10U);
+            positions[actor].x = boundary_ball.x;
             positions[actor].y = 100;
             candidate_foundation.dynamic_link[actor] = 1U;
         }
-        positions[9U].x = 140;
-        positions[7U].x = 120;
+        positions[9U].x = (int16_t)(boundary_ball.x + 40);
+        positions[7U].x = (int16_t)(boundary_ball.x + 20);
         candidate_foundation.actor_selector_flags[9U] = 0x10U;
         candidate_foundation.dynamic_link[9U] = 0U;
         candidate_foundation.actor_selector_flags[7U] = 0x10U;
@@ -3772,14 +3772,13 @@ static bool scene_test_live_foundation_regressions(
 
         /* Before frontcourt, the sole bit-$10 producer is clear and Bank02
            explicitly stores $FF without reading candidate coordinates. */
-        boundary_ball.x = broken.orientation_state.attack_direction == 0U
-            ? (int16_t)broken.backcourt_assets
-                  .orientation_zero_frontcourt_x
-            : (int16_t)(broken.backcourt_assets
-                            .orientation_one_frontcourt_x - 1U);
-        if (!tecmo_gameplay_court_coordinate_to_q8(
-                &boundary_ball, &broken.ball_position) ||
-            !scene_cpu_opcode10_selector_project(
+        positions[broken.ball_holder].x =
+            broken.orientation_state.attack_direction == 0U
+                ? (int16_t)(broken.backcourt_assets
+                                .orientation_zero_frontcourt_x + 16U)
+                : (int16_t)(broken.backcourt_assets
+                                .orientation_one_frontcourt_x - 16U);
+        if (!scene_cpu_opcode10_selector_project(
                 &broken, positions, &candidate_foundation,
                 &selector_play_input) ||
             !selector_play_input.special_actor_07df_available ||
@@ -3787,6 +3786,152 @@ static bool scene_test_live_foundation_regressions(
                 TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR ||
             !selector_play_input.linked_actor_branch_context_available) {
             LIVE_FAIL("LIVE opcode-10 explicit-$FF projection regressed");
+        }
+    }
+
+    /* End-to-end order regression: move the controlled holder across the
+       frontcourt boundary while retaining the old scene ball Q8, exactly as
+       scene_update_live_action_ordered does before scene_update_ai. The LIVE
+       selector must follow the new held-ball/dribble projection, not that
+       stale stored coordinate, and the subsequent AI pass must remain valid. */
+    {
+        TecmoControlFrame crossing_controls;
+        TecmoGameplayCourtCoordinateQ8 stale_ball;
+        TecmoGameplayBallDribbleFrame current_ball;
+        TecmoGameplayCpuSteeringPlayInput selector_play_input;
+        TecmoGameplaySceneCpuShotRequest no_shot;
+        uint8_t holder;
+        size_t holder_controller = TECMO_GAMEPLAY_CONTROLLER_COUNT;
+        uint8_t initial_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+        uint8_t candidate_actor = TECMO_GAMEPLAY_SCENE_NO_ACTOR;
+        int scan;
+        if (!tecmo_gameplay_scene_launch(scene, &bound) ||
+            !scene_sync_live_foundation(scene)) {
+            LIVE_FAIL("LIVE opcode-10 controlled crossing launch rejected");
+        }
+        holder = scene->ball_holder;
+        for (actor = 0U; actor < TECMO_GAMEPLAY_CONTROLLER_COUNT; ++actor) {
+            if (scene->controlled_actor[actor] == holder) {
+                holder_controller = actor;
+                break;
+            }
+        }
+        if (holder_controller >= TECMO_GAMEPLAY_CONTROLLER_COUNT) {
+            LIVE_FAIL("LIVE opcode-10 controlled holder was not routed");
+        }
+        scene->backcourt_state.frontcourt_established = 0U;
+        scene->actors[holder].position.x =
+            scene->orientation_state.attack_direction == 0U
+                ? (int16_t)scene->backcourt_assets
+                      .orientation_zero_frontcourt_x
+                : (int16_t)(scene->backcourt_assets
+                                .orientation_one_frontcourt_x - 1U);
+        scene->actors[holder].position.y = 100;
+        scene->actors[holder].anchor = scene->actors[holder].position;
+        if (!scene_ball_position_for_actors(
+                scene, scene->actors, holder, &scene->ball_position)) {
+            LIVE_FAIL("LIVE opcode-10 stale held-ball setup rejected");
+        }
+        stale_ball = scene->ball_position;
+        memset(&crossing_controls, 0, sizeof(crossing_controls));
+        if (scene->orientation_state.attack_direction == 0U) {
+            crossing_controls.held.left = true;
+        } else {
+            crossing_controls.held.right = true;
+        }
+        for (scan = 0; scan < 64; ++scan) {
+            if (!scene_move_controlled_actor(
+                    scene, holder_controller, &crossing_controls) ||
+                !scene_live_ball_frame_for_actors(
+                    scene, scene->actors, holder, &current_ball)) {
+                LIVE_FAIL("LIVE opcode-10 controlled crossing move rejected");
+            }
+            if ((scene->orientation_state.attack_direction == 0U &&
+                 current_ball.visible_position.x <
+                     (int16_t)scene->backcourt_assets
+                         .orientation_zero_frontcourt_x) ||
+                (scene->orientation_state.attack_direction == 1U &&
+                 current_ball.visible_position.x >=
+                     (int16_t)scene->backcourt_assets
+                         .orientation_one_frontcourt_x)) {
+                break;
+            }
+        }
+        if (scan == 64 ||
+            scene->ball_position.x_q8 != stale_ball.x_q8 ||
+            scene->ball_position.y_q8 != stale_ball.y_q8) {
+            LIVE_FAIL("LIVE opcode-10 crossing did not retain stale scene ball");
+        }
+        for (actor = 0U; actor < 10U; ++actor) {
+            positions[actor] = scene->actors[actor].position;
+        }
+        candidate_foundation = scene->live_foundation;
+        candidate_foundation.primary_actor = holder;
+        candidate_foundation.defender_actor = (uint8_t)((holder + 1U) % 10U);
+        memset(candidate_foundation.actor_selector_flags, 0,
+               sizeof(candidate_foundation.actor_selector_flags));
+        for (actor = 0U; actor < 10U; ++actor) {
+            candidate_foundation.dynamic_link[actor] =
+                (uint8_t)((holder + 2U) % 10U);
+        }
+        for (scan = 9; scan >= 0; --scan) {
+            if ((uint8_t)scan != holder &&
+                (uint8_t)scan != candidate_foundation.defender_actor &&
+                (uint8_t)scan != scene->cpu_actors[holder].linked_actor) {
+                if (initial_actor == TECMO_GAMEPLAY_SCENE_NO_ACTOR) {
+                    initial_actor = (uint8_t)scan;
+                } else {
+                    candidate_actor = (uint8_t)scan;
+                    break;
+                }
+            }
+        }
+        if (initial_actor == TECMO_GAMEPLAY_SCENE_NO_ACTOR ||
+            candidate_actor == TECMO_GAMEPLAY_SCENE_NO_ACTOR) {
+            LIVE_FAIL("LIVE opcode-10 crossing selector actors unavailable");
+        }
+        candidate_foundation.actor_selector_flags[initial_actor] = 0x10U;
+        candidate_foundation.dynamic_link[initial_actor] = holder;
+        candidate_foundation.actor_selector_flags[candidate_actor] = 0x10U;
+        positions[initial_actor].x = (int16_t)(
+            positions[holder].x +
+            (positions[holder].x <=
+                    TECMO_GAMEPLAY_COURT_WORLD_MAX_X - 40
+                ? 40 : -40));
+        positions[initial_actor].y = positions[holder].y;
+        positions[candidate_actor].x = (int16_t)(
+            positions[holder].x +
+            (positions[holder].x <=
+                    TECMO_GAMEPLAY_COURT_WORLD_MAX_X - 20
+                ? 20 : -20));
+        positions[candidate_actor].y = positions[holder].y;
+        memset(&selector_play_input, 0, sizeof(selector_play_input));
+        selector_play_input.contract_tag =
+            TECMO_GAMEPLAY_CPU_STEERING_PLAY_INPUT_TAG;
+        selector_play_input.orientation_035a =
+            scene->orientation_state.attack_direction;
+        memcpy(selector_play_input.actor_position, positions,
+               sizeof(selector_play_input.actor_position));
+        if (!scene_cpu_opcode10_selector_project(
+                scene, positions, &candidate_foundation,
+                &selector_play_input) ||
+            !selector_play_input.special_actor_07df_available ||
+            selector_play_input.special_actor_07df != candidate_actor ||
+            selector_play_input.ball_position.x !=
+                current_ball.visible_position.x ||
+            selector_play_input.ball_position.y !=
+                current_ball.visible_position.y) {
+            LIVE_FAIL("LIVE opcode-10 crossing used stale ball projection");
+        }
+        memset(&no_shot, 0, sizeof(no_shot));
+        if (!scene_update_ai(scene, &no_shot)) {
+            LIVE_FAIL("LIVE opcode-10 post-crossing scene AI rejected");
+        }
+        /* Restore the CPU-only fixture expected by the production opcode-4
+           proof below. */
+        if (!tecmo_gameplay_scene_launch(scene, &cpu_only) ||
+            !scene_sync_live_foundation(scene)) {
+            LIVE_FAIL("LIVE opcode-10 post-crossing fixture restore rejected");
         }
     }
 

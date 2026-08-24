@@ -2130,6 +2130,43 @@ static bool scene_cpu_common_tail_has_ordinary_live_zero(
            !tecmo_gameplay_scene_in_dunk_presentation(scene);
 }
 
+static bool scene_cpu_current_ball_snapshot(
+    const TecmoGameplayScene *scene,
+    const TecmoGameplayCourtCoordinate
+        actor_position[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT],
+    TecmoGameplayCourtCoordinate *ball_out)
+{
+    TecmoGameplaySceneActor actors[TECMO_GAMEPLAY_SCENE_ACTOR_COUNT];
+    TecmoGameplayBallDribbleFrame frame;
+    size_t actor;
+    if (scene == NULL || actor_position == NULL || ball_out == NULL) {
+        return false;
+    }
+    /* In ordinary held-ball LIVE, scene_update_ai receives actor positions
+       after human movement but scene->ball_position is not reattached until
+       later. Recreate the exact current holder/dribble projection over that
+       immutable snapshot. Pass/shot/non-LIVE transports keep their own ball
+       owner and therefore retain the stored Q8 projection. */
+    if (scene->state.phase == TECMO_GAMEPLAY_PHASE_LIVE &&
+        scene->shot_kind == TECMO_GAMEPLAY_SCENE_SHOT_NONE &&
+        !scene_pass_active(scene) &&
+        scene->ball_holder < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT) {
+        memcpy(actors, scene->actors, sizeof(actors));
+        for (actor = 0U;
+             actor < TECMO_GAMEPLAY_SCENE_ACTOR_COUNT; ++actor) {
+            actors[actor].position = actor_position[actor];
+        }
+        if (!scene_live_ball_frame_for_actors(
+                scene, actors, scene->ball_holder, &frame)) {
+            return false;
+        }
+        *ball_out = frame.visible_position;
+        return true;
+    }
+    return tecmo_gameplay_court_coordinate_q8_floor(
+        &scene->ball_position, ball_out);
+}
+
 bool scene_cpu_opcode10_selector_project(
     const TecmoGameplayScene *scene,
     const TecmoGameplayCourtCoordinate
@@ -2167,10 +2204,13 @@ bool scene_cpu_opcode10_selector_project(
        $9737-$973C's bit-$10 projection has current-tick boundary cadence;
        neither state nor a possible violation is committed here. */
     memset(&backcourt_input, 0, sizeof(backcourt_input));
-    if (!tecmo_gameplay_court_coordinate_q8_floor(
-            &scene->ball_position, &backcourt_input.ball_position)) {
+    if (!scene_cpu_current_ball_snapshot(
+            scene, actor_position, &backcourt_input.ball_position)) {
         return false;
     }
+    /* Opcode-4 ball targeting and the selector gate consume the same
+       immutable post-human held-ball snapshot. */
+    input->ball_position = backcourt_input.ball_position;
     backcourt_input.orientation =
         scene->orientation_state.attack_direction;
     backcourt_input.global_object_state = 0U;
@@ -2333,8 +2373,8 @@ static bool scene_cpu_build_play_input(
     input->actor_046e_probe_available = false;
     memcpy(input->actor_position, actor_position,
            sizeof(input->actor_position));
-    if (!tecmo_gameplay_court_coordinate_q8_floor(
-            &scene->ball_position, &input->ball_position)) {
+    if (!scene_cpu_current_ball_snapshot(
+            scene, actor_position, &input->ball_position)) {
         return false;
     }
     return scene_cpu_opcode10_selector_project(
