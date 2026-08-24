@@ -3637,6 +3637,97 @@ static bool scene_test_live_foundation_regressions(
             &scene->cpu_steering_assets, &candidate_foundation)) {
         LIVE_FAIL("LIVE opcode-13 raw target validation regressed");
     }
+    /* Opcode 20 preserves target storage bits but makes their former meaning
+       inactive. Prove both semantic and raw provenance commit successfully,
+       become mutually-exclusive stale storage, and cannot publish a target. */
+    candidate_foundation = foundation_before;
+    candidate_foundation.play_state.stream_offset[0U] = 0x000FU;
+    candidate_foundation.last_step_offset[0U] = 0x000FU;
+    candidate_foundation.play_state.actor_state[0U] = 0x04U;
+    candidate_foundation.play_state.wait_counter[0U] = 0U;
+    candidate_foundation.play_state.target_object[0U] = 5U;
+    candidate_foundation.play_state.target_x[0U] = positions[5U].x;
+    candidate_foundation.play_state.target_depth[0U] = positions[5U].y;
+    candidate_foundation.source_target_valid[0U] = true;
+    candidate_foundation.source_raw_target_valid[0U] = false;
+    candidate_foundation.source_inactive_target_storage[0U] = false;
+    play_input.global_target.x =
+        (uint16_t)play_input.actor_position[0U].x;
+    play_input.global_target.depth =
+        (uint16_t)(uint8_t)play_input.actor_position[0U].y;
+    if (!tecmo_gameplay_live_foundation_play_step(
+            &scene->cpu_steering_assets, &play_input,
+            &candidate_foundation, &play_result) ||
+        play_result.command.opcode != 20U || play_result.deferred ||
+        candidate_foundation.play_state.target_object[0U] != 5U ||
+        candidate_foundation.play_state.target_x[0U] != positions[5U].x ||
+        candidate_foundation.play_state.target_depth[0U] != positions[5U].y ||
+        candidate_foundation.source_target_valid[0U] ||
+        candidate_foundation.source_raw_target_valid[0U] ||
+        !candidate_foundation.source_inactive_target_storage[0U] ||
+        !tecmo_gameplay_live_foundation_valid(
+            &scene->cpu_steering_assets, &candidate_foundation)) {
+        LIVE_FAIL("LIVE opcode-20 semantic target invalidation failed");
+    }
+    candidate_foundation.source_target_valid[0U] = true;
+    if (tecmo_gameplay_live_foundation_valid(
+            &scene->cpu_steering_assets, &candidate_foundation)) {
+        LIVE_FAIL("LIVE opcode-20 inactive target provenance overlapped");
+    }
+
+    candidate_foundation = foundation_before;
+    candidate_foundation.play_state.stream_offset[0U] = 0x0019U;
+    candidate_foundation.last_step_offset[0U] = 0x0019U;
+    candidate_foundation.play_state.actor_state[0U] = 0x04U;
+    candidate_foundation.play_state.wait_counter[0U] = 0U;
+    candidate_foundation.play_state.target_object[0U] =
+        TECMO_GAMEPLAY_CPU_STEERING_NO_ACTOR;
+    candidate_foundation.play_state.target_x[0U] = (int16_t)0xFF00U;
+    candidate_foundation.play_state.target_depth[0U] = (int16_t)0x0100U;
+    candidate_foundation.source_target_valid[0U] = false;
+    candidate_foundation.source_raw_target_valid[0U] = true;
+    candidate_foundation.source_inactive_target_storage[0U] = false;
+    play_input.global_target.x = 0xFF10U;
+    play_input.global_target.depth = 0xFF20U;
+    if (!tecmo_gameplay_live_foundation_play_step(
+            &scene->cpu_steering_assets, &play_input,
+            &candidate_foundation, &play_result) ||
+        play_result.command.opcode != 20U || play_result.deferred ||
+        (uint16_t)candidate_foundation.play_state.target_x[0U] != 0xFF00U ||
+        (uint16_t)candidate_foundation.play_state.target_depth[0U] != 0x0100U ||
+        candidate_foundation.source_target_valid[0U] ||
+        candidate_foundation.source_raw_target_valid[0U] ||
+        !candidate_foundation.source_inactive_target_storage[0U] ||
+        !tecmo_gameplay_live_foundation_valid(
+            &scene->cpu_steering_assets, &candidate_foundation)) {
+        LIVE_FAIL("LIVE opcode-20 raw target invalidation failed");
+    }
+    /* A subsequent real opcode-2 target write replaces the inactive bits and
+       restores semantic provenance. */
+    candidate_foundation.play_state.stream_offset[0U] = 0x00D7U;
+    candidate_foundation.last_step_offset[0U] = 0x00D7U;
+    play_input.common_tail_ba_available = true;
+    play_input.flags_ba = 0U;
+    if (!tecmo_gameplay_live_foundation_play_step(
+            &scene->cpu_steering_assets, &play_input,
+            &candidate_foundation, &play_result) ||
+        play_result.command.opcode != 2U || play_result.deferred ||
+        !candidate_foundation.source_target_valid[0U] ||
+        candidate_foundation.source_raw_target_valid[0U] ||
+        candidate_foundation.source_inactive_target_storage[0U] ||
+        !tecmo_gameplay_live_foundation_valid(
+            &scene->cpu_steering_assets, &candidate_foundation)) {
+        LIVE_FAIL("LIVE opcode-20 stale storage replacement failed");
+    }
+    candidate_foundation.source_inactive_target_storage[0U] = true;
+    tecmo_gameplay_live_foundation_init(&candidate_foundation);
+    if (candidate_foundation.source_inactive_target_storage[0U] ||
+        candidate_foundation.source_target_valid[0U] ||
+        candidate_foundation.source_raw_target_valid[0U] ||
+        candidate_foundation.play_state.target_x[0U] != 0 ||
+        candidate_foundation.play_state.target_depth[0U] != 0) {
+        LIVE_FAIL("LIVE opcode-20 inactive storage survived reset");
+    }
     play_input.global_target_available = false;
     candidate_foundation = foundation_before;
     candidate_foundation.play_state.target_object[0U] = 5U;

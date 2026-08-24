@@ -243,9 +243,17 @@ static bool live_target_fields_valid(
     }
     target.x = foundation->play_state.target_x[actor];
     target.y = foundation->play_state.target_depth[actor];
-    if (foundation->source_target_valid[actor] &&
-        foundation->source_raw_target_valid[actor]) {
+    if ((foundation->source_target_valid[actor] ? 1U : 0U) +
+            (foundation->source_raw_target_valid[actor] ? 1U : 0U) +
+            (foundation->source_inactive_target_storage[actor] ? 1U : 0U) >
+        1U) {
         return false;
+    }
+    if (foundation->source_inactive_target_storage[actor]) {
+        /* The object byte was already range-checked above. The coordinate
+           words are deliberately uninterpreted stale storage and may contain
+           any bit pattern; no movement consumer reads this flag as a target. */
+        return true;
     }
     if (foundation->source_raw_target_valid[actor]) {
         /* `$038D-$0390` is a pair of raw 16-bit latch words. Preserve the
@@ -553,6 +561,7 @@ static void live_invalidate_source_metadata_actor(
         TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
     foundation->source_target_valid[actor] = false;
     foundation->source_raw_target_valid[actor] = false;
+    foundation->source_inactive_target_storage[actor] = false;
     foundation->source_direction_valid[actor] = false;
     foundation->source_direction[actor] =
         TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
@@ -1291,10 +1300,12 @@ bool tecmo_gameplay_live_foundation_play_step(
             next_state.target_x[actor], next_state.target_depth[actor]};
         candidate.source_target_valid[actor] = false;
         candidate.source_raw_target_valid[actor] = false;
+        candidate.source_inactive_target_storage[actor] = false;
         if (result.command.opcode == 20U) {
             /* `$9032-$9052` computes direction from the raw latch without
                publishing an actor target plane or raw-target provenance. */
             validated_target_write = false;
+            candidate.source_inactive_target_storage[actor] = true;
         } else if (result.command.opcode == 13U) {
             validated_target_write =
                 result.raw_target_valid &&

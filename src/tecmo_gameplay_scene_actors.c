@@ -3224,6 +3224,9 @@ bool scene_update_ai(
             candidate_foundation.play_state.direction[actor] =
                 TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;
             candidate_foundation.source_target_valid[actor] = false;
+            candidate_foundation.source_raw_target_valid[actor] = false;
+            candidate_foundation.source_inactive_target_storage[actor] =
+                false;
             candidate_foundation.source_direction_valid[actor] = false;
             candidate_foundation.source_direction[actor] =
                 TECMO_GAMEPLAY_CPU_STEERING_NO_DIRECTION;

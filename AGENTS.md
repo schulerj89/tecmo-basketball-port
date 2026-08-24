@@ -1565,7 +1565,11 @@ only records are `$000F` / CPU `$9F3D` and `$0019` / CPU `$9F47`, both
 wrap, preserve the raw words/deltas as evidence, write state 4 without changing
 direction for the zero vector, and otherwise use the exact direction helper.
 It never reads `$BA` and never writes target object/coordinate provenance;
-unconditionally advance by five. Tests must obtain `$0019` and `$000A` through
+unconditionally advance by five. Preserve preexisting target storage bits under
+the mutually-exclusive `source_inactive_target_storage` provenance while
+clearing semantic/raw target validity; movement must ignore those inactive bits.
+Every real target author and source reset/invalidation clears that flag. Tests
+must obtain `$0019` and `$000A` through
 `tecmo_gameplay_actor_command_assignment_apply`, including opcode 3's ten-count
 wait before `$000F`, rather than parking those executor cursors. Production
 still leaves `global_target_available` false: never substitute the ball or add

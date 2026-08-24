@@ -144,6 +144,10 @@ typedef struct TecmoGameplayLiveFoundation {
        provenance accepts those bit patterns without advertising a semantic
        in-court movement target; source_direction carries the usable result. */
     bool source_raw_target_valid[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
+    /* Opcode 20 leaves the target storage bytes untouched while invalidating
+       their prior meaning. This flag permits those exact inactive bits to
+       survive validation; it is never movement-target provenance. */
+    bool source_inactive_target_storage[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     bool source_direction_valid[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     bool deferred[TECMO_GAMEPLAY_CPU_STEERING_ACTOR_COUNT];
     bool last_shot_request;
