@@ -4091,6 +4091,12 @@ static bool scene_try_defense_interaction_actor(
         candidate.defense_possession_transaction_serial =
             candidate.defense_possession_transaction_serial == UINT32_MAX
                 ? 1U : candidate.defense_possession_transaction_serial + 1U;
+        if (possession_result.c711_action10_requested) {
+            /* The direct-carom-only `$BAAC-$BAB3` mask is the final bit-0
+               writer in BA65. Ordinary `$9FC3` possession preserves bit 0. */
+            candidate.live_foundation.global_0588_bit0_valid = true;
+            candidate.live_foundation.global_0588_bit0 = false;
+        }
         if (!scene_sync_live_foundation(&candidate)) return false;
         *scene = candidate;
         *committed_out = true;

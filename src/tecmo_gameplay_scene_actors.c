@@ -1422,6 +1422,13 @@ bool scene_update_pass(TecmoGameplayScene *scene)
        animation/actor-state workspaces, and only then calls $B2FA. $B2FA-
        $B300 clears raw $BA bit 2; no broader meaning is inferred here. Reuse
        the typed transaction only after reaching the locked receiver. */
+    if (!candidate.legacy_direct_launch) {
+        /* `$B22E-$B235` executes before the `$6A` split and therefore owns
+           this write for both the direct B24F catch and state-$18 entry:
+           `(raw_0588 | $04) & $F6` always clears bit 0. */
+        candidate.live_foundation.global_0588_bit0_valid = true;
+        candidate.live_foundation.global_0588_bit0 = false;
+    }
     if (!candidate.legacy_direct_launch &&
         !tecmo_gameplay_live_foundation_pass_handoff(
             &candidate.cpu_steering_assets, pass->receiver,

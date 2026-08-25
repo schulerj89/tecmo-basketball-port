@@ -3408,6 +3408,8 @@ static bool scene_test_live_foundation_regressions(
                 scene->pass_state.flight_duration) {
             LIVE_FAIL("LIVE CPU pass terminal flight frame unavailable");
         }
+        scene->live_foundation.global_0588_bit0_valid = true;
+        scene->live_foundation.global_0588_bit0 = true;
         before = *scene;
         /* Here it is: place the exact selected defender on the next B500
            intermediate coordinate and force the two source RNG comparisons
@@ -3497,7 +3499,9 @@ static bool scene_test_live_foundation_regressions(
             LIVE_FAIL("LIVE airborne state-18 ordered scheduler rejected");
         }
         scene->fixed_rng.raw_006a = 2U;
-        if (!scene_update_pass(scene) || scene_pass_active(scene)) {
+        if (!scene_update_pass(scene) || scene_pass_active(scene) ||
+            !scene->live_foundation.global_0588_bit0_valid ||
+            scene->live_foundation.global_0588_bit0) {
             LIVE_FAIL("LIVE pass `$6A>1` catch did not finish directly");
         }
 
@@ -3513,6 +3517,8 @@ static bool scene_test_live_foundation_regressions(
             broken.pass_state.reserved[0U] != 1U ||
             broken.pass_state.reserved[1U] != 0U ||
             broken.ball_holder != receiver ||
+            !broken.live_foundation.global_0588_bit0_valid ||
+            broken.live_foundation.global_0588_bit0 ||
             broken.a023_latch_frame_context.available) {
             LIVE_FAIL("LIVE pass `$6A==1` state-18 entry failed");
         }
@@ -8798,6 +8804,8 @@ static bool scene_test_9fc3_ba65_defense_possession(
     scene->fixed_rng.raw_0053 = 0U;
     scene->fixed_rng.raw_006a = 1U;
     scene->defense_possession_state.raw_0588 = 0x18U;
+    scene->live_foundation.global_0588_bit0_valid = true;
+    scene->live_foundation.global_0588_bit0 = true;
     scene->defense_possession_state.raw_0587 = 3U;
     scene->defense_possession_state.raw_0743 = 9U;
     scene->defense_possession_state.raw_0752[TECMO_GAMEPLAY_TEAM_HOME] = 5U;
@@ -8823,6 +8831,8 @@ static bool scene_test_9fc3_ba65_defense_possession(
         !scene->last_defense_possession_transaction.b87c_called ||
         !scene->last_defense_possession_transaction.route_96b6_called ||
         scene->last_defense_possession_transaction.c711_action10_requested ||
+        !scene->live_foundation.global_0588_bit0_valid ||
+        !scene->live_foundation.global_0588_bit0 ||
         scene->defense_possession_state.raw_0588 != 0x08U ||
         scene->defense_possession_state.raw_0587 != 0U ||
         scene->defense_possession_state.raw_0743 != 0U ||
