@@ -6,7 +6,7 @@ unrelated game modes would inflate that percentage without measuring gameplay
 parity. Do not average the rows below into one headline percentage; each row has
 a different behavioral weight.
 
-Last audited checkpoint: `b52d1e6` (2026-08-24).
+Last audited behavior checkpoint: `a48304d` (2026-08-24).
 
 | Source denominator | Closed | Total | Coverage | Meaning |
 | --- | ---: | ---: | ---: | --- |
@@ -14,7 +14,7 @@ Last audited checkpoint: `b52d1e6` (2026-08-24).
 | Bank06 opcode handlers in the isolated executor | 24 | 24 | 100% | Pure handler semantics exist and pass the isolated source tests. This does not mean every production caller owns every input. |
 | Imported formation starts | 46 | 46 | 100% | All pinned starts are present; upstream selection/admission is tracked separately below. |
 | `$842E` shot-predicate input consumers | 9 | 9 | 100% | `$0588`, `$8545`, `$BA`, `$0478`, `$0798`, `$075F`, `$0760`, `$0533`, and `$006A` are wired with source ordering. |
-| `$0588` bit-0 writer families | 4 | 6 | 67% | `$85F1`, `$8F37`, `$8EFB`, and `$9029` are bound. `$B235` and `$BAB3` remain. |
+| `$0588` bit-0 writer families | 6 | 6 | 100% | All six bit-changing stores are translated: `$85F1`, `$8F37`, `$8EFB`, `$9029`, terminal pass writer `$B235`, and direct-carom BA65 writer `$BAB3`. The upstream direct-carom lifecycle remains tracked by AI-02. |
 | `$A214` object-slot-10 dispatcher states with production bindings | 3 | 28 | 11% | State `$10->$B721`, `$17->$B783`, and pass state `$18->$B7B6` are bound. A low percentage here is important: the dispatcher is a high-leverage lifecycle owner. |
 | Focused canonical-ROM mutation gates passing | 74 | 74 | 100% | Every currently declared authority span rejects mutation. This measures declared evidence, not undeclared behavior. |
 
@@ -22,7 +22,7 @@ Last audited checkpoint: `b52d1e6` (2026-08-24).
 
 | ID | Source area | Status | Exact remaining boundary |
 | --- | --- | --- | --- |
-| AI-01 | `$842E` CPU shot admission | Partial | Bind `$B235` and `$BAB3` clearing lifetimes; then the predicate itself has no missing RAM input. |
+| AI-01 | `$842E` CPU shot admission | Closed | All nine predicate inputs and all six bit-0 writers are source-ordered and bound. |
 | AI-02 | `$A214` slot-10 lifecycle | Partial | Audit and bind every reachable production state beyond the three current assignments; prove unreachable states explicitly. |
 | AI-03 | `$96B6` route admission | Partial | Replace raw `$030C/$030D` extra-adjust assumptions with the exact controller/side owner. |
 | AI-04 | `$8FAD` made-score handoff | Partial | Bind the admission mismatch and state-`$0B` resolver instead of entering only after a typed caller decision. |
@@ -39,4 +39,3 @@ Last audited checkpoint: `b52d1e6` (2026-08-24).
 - “100% wired” additionally requires the final desktop build, fresh asset pack,
   deterministic tests, ROM mutation suite, CPU-vs-CPU video/trace evidence,
   and a clean pushed `main` checkpoint.
-
